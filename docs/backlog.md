@@ -40,45 +40,43 @@ product decision, credentials, or additional operational cost.
   layouts, keyboard-visible focus states, reduced-motion support, loading/
   empty/error/success states, animated ingestion progress, source inspection,
   and document/job filters in the administration area.
+- CI quality gates for every push and pull request: typecheck, unit tests,
+  production builds, prompt-injection regression, deterministic golden-set
+  retrieval, and Promptfoo security checks.
 
 ## Next, in priority order
 
-1. **Evaluation gates in CI**
-   - Run the golden set, injection suite, and Promptfoo on every pull request.
-   - Block deployment on measurable retrieval or security regression.
-   - Keep test corpora and provider keys isolated from production data.
-
-2. **Security and cost controls**
+1. **Security and cost controls**
    - Capture provider-native token usage where each provider exposes it; current
      hosted-demo metrics use a documented character-based estimate.
    - Add external notification delivery for budget alerts if the demo grows
      beyond the owner-only dashboard.
 
-3. **Improve ingestion**
+2. **Improve ingestion**
    - Add OCR for scanned PDFs. OCR (Optical Character Recognition) converts text
      inside an image into selectable, searchable text before chunking.
    - Support URL/HTML import, metadata extraction, language detection, and
      structure-aware chunking.
    - Add OCR-specific quality signals to the existing ingestion timeline.
 
-4. **RAG pipeline visualization**
+3. **RAG pipeline visualization**
    - Add a limited, explicitly approved chunk preview to the existing timeline.
    - Keep the UI clear that a retrieval score is similarity, not factual
      certainty, and that a document can produce many chunks.
 
-5. **Retrieval quality and observability**
+4. **Retrieval quality and observability**
    - Evaluate Jina reranking against the golden set before enabling it.
    - Add LangSmith or Langfuse/Phoenix traces under an approved data policy.
    - Compare providers and prompts with a versioned evaluation report.
 
-6. **Production readiness**
+5. **Production readiness**
    - Review RLS policies again before exposing any new database API surface.
    - Move high-volume jobs to Redis + BullMQ and a dedicated worker only when
      workload justifies its cost.
    - Add backups, retention policy, domain, identity limits, and incident runbook
      before onboarding real users.
 
-7. **Professional UX/UI hardening**
+6. **Professional UX/UI hardening**
    - Run screenshot-based visual QA on mobile, tablet, and desktop in CI once a
      browser runner is available in the deployment pipeline.
    - Add a formal visual-regression baseline and automated contrast checks.
