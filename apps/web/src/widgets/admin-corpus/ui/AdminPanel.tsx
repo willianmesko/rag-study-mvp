@@ -1,16 +1,28 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type ManagedDocument, type UploadJob, type Workspace } from "../../../shared/api/rag-api";
+import { api, type IngestionEvent, type ManagedDocument, type UploadJob, type Workspace } from "../../../shared/api/rag-api";
 import { supabase } from "../../../shared/lib/supabase";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
-function PipelineVisualization({ job }: { job: UploadJob }) {
-  const current = job.status === "queued" ? 0 : job.status === "processing" ? 2 : job.status === "completed" ? 5 : -1;
-  const steps = ["File received", "Text extracted", "Chunks created", "Risk assessed", "Embeddings", "pgvector ready"];
-  return <section className="overflow-hidden rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold tracking-[.15em] text-cyan-300 uppercase">Ingestion pipeline</p><p className="mt-2 text-sm text-slate-300">{job.title ?? job.filename} · {job.progress}%</p></div><span className={`rounded-full px-2.5 py-1 font-mono text-xs ${job.status === "failed" ? "bg-rose-500/10 text-rose-300" : "bg-cyan-400/10 text-cyan-200"}`}>{job.status}</span></div><ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{steps.map((step, index) => { const complete = current > index; const active = current === index; const failed = job.status === "failed" && index === Math.max(0, current); return <li key={step} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-xs ${complete ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : failed ? "border-rose-400/30 bg-rose-400/10 text-rose-200" : active ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100" : "border-slate-800 bg-slate-950/40 text-slate-500"}`}><span className={`grid size-6 shrink-0 place-items-center rounded-full font-mono ${active ? "animate-pulse bg-cyan-400 text-slate-950" : complete ? "bg-emerald-400 text-slate-950" : "bg-slate-800"}`}>{complete ? "✓" : String(index + 1).padStart(2, "0")}</span>{step}</li>; })}</ol>{job.error && <p className="mt-4 text-xs text-rose-300">{job.error}</p>}</section>;
+const pipelineSteps = [
+  ["queued", "File secured"],
+  ["source_read", "Source read"],
+  ["text_extraction", "Text extracted"],
+  ["chunking", "Chunks created"],
+  ["security_scan", "Risk assessed"],
+  ["embedding", "Embeddings generated"],
+  ["persistence", "pgvector indexed"]
+] as const;
+
+function eventForStage(events: IngestionEvent[], stage: string) {
+  return [...events].reverse().find((event) => event.stage === stage);
+}
+
+function PipelineVisualization({ job, events }: { job: UploadJob; events: IngestionEvent[] }) {
+  return <section className="overflow-hidden rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold tracking-[.15em] text-cyan-300 uppercase">Live ingestion pipeline</p><p className="mt-2 text-sm text-slate-300">{job.title ?? job.filename} · {job.progress}%</p><p className="mt-1 text-xs text-slate-500">Persisted timings and counters are kept without storing document content in the timeline.</p></div><span className={`rounded-full px-2.5 py-1 font-mono text-xs ${job.status === "failed" ? "bg-rose-500/10 text-rose-300" : "bg-cyan-400/10 text-cyan-200"}`}>{job.status}</span></div><ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{pipelineSteps.map(([stage, label], index) => { const event = eventForStage(events, stage); const complete = event?.status === "completed"; const active = event?.status === "started"; const failed = event?.status === "failed"; const details = event?.details ?? {}; const count = typeof details.chunkCount === "number" ? `${details.chunkCount} chunks` : typeof details.vectorCount === "number" ? `${details.vectorCount} vectors` : typeof details.highRiskChunks === "number" ? `${details.highRiskChunks} high-risk` : typeof details.characters === "number" ? `${details.characters.toLocaleString()} chars` : null; return <li key={stage} className={`rounded-lg border px-3 py-2.5 text-xs ${complete ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : failed ? "border-rose-400/30 bg-rose-400/10 text-rose-200" : active ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100" : "border-slate-800 bg-slate-950/40 text-slate-500"}`}><div className="flex items-center gap-3"><span className={`grid size-6 shrink-0 place-items-center rounded-full font-mono ${active ? "animate-pulse bg-cyan-400 text-slate-950" : complete ? "bg-emerald-400 text-slate-950" : "bg-slate-800"}`}>{complete ? "✓" : String(index + 1).padStart(2, "0")}</span><span>{label}</span></div>{event && <p className="mt-2 pl-9 font-mono text-[10px] opacity-80">{event.durationMs !== null ? `${event.durationMs} ms` : active ? "running" : "recorded"}{count ? ` · ${count}` : ""}</p>}</li>; })}</ol>{job.error && <p className="mt-4 text-xs text-rose-300">{job.error}</p>}</section>;
 }
 
 export function AdminPanel() {
@@ -36,6 +48,12 @@ export function AdminPanel() {
   const jobs = useQuery({
     queryKey: ["ingestion-jobs", token, workspaceId], queryFn: () => api.listUploads(token as string, workspaceId),
     enabled: Boolean(token), refetchInterval: 3_000
+  });
+  const activeJob = jobs.data?.jobs.find((job) => job.status === "processing" || job.status === "queued") ?? jobs.data?.jobs[0];
+  const ingestionEvents = useQuery({
+    queryKey: ["ingestion-events", token, workspaceId, activeJob?.id],
+    queryFn: () => api.listUploadEvents(activeJob?.id as string, token as string, workspaceId),
+    enabled: Boolean(token && activeJob?.id), refetchInterval: activeJob?.status === "processing" || activeJob?.status === "queued" ? 1_500 : false
   });
   const documents = useQuery({
     queryKey: ["documents", token, workspaceId], queryFn: () => api.listDocuments(token as string, workspaceId),
@@ -163,7 +181,7 @@ export function AdminPanel() {
 
       {message && <p className="success-message">{message}</p>}
       {actionError && <p className="text-sm text-rose-300">{actionError.message}</p>}
-      {jobs.data?.jobs[0] && <PipelineVisualization job={jobs.data.jobs[0]} />}
+      {activeJob && <PipelineVisualization job={activeJob} events={ingestionEvents.data?.events ?? []} />}
 
       <div className="space-y-3"><div><h3 className="font-medium">Indexed documents</h3><p className="mt-1 text-xs text-slate-500">Open chunks to inspect the unit that actually reaches retrieval.</p></div>{documents.isLoading && <p className="text-sm text-slate-400">Loading documents…</p>}{documents.data?.documents.length === 0 && <p className="rounded-xl border border-dashed border-slate-700 p-4 text-sm text-slate-400">No documents have been indexed yet.</p>}<div className="grid gap-3">{documents.data?.documents.map((document) => <article className={`rounded-xl border p-4 transition ${selectedDocument?.id === document.id ? "border-cyan-400/50 bg-cyan-400/5" : "border-slate-800 bg-slate-900/30"}`} key={document.id}><div className="flex flex-col justify-between gap-4 sm:flex-row"><button className="min-w-0 text-left" type="button" onClick={() => setSelectedDocument(document)}><p className="truncate text-sm font-medium text-slate-100">{document.title ?? document.source}</p><p className="mt-1 truncate font-mono text-xs text-slate-500">{document.source}</p><p className="mt-2 text-xs text-slate-400">{document.chunkCount} chunks · updated {formatDate(document.updatedAt)}</p></button><div className="flex shrink-0 items-start gap-3 text-xs font-medium"><button type="button" className="text-cyan-300 hover:text-cyan-100" onClick={() => setSelectedDocument(document)}>View chunks</button>{!readOnly && <><button type="button" className="text-violet-300 hover:text-violet-100" onClick={() => reindex.mutate(document.id)} disabled={reindex.isPending}>Reindex</button><button type="button" className="text-rose-300 hover:text-rose-100" onClick={() => confirmDelete(document)} disabled={remove.isPending}>Delete</button></>}</div></div></article>)}</div></div>
 

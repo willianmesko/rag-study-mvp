@@ -1,9 +1,11 @@
 import type { Pool } from "pg";
-import type { IngestionJob, IngestionJobRepository } from "../../application/ports/ingestion-job-repository.js";
+import type { IngestionJob, IngestionJobEvent, IngestionJobRepository } from "../../application/ports/ingestion-job-repository.js";
 
 type Row = { id: string; tenant_id: string; document_id: string | null; source: string; title: string | null; filename: string; mime_type: string; payload: Buffer | null; storage_path: string | null; status: IngestionJob["status"]; progress: number; error: string | null; chunk_count: number | null; high_risk_chunks: number | null; created_at: Date; updated_at: Date };
 const columns = "id, tenant_id, document_id, source, title, filename, mime_type, payload, storage_path, status, progress, error, chunk_count, high_risk_chunks, created_at, updated_at";
 const map = (row: Row): IngestionJob => ({ id: row.id, tenantId: row.tenant_id, documentId: row.document_id, source: row.source, title: row.title, filename: row.filename, mimeType: row.mime_type, payload: row.payload, storagePath: row.storage_path, status: row.status, progress: row.progress, error: row.error, chunkCount: row.chunk_count, highRiskChunks: row.high_risk_chunks, createdAt: row.created_at, updatedAt: row.updated_at });
+type EventRow = { id: string; job_id: string; stage: string; status: IngestionJobEvent["status"]; duration_ms: number | null; details: Record<string, unknown>; created_at: Date };
+const mapEvent = (row: EventRow): IngestionJobEvent => ({ id: row.id, jobId: row.job_id, stage: row.stage, status: row.status, durationMs: row.duration_ms, details: row.details, createdAt: row.created_at });
 
 export class PgIngestionJobRepository implements IngestionJobRepository {
   constructor(private readonly pool: Pool) {}
@@ -57,5 +59,18 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
   }
   async deleteForDocument(documentId: string, tenantId: string): Promise<void> {
     await this.pool.query("DELETE FROM ingestion_jobs WHERE tenant_id = $1 AND document_id = $2", [tenantId, documentId]);
+  }
+  async recordEvent(input: { jobId: string; tenantId: string; stage: string; status: IngestionJobEvent["status"]; durationMs?: number | null; details?: Record<string, unknown> }): Promise<void> {
+    await this.pool.query(
+      "INSERT INTO ingestion_job_events (job_id, tenant_id, stage, status, duration_ms, details) VALUES ($1, $2, $3, $4, $5, $6::jsonb)",
+      [input.jobId, input.tenantId, input.stage, input.status, input.durationMs ?? null, JSON.stringify(input.details ?? {})]
+    );
+  }
+  async listEvents(jobId: string, tenantId: string, limit: number): Promise<IngestionJobEvent[]> {
+    const result = await this.pool.query<EventRow>(
+      "SELECT id, job_id, stage, status, duration_ms, details, created_at FROM ingestion_job_events WHERE job_id = $1 AND tenant_id = $2 ORDER BY created_at ASC LIMIT $3",
+      [jobId, tenantId, limit]
+    );
+    return result.rows.map(mapEvent);
   }
 }

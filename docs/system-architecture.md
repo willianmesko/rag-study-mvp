@@ -87,12 +87,15 @@ sequenceDiagram
   Web->>API: Authenticated upload with workspace header
   API->>DB: Create durable ingestion job
   API->>Store: Persist original when configured
+  API->>DB: Record queued event (no document content)
   API->>DB: Claim job
+  API->>DB: Record source-read and extraction timings
   API->>API: Extract text, normalize, chunk, scan injection signals
   API->>Model: Embed safe chunks
   API->>DB: Replace document chunks in a transaction
+  API->>DB: Record chunk, embedding, and persistence counts/timings
   API->>DB: Mark job completed with progress metadata
-  Web->>API: Poll job and document state
+  Web->>API: Poll job, timeline, and document state
 ```
 
 Chunking limits the amount of text sent to an embedding model and creates
@@ -101,6 +104,10 @@ Chunk size and overlap are quality and cost trade-offs, not universal constants.
 
 The same source can be re-ingested. Embeddings are generated before the storage
 transaction so a provider failure cannot erase the last indexed document.
+
+The ingestion timeline stores operational facts only: stage, status, timestamp,
+duration, and safe numeric counts such as characters, chunks, or vectors. The
+document text and original file remain outside the event stream.
 
 ## Retrieval and answer flow
 

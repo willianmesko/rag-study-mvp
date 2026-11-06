@@ -7,9 +7,14 @@ import type { IngestionJobRepository } from "../ports/ingestion-job-repository.j
 import type { OriginalFileStore } from "../ports/original-file-store.js";
 
 test("reindex delegates to the stored-original ingestion job", async () => {
-  const jobs = { requeueDocument: async (documentId: string, tenantId: string) => ({ id: "job-1", documentId, tenantId }) } as unknown as IngestionJobRepository;
+  const events: unknown[] = [];
+  const jobs = {
+    requeueDocument: async (documentId: string, tenantId: string) => ({ id: "job-1", documentId, tenantId }),
+    recordEvent: async (event: unknown) => { events.push(event); }
+  } as unknown as IngestionJobRepository;
   const result = await new ReindexDocumentUseCase(jobs).execute({ documentId: "document-1", tenantId: "tenant-1" });
   assert.deepEqual(result, { id: "job-1", documentId: "document-1", tenantId: "tenant-1" });
+  assert.equal(events.length, 1);
 });
 
 test("deletion removes the private original and job before deleting the document", async () => {

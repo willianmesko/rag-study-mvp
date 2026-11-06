@@ -23,6 +23,9 @@ product decision, credentials, or additional operational cost.
   delete, clickable answer sources, and browser-local question feedback.
 - Ingestion pipeline visualization: file received, extraction, chunking,
   security scan, embeddings, and vector persistence.
+- Persisted ingestion timeline: stage start/end events, durations, safe counts,
+  and errors are available to the protected administration UI without storing
+  document content in the event stream.
 - Workspace onboarding, switching, `owner`/`editor`/`viewer` roles, invitations,
   member management, and server-side authorization on every protected route.
 - Feature-Sliced Design frontend and npm-workspaces monorepo with shared Zod
@@ -48,11 +51,10 @@ product decision, credentials, or additional operational cost.
      inside an image into selectable, searchable text before chunking.
    - Support URL/HTML import, metadata extraction, language detection, and
      structure-aware chunking.
-   - Persist per-stage duration and counts for the ingestion timeline.
+   - Add OCR-specific quality signals to the existing ingestion timeline.
 
 4. **RAG pipeline visualization**
-   - Persist a job timeline and safely display per-stage counts, durations,
-     errors, and a limited chunk preview.
+   - Add a limited, explicitly approved chunk preview to the existing timeline.
    - Keep the UI clear that a retrieval score is similarity, not factual
      certainty, and that a document can produce many chunks.
 

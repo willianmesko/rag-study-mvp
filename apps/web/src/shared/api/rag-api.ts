@@ -31,6 +31,7 @@ export type QuestionResponse = {
   sources: QuestionSource[];
 };
 export type UploadJob = { id: string; source: string; title: string | null; filename: string; mimeType: string; status: "queued" | "processing" | "completed" | "failed"; progress: number; error: string | null; chunkCount: number | null; highRiskChunks: number | null; createdAt: string; updatedAt: string };
+export type IngestionEvent = { id: string; stage: string; status: "started" | "completed" | "failed" | "info"; durationMs: number | null; details: Record<string, unknown>; createdAt: string };
 export type ManagedDocument = { id: string; source: string; title: string | null; chunkCount: number; createdAt: string; updatedAt: string };
 export type StoredChunk = { id: string; ordinal: number; content: string; security: SearchResult["security"]; createdAt: string };
 export type Workspace = { tenantId: string; tenantName: string; tenantSlug: string; role: "owner" | "editor" | "viewer" };
@@ -85,6 +86,7 @@ export const api = {
     request<SearchResponse>(`/v1/search?${new URLSearchParams({ q: input.query, topK: String(input.topK ?? 5) })}`),
   answer: (input: QuestionInput) => request<QuestionResponse>("/v1/qa", { method: "POST", body: JSON.stringify({ ...input, topK: input.topK ?? 5 }) }),
   listUploads: (accessToken: string, workspaceId?: string) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
+  listUploadEvents: (jobId: string, accessToken: string, workspaceId?: string) => request<{ events: IngestionEvent[] }>(`/v1/admin/uploads/${jobId}/events`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   retryUpload: (jobId: string, accessToken: string, workspaceId?: string) => request<{ jobId: string; status: string }>(`/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listDocuments: (accessToken: string, workspaceId?: string) => request<{ documents: ManagedDocument[] }>("/v1/admin/documents", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listDocumentChunks: (documentId: string, accessToken: string, workspaceId?: string) => request<{ chunks: StoredChunk[] }>(`/v1/admin/documents/${documentId}/chunks`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),

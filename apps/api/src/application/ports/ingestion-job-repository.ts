@@ -1,4 +1,15 @@
 export type IngestionJobStatus = "queued" | "processing" | "completed" | "failed";
+export type IngestionEventStatus = "started" | "completed" | "failed" | "info";
+
+export type IngestionJobEvent = {
+  id: string;
+  jobId: string;
+  stage: string;
+  status: IngestionEventStatus;
+  durationMs: number | null;
+  details: Record<string, unknown>;
+  createdAt: Date;
+};
 
 export type IngestionJob = {
   id: string;
@@ -29,4 +40,13 @@ export interface IngestionJobRepository {
   requeueDocument(documentId: string, tenantId: string): Promise<IngestionJob | null>;
   listStoragePathsForDocument(documentId: string, tenantId: string): Promise<string[]>;
   deleteForDocument(documentId: string, tenantId: string): Promise<void>;
+  recordEvent(input: {
+    jobId: string;
+    tenantId: string;
+    stage: string;
+    status: IngestionEventStatus;
+    durationMs?: number | null;
+    details?: Record<string, unknown>;
+  }): Promise<void>;
+  listEvents(jobId: string, tenantId: string, limit: number): Promise<IngestionJobEvent[]>;
 }

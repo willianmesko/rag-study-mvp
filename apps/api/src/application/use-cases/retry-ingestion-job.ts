@@ -6,5 +6,6 @@ export class RetryIngestionJobUseCase {
   async execute(id: string, tenantId: string): Promise<void> {
     const retried = await this.jobs.retry(id, tenantId);
     if (!retried) throw new Error("Only failed ingestion jobs can be retried.");
+    await this.jobs.recordEvent({ jobId: id, tenantId, stage: "queued", status: "info", details: { reason: "manual_retry" } });
   }
 }

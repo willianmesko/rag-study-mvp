@@ -10,6 +10,13 @@ type IngestOptions = {
   embeddingConcurrency: number;
 };
 
+type IngestionStageReporter = (event: {
+  stage: "chunking" | "security_scan" | "embedding" | "persistence";
+  status: "started" | "completed";
+  durationMs?: number;
+  details?: Record<string, unknown>;
+}) => Promise<void>;
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
@@ -35,26 +42,40 @@ export class IngestDocumentUseCase {
     private readonly options: IngestOptions
   ) {}
 
-  async execute(input: DocumentInput): Promise<{ id: string; chunkCount: number; highRiskChunks: number }> {
+  async execute(input: DocumentInput, report?: IngestionStageReporter): Promise<{ id: string; chunkCount: number; highRiskChunks: number }> {
+    const chunkStartedAt = Date.now();
+    await report?.({ stage: "chunking", status: "started" });
     const chunks = chunkText(input.text, this.options.chunkSize, this.options.chunkOverlap);
+    await report?.({ stage: "chunking", status: "completed", durationMs: Date.now() - chunkStartedAt, details: { chunkCount: chunks.length } });
+    const securityStartedAt = Date.now();
+    await report?.({ stage: "security_scan", status: "started" });
+    const security = chunks.map((chunk) => assessPromptInjection(chunk.content));
+    const highRiskChunks = security.filter((assessment) => assessment.promptInjectionRisk === "high").length;
+    await report?.({ stage: "security_scan", status: "completed", durationMs: Date.now() - securityStartedAt, details: { highRiskChunks } });
     // Embedding happens before persistence so an unavailable provider cannot remove
     // the last successfully indexed version of this source.
+    const embeddingStartedAt = Date.now();
+    await report?.({ stage: "embedding", status: "started", details: { vectorCount: chunks.length } });
     const vectors = await mapWithConcurrency(chunks, this.options.embeddingConcurrency, (chunk) =>
       this.embeddings.embed(chunk.content, "document")
     );
+    await report?.({ stage: "embedding", status: "completed", durationMs: Date.now() - embeddingStartedAt, details: { vectorCount: vectors.length } });
     const embeddedChunks: EmbeddedChunk[] = chunks.map((chunk, index) => ({
       ...chunk,
       embedding: vectors[index] as number[],
-      security: assessPromptInjection(chunk.content)
+      security: security[index]!
     }));
 
+    const persistenceStartedAt = Date.now();
+    await report?.({ stage: "persistence", status: "started" });
     const persisted = await this.documents.replace(
       { tenantId: input.tenantId, source: input.source, title: input.title, metadata: input.metadata ?? {} },
       embeddedChunks
     );
+    await report?.({ stage: "persistence", status: "completed", durationMs: Date.now() - persistenceStartedAt, details: { documentId: persisted.id } });
     return {
       ...persisted,
-      highRiskChunks: embeddedChunks.filter((chunk) => chunk.security.promptInjectionRisk === "high").length
+      highRiskChunks
     };
   }
 }

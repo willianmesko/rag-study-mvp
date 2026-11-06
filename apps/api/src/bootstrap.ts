@@ -74,6 +74,7 @@ export function createApplication() {
       processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, new MultiFormatDocumentTextExtractor(), ingestDocument, originals),
       retryIngestionJob: new RetryIngestionJobUseCase(jobs),
       listIngestionJobs: (tenantId: string, limit: number) => jobs.list(tenantId, limit),
+      listIngestionEvents: (jobId: string, tenantId: string, limit: number) => jobs.listEvents(jobId, tenantId, limit),
       findPrimaryMembership: memberships.findPrimaryByUserId.bind(memberships),
       listMemberships: memberships.listByUserId.bind(memberships),
       findMembership: memberships.findByUserAndTenant.bind(memberships),

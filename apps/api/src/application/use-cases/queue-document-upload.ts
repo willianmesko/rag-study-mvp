@@ -7,13 +7,17 @@ export class QueueDocumentUploadUseCase {
 
   async execute(input: { tenantId: string; source: string; title?: string; filename: string; mimeType: string; payload: Buffer }) {
     if (!this.originals.isEnabled()) {
-      return this.jobs.enqueue({ ...input, title: input.title ?? null, storagePath: null });
+      const job = await this.jobs.enqueue({ ...input, title: input.title ?? null, storagePath: null });
+      await this.jobs.recordEvent({ jobId: job.id, tenantId: job.tenantId, stage: "queued", status: "completed", details: { storage: "database" } });
+      return job;
     }
 
     const storagePath = `uploads/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${safeFilename(input.filename)}`;
     await this.originals.put({ path: storagePath, contentType: input.mimeType, payload: input.payload });
     try {
-      return await this.jobs.enqueue({ ...input, title: input.title ?? null, payload: null, storagePath });
+      const job = await this.jobs.enqueue({ ...input, title: input.title ?? null, payload: null, storagePath });
+      await this.jobs.recordEvent({ jobId: job.id, tenantId: job.tenantId, stage: "queued", status: "completed", details: { storage: "private_object_storage" } });
+      return job;
     } catch (error) {
       await this.originals.remove(storagePath);
       throw error;

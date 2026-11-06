@@ -13,7 +13,7 @@ import type { ProcessNextIngestionJobUseCase } from "../../application/use-cases
 import type { RetryIngestionJobUseCase } from "../../application/use-cases/retry-ingestion-job.js";
 import type { ReindexDocumentUseCase } from "../../application/use-cases/reindex-document.js";
 import type { DeleteDocumentUseCase } from "../../application/use-cases/delete-document.js";
-import type { IngestionJob } from "../../application/ports/ingestion-job-repository.js";
+import type { IngestionJob, IngestionJobEvent } from "../../application/ports/ingestion-job-repository.js";
 import type { ManagedDocument, StoredChunk } from "../../application/ports/document-repository.js";
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
 import type { QuotaResult } from "../../application/ports/quota-repository.js";
@@ -32,6 +32,7 @@ type HttpDependencies = {
   processNextIngestionJob: ProcessNextIngestionJobUseCase;
   retryIngestionJob: RetryIngestionJobUseCase;
   listIngestionJobs: (tenantId: string, limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
+  listIngestionEvents: (jobId: string, tenantId: string, limit: number) => Promise<IngestionJobEvent[]>;
   findPrimaryMembership: (userId: string) => Promise<TenantMembership | null>;
   listMemberships: (userId: string) => Promise<TenantMembership[]>;
   findMembership: (userId: string, tenantId: string) => Promise<TenantMembership | null>;
@@ -225,6 +226,12 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
     return { jobs: (await dependencies.listIngestionJobs(authorization.tenantId, 30)).map(serializeJob) };
   });
+  app.get("/v1/admin/uploads/:jobId/events", async (request, reply) => {
+    const authorization = await authorizeMember(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { jobId } = z.object({ jobId: z.string().uuid() }).parse(request.params);
+    return { events: (await dependencies.listIngestionEvents(jobId, authorization.tenantId, 100)).map(serializeIngestionEvent) };
+  });
   app.post("/v1/admin/uploads/:jobId/retry", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
@@ -342,6 +349,10 @@ export async function buildApp(dependencies: HttpDependencies) {
 
 function serializeJob(job: Omit<IngestionJob, "payload"> | IngestionJob) {
   return { id: job.id, source: job.source, title: job.title, filename: job.filename, mimeType: job.mimeType, status: job.status, progress: job.progress, error: job.error, chunkCount: job.chunkCount, highRiskChunks: job.highRiskChunks, createdAt: job.createdAt.toISOString(), updatedAt: job.updatedAt.toISOString() };
+}
+
+function serializeIngestionEvent(event: IngestionJobEvent) {
+  return { id: event.id, stage: event.stage, status: event.status, durationMs: event.durationMs, details: event.details, createdAt: event.createdAt.toISOString() };
 }
 
 function serializeDocument(document: ManagedDocument) {
