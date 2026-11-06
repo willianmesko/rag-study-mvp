@@ -25,7 +25,7 @@ function PipelineVisualization({ job, events }: { job: UploadJob; events: Ingest
   return <section className="panel overflow-hidden border-cyan-400/20 bg-cyan-400/[0.04]"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Live ingestion pipeline</p><p className="mt-2 text-sm text-slate-300">{job.title ?? job.filename} · {job.progress}%</p><p className="mt-1 text-xs text-slate-500">Persisted timings and counters are kept without storing document content in the timeline.</p></div><span className={`status-pill ${job.status === "failed" ? "border-rose-400/30 bg-rose-400/10 text-rose-300" : "status-pill--success"}`}>{job.status}</span></div><div className="mt-5 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className={`h-full rounded-full transition-[width] duration-700 ${job.status === "failed" ? "bg-rose-400" : "bg-gradient-to-r from-cyan-400 to-emerald-400"}`} style={{ width: `${job.progress}%` }} /></div><ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{pipelineSteps.map(([stage, label], index) => { const event = eventForStage(events, stage); const complete = event?.status === "completed"; const active = event?.status === "started"; const failed = event?.status === "failed"; const details = event?.details ?? {}; const count = typeof details.chunkCount === "number" ? `${details.chunkCount} chunks` : typeof details.vectorCount === "number" ? `${details.vectorCount} vectors` : typeof details.highRiskChunks === "number" ? `${details.highRiskChunks} high-risk` : typeof details.characters === "number" ? `${details.characters.toLocaleString()} chars` : null; return <li key={stage} className={`rounded-xl border px-3 py-3 text-xs transition-colors ${complete ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : failed ? "border-rose-400/30 bg-rose-400/10 text-rose-200" : active ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100" : "border-slate-800 bg-slate-950/40 text-slate-500"}`}><div className="flex items-center gap-3"><span className={`grid size-6 shrink-0 place-items-center rounded-full font-mono ${active ? "animate-pulse bg-cyan-400 text-slate-950" : complete ? "bg-emerald-400 text-slate-950" : "bg-slate-800"}`}>{complete ? "✓" : String(index + 1).padStart(2, "0")}</span><span>{label}</span></div>{event && <p className="mt-2 pl-9 font-mono text-[10px] opacity-80">{event.durationMs !== null ? `${event.durationMs} ms` : active ? "running" : "recorded"}{count ? ` · ${count}` : ""}</p>}</li>; })}</ol>{job.error && <p role="alert" className="mt-4 text-xs text-rose-300">{job.error}</p>}</section>;
 }
 
-export function AdminPanel() {
+export function AdminPanel({ selectedWorkspaceId, onWorkspaceChange }: { selectedWorkspaceId?: string; onWorkspaceChange?: (workspaceId: string) => void }) {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,7 +35,7 @@ export function AdminPanel() {
   const [token, setToken] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<ManagedDocument | null>(null);
-  const [workspaceId, setWorkspaceId] = useState(() => window.localStorage.getItem("rag-lab-workspace-id") ?? "");
+  const [workspaceId, setWorkspaceId] = useState(() => selectedWorkspaceId ?? window.localStorage.getItem("rag-lab-workspace-id") ?? "");
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceSlug, setWorkspaceSlug] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -46,6 +46,14 @@ export function AdminPanel() {
   useEffect(() => {
     void supabase?.auth.getSession().then(({ data }) => setToken(data.session?.access_token ?? null));
   }, []);
+
+  useEffect(() => {
+    if (selectedWorkspaceId && selectedWorkspaceId !== workspaceId) {
+      setWorkspaceId(selectedWorkspaceId);
+      window.localStorage.setItem("rag-lab-workspace-id", selectedWorkspaceId);
+      setSelectedDocument(null);
+    }
+  }, [selectedWorkspaceId, workspaceId]);
 
   const jobs = useQuery({
     queryKey: ["ingestion-jobs", token, workspaceId], queryFn: () => api.listUploads(token as string, workspaceId),
@@ -177,7 +185,7 @@ export function AdminPanel() {
   return (
     <section className="space-y-8">
       <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold tracking-[.18em] uppercase text-cyan-300">Protected area</p><h2 className="mt-2 text-2xl font-semibold">Manage the corpus</h2><p className="mt-2 text-sm text-slate-400">Uploads, reindexing, and deletion happen on the server; original files are never public.</p></div><button className="text-sm text-slate-400 hover:text-white" onClick={() => void logout()}>Sign out</button></div>
-      <label className="grid gap-2 text-sm text-slate-300">Workspace<select className="field" value={workspaceId} onChange={(event) => { setWorkspaceId(event.target.value); window.localStorage.setItem("rag-lab-workspace-id", event.target.value); setSelectedDocument(null); }}>{workspaces.data?.workspaces.map((item) => <option key={item.tenantId} value={item.tenantId}>{item.tenantName} · {item.role}</option>)}</select></label>
+      <label className="grid gap-2 text-sm text-slate-300">Workspace<select className="field" value={workspaceId} onChange={(event) => { const nextWorkspaceId = event.target.value; setWorkspaceId(nextWorkspaceId); window.localStorage.setItem("rag-lab-workspace-id", nextWorkspaceId); setSelectedDocument(null); onWorkspaceChange?.(nextWorkspaceId); }}>{workspaces.data?.workspaces.map((item) => <option key={item.tenantId} value={item.tenantId}>{item.tenantName} · {item.role}</option>)}</select></label>
       {readOnly && <p className="rounded-lg border border-violet-400/30 bg-violet-400/10 p-3 text-sm text-violet-100">You are a viewer in this workspace: you can inspect documents and chunks, but cannot change the corpus.</p>}
 
       {workspace?.role === "owner" && <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-6"><div><h3 className="font-medium">Workspace members</h3><p className="mt-1 text-xs text-slate-500">Only owners can invite, change the role of, or remove editors and viewers.</p></div><form className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]" onSubmit={submitInvitation}><input className="field" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="email@example.com" required /><select className="field" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as "editor" | "viewer")}><option value="viewer">Viewer · read-only</option><option value="editor">Editor · corpus</option></select><button className="primary-button" disabled={inviteMember.isPending}>{inviteMember.isPending ? "Sending…" : "Invite"}</button></form><div className="divide-y divide-slate-800 rounded-xl border border-slate-800">{members.data?.members.map((member) => <div className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm" key={member.userId}><div><p className="text-slate-200">{member.email ?? "Email unavailable"}</p><p className="font-mono text-xs text-slate-500">{member.role}</p></div>{member.role === "owner" ? <span className="text-xs text-cyan-300">Protected owner</span> : <div className="flex items-center gap-2"><select className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs" value={member.role} onChange={(event) => changeMemberRole.mutate({ userId: member.userId, role: event.target.value as "editor" | "viewer" })}><option value="viewer">Viewer</option><option value="editor">Editor</option></select><button className="text-xs text-rose-300 hover:text-rose-100" type="button" onClick={() => { if (window.confirm(`Remove ${member.email ?? "this member"}?`)) removeMember.mutate(member.userId); }}>Remove</button></div>}</div>)}</div></section>}
