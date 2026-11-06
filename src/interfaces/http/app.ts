@@ -1,10 +1,15 @@
 import { timingSafeEqual } from "node:crypto";
 import rateLimit from "@fastify/rate-limit";
+import multipart from "@fastify/multipart";
 import Fastify from "fastify";
+import { createClient } from "@supabase/supabase-js";
 import { ZodError, z } from "zod";
 import type { AnswerQuestionUseCase } from "../../application/use-cases/answer-question.js";
 import type { IngestDocumentUseCase } from "../../application/use-cases/ingest-document.js";
 import type { SearchDocumentsUseCase } from "../../application/use-cases/search-documents.js";
+import type { QueueDocumentUploadUseCase } from "../../application/use-cases/queue-document-upload.js";
+import type { ProcessNextIngestionJobUseCase } from "../../application/use-cases/process-next-ingestion-job.js";
+import type { IngestionJob } from "../../application/ports/ingestion-job-repository.js";
 import { config } from "../../config.js";
 
 const documentSchema = z.object({
@@ -20,6 +25,9 @@ type HttpDependencies = {
   ingestDocument: IngestDocumentUseCase;
   searchDocuments: SearchDocumentsUseCase;
   answerQuestion: AnswerQuestionUseCase;
+  queueDocumentUpload: QueueDocumentUploadUseCase;
+  processNextIngestionJob: ProcessNextIngestionJobUseCase;
+  listIngestionJobs: (limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
 };
 
 function matchesApiKey(candidate: string | undefined, expected: string): boolean {
@@ -34,14 +42,15 @@ function applyCorsHeaders(origin: string | undefined, reply: { header: (name: st
   if (!config.ALLOWED_ORIGINS.includes(origin)) return false;
   reply.header("access-control-allow-origin", origin);
   reply.header("access-control-allow-methods", "GET, POST, OPTIONS");
-  reply.header("access-control-allow-headers", "content-type");
+  reply.header("access-control-allow-headers", "authorization, content-type, x-document-source, x-document-title");
   reply.header("access-control-max-age", "600");
   reply.header("vary", "Origin");
   return true;
 }
 
 export async function buildApp(dependencies: HttpDependencies) {
-  const app = Fastify({ logger: true, bodyLimit: 600_000 });
+  const app = Fastify({ logger: true, bodyLimit: config.UPLOAD_MAX_BYTES + 100_000 });
+  await app.register(multipart, { limits: { files: 1, fileSize: config.UPLOAD_MAX_BYTES, fields: 0 } });
   await app.register(rateLimit, {
     max: config.RATE_LIMIT_MAX,
     timeWindow: config.RATE_LIMIT_WINDOW_MS,
@@ -77,6 +86,33 @@ export async function buildApp(dependencies: HttpDependencies) {
     return reply.code(500).send({ error: "Internal server error" });
   });
   app.get("/health", async () => ({ status: "ok" }));
+  const authorizeAdmin = async (request: { headers: Record<string, string | string[] | undefined> }) => {
+    if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY || config.ADMIN_EMAILS.length === 0) return { ok: false as const, status: 503, error: "Admin upload is not configured." };
+    const authorization = request.headers.authorization;
+    const token = typeof authorization === "string" && authorization.startsWith("Bearer ") ? authorization.slice(7) : undefined;
+    if (!token) return { ok: false as const, status: 401, error: "Authentication required." };
+    const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await supabase.auth.getUser(token);
+    const email = data.user?.email?.toLowerCase();
+    if (error || !email || !config.ADMIN_EMAILS.includes(email)) return { ok: false as const, status: 403, error: "Administrator access required." };
+    return { ok: true as const };
+  };
+  app.post("/v1/admin/uploads", async (request, reply) => {
+    const authorization = await authorizeAdmin(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const file = await request.file();
+    if (!file) return reply.code(400).send({ error: "A document file is required." });
+    const sourceHeader = request.headers["x-document-source"];
+    const titleHeader = request.headers["x-document-title"];
+    const input = z.object({ source: z.string().min(3).max(1_000), title: z.string().min(1).max(500).optional() }).parse({ source: sourceHeader ?? `upload/${file.filename}`, title: titleHeader || undefined });
+    const job = await dependencies.queueDocumentUpload.execute({ source: input.source, title: input.title, filename: file.filename, mimeType: file.mimetype || "application/octet-stream", payload: await file.toBuffer() });
+    return reply.code(202).send({ job: serializeJob(job) });
+  });
+  app.get("/v1/admin/uploads", async (request, reply) => {
+    const authorization = await authorizeAdmin(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    return { jobs: (await dependencies.listIngestionJobs(30)).map(serializeJob) };
+  });
   app.post("/v1/documents", async (request, reply) => {
     if (config.DEMO_MODE) {
       const providedAdminKey = request.headers["x-admin-api-key"];
@@ -100,5 +136,9 @@ export async function buildApp(dependencies: HttpDependencies) {
     return { answer: result.answer, sources: result.sources.map(({ source, title, ordinal, score }) => ({ source, title, chunk: ordinal, score })) };
   });
   return app;
+}
+
+function serializeJob(job: Omit<IngestionJob, "payload"> | IngestionJob) {
+  return { id: job.id, source: job.source, title: job.title, filename: job.filename, mimeType: job.mimeType, status: job.status, progress: job.progress, error: job.error, chunkCount: job.chunkCount, highRiskChunks: job.highRiskChunks, createdAt: job.createdAt.toISOString(), updatedAt: job.updatedAt.toISOString() };
 }
 

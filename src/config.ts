@@ -48,6 +48,13 @@ const environment = z.object({
   // arbitrary embedding costs.
   DEMO_MODE: booleanEnvironment.default(false),
   ADMIN_API_KEY: z.string().min(16).optional(),
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
+  ADMIN_EMAILS: z.string().optional().transform((value) =>
+    (value ?? "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean)
+  ),
+  UPLOAD_MAX_BYTES: z.coerce.number().int().min(1_000).max(10_000_000).default(5_000_000),
+  INGESTION_WORKER_INTERVAL_MS: z.coerce.number().int().min(1_000).max(60_000).default(5_000),
   // Comma-separated browser origins. Keep this empty during local development,
   // where Vite proxies requests, and set it to the published frontend URL.
   ALLOWED_ORIGINS: z.string().optional().transform((value) =>
@@ -87,5 +94,9 @@ if (config.DEMO_MODE && !config.ADMIN_API_KEY) {
 
 if (config.DEMO_MODE && config.API_KEY) {
   throw new Error("API_KEY protects every route and cannot be combined with public DEMO_MODE. Use ADMIN_API_KEY for ingestion instead.");
+}
+
+if ((config.SUPABASE_URL && !config.SUPABASE_PUBLISHABLE_KEY) || (!config.SUPABASE_URL && config.SUPABASE_PUBLISHABLE_KEY)) {
+  throw new Error("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be configured together.");
 }
 

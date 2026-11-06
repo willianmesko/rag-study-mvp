@@ -1,6 +1,8 @@
 import { AnswerQuestionUseCase } from "./application/use-cases/answer-question.js";
 import { IngestDocumentUseCase } from "./application/use-cases/ingest-document.js";
 import { SearchDocumentsUseCase } from "./application/use-cases/search-documents.js";
+import { QueueDocumentUploadUseCase } from "./application/use-cases/queue-document-upload.js";
+import { ProcessNextIngestionJobUseCase } from "./application/use-cases/process-next-ingestion-job.js";
 import { config } from "./config.js";
 import type { AnswerGenerator } from "./application/ports/answer-generator.js";
 import type { EmbeddingProvider } from "./application/ports/embedding-provider.js";
@@ -16,6 +18,8 @@ import { OllamaEmbeddingProvider } from "./infrastructure/ollama/ollama-embeddin
 import { OpenRouterAnswerGenerator } from "./infrastructure/openrouter/openrouter-answer-generator.js";
 import { OpenRouterEmbeddingProvider } from "./infrastructure/openrouter/openrouter-embedding-provider.js";
 import { PgDocumentRepository } from "./infrastructure/postgres/pg-document-repository.js";
+import { PgIngestionJobRepository } from "./infrastructure/postgres/pg-ingestion-job-repository.js";
+import { MultiFormatDocumentTextExtractor } from "./infrastructure/ingestion/document-text-extractor.js";
 import { createPostgresPool } from "./infrastructure/postgres/pool.js";
 import { PassThroughReranker } from "./infrastructure/reranking/pass-through-reranker.js";
 
@@ -25,6 +29,7 @@ export function createApplication() {
   const answerGenerator = createAnswerGenerator();
   const reranker = createReranker();
   const documents = new PgDocumentRepository(pool, config.EMBEDDING_DIMENSIONS);
+  const jobs = new PgIngestionJobRepository(pool);
   const searchDocuments = new SearchDocumentsUseCase(embeddings, documents, reranker, {
     defaultTopK: config.RETRIEVAL_TOP_K,
     vectorCandidateMultiplier: config.HYBRID_VECTOR_CANDIDATE_MULTIPLIER,
@@ -41,13 +46,17 @@ export function createApplication() {
     projectName: config.LANGSMITH_PROJECT
   });
 
+  const ingestDocument = new IngestDocumentUseCase(embeddings, documents, {
+    chunkSize: config.CHUNK_SIZE,
+    chunkOverlap: config.CHUNK_OVERLAP,
+    embeddingConcurrency: 3
+  });
   return {
     useCases: {
-      ingestDocument: new IngestDocumentUseCase(embeddings, documents, {
-        chunkSize: config.CHUNK_SIZE,
-        chunkOverlap: config.CHUNK_OVERLAP,
-        embeddingConcurrency: 3
-      }),
+      ingestDocument,
+      queueDocumentUpload: new QueueDocumentUploadUseCase(jobs),
+      processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, new MultiFormatDocumentTextExtractor(), ingestDocument),
+      listIngestionJobs: (limit: number) => jobs.list(limit),
       searchDocuments,
       answerQuestion: new AnswerQuestionUseCase(answerWorkflow)
     },

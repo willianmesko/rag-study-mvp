@@ -29,6 +29,7 @@ export type QuestionResponse = {
   answer: string;
   sources: Array<{ source: string; title: string | null; chunk: number; score: number }>;
 };
+export type UploadJob = { id: string; source: string; title: string | null; filename: string; mimeType: string; status: "queued" | "processing" | "completed" | "failed"; progress: number; error: string | null; chunkCount: number | null; highRiskChunks: number | null; createdAt: string; updatedAt: string };
 
 type ErrorBody = { error?: string; message?: string };
 
@@ -62,7 +63,13 @@ export const api = {
     request<IngestResponse>("/v1/documents", { method: "POST", body: JSON.stringify(input) }),
   search: (input: { query: string; topK: number }) =>
     request<SearchResponse>(`/v1/search?${new URLSearchParams({ q: input.query, topK: String(input.topK) })}`),
-  answer: (input: { question: string; topK: number }) =>
-    request<QuestionResponse>("/v1/qa", { method: "POST", body: JSON.stringify(input) })
+  answer: (input: { question: string; topK: number }) => request<QuestionResponse>("/v1/qa", { method: "POST", body: JSON.stringify(input) }),
+  listUploads: (accessToken: string) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { headers: { authorization: `Bearer ${accessToken}` } }),
+  uploadDocument: async (input: { file: File; source: string; title?: string; accessToken: string }) => {
+    const body = new FormData(); body.append("file", input.file);
+    const response = await fetch(`${apiBaseUrl}/v1/admin/uploads`, { method: "POST", body, headers: { authorization: `Bearer ${input.accessToken}`, "x-document-source": input.source, ...(input.title ? { "x-document-title": input.title } : {}) } });
+    if (!response.ok) { const error = await response.json().catch(() => ({})) as ErrorBody; throw new ApiError(error.error ?? "Não foi possível enviar o arquivo.", response.status); }
+    return response.json() as Promise<{ job: UploadJob }>;
+  }
 };
 

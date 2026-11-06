@@ -5,8 +5,15 @@ import { buildApp } from "./interfaces/http/app.js";
 async function main(): Promise<void> {
   const application = createApplication();
   const app = await buildApp(application.useCases);
+  let processing = false;
+  const worker = setInterval(() => {
+    if (processing) return;
+    processing = true;
+    void application.useCases.processNextIngestionJob.execute().finally(() => { processing = false; });
+  }, config.INGESTION_WORKER_INTERVAL_MS);
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`Received ${signal}; shutting down.`);
+    clearInterval(worker);
     await app.close();
     await application.close();
     process.exit(0);

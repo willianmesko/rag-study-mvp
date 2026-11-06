@@ -182,6 +182,14 @@ Para proteger a API local quando ela for exposta, defina `API_KEY` no `.env` e e
 
 O projeto inclui um caminho de publicação com frontend estático, API e banco separados. A demo pública é somente leitura: `DEMO_MODE=true` oculta a ingestão no frontend e exige `x-admin-api-key` na API para alterar o corpus. Veja o guia completo em [docs/deploy-public-demo.md](docs/deploy-public-demo.md). O `render.yaml` e o `Dockerfile` deixam a API pronta para um deploy em container; mantenha chaves e URLs de banco apenas nas variáveis de ambiente do provedor.
 
+### Upload administrativo assíncrono
+
+O frontend público também possui uma aba **Administrar**, mas ela não conhece `ADMIN_API_KEY` nem credenciais do banco. Um administrador entra pelo Supabase Auth; a API valida o token no Supabase e compara o e-mail retornado com `ADMIN_EMAILS`, configurado somente no backend.
+
+Após o upload, `POST /v1/admin/uploads` grava um job durável no PostgreSQL. O worker incorporado busca jobs pendentes, extrai texto de PDF, DOCX, TXT ou Markdown e então executa o pipeline normal de chunking, embeddings e triagem de prompt injection. A interface consulta `GET /v1/admin/uploads` para exibir `queued`, `processing`, `completed` ou `failed`.
+
+Para uma demo de baixo custo, o arquivo fica temporariamente como `bytea` no banco e é apagado quando o job termina. Para documentos grandes ou retenção de originais, o próximo passo é mover o payload para um bucket privado do Supabase Storage e executar o worker em serviço separado.
+
 ## O que está acontecendo de verdade
 
 ### 1. Chunking

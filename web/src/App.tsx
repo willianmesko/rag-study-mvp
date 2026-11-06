@@ -2,13 +2,15 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, ApiError, type SearchResult } from "./lib/api";
 import { documentInputSchema, questionInputSchema, searchInputSchema } from "./lib/schemas";
+import { AdminPanel } from "./components/AdminPanel";
 
-type Tab = "ingest" | "search" | "answer";
+type Tab = "ingest" | "search" | "answer" | "admin";
 
 const tabs: Array<{ id: Tab; label: string; number: string }> = [
   { id: "ingest", label: "Indexar", number: "01" },
   { id: "search", label: "Buscar", number: "02" },
   { id: "answer", label: "Responder", number: "03" }
+  ,{ id: "admin", label: "Administrar", number: "04" }
 ];
 const isPublicDemo = import.meta.env.VITE_DEMO_MODE === "true";
 const visibleTabs = isPublicDemo ? tabs.filter((tab) => tab.id !== "ingest") : tabs;
@@ -256,6 +258,8 @@ export function App() {
                   )}
                 </form>
               )}
+
+              {activeTab === "admin" && <AdminPanel />}
 
               {currentError && !isLoading && <p className="mt-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">{currentError}</p>}
             </div>
