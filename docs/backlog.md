@@ -91,7 +91,30 @@ product decision, credentials, or additional operational cost.
    - Continue refining member management and workspace onboarding with the same
      design tokens and state model.
 
-7. **Demo and product expansion**
+7. **Workspace control center refactor**
+   - Split the current administration surface into independently routed sections:
+     `Overview`, `Knowledge`, `Processing`, `Team`, `Evaluations`, and
+     `Settings`.
+   - Keep workspace switching in the global header so users can move between
+     workspaces such as `TI` and `Legal` without losing their current section.
+   - Move each section into a dedicated Feature-Sliced widget and keep actions
+     in focused features such as upload, reindex, member management, invite,
+     evaluation, and workspace settings.
+   - Make each section load independently. A failed members or evaluations
+     query must not leave the entire workspace page blank.
+   - Apply section-level authorization: viewers can access `Overview`,
+     `Knowledge`, and `Processing`; editors can manage knowledge; owners can
+     manage `Team`, `Evaluations`, and `Settings`.
+   - Add deep links such as `/workspace/knowledge` and `/workspace/team`, with
+     refresh-safe navigation and browser back/forward support.
+   - Use summary cards and `View details` links on `Overview` instead of
+     duplicating full management interfaces there.
+   - Preserve consistent loading, empty, error, success, responsive, keyboard,
+     and reduced-motion states across every section.
+   - Acceptance criteria: no monolithic `AdminPanel` responsibility remains;
+     each section has isolated queries, permissions, tests, and a stable URL.
+
+8. **Demo and product expansion**
    - Seed realistic starter corpora for separate `TI` and `Legal` workspaces so
      the tenant switcher can be demonstrated immediately.
    - Persist question history and thumbs-up/thumbs-down feedback in the backend,
@@ -105,7 +128,7 @@ product decision, credentials, or additional operational cost.
    - Add side-by-side model/prompt comparison for answer quality, latency, cost,
      citations, and safety outcomes.
 
-8. **Model routing and comparative evaluation**
+9. **Model routing and comparative evaluation**
    - Add a backend-owned allowlist of chat models. The frontend may select only
      models exposed by the active workspace configuration; it must never submit
      an arbitrary provider model identifier.
@@ -125,7 +148,7 @@ product decision, credentials, or additional operational cost.
      baseline and fail release gates when recall, precision, safety, latency, or
      cost crosses a configured threshold.
 
-9. **LangGraph workflow expansion**
+10. **LangGraph workflow expansion**
    - Add adaptive RAG: retrieve, apply a relevance gate, rewrite the query when
      evidence is weak, retry retrieval once, and refuse when evidence remains
      insufficient.
@@ -145,7 +168,7 @@ product decision, credentials, or additional operational cost.
    - Add durable state, cancellation, step limits, timeouts, and per-run budgets
      so a misbehaving model cannot create an unbounded loop or spend indefinitely.
 
-10. **Agent tools and MCP safety**
+11. **Agent tools and MCP safety**
    - Add a project-owned MCP server with read-only workspace tools first:
      search, source inspection, ingestion status, and evaluation reports.
    - Enforce tenant scope, RBAC, schema validation, audit events, rate limits,
@@ -154,7 +177,7 @@ product decision, credentials, or additional operational cost.
      idempotency keys, retries, dead-letter handling, and a replayable audit
      record.
 
-11. **Infrastructure as code and AWS production reference**
+12. **Infrastructure as code and AWS production reference**
    - Keep the low-cost Render/Supabase demo as the default deployment path.
    - Add Terraform roots and reusable modules for dev, staging, and production,
      with remote state, mandatory tags, least-privilege IAM, permission
@@ -178,14 +201,14 @@ product decision, credentials, or additional operational cost.
    - Document the mapping between the demo adapters and the AWS adapters before
      enabling any paid AWS resource.
 
-12. **GitLab CI/CD compatibility**
+13. **GitLab CI/CD compatibility**
    - Add a `.gitlab-ci.yml` equivalent to the GitHub quality harness.
    - Run typecheck, tests, build, security evals, golden set, Promptfoo, and
      Terraform validation as release gates.
    - Add environment-specific deploy jobs, manual production approval, stored
      evaluation artifacts, and rollback instructions.
 
-13. **Resilient integrations**
+14. **Resilient integrations**
    - Add idempotency keys and deduplication to uploads, ingestion jobs, model
      calls, and external notifications.
    - Standardize exponential-backoff retries, rate-limit handling, permanent
@@ -193,7 +216,7 @@ product decision, credentials, or additional operational cost.
    - Add an outbox pattern, dead-letter queue, replay commands, and operational
      runbooks for failed or partially delivered events.
 
-14. **Project-owned MCP server**
+15. **Project-owned MCP server**
    - Expose read-only tools first: `search_workspace`, `get_document`,
      `list_sources`, `get_ingestion_status`, `run_evaluation`, and
      `get_quality_report`.
