@@ -20,6 +20,8 @@ import { OpenRouterAnswerGenerator } from "./infrastructure/openrouter/openroute
 import { OpenRouterEmbeddingProvider } from "./infrastructure/openrouter/openrouter-embedding-provider.js";
 import { PgDocumentRepository } from "./infrastructure/postgres/pg-document-repository.js";
 import { PgIngestionJobRepository } from "./infrastructure/postgres/pg-ingestion-job-repository.js";
+import { PgQuotaRepository } from "./infrastructure/postgres/pg-quota-repository.js";
+import { PgAuditEventRepository } from "./infrastructure/postgres/pg-audit-event-repository.js";
 import { MultiFormatDocumentTextExtractor } from "./infrastructure/ingestion/document-text-extractor.js";
 import { createPostgresPool } from "./infrastructure/postgres/pool.js";
 import { PassThroughReranker } from "./infrastructure/reranking/pass-through-reranker.js";
@@ -32,6 +34,8 @@ export function createApplication() {
   const reranker = createReranker();
   const documents = new PgDocumentRepository(pool, config.EMBEDDING_DIMENSIONS);
   const jobs = new PgIngestionJobRepository(pool);
+  const quotas = new PgQuotaRepository(pool);
+  const auditEvents = new PgAuditEventRepository(pool);
   const originals = new SupabaseOriginalFileStore(
     config.SUPABASE_URL,
     config.SUPABASE_SERVICE_ROLE_KEY,
@@ -66,6 +70,9 @@ export function createApplication() {
       processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, new MultiFormatDocumentTextExtractor(), ingestDocument, originals),
       retryIngestionJob: new RetryIngestionJobUseCase(jobs),
       listIngestionJobs: (tenantId: string, limit: number) => jobs.list(tenantId, limit),
+      consumeQuestionQuota: (tenantId: string, actorKey: string) => quotas.consumeQuestion({ tenantId, actorKey, limit: config.DAILY_TENANT_QA_LIMIT }),
+      consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => quotas.consumeUpload({ tenantId, actorKey, bytes, limit: config.DAILY_ADMIN_UPLOAD_BYTES_LIMIT }),
+      recordAuditEvent: auditEvents.record.bind(auditEvents),
       searchDocuments,
       answerQuestion: new AnswerQuestionUseCase(answerWorkflow)
     },

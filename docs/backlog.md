@@ -16,6 +16,10 @@ para que a demo não esconda trabalho operacional pendente.
 - Isolamento por tenant no banco: documentos e jobs possuem `tenant_id`; a
   ingestão e as consultas híbridas recebem esse identificador obrigatoriamente.
   A demo usa o tenant fixo `demo` enquanto não há onboarding de organizações.
+- Guardrails iniciais de custo: quota diária de perguntas por tenant, quota diária
+  de bytes enviados por administrador e auditoria de uploads/retries. A auditoria
+  guarda somente identificadores e metadados técnicos; não guarda perguntas,
+  conteúdo de documento ou IP em texto puro.
 - Golden set determinístico, testes de prompt injection, testes unitários,
   typecheck, build e GitHub Actions.
 
@@ -43,6 +47,10 @@ retry. Nenhuma chave é necessária no frontend.
    uploads, auditoria administrativa sem conteúdo sensível, redação de PII
    antes de provedores externos, cache semântico com chave por tenant e alertas
    de gasto antes de atingir o orçamento.
+
+   **Progresso:** quotas de perguntas por tenant, limites diários de upload por
+   administrador e trilha de auditoria já estão implementados. Restam quotas de
+   tokens, PII, cache semântico e alertas de gasto.
 
 3. **Melhorar ingestão:** OCR para PDFs escaneados, importação de URLs/HTML,
    metadados, detecção de idioma e chunking por estrutura de documento.

@@ -11,6 +11,8 @@ import type { QueueDocumentUploadUseCase } from "../../application/use-cases/que
 import type { ProcessNextIngestionJobUseCase } from "../../application/use-cases/process-next-ingestion-job.js";
 import type { RetryIngestionJobUseCase } from "../../application/use-cases/retry-ingestion-job.js";
 import type { IngestionJob } from "../../application/ports/ingestion-job-repository.js";
+import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
+import type { QuotaResult } from "../../application/ports/quota-repository.js";
 import { config } from "../../config.js";
 
 const documentSchema = z.object({
@@ -30,6 +32,9 @@ type HttpDependencies = {
   processNextIngestionJob: ProcessNextIngestionJobUseCase;
   retryIngestionJob: RetryIngestionJobUseCase;
   listIngestionJobs: (tenantId: string, limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
+  consumeQuestionQuota: (tenantId: string, actorKey: string) => Promise<QuotaResult>;
+  consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => Promise<QuotaResult>;
+  recordAuditEvent: AuditEventRepository["record"];
 };
 
 function matchesApiKey(candidate: string | undefined, expected: string): boolean {
@@ -97,7 +102,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { data, error } = await supabase.auth.getUser(token);
     const email = data.user?.email?.toLowerCase();
     if (error || !email || !config.ADMIN_EMAILS.includes(email)) return { ok: false as const, status: 403, error: "Administrator access required." };
-    return { ok: true as const };
+    return { ok: true as const, userId: data.user.id };
   };
   app.post("/v1/admin/uploads", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
@@ -107,7 +112,19 @@ export async function buildApp(dependencies: HttpDependencies) {
     const sourceHeader = request.headers["x-document-source"];
     const titleHeader = request.headers["x-document-title"];
     const input = z.object({ source: z.string().min(3).max(1_000), title: z.string().min(1).max(500).optional() }).parse({ source: sourceHeader ?? `upload/${file.filename}`, title: titleHeader || undefined });
-    const job = await dependencies.queueDocumentUpload.execute({ tenantId: config.DEFAULT_TENANT_ID, source: input.source, title: input.title, filename: file.filename, mimeType: file.mimetype || "application/octet-stream", payload: await file.toBuffer() });
+    const payload = await file.toBuffer();
+    const quota = await dependencies.consumeAdminUploadQuota(config.DEFAULT_TENANT_ID, authorization.userId, payload.byteLength);
+    if (!quota.allowed) return reply.code(429).send({ error: "Daily upload quota reached. Try again tomorrow." });
+    const job = await dependencies.queueDocumentUpload.execute({ tenantId: config.DEFAULT_TENANT_ID, source: input.source, title: input.title, filename: file.filename, mimeType: file.mimetype || "application/octet-stream", payload });
+    await dependencies.recordAuditEvent({
+      tenantId: config.DEFAULT_TENANT_ID,
+      actorUserId: authorization.userId,
+      action: "document.upload_queued",
+      resourceType: "ingestion_job",
+      resourceId: job.id,
+      requestId: request.id,
+      metadata: { bytes: payload.byteLength, mimeType: file.mimetype || "application/octet-stream" }
+    });
     return reply.code(202).send({ job: serializeJob(job) });
   });
   app.get("/v1/admin/uploads", async (request, reply) => {
@@ -121,6 +138,15 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { jobId } = z.object({ jobId: z.string().uuid() }).parse(request.params);
     try {
       await dependencies.retryIngestionJob.execute(jobId, config.DEFAULT_TENANT_ID);
+      await dependencies.recordAuditEvent({
+        tenantId: config.DEFAULT_TENANT_ID,
+        actorUserId: authorization.userId,
+        action: "ingestion.retry_queued",
+        resourceType: "ingestion_job",
+        resourceId: jobId,
+        requestId: request.id,
+        metadata: {}
+      });
       return reply.code(202).send({ jobId, status: "queued" });
     } catch (error) {
       return reply.code(409).send({ error: error instanceof Error ? error.message : "Unable to retry ingestion job." });
@@ -143,9 +169,11 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { q, topK } = searchSchema.parse(request.query);
     return { results: await dependencies.searchDocuments.execute({ query: q, topK }) };
   });
-  app.post("/v1/qa", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request) => {
+  app.post("/v1/qa", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
     const { question, topK } = qaSchema.parse(request.body);
-    const result = await dependencies.answerQuestion.execute({ question, topK });
+    const quota = await dependencies.consumeQuestionQuota(config.DEFAULT_TENANT_ID, "tenant");
+    if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
+    const result = await dependencies.answerQuestion.execute({ question, topK, tenantId: config.DEFAULT_TENANT_ID });
     return { answer: result.answer, sources: result.sources.map(({ source, title, ordinal, score }) => ({ source, title, chunk: ordinal, score })) };
   });
   return app;

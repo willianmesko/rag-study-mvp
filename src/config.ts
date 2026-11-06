@@ -40,6 +40,8 @@ const environment = z.object({
   RAG_MINIMUM_SCORE: z.coerce.number().min(-1).max(1).default(0.3),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(60),
   QA_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(1_000).default(10),
+  DAILY_TENANT_QA_LIMIT: z.coerce.number().int().min(1).max(100_000).default(200),
+  DAILY_ADMIN_UPLOAD_BYTES_LIMIT: z.coerce.number().int().min(1_000).max(1_000_000_000).default(20_000_000),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
   PROVIDER_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
   API_KEY: z.string().min(16).optional(),
