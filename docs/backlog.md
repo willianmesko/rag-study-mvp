@@ -92,6 +92,8 @@ product decision, credentials, or additional operational cost.
      design tokens and state model.
 
 7. **Workspace control center refactor**
+   - Phase 1 implemented: dedicated workspace routes, section navigation,
+     overview cards, role-aware navigation, and conditional section queries.
    - Split the current administration surface into independently routed sections:
      `Overview`, `Knowledge`, `Processing`, `Team`, `Evaluations`, and
      `Settings`.
@@ -113,6 +115,8 @@ product decision, credentials, or additional operational cost.
      and reduced-motion states across every section.
    - Acceptance criteria: no monolithic `AdminPanel` responsibility remains;
      each section has isolated queries, permissions, tests, and a stable URL.
+   - Remaining: extract the final section-specific data/mutation logic from the
+     compatibility `AdminPanel` into independent widgets and hooks.
 
 8. **Demo and product expansion**
    - Seed realistic starter corpora for separate `TI` and `Legal` workspaces so
@@ -226,6 +230,8 @@ product decision, credentials, or additional operational cost.
      retries, dead-letter handling, and replayable audit records exist.
 
 16. **Guided onboarding for non-technical teams**
+   - Phase 1 implemented: workspace-scoped local progress, a Legal starter path,
+     role-aware guidance, and deep links into each workspace section.
    - Create a first-run, step-by-step onboarding flow for users who do not know
      RAG terminology or infrastructure concepts.
    - Start with a plain-language goal, for example: “Make your law firm’s
@@ -245,8 +251,13 @@ product decision, credentials, or additional operational cost.
    - Acceptance criteria: a new non-technical user can create a workspace,
      ingest a document, ask a question, and understand the cited answer without
      reading technical documentation.
+   - Remaining: sync onboarding progress to the backend so it follows the user
+     across browsers and devices.
 
 17. **Real-time chat and streaming answers**
+   - Phase 1 implemented: authenticated `/v1/qa/stream` SSE, provider streaming
+     for OpenRouter, Bedrock, and Ollama, live status events, token deltas,
+     cancellation in the browser, and HTTP fallback.
    - Stream answer progress to the browser: request accepted, retrieving,
      generating, validating citations, and completed/refused/failed.
    - Stream structured answer deltas and citations while preserving the final
@@ -263,3 +274,5 @@ product decision, credentials, or additional operational cost.
      safe disconnect handling, and audit metadata for every stream.
    - Add tests for partial output, cancellation, reconnect, provider failure,
      citation validation, and fallback to the regular HTTP response.
+   - Remaining: persist run state for reconnect/resume and propagate browser
+     cancellation all the way to provider requests.

@@ -53,6 +53,10 @@ Zod schemas in both applications.
 - Prompt-injection scanning before external reranking or answer generation.
 - Private administrative ingestion for PDF, DOCX, TXT, and Markdown.
 - Workspaces with `owner`, `editor`, and read-only `viewer` roles.
+- Workspace control center with routed Overview, Knowledge, Processing, Team,
+  Evaluations, and Settings sections plus a guided first-run onboarding path.
+- Authenticated SSE answer streaming with retrieval/generation/validation status,
+  token deltas, browser cancellation, and HTTP fallback.
 - Deterministic golden-set and prompt-injection evaluation suites.
 
 ## Prerequisites

@@ -32,6 +32,25 @@ short-lived Supabase sessions, answers, and sources permitted by the API. It
 never receives database credentials, provider keys, a service-role key, or an
 administrative API key.
 
+## Frontend information architecture
+
+The private workspace is a routed control center rather than one long
+administration screen:
+
+```text
+/workspace/overview       → workspace pulse and next actions
+/workspace/knowledge      → sources, upload, filters, chunks, reindex/delete
+/workspace/processing     → ingestion timeline, retries, and stage errors
+/workspace/team           → invitations, members, and roles (owner)
+/workspace/evaluations    → golden-set quality and safety runs (owner)
+/workspace/settings       → workspace identity, usage, and policies (owner)
+```
+
+The workspace selector remains in the global header. Each section enables only
+the queries it needs so a failed members or evaluation request cannot blank the
+whole workspace. The onboarding guide is workspace-scoped, explains concepts
+in plain language, and links directly to the next action.
+
 ## Monorepo and ownership
 
 ```text
@@ -139,6 +158,32 @@ Hybrid retrieval combines two complementary signals:
 The displayed retrieval score is a relative relevance signal, not a probability
 or a guarantee that an answer is correct. The UI exposes sources so users can
 inspect the evidence.
+
+## Streaming answer flow
+
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant API
+  participant Workflow as LangGraph
+  participant Provider
+
+  Browser->>API: POST /v1/qa/stream (session + workspace)
+  API-->>Browser: accepted
+  API->>Workflow: retrieve with tenant scope
+  Workflow-->>Browser: retrieving
+  Workflow->>Provider: stream grounded generation
+  Workflow-->>Browser: generating + token deltas
+  Workflow-->>Browser: validating
+  API-->>Browser: completed answer + validated citations
+  Browser->>API: AbortController on user cancel
+```
+
+The first streaming transport is authenticated Server-Sent Events (SSE), which
+fits the dominant server-to-browser flow and preserves the existing structured
+answer contract. The regular JSON endpoint remains a fallback. WebSocket is
+reserved for future bidirectional requirements such as presence, live approval,
+or collaborative sessions.
 
 ## LangGraph workflow
 

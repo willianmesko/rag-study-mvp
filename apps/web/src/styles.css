@@ -45,6 +45,26 @@
   .primary-button { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-950/20 transition duration-200 hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-cyan-900/30 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-50; }
   .secondary-button { @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900/70 px-3.5 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-400/40 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50; }
   .success-message { @apply rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200; }
+  .stream-status-card { @apply rounded-2xl border border-cyan-400/25 bg-cyan-400/[0.05] p-5 shadow-lg shadow-cyan-950/10; }
+  .workspace-control-center__heading { @apply flex flex-col gap-4 rounded-3xl border border-slate-800/90 bg-slate-950/35 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7; }
+  .workspace-section-nav { @apply grid gap-2 rounded-2xl border border-slate-800/90 bg-slate-950/45 p-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6; }
+  .workspace-section-nav__item { @apply flex min-h-16 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-slate-400 transition duration-200 hover:bg-slate-900 hover:text-slate-100; }
+  .workspace-section-nav__item--active { @apply bg-cyan-400/10 text-cyan-100 ring-1 ring-inset ring-cyan-400/20; }
+  .workspace-section-nav__item--restricted { @apply opacity-60; }
+  .workspace-section-nav__icon { @apply grid size-8 shrink-0 place-items-center rounded-lg border border-slate-700 bg-slate-900 text-sm text-cyan-300; }
+  .workspace-metric { @apply rounded-2xl border border-slate-800/90 bg-slate-950/45 p-4; }
+  .workspace-metric--cyan { @apply border-cyan-400/20 bg-cyan-400/[0.04]; }
+  .workspace-metric--emerald { @apply border-emerald-400/20 bg-emerald-400/[0.04]; }
+  .workspace-metric--amber { @apply border-amber-400/20 bg-amber-400/[0.04]; }
+  .workspace-action-card { @apply rounded-xl border border-slate-800 bg-slate-950/45 p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-cyan-400/30 hover:bg-cyan-400/[0.03]; }
+  .onboarding-card { @apply rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-400/[0.08] via-slate-900/50 to-slate-950/50 p-5 shadow-xl shadow-cyan-950/10 sm:p-6; }
+  .onboarding-complete-banner { @apply flex w-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-3 text-left text-xs text-emerald-200 transition hover:bg-emerald-400/[0.1]; }
+  .onboarding-step { @apply rounded-2xl border border-slate-800 bg-slate-950/40 p-4 transition duration-200; }
+  .onboarding-step--current { @apply border-cyan-400/30 bg-cyan-400/[0.04]; }
+  .onboarding-step--done { @apply border-emerald-400/20 bg-emerald-400/[0.03]; }
+  .onboarding-step__number { @apply grid size-8 shrink-0 place-items-center rounded-xl bg-slate-800 font-mono text-[11px] text-slate-300; }
+  .onboarding-step--current .onboarding-step__number { @apply bg-cyan-400 text-slate-950; }
+  .onboarding-step--done .onboarding-step__number { @apply bg-emerald-400 text-slate-950; }
 }
 
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

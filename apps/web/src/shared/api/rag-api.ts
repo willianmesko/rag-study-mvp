@@ -33,6 +33,11 @@ export type QuestionResponse = {
   refusalReason?: string | null;
   sources: QuestionSource[];
 };
+export type AnswerStreamEvent =
+  | { type: "accepted" | "retrieving" | "generating" | "validating" | "cached"; status: string }
+  | { type: "token"; delta: string }
+  | { type: "completed"; response: QuestionResponse }
+  | { type: "error"; error: string };
 export type UploadJob = { id: string; source: string; title: string | null; filename: string; mimeType: string; status: "queued" | "processing" | "completed" | "failed"; progress: number; error: string | null; chunkCount: number | null; highRiskChunks: number | null; createdAt: string; updatedAt: string };
 export type IngestionEvent = { id: string; stage: string; status: "started" | "completed" | "failed" | "info"; durationMs: number | null; details: Record<string, unknown>; createdAt: string };
 export type ManagedDocument = { id: string; source: string; title: string | null; chunkCount: number; createdAt: string; updatedAt: string };
@@ -111,6 +116,53 @@ export const api = {
   search: (input: SearchInput & { accessToken?: string; workspaceId?: string }) =>
     request<SearchResponse>(`/v1/search?${new URLSearchParams({ q: input.query, topK: String(input.topK ?? 5) })}`, { headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) } }),
   answer: (input: QuestionInput & { accessToken?: string; workspaceId?: string }) => request<QuestionResponse>("/v1/qa", { method: "POST", body: JSON.stringify({ question: input.question, topK: input.topK ?? 5 }), headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) } }),
+  answerStream: async (input: QuestionInput & { accessToken?: string; workspaceId?: string; signal?: AbortSignal }, onEvent: (event: AnswerStreamEvent) => void): Promise<QuestionResponse> => {
+    const response = await fetch(`${apiBaseUrl}/v1/qa/stream`, {
+      method: "POST",
+      body: JSON.stringify({ question: input.question, topK: input.topK ?? 5 }),
+      signal: input.signal,
+      headers: { "content-type": "application/json", ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) }
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({})) as ErrorBody;
+      throw new ApiError(body.error ?? body.message ?? "The streaming request could not be completed.", response.status);
+    }
+    if (!response.body) throw new Error("Streaming is not available in this browser.");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let completed: QuestionResponse | null = null;
+    let streamFailure: string | null = null;
+    const consume = (block: string) => {
+      const lines = block.split(/\r?\n/);
+      const eventName = lines.find((line) => line.startsWith("event:"))?.slice(6).trim();
+      const dataLine = lines.find((line) => line.startsWith("data:"));
+      if (!eventName || !dataLine) return;
+      const data = JSON.parse(dataLine.slice(5).trim()) as Record<string, unknown>;
+      if (eventName === "completed") {
+        completed = data as unknown as QuestionResponse;
+        onEvent({ type: "completed", response: completed });
+      } else if (eventName === "error") {
+        streamFailure = String(data.error ?? "The streaming request failed.");
+        onEvent({ type: "error", error: streamFailure });
+      } else if (eventName === "token") {
+        onEvent({ type: "token", delta: String(data.delta ?? "") });
+      } else {
+        onEvent({ type: eventName as "accepted" | "retrieving" | "generating" | "validating" | "cached", status: String(data.status ?? eventName) });
+      }
+    };
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+      const blocks = buffer.split(/\r?\n\r?\n/);
+      buffer = blocks.pop() ?? "";
+      for (const block of blocks) consume(block);
+      if (done) break;
+    }
+    if (buffer) consume(buffer);
+    if (!completed) throw new Error(streamFailure ?? "The streaming response ended before a final answer was received.");
+    return completed;
+  },
   listUploads: (accessToken: string, workspaceId?: string) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
   listUploadEvents: (jobId: string, accessToken: string, workspaceId?: string) => request<{ events: IngestionEvent[] }>(`/v1/admin/uploads/${jobId}/events`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   getUsageSummary: (accessToken: string, workspaceId: string, days = 30) => request<{ days: number; summary: UsageSummary; alert: UsageAlert }>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),

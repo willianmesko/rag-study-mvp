@@ -88,3 +88,32 @@ test("LangGraph can require structured output for production providers", async (
   assert.equal(result.refusalReason, "unstructured_model_output");
   assert.match(result.answer, /structured response/i);
 });
+
+test("LangGraph streams retrieval, generation, tokens, and validation events", async () => {
+  const events: string[] = [];
+  const streamed = JSON.stringify({ answer: "Grounded answer.", citedChunkIds: ["chunk-1"], refusalReason: null });
+  const workflow = new LangGraphRagWorkflow(
+    {
+      execute: async () => [{
+        chunkId: "chunk-1", documentId: "document-1", ordinal: 0, content: "Embeddings map text to vectors.",
+        source: "golden/rag", title: "RAG", score: 0.91, security: { promptInjectionRisk: "low", signals: [] }
+      }]
+    },
+    {
+      generate: async () => streamed,
+      stream: async (_question, _context, onDelta) => {
+        for (const delta of [streamed.slice(0, 20), streamed.slice(20)]) await onDelta(delta);
+        return streamed;
+      }
+    } satisfies AnswerGenerator,
+    { maxContextChars: 1_000, minimumScore: 0.3 }
+  );
+
+  const result = await workflow.answerStream({ question: "What are embeddings?" }, (event) => {
+    events.push(event.type);
+  });
+  assert.equal(result.answer, "Grounded answer.");
+  assert.deepEqual(events.slice(0, 3), ["retrieving", "generating", "validating"]);
+  assert.ok(events.slice(3).every((event) => event === "token"));
+  assert.ok(events.slice(3).length > 0);
+});

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AnswerGenerator } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
 import { requestProviderJson } from "../http/provider-client.js";
+import { config } from "../../config.js";
 
 const responseSchema = z.object({ message: z.object({ content: z.string() }) });
 
@@ -26,5 +27,48 @@ export class OllamaAnswerGenerator implements AnswerGenerator {
     const answer = responseSchema.parse(json).message.content.trim();
     if (!answer) throw new Error("Ollama returned an empty chat response.");
     return answer;
+  }
+
+  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>): Promise<string> {
+    const prompt = createGroundedAnswerPrompt(question, context);
+    const response = await fetch(`${this.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: this.model,
+        stream: true,
+        options: { temperature: 0, num_predict: this.maxOutputTokens },
+        messages: [
+          { role: "system", content: prompt.system },
+          { role: "user", content: prompt.user }
+        ]
+      }),
+      signal: AbortSignal.timeout(config.PROVIDER_TIMEOUT_MS)
+    });
+    if (!response.ok) throw new Error(`Ollama streaming request failed (${response.status}).`);
+    if (!response.body) throw new Error("Ollama did not return a streaming body.");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let answer = "";
+    const consumeLine = async (line: string) => {
+      if (!line.trim()) return;
+      const parsed = JSON.parse(line) as { message?: { content?: string }; response?: string };
+      const delta = parsed.message?.content ?? parsed.response ?? "";
+      if (!delta) return;
+      answer += delta;
+      await onDelta(delta);
+    };
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() ?? "";
+      for (const line of lines) await consumeLine(line);
+      if (done) break;
+    }
+    if (buffer) await consumeLine(buffer);
+    if (!answer.trim()) throw new Error("Ollama returned an empty streaming response.");
+    return answer.trim();
   }
 }

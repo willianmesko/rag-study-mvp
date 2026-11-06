@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { documentInputSchema, questionInputSchema, workspaceMemberRoleSchema } from "@rag-study/contracts";
 import { ZodError, z } from "zod";
 import type { AnswerQuestionUseCase } from "../../application/use-cases/answer-question.js";
+import type { AnswerWorkflowEvent } from "../../application/ports/question-answering-workflow.js";
 import type { IngestDocumentUseCase } from "../../application/use-cases/ingest-document.js";
 import type { SearchDocumentsUseCase } from "../../application/use-cases/search-documents.js";
 import type { QueueDocumentUploadUseCase } from "../../application/use-cases/queue-document-upload.js";
@@ -107,8 +108,8 @@ export async function buildApp(dependencies: HttpDependencies) {
   app.addHook("onRequest", async (request, reply) => {
     const origin = typeof request.headers.origin === "string" ? request.headers.origin : undefined;
     const originAllowed = applyCorsHeaders(origin, reply);
+    if (!originAllowed) return reply.code(403).send({ error: "Origin not allowed" });
     if (request.method === "OPTIONS") {
-      if (!originAllowed) return reply.code(403).send({ error: "Origin not allowed" });
       return reply.code(204).send();
     }
     const providedApiKey = request.headers["x-api-key"];
@@ -392,6 +393,48 @@ export async function buildApp(dependencies: HttpDependencies) {
       }))
     };
   });
+  app.post("/v1/qa/stream", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
+    const { question, topK } = questionInputSchema.parse(request.body);
+    const hasAuthorization = typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer ");
+    const authorization = hasAuthorization ? await authorizeMember(request) : null;
+    if (authorization && !authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const tenantId = authorization?.ok ? authorization.tenantId : config.DEFAULT_TENANT_ID;
+    const actorKey = authorization?.ok ? `user:${authorization.userId}` : anonymousActorKey(request);
+    const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
+    if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
+
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      connection: "keep-alive",
+      "x-accel-buffering": "no",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "DENY",
+      "referrer-policy": "no-referrer",
+      ...(typeof request.headers.origin === "string" && config.ALLOWED_ORIGINS.includes(request.headers.origin) ? { "access-control-allow-origin": request.headers.origin, vary: "Origin" } : {})
+    });
+    let disconnected = false;
+    request.raw.on("close", () => { disconnected = true; });
+    const send = (event: string, data: unknown) => {
+      if (!disconnected && !reply.raw.destroyed) reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+    send("accepted", { status: "accepted" });
+    try {
+      const result = await dependencies.answerQuestion.execute({
+        question,
+        topK,
+        tenantId,
+        actorKey,
+        onEvent: (event: AnswerWorkflowEvent) => send(event.type, event.type === "token" ? { delta: event.delta } : { status: event.type })
+      });
+      send("completed", serializeQuestionAnswer(result));
+    } catch (error) {
+      send("error", { error: error instanceof Error ? error.message : "Unable to complete the answer." });
+    } finally {
+      if (!reply.raw.destroyed) reply.raw.end();
+    }
+  });
   return app;
 }
 
@@ -413,5 +456,23 @@ function serializeEvaluationRun(run: EvaluationRun) {
 
 function serializeStoredChunk(chunk: StoredChunk) {
   return { id: chunk.id, ordinal: chunk.ordinal, content: chunk.content, security: chunk.security, createdAt: chunk.createdAt.toISOString() };
+}
+
+function serializeQuestionAnswer(result: { answer: string; citedChunkIds?: string[]; structuredOutput?: boolean; refusalReason?: string; sources: Array<{ chunkId: string; documentId: string; source: string; title: string | null; ordinal: number; score: number; content: string }> }) {
+  return {
+    answer: result.answer,
+    citedChunkIds: result.citedChunkIds ?? [],
+    structuredOutput: result.structuredOutput ?? false,
+    refusalReason: result.refusalReason ?? null,
+    sources: result.sources.map(({ chunkId, documentId, source, title, ordinal, score, content }) => ({
+      chunkId,
+      documentId,
+      source,
+      title,
+      chunk: ordinal,
+      score,
+      excerpt: redactPii(content.slice(0, 1_200)).text
+    }))
+  };
 }
 

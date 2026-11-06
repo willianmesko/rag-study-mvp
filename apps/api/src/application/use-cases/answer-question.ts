@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { QuestionAnsweringWorkflow, AnswerQuestionResult } from "../ports/question-answering-workflow.js";
+import type { AnswerWorkflowEvent, QuestionAnsweringWorkflow, AnswerQuestionResult } from "../ports/question-answering-workflow.js";
 import type { EmbeddingProvider } from "../ports/embedding-provider.js";
 import type { SemanticAnswerCache } from "../ports/semantic-answer-cache.js";
 import type { UsageMetricsRepository } from "../ports/usage-metrics-repository.js";
@@ -14,12 +14,14 @@ export class AnswerQuestionUseCase {
     private readonly options: { cacheTtlSeconds: number; cacheMinimumSimilarity: number; provider: string; model: string; maxOutputTokens: number; maxEstimatedCostUsd: number; inputCostPer1kUsd: number; outputCostPer1kUsd: number }
   ) {}
 
-  async execute(input: { question: string; topK?: number; tenantId: string; actorKey: string }): Promise<AnswerQuestionResult> {
+  async execute(input: { question: string; topK?: number; tenantId: string; actorKey: string; onEvent?: (event: AnswerWorkflowEvent) => void | Promise<void> }): Promise<AnswerQuestionResult> {
     const startedAt = Date.now();
     const safeQuestion = redactPii(input.question).text;
     const embedding = await this.embeddings.embed(safeQuestion, "query");
     const cached = await this.cache.findSimilar({ tenantId: input.tenantId, embedding, minimumSimilarity: this.options.cacheMinimumSimilarity });
     if (cached) {
+      await input.onEvent?.({ type: "cached" });
+      await input.onEvent?.({ type: "validating" });
       await this.recordUsage(input, safeQuestion, cached.answer, startedAt, true, false);
       return { answer: cached.answer, sources: redactSources(cached.sources) };
     }
@@ -30,7 +32,10 @@ export class AnswerQuestionUseCase {
       throw new Error("This request exceeds the configured AI cost budget.");
     }
     try {
-      const result = await this.workflow.answer({ question: safeQuestion, topK: input.topK, tenantId: input.tenantId, queryEmbedding: embedding });
+      const workflowInput = { question: safeQuestion, topK: input.topK, tenantId: input.tenantId, queryEmbedding: embedding };
+      const result = this.workflow.answerStream
+        ? await this.workflow.answerStream(workflowInput, input.onEvent ?? (() => undefined))
+        : await this.workflow.answer(workflowInput);
       await this.cache.put({ tenantId: input.tenantId, questionHash: createHash("sha256").update(safeQuestion).digest("hex"), embedding, answer: result.answer, sources: redactSources(result.sources), expiresAt: new Date(Date.now() + this.options.cacheTtlSeconds * 1_000) });
       await this.recordUsage(input, safeQuestion, result.answer, startedAt, false, false);
       return result;

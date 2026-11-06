@@ -1,6 +1,6 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import type { AnswerGenerator } from "../../application/ports/answer-generator.js";
-import type { AnswerQuestionResult, QuestionAnsweringWorkflow } from "../../application/ports/question-answering-workflow.js";
+import type { AnswerQuestionResult, AnswerWorkflowEvent, QuestionAnsweringWorkflow } from "../../application/ports/question-answering-workflow.js";
 import { formatUntrustedContext } from "../../application/policies/grounded-answer-policy.js";
 import { assertStepBudget, withExecutionTimeout } from "../../application/policies/agent-execution-policy.js";
 import { parseGroundedAnswer, validateGroundedAnswer } from "../../application/policies/structured-answer.js";
@@ -64,6 +64,33 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
         score,
         content
       }))
+    };
+  }
+
+  async answerStream(input: { question: string; topK?: number; tenantId?: string; queryEmbedding?: number[] }, onEvent: (event: AnswerWorkflowEvent) => void | Promise<void>): Promise<AnswerQuestionResult> {
+    await onEvent({ type: "retrieving" });
+    const matches = (await this.retriever.execute({ query: input.question, topK: input.topK, tenantId: input.tenantId, queryEmbedding: input.queryEmbedding })).filter((match) => isSafeForAnswer(match.security));
+    if (!matches.some((match) => match.score >= this.options.minimumScore)) {
+      await onEvent({ type: "validating" });
+      return { answer: "I could not find sufficiently relevant context in the indexed documents to answer safely.", sources: [], citedChunkIds: [], structuredOutput: true, refusalReason: "insufficient_context" };
+    }
+    await onEvent({ type: "generating" });
+    const context = this.buildContext(matches);
+    const rawAnswer = this.answerGenerator.stream
+      ? await withExecutionTimeout(this.answerGenerator.stream(input.question, context, () => undefined), this.options.timeoutMs)
+      : await withExecutionTimeout(this.answerGenerator.generate(input.question, context), this.options.timeoutMs);
+    await onEvent({ type: "validating" });
+    const parsed = validateGroundedAnswer(parseGroundedAnswer(rawAnswer), new Set(matches.map((match) => match.chunkId)));
+    if (this.options.requireStructuredOutput && !parsed.structured) {
+      return { answer: "I could not validate the model's structured response, so I am declining to answer.", sources: [], citedChunkIds: [], structuredOutput: false, refusalReason: "unstructured_model_output" };
+    }
+    for (const delta of parsed.answer.match(/.{1,48}(?:\s+|$)/g) ?? [parsed.answer]) await onEvent({ type: "token", delta });
+    return {
+      answer: parsed.answer,
+      citedChunkIds: parsed.citedChunkIds,
+      structuredOutput: parsed.structured,
+      refusalReason: parsed.refusalReason ?? undefined,
+      sources: matches.map(({ chunkId, documentId, source, title, ordinal, score, content }) => ({ chunkId, documentId, source, title, ordinal, score, content }))
     };
   }
 
