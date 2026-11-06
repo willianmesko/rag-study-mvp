@@ -19,9 +19,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-      - run: npm run eval:security -- evals/security/prompt-injection.v1.json
-      - run: npm run eval:golden:ci
-      - run: npm run eval:promptfoo
+      - run: npm run eval:harness -- --report reports/evaluation-history/harness-${{ github.sha }}.json
+      - name: Upload harness report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumora-evaluation-harness-${{ github.sha }}
+          path: reports/evaluation-history/harness-${{ github.sha }}.json

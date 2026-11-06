@@ -4,6 +4,7 @@ dist/
 coverage/
 .promptfoo/
 .DS_Store
+reports/evaluation-history/*.json
 
 # Artefatos intermediários usados para gerar o guia visual; as versões finais
 # para estudo ficam em outputs/.

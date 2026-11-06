@@ -3,6 +3,35 @@
 Evaluate the system in layers. A plausible answer can hide incorrect retrieval,
 missing citations, or unsafe behavior when a malicious document is present.
 
+## Evaluation harness
+
+The repository includes a deterministic quality harness that runs type checking,
+unit tests, production builds, prompt-injection regression, golden-set retrieval,
+and Promptfoo security checks as one release gate:
+
+```bash
+npm run eval:harness
+```
+
+The harness stops at the first failed check, exits with a non-zero status, and
+can write a machine-readable report for CI or local inspection:
+
+```bash
+npm run eval:harness -- --report reports/evaluation-history/latest.json
+```
+
+Promptfoo currently requires Node.js 22.22 or newer. On an older local runtime,
+you can still run the deterministic checks while keeping the omission explicit:
+
+```bash
+npm run eval:harness -- --skip-promptfoo
+```
+
+CI remains configured with Node.js 24 and always runs Promptfoo.
+
+Reports intentionally contain metrics, statuses, durations, and commit metadata;
+they do not persist document text, questions, prompts, or provider secrets.
+
 ## 1. Prompt-injection regression suite
 
 `security/prompt-injection.v1.json` contains attacks and benign controls for the

@@ -21,7 +21,8 @@
     "eval:golden": "npm --workspace @rag-study/api run eval:golden --",
     "eval:golden:ci": "npm --workspace @rag-study/api run eval:golden:ci --",
     "eval:security": "npm --workspace @rag-study/api run eval:security --",
-    "eval:promptfoo": "npm --workspace @rag-study/api run eval:promptfoo"
+    "eval:promptfoo": "npm --workspace @rag-study/api run eval:promptfoo",
+    "eval:harness": "node scripts/run-evaluation-harness.mjs"
   },
   "overrides": { "light-my-request": "6.6.0" }
 }
