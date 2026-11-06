@@ -82,3 +82,17 @@ product decision, credentials, or additional operational cost.
    - Add a formal visual-regression baseline and automated contrast checks.
    - Continue refining member management and workspace onboarding with the same
      design tokens and state model.
+
+7. **Demo and product expansion**
+   - Seed realistic starter corpora for separate `TI` and `Legal` workspaces so
+     the tenant switcher can be demonstrated immediately.
+   - Persist question history and thumbs-up/thumbs-down feedback in the backend,
+     scoped by workspace and user, instead of keeping it only in the browser.
+   - Stream grounded answers and citations to the frontend as the model runs.
+   - Add an evaluation dashboard with hit rate, MRR, faithfulness, and prompt-
+     injection pass rate, linked to versioned evaluation runs.
+   - Deliver real workspace invitations through Supabase Auth email flows or a
+     transactional provider such as Resend.
+   - Add document filters for source, language, date range, and file type.
+   - Add side-by-side model/prompt comparison for answer quality, latency, cost,
+     citations, and safety outcomes.
