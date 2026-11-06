@@ -24,6 +24,7 @@ import { PgDocumentRepository } from "./infrastructure/postgres/pg-document-repo
 import { PgIngestionJobRepository } from "./infrastructure/postgres/pg-ingestion-job-repository.js";
 import { PgQuotaRepository } from "./infrastructure/postgres/pg-quota-repository.js";
 import { PgAuditEventRepository } from "./infrastructure/postgres/pg-audit-event-repository.js";
+import { PgTenantMembershipRepository } from "./infrastructure/postgres/pg-tenant-membership-repository.js";
 import { MultiFormatDocumentTextExtractor } from "./infrastructure/ingestion/document-text-extractor.js";
 import { createPostgresPool } from "./infrastructure/postgres/pool.js";
 import { PassThroughReranker } from "./infrastructure/reranking/pass-through-reranker.js";
@@ -38,6 +39,7 @@ export function createApplication() {
   const jobs = new PgIngestionJobRepository(pool);
   const quotas = new PgQuotaRepository(pool);
   const auditEvents = new PgAuditEventRepository(pool);
+  const memberships = new PgTenantMembershipRepository(pool);
   const originals = new SupabaseOriginalFileStore(
     config.SUPABASE_URL,
     config.SUPABASE_SERVICE_ROLE_KEY,
@@ -72,6 +74,7 @@ export function createApplication() {
       processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, new MultiFormatDocumentTextExtractor(), ingestDocument, originals),
       retryIngestionJob: new RetryIngestionJobUseCase(jobs),
       listIngestionJobs: (tenantId: string, limit: number) => jobs.list(tenantId, limit),
+      findPrimaryMembership: memberships.findPrimaryByUserId.bind(memberships),
       listDocuments: (tenantId: string, limit: number) => documents.list(tenantId, limit),
       listDocumentChunks: (tenantId: string, documentId: string, limit: number) => documents.listChunks({ tenantId, documentId, limit }),
       reindexDocument: new ReindexDocumentUseCase(jobs),

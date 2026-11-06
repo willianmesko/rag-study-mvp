@@ -1,10 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type ManagedDocument } from "../lib/api";
+import { api, type ManagedDocument, type UploadJob } from "../lib/api";
 import { supabase } from "../lib/supabase";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+}
+
+function PipelineVisualization({ job }: { job: UploadJob }) {
+  const current = job.status === "queued" ? 0 : job.status === "processing" ? 2 : job.status === "completed" ? 5 : -1;
+  const steps = ["Arquivo recebido", "Texto extraído", "Chunks criados", "Risco analisado", "Embeddings", "pgvector pronto"];
+  return <section className="overflow-hidden rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold tracking-[.15em] text-cyan-300 uppercase">Pipeline de ingestão</p><p className="mt-2 text-sm text-slate-300">{job.title ?? job.filename} · {job.progress}%</p></div><span className={`rounded-full px-2.5 py-1 font-mono text-xs ${job.status === "failed" ? "bg-rose-500/10 text-rose-300" : "bg-cyan-400/10 text-cyan-200"}`}>{job.status}</span></div><ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{steps.map((step, index) => { const complete = current > index; const active = current === index; const failed = job.status === "failed" && index === Math.max(0, current); return <li key={step} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-xs ${complete ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : failed ? "border-rose-400/30 bg-rose-400/10 text-rose-200" : active ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100" : "border-slate-800 bg-slate-950/40 text-slate-500"}`}><span className={`grid size-6 shrink-0 place-items-center rounded-full font-mono ${active ? "animate-pulse bg-cyan-400 text-slate-950" : complete ? "bg-emerald-400 text-slate-950" : "bg-slate-800"}`}>{complete ? "✓" : String(index + 1).padStart(2, "0")}</span>{step}</li>; })}</ol>{job.error && <p className="mt-4 text-xs text-rose-300">{job.error}</p>}</section>;
 }
 
 export function AdminPanel() {
@@ -104,6 +110,7 @@ export function AdminPanel() {
 
       {message && <p className="success-message">{message}</p>}
       {actionError && <p className="text-sm text-rose-300">{actionError.message}</p>}
+      {jobs.data?.jobs[0] && <PipelineVisualization job={jobs.data.jobs[0]} />}
 
       <div className="space-y-3"><div><h3 className="font-medium">Documentos indexados</h3><p className="mt-1 text-xs text-slate-500">Abra os chunks para inspecionar a unidade que realmente chega ao retrieval.</p></div>{documents.isLoading && <p className="text-sm text-slate-400">Carregando documentos…</p>}{documents.data?.documents.length === 0 && <p className="rounded-xl border border-dashed border-slate-700 p-4 text-sm text-slate-400">Ainda não há documentos indexados.</p>}<div className="grid gap-3">{documents.data?.documents.map((document) => <article className={`rounded-xl border p-4 transition ${selectedDocument?.id === document.id ? "border-cyan-400/50 bg-cyan-400/5" : "border-slate-800 bg-slate-900/30"}`} key={document.id}><div className="flex flex-col justify-between gap-4 sm:flex-row"><button className="min-w-0 text-left" type="button" onClick={() => setSelectedDocument(document)}><p className="truncate text-sm font-medium text-slate-100">{document.title ?? document.source}</p><p className="mt-1 truncate font-mono text-xs text-slate-500">{document.source}</p><p className="mt-2 text-xs text-slate-400">{document.chunkCount} chunks · atualizado em {formatDate(document.updatedAt)}</p></button><div className="flex shrink-0 items-start gap-3 text-xs font-medium"><button type="button" className="text-cyan-300 hover:text-cyan-100" onClick={() => setSelectedDocument(document)}>Ver chunks</button><button type="button" className="text-violet-300 hover:text-violet-100" onClick={() => reindex.mutate(document.id)} disabled={reindex.isPending}>Reindexar</button><button type="button" className="text-rose-300 hover:text-rose-100" onClick={() => confirmDelete(document)} disabled={remove.isPending}>Excluir</button></div></div></article>)}</div></div>
 

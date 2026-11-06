@@ -16,6 +16,7 @@ import type { IngestionJob } from "../../application/ports/ingestion-job-reposit
 import type { ManagedDocument, StoredChunk } from "../../application/ports/document-repository.js";
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
 import type { QuotaResult } from "../../application/ports/quota-repository.js";
+import type { TenantMembership } from "../../application/ports/tenant-membership-repository.js";
 import { config } from "../../config.js";
 
 const documentSchema = z.object({
@@ -35,6 +36,7 @@ type HttpDependencies = {
   processNextIngestionJob: ProcessNextIngestionJobUseCase;
   retryIngestionJob: RetryIngestionJobUseCase;
   listIngestionJobs: (tenantId: string, limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
+  findPrimaryMembership: (userId: string) => Promise<TenantMembership | null>;
   listDocuments: (tenantId: string, limit: number) => Promise<ManagedDocument[]>;
   listDocumentChunks: (tenantId: string, documentId: string, limit: number) => Promise<StoredChunk[]>;
   reindexDocument: ReindexDocumentUseCase;
@@ -101,15 +103,16 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.get("/health", async () => ({ status: "ok" }));
   const authorizeAdmin = async (request: { headers: Record<string, string | string[] | undefined> }) => {
-    if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY || config.ADMIN_EMAILS.length === 0) return { ok: false as const, status: 503, error: "Admin upload is not configured." };
+    if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return { ok: false as const, status: 503, error: "Admin upload is not configured." };
     const authorization = request.headers.authorization;
     const token = typeof authorization === "string" && authorization.startsWith("Bearer ") ? authorization.slice(7) : undefined;
     if (!token) return { ok: false as const, status: 401, error: "Authentication required." };
     const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await supabase.auth.getUser(token);
-    const email = data.user?.email?.toLowerCase();
-    if (error || !email || !config.ADMIN_EMAILS.includes(email)) return { ok: false as const, status: 403, error: "Administrator access required." };
-    return { ok: true as const, userId: data.user.id };
+    if (error || !data.user) return { ok: false as const, status: 403, error: "Administrator access required." };
+    const membership = await dependencies.findPrimaryMembership(data.user.id);
+    if (!membership || (membership.role !== "owner" && membership.role !== "editor")) return { ok: false as const, status: 403, error: "Editor or owner access required." };
+    return { ok: true as const, userId: data.user.id, tenantId: membership.tenantId, role: membership.role };
   };
   app.post("/v1/admin/uploads", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
@@ -120,11 +123,11 @@ export async function buildApp(dependencies: HttpDependencies) {
     const titleHeader = request.headers["x-document-title"];
     const input = z.object({ source: z.string().min(3).max(1_000), title: z.string().min(1).max(500).optional() }).parse({ source: sourceHeader ?? `upload/${file.filename}`, title: titleHeader || undefined });
     const payload = await file.toBuffer();
-    const quota = await dependencies.consumeAdminUploadQuota(config.DEFAULT_TENANT_ID, authorization.userId, payload.byteLength);
+    const quota = await dependencies.consumeAdminUploadQuota(authorization.tenantId, authorization.userId, payload.byteLength);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily upload quota reached. Try again tomorrow." });
-    const job = await dependencies.queueDocumentUpload.execute({ tenantId: config.DEFAULT_TENANT_ID, source: input.source, title: input.title, filename: file.filename, mimeType: file.mimetype || "application/octet-stream", payload });
+    const job = await dependencies.queueDocumentUpload.execute({ tenantId: authorization.tenantId, source: input.source, title: input.title, filename: file.filename, mimeType: file.mimetype || "application/octet-stream", payload });
     await dependencies.recordAuditEvent({
-      tenantId: config.DEFAULT_TENANT_ID,
+      tenantId: authorization.tenantId,
       actorUserId: authorization.userId,
       action: "document.upload_queued",
       resourceType: "ingestion_job",
@@ -137,16 +140,16 @@ export async function buildApp(dependencies: HttpDependencies) {
   app.get("/v1/admin/uploads", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
-    return { jobs: (await dependencies.listIngestionJobs(config.DEFAULT_TENANT_ID, 30)).map(serializeJob) };
+    return { jobs: (await dependencies.listIngestionJobs(authorization.tenantId, 30)).map(serializeJob) };
   });
   app.post("/v1/admin/uploads/:jobId/retry", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
     const { jobId } = z.object({ jobId: z.string().uuid() }).parse(request.params);
     try {
-      await dependencies.retryIngestionJob.execute(jobId, config.DEFAULT_TENANT_ID);
+      await dependencies.retryIngestionJob.execute(jobId, authorization.tenantId);
       await dependencies.recordAuditEvent({
-        tenantId: config.DEFAULT_TENANT_ID,
+        tenantId: authorization.tenantId,
         actorUserId: authorization.userId,
         action: "ingestion.retry_queued",
         resourceType: "ingestion_job",
@@ -162,22 +165,22 @@ export async function buildApp(dependencies: HttpDependencies) {
   app.get("/v1/admin/documents", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
-    return { documents: (await dependencies.listDocuments(config.DEFAULT_TENANT_ID, 100)).map(serializeDocument) };
+    return { documents: (await dependencies.listDocuments(authorization.tenantId, 100)).map(serializeDocument) };
   });
   app.get("/v1/admin/documents/:documentId/chunks", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
     const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
-    return { chunks: (await dependencies.listDocumentChunks(config.DEFAULT_TENANT_ID, documentId, 200)).map(serializeStoredChunk) };
+    return { chunks: (await dependencies.listDocumentChunks(authorization.tenantId, documentId, 200)).map(serializeStoredChunk) };
   });
   app.post("/v1/admin/documents/:documentId/reindex", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
     const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
-    const job = await dependencies.reindexDocument.execute({ documentId, tenantId: config.DEFAULT_TENANT_ID });
+    const job = await dependencies.reindexDocument.execute({ documentId, tenantId: authorization.tenantId });
     if (!job) return reply.code(409).send({ error: "This document has no stored original available for reindexing." });
     await dependencies.recordAuditEvent({
-      tenantId: config.DEFAULT_TENANT_ID,
+      tenantId: authorization.tenantId,
       actorUserId: authorization.userId,
       action: "document.reindex_queued",
       resourceType: "ingestion_job",
@@ -191,10 +194,10 @@ export async function buildApp(dependencies: HttpDependencies) {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
     const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
-    const deleted = await dependencies.deleteDocument.execute({ documentId, tenantId: config.DEFAULT_TENANT_ID });
+    const deleted = await dependencies.deleteDocument.execute({ documentId, tenantId: authorization.tenantId });
     if (!deleted) return reply.code(404).send({ error: "Document not found." });
     await dependencies.recordAuditEvent({
-      tenantId: config.DEFAULT_TENANT_ID,
+      tenantId: authorization.tenantId,
       actorUserId: authorization.userId,
       action: "document.deleted",
       resourceType: "document",

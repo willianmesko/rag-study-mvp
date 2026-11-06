@@ -25,6 +25,13 @@ para que a demo não esconda trabalho operacional pendente.
 - UX de produto: administrador lista documentos, visualiza chunks, reindexa a
   partir do original privado e exclui documento/chunks/original; fontes de Q&A
   são clicáveis e cada navegador mantém seu próprio histórico com feedback.
+- Visualização do pipeline de ingestão no painel: o job exibe arquivo recebido,
+  extração, chunking, triagem, embeddings e persistência vetorial. A próxima
+  evolução é persistir duração e contagens de cada etapa, não apenas o progresso
+  agregado atual.
+- Base de RBAC: `tenant_memberships` com papéis `owner`, `editor` e `viewer`.
+  A API deriva o tenant da sessão validada e só `owner`/`editor` administram o
+  corpus; nenhum endpoint administrativo aceita tenant do navegador.
 
 ## Pendente para ativar amanhã
 
@@ -81,8 +88,8 @@ retry. Nenhuma chave é necessária no frontend.
    escaneado contém páginas como imagens e precisa de OCR antes de gerar chunks
    e embeddings. A extração deve sinalizar baixa confiança para revisão humana.
 
-4. **Visualização do pipeline RAG no upload:** transformar o processamento de
-   documento em uma linha do tempo visível na área administrativa: arquivo
+4. **Detalhar a visualização do pipeline RAG:** persistir o processamento de
+   documento em uma linha do tempo com duração e contagens: arquivo
    recebido → texto extraído → chunks criados → chunks sinalizados por risco →
    embeddings gerados → persistência vetorial → documento pronto para busca.
    A tela deve mostrar contagens, tempo por etapa, erros e um preview seguro de
@@ -98,9 +105,10 @@ retry. Nenhuma chave é necessária no frontend.
      API administrativa para ler o resumo de ingestão. O navegador somente
      consulta esse estado; nunca executa embeddings ou acessa segredos.
 
-5. **RBAC e tenant real:** tabela de memberships, papéis (`owner`, `editor`,
-   `viewer`), tenant derivado da sessão autenticada e políticas RLS revisadas.
-   A API não deve aceitar `tenant_id` vindo do navegador.
+5. **RBAC e tenant real:** onboarding/convites de memberships, troca de tenant,
+   UX de `viewer` e políticas RLS revisadas para uma futura conexão direta do
+   navegador a dados permitidos. A API não deve aceitar `tenant_id` vindo do
+   navegador.
 6. **Observabilidade:** traces no LangSmith *ou* Langfuse/Phoenix, métricas de
    latência, custo, falhas e volume sem registrar conteúdo ou segredos.
 7. **Qualidade de retrieval:** habilitar e medir Jina reranker somente com

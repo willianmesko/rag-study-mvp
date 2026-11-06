@@ -184,7 +184,7 @@ O projeto inclui um caminho de publicação com frontend estático, API e banco 
 
 ### Upload administrativo assíncrono
 
-O frontend público também possui uma aba **Administrar**, mas ela não conhece `ADMIN_API_KEY` nem credenciais do banco. Um administrador entra pelo Supabase Auth; a API valida o token no Supabase e compara o e-mail retornado com `ADMIN_EMAILS`, configurado somente no backend.
+O frontend público também possui uma aba **Administrar**, mas ela não conhece `ADMIN_API_KEY` nem credenciais do banco. Um administrador entra pelo Supabase Auth; a API valida o token no Supabase e deriva tenant e papel da tabela `tenant_memberships`. Somente `owner` e `editor` podem administrar o corpus; o navegador nunca escolhe o tenant.
 
 Após o upload, `POST /v1/admin/uploads` grava um job durável no PostgreSQL. O worker incorporado busca jobs pendentes, extrai texto de PDF, DOCX, TXT ou Markdown e então executa o pipeline normal de chunking, embeddings e triagem de prompt injection. A interface consulta `GET /v1/admin/uploads` para exibir `queued`, `processing`, `completed` ou `failed`.
 
