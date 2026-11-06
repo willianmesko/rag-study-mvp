@@ -57,14 +57,6 @@
   .workspace-metric--emerald { @apply border-emerald-400/20 bg-emerald-400/[0.04]; }
   .workspace-metric--amber { @apply border-amber-400/20 bg-amber-400/[0.04]; }
   .workspace-action-card { @apply rounded-xl border border-slate-800 bg-slate-950/45 p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-cyan-400/30 hover:bg-cyan-400/[0.03]; }
-  .onboarding-card { @apply rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-400/[0.08] via-slate-900/50 to-slate-950/50 p-5 shadow-xl shadow-cyan-950/10 sm:p-6; }
-  .onboarding-complete-banner { @apply flex w-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-3 text-left text-xs text-emerald-200 transition hover:bg-emerald-400/[0.1]; }
-  .onboarding-step { @apply rounded-2xl border border-slate-800 bg-slate-950/40 p-4 transition duration-200; }
-  .onboarding-step--current { @apply border-cyan-400/30 bg-cyan-400/[0.04]; }
-  .onboarding-step--done { @apply border-emerald-400/20 bg-emerald-400/[0.03]; }
-  .onboarding-step__number { @apply grid size-8 shrink-0 place-items-center rounded-xl bg-slate-800 font-mono text-[11px] text-slate-300; }
-  .onboarding-step--current .onboarding-step__number { @apply bg-cyan-400 text-slate-950; }
-  .onboarding-step--done .onboarding-step__number { @apply bg-emerald-400 text-slate-950; }
 }
 
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

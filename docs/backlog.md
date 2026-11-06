@@ -78,9 +78,22 @@ product decision, credentials, or additional operational cost.
    - Compare providers and prompts with a versioned evaluation report.
 
 5. **Production readiness**
+   - The [backend scalability review](backend-scalability-review.md) records
+     source findings and proposed capacity gates. Execute the mixed-workload
+     benchmark before committing to a topology change.
+   - Validate whether the current backend architecture meets projected scale.
+     Define workload and service targets for active workspaces, concurrent chat
+     streams, corpus size, and ingestion bursts. Load-test mixed traffic and
+     measure p95 search and chat latency, time to first stream event, error
+     rates, queue lag, database connection saturation, and cost per workload.
+   - Compare tuning and scaling the current modular API with separating the
+     ingestion worker. Include the effect of one busy workspace on others and
+     distinguish database or worker bottlenecks from AI provider limits.
+     Record the decision, evidence, cost trade-offs, and measurable triggers
+     for revisiting it in an architecture decision record.
    - Review RLS policies again before exposing any new database API surface.
    - Move high-volume jobs to Redis + BullMQ and a dedicated worker only when
-     workload justifies its cost.
+     the scalability review shows that the workload justifies the added cost.
    - Add backups, retention policy, domain, identity limits, and incident runbook
      before onboarding real users.
 
@@ -230,8 +243,10 @@ product decision, credentials, or additional operational cost.
      retries, dead-letter handling, and replayable audit records exist.
 
 16. **Guided onboarding for non-technical teams**
-   - Phase 1 implemented: workspace-scoped local progress, a Legal starter path,
-     role-aware guidance, and deep links into each workspace section.
+   - The bilingual Milo guide now offers role-aware steps, Legal and IT
+     examples, an interactive citation example, and a suggested question that
+     opens the chat as an editable draft. Progress is saved per workspace on
+     the current browser.
    - Create a first-run, step-by-step onboarding flow for users who do not know
      RAG terminology or infrastructure concepts.
    - Start with a plain-language goal, for example: “Make your law firm’s
@@ -276,3 +291,22 @@ product decision, credentials, or additional operational cost.
      citation validation, and fallback to the regular HTTP response.
    - Remaining: persist run state for reconnect/resume and propagate browser
      cancellation all the way to provider requests.
+
+18. **Portuguese and English support**
+   - The interface now supports Brazilian Portuguese and English with automatic
+     browser-language selection and a saved manual override. Chat language
+     fallback and multilingual retrieval evaluation remain follow-up work.
+   - Localize the web interface in Brazilian Portuguese (`pt-BR`) and English
+     (`en`), including onboarding, workspace navigation, chat statuses, errors,
+     and empty states. Format dates and numbers for the selected locale.
+   - Detect the interface language from browser preferences on first visit.
+     Default to English when no supported locale matches. Add a global language
+     selector and persist explicit choices so they take precedence on return.
+   - Detect the language of each question independently of the interface and
+     answer in that language. Use the selected interface language when a
+     question is short, ambiguous, or mixes languages without a clear majority.
+   - Build on ingestion language detection to label documents as Portuguese,
+     English, mixed, or unknown. Keep citation excerpts in the source language.
+   - Add acceptance tests for automatic selection, saved overrides, and
+     English-to-Portuguese and Portuguese-to-English retrieval with grounded
+     answers and citations.

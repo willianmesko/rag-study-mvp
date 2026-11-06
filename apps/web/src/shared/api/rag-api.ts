@@ -115,7 +115,7 @@ export const api = {
     request<IngestResponse>("/v1/documents", { method: "POST", body: JSON.stringify(input) }),
   search: (input: SearchInput & { accessToken?: string; workspaceId?: string }) =>
     request<SearchResponse>(`/v1/search?${new URLSearchParams({ q: input.query, topK: String(input.topK ?? 5) })}`, { headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) } }),
-  answer: (input: QuestionInput & { accessToken?: string; workspaceId?: string }) => request<QuestionResponse>("/v1/qa", { method: "POST", body: JSON.stringify({ question: input.question, topK: input.topK ?? 5 }), headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) } }),
+  answer: (input: QuestionInput & { accessToken?: string; workspaceId?: string; signal?: AbortSignal }) => request<QuestionResponse>("/v1/qa", { method: "POST", signal: input.signal, body: JSON.stringify({ question: input.question, topK: input.topK ?? 5 }), headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) } }),
   answerStream: async (input: QuestionInput & { accessToken?: string; workspaceId?: string; signal?: AbortSignal }, onEvent: (event: AnswerStreamEvent) => void): Promise<QuestionResponse> => {
     const response = await fetch(`${apiBaseUrl}/v1/qa/stream`, {
       method: "POST",
