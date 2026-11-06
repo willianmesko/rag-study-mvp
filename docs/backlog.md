@@ -65,7 +65,8 @@ product decision, credentials, or additional operational cost.
    structure-aware chunking. Scanned PDF OCR is complete.
 2. RAG visualization — controlled passage previews and score interpretation.
 3. UX quality — responsive visual tests, contrast, accessibility, and team flows.
-4. Workspace Control Center — finish extracting independent section widgets.
+4. Workspace Control Center — finish extracting independent section widgets
+   and expose additional workspace creation in the signed-in app.
 5. Product expansion — demo datasets, backend history and feedback, invites,
    filters, and faithfulness evaluation.
 6. Real-time chat — reconnect, resume, and provider cancellation.
@@ -101,6 +102,9 @@ make model availability, cost estimates, and quota behavior visible in Ask.
 4. **Retrieval quality and observability**
    - Evaluate Jina reranking against the golden set before enabling it.
    - Add LangSmith or Langfuse/Phoenix traces under an approved data policy.
+   - Add OpenTelemetry spans by workflow stage, request correlation IDs,
+     reason-coded logs and metrics, tool-call telemetry, alarms, and runbooks.
+     Evaluate Splunk and VictoriaMetrics as operational backends when needed.
    - Compare providers and prompts with a versioned evaluation report.
 
 5. **Production readiness**
@@ -140,6 +144,9 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      `Settings`.
    - Keep workspace switching in the global header so users can move between
      workspaces such as `TI` and `Legal` without losing their current section.
+   - Add **Create workspace** to the signed-in switcher and guide the user
+     through setup for the new space. Require an explicit workspace on private
+     operations for multi-workspace accounts and test roles and data isolation.
    - Move each section into a dedicated Feature-Sliced widget and keep actions
      in focused features such as upload, reindex, member management, invite,
      evaluation, and workspace settings.
@@ -164,11 +171,11 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      the tenant switcher can be demonstrated immediately.
    - Persist question history and thumbs-up/thumbs-down feedback in the backend,
      scoped by workspace and user, instead of keeping it only in the browser.
-   - Stream grounded answers and citations to the frontend as the model runs.
+   - Extend the existing answer stream with incremental, validated citations.
    - Extend the evaluation dashboard with faithfulness and context precision
      from an approved LLM judge or Ragas evaluation job.
-   - Deliver real workspace invitations through Supabase Auth email flows or a
-     transactional provider such as Resend.
+   - Verify invitation delivery and onboarding with the existing Supabase Auth
+     invitation endpoint. Configure a transactional sender if needed.
    - Add document filters for source, language, date range, and file type.
    - Add side-by-side model/prompt comparison for answer quality, latency, cost,
      citations, and safety outcomes.
@@ -192,14 +199,16 @@ make model availability, cost estimates, and quota behavior visible in Ask.
    - Add regression reports that compare the current run with the previous
      baseline and fail release gates when recall, precision, safety, latency, or
      cost crosses a configured threshold.
+   - Add anonymized production replays and calibrate a judge against reviewed
+     examples. Compare model and effort settings, including false-positive rates.
 
 10. **LangGraph workflow expansion**
    - Add adaptive RAG: retrieve, apply a relevance gate, rewrite the query when
      evidence is weak, retry retrieval once, and refuse when evidence remains
      insufficient.
-   - Add citation verification after generation. Accept only citations that
-     refer to retrieved chunks; otherwise repair the answer or return a safe
-     refusal.
+   - Citation IDs are already checked against passages sent to the model.
+     Add claim-to-source verification and a bounded repair path for invalid
+     citations before returning a refusal.
    - Orchestrate advanced ingestion as a checkpointed graph: extraction, text
      quality gate, OCR fallback, metadata, language detection, structure-aware
      chunking, security scan, embeddings, and persistence. Retry only the failed
@@ -218,6 +227,8 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      search, source inspection, ingestion status, and evaluation reports.
    - Enforce tenant scope, RBAC, schema validation, audit events, rate limits,
      timeouts, and explicit tool allowlists on every MCP call.
+   - Isolate agent tool execution with a read-only runtime, scoped filesystem
+     access, bounded tokens, cost and steps, and cancellation that stops work.
    - Add isolated execution for any future write-capable tool, with approval,
      idempotency keys, retries, dead-letter handling, and a replayable audit
      record.
