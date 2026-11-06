@@ -55,6 +55,23 @@ retry. Nenhuma chave é necessária no frontend.
    administrador e trilha de auditoria já estão implementados. Restam quotas de
    tokens, PII, cache semântico e alertas de gasto.
 
+   Próximos incrementos desta camada:
+
+   1. **Redaction e detecção de PII:** detectar e mascarar dados pessoais antes
+      de enviar pergunta ou contexto a provedores externos; preservar somente a
+      versão mínima necessária para a resposta e registrar métricas, nunca o
+      conteúdo sensível nos logs.
+   2. **Cache semântico por tenant:** reutilizar respostas para perguntas muito
+      semelhantes, com TTL, chave isolada por tenant e invalidação ao reindexar
+      o corpus; reduzir chamadas repetidas ao LLM sem misturar dados entre
+      clientes.
+   3. **Quotas por usuário final:** substituir a quota compartilhada da demo
+      por contadores atômicos ligados ao `user_id` autenticado, mantendo também
+      limites agregados por tenant.
+   4. **Métricas e alertas de gasto/uso:** medir requests, tokens estimados,
+      latência, cache hit rate e falhas por tenant/provedor; configurar alertas
+      antes de atingir um orçamento definido.
+
 3. **Melhorar ingestão:** OCR para PDFs escaneados, importação de URLs/HTML,
    metadados, detecção de idioma e chunking por estrutura de documento.
 
