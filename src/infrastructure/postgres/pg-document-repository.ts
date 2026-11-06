@@ -43,18 +43,18 @@ export class PgDocumentRepository implements DocumentRepository {
   constructor(private readonly pool: Pool, private readonly embeddingDimensions: number) {}
 
   async replace(
-    input: { source: string; title?: string; metadata: Record<string, unknown> },
+    input: { tenantId: string; source: string; title?: string; metadata: Record<string, unknown> },
     chunks: EmbeddedChunk[]
   ): Promise<{ id: string; chunkCount: number }> {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
       const document = await client.query<{ id: string }>(
-        `INSERT INTO documents (source, title, metadata)
-         VALUES ($1, $2, $3::jsonb)
-         ON CONFLICT (source) DO UPDATE SET title = EXCLUDED.title, metadata = EXCLUDED.metadata, updated_at = NOW()
+        `INSERT INTO documents (tenant_id, source, title, metadata)
+         VALUES ($1, $2, $3, $4::jsonb)
+         ON CONFLICT (tenant_id, source) DO UPDATE SET title = EXCLUDED.title, metadata = EXCLUDED.metadata, updated_at = NOW()
          RETURNING id`,
-        [input.source, input.title ?? null, JSON.stringify(input.metadata)]
+        [input.tenantId, input.source, input.title ?? null, JSON.stringify(input.metadata)]
       );
       const documentId = document.rows[0]?.id;
       if (!documentId) throw new Error("Unable to create or update document.");
@@ -81,6 +81,8 @@ export class PgDocumentRepository implements DocumentRepository {
          FROM (
            SELECT c.id, c.embedding <=> $1::vector AS cosine_distance
            FROM chunks c
+           JOIN documents d ON d.id = c.document_id
+           WHERE d.tenant_id = $7
            ORDER BY c.embedding <=> $1::vector
            LIMIT $2
          ) nearest
@@ -90,8 +92,9 @@ export class PgDocumentRepository implements DocumentRepository {
          FROM (
            SELECT c.id, ts_rank_cd(c.search_vector, q.query) AS text_score
            FROM chunks c
+           JOIN documents d ON d.id = c.document_id
            CROSS JOIN text_query q
-           WHERE c.search_vector @@ q.query
+           WHERE d.tenant_id = $7 AND c.search_vector @@ q.query
            ORDER BY text_score DESC, c.id
            LIMIT $4
          ) lexical
@@ -115,7 +118,7 @@ export class PgDocumentRepository implements DocumentRepository {
               c.metadata, f.vector_rank, f.keyword_rank, f.fusion_score
        FROM fused_candidates f
        JOIN chunks c ON c.id = f.id
-       JOIN documents d ON d.id = c.document_id
+       JOIN documents d ON d.id = c.document_id AND d.tenant_id = $7
        ORDER BY f.fusion_score DESC, c.id
        LIMIT $6`,
       [
@@ -124,7 +127,8 @@ export class PgDocumentRepository implements DocumentRepository {
         input.lexicalQuery,
         input.keywordCandidateLimit,
         input.reciprocalRankConstant,
-        input.limit
+        input.limit,
+        input.tenantId
       ]
     );
     return result.rows.map((row) => ({

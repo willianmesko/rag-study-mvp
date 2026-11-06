@@ -6,7 +6,7 @@ import type { Reranker } from "../ports/reranker.js";
 import { SearchDocumentsUseCase } from "./search-documents.js";
 
 test("search use case combines embedding and keyword candidates through its repository port", async () => {
-  const calls: { query?: string; search?: { embedding: number[]; query: string; lexicalQuery: string; limit: number; vectorCandidateLimit: number; keywordCandidateLimit: number; reciprocalRankConstant: number }; vector?: number[] } = {};
+  const calls: { query?: string; search?: { tenantId: string; embedding: number[]; query: string; lexicalQuery: string; limit: number; vectorCandidateLimit: number; keywordCandidateLimit: number; reciprocalRankConstant: number }; vector?: number[] } = {};
   const embeddings: EmbeddingProvider = { embed: async (query) => { calls.query = query; return [0.1, 0.2]; } };
   const documents: DocumentRepository = {
     replace: async () => ({ id: "unused", chunkCount: 0 }),
@@ -23,12 +23,14 @@ test("search use case combines embedding and keyword candidates through its repo
     vectorCandidateMultiplier: 4,
     keywordCandidateMultiplier: 3,
     reciprocalRankConstant: 60,
-    rerankerCandidateMultiplier: 4
+    rerankerCandidateMultiplier: 4,
+    defaultTenantId: "tenant-a"
   });
   await useCase.execute({ query: "O que é RAG?", topK: 3 });
   assert.equal(calls.query, "O que é RAG?");
   assert.deepEqual(calls.vector, [0.1, 0.2]);
   assert.deepEqual(calls.search, {
+    tenantId: "tenant-a",
     embedding: [0.1, 0.2],
     query: "O que é RAG?",
     lexicalQuery: "rag",
@@ -63,7 +65,8 @@ test("search fetches extra candidates and keeps high-risk chunks away from a rem
     vectorCandidateMultiplier: 4,
     keywordCandidateMultiplier: 4,
     reciprocalRankConstant: 60,
-    rerankerCandidateMultiplier: 4
+    rerankerCandidateMultiplier: 4,
+    defaultTenantId: "tenant-a"
   });
 
   const results = await useCase.execute({ query: "question", topK: 2 });

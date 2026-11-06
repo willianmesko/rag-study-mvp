@@ -2,6 +2,7 @@ export type IngestionJobStatus = "queued" | "processing" | "completed" | "failed
 
 export type IngestionJob = {
   id: string;
+  tenantId: string;
   source: string;
   title: string | null;
   filename: string;
@@ -22,6 +23,6 @@ export interface IngestionJobRepository {
   claimNext(): Promise<IngestionJob | null>;
   complete(id: string, result: { chunkCount: number; highRiskChunks: number }): Promise<void>;
   fail(id: string, error: string): Promise<void>;
-  retry(id: string): Promise<boolean>;
-  list(limit: number): Promise<Omit<IngestionJob, "payload">[]>;
+  retry(id: string, tenantId: string): Promise<boolean>;
+  list(tenantId: string, limit: number): Promise<Omit<IngestionJob, "payload">[]>;
 }

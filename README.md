@@ -255,6 +255,8 @@ LIMIT 5;
 
 ## Decisões e próximos experimentos
 
+O estado operacional e as próximas entregas estão em [docs/backlog.md](docs/backlog.md).
+
 | Decisão do MVP | Por que | Próximo experimento |
 | --- | --- | --- |
 | Provedor intercambiável, 1.024 dimensões | Ollama local para estudo; OpenRouter/Bedrock para comparação | comparar embedding e dimensão após criar nova coluna/tabela e reindexar |

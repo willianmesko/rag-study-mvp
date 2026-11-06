@@ -16,16 +16,18 @@ export class SearchDocumentsUseCase {
       keywordCandidateMultiplier: number;
       reciprocalRankConstant: number;
       rerankerCandidateMultiplier: number;
+      defaultTenantId: string;
     }
   ) {}
 
-  async execute(input: { query: string; topK?: number }): Promise<RetrievedChunk[]> {
+  async execute(input: { query: string; topK?: number; tenantId?: string }): Promise<RetrievedChunk[]> {
     const queryEmbedding = await this.embeddings.embed(input.query, "query");
     const limit = input.topK ?? this.options.defaultTopK;
     const rerankCandidateLimit = this.reranker.enabled
       ? limit * this.options.rerankerCandidateMultiplier
       : limit;
     const candidates = await this.documents.findHybrid({
+      tenantId: input.tenantId ?? this.options.defaultTenantId,
       embedding: queryEmbedding,
       query: input.query,
       lexicalQuery: toLexicalQuery(input.query),

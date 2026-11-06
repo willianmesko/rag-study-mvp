@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { createApplication } from "../../bootstrap.js";
+import { config } from "../../config.js";
 
 async function main(): Promise<void> {
   const file = process.argv[2];
@@ -9,6 +10,7 @@ async function main(): Promise<void> {
   const application = createApplication();
   try {
     const result = await application.useCases.ingestDocument.execute({
+      tenantId: config.DEFAULT_TENANT_ID,
       source: process.argv[3] ?? `file://${path}`,
       title: basename(path),
       text: await readFile(path, "utf8"),

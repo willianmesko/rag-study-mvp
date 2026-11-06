@@ -29,7 +29,7 @@ type HttpDependencies = {
   queueDocumentUpload: QueueDocumentUploadUseCase;
   processNextIngestionJob: ProcessNextIngestionJobUseCase;
   retryIngestionJob: RetryIngestionJobUseCase;
-  listIngestionJobs: (limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
+  listIngestionJobs: (tenantId: string, limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
 };
 
 function matchesApiKey(candidate: string | undefined, expected: string): boolean {
@@ -107,20 +107,20 @@ export async function buildApp(dependencies: HttpDependencies) {
     const sourceHeader = request.headers["x-document-source"];
     const titleHeader = request.headers["x-document-title"];
     const input = z.object({ source: z.string().min(3).max(1_000), title: z.string().min(1).max(500).optional() }).parse({ source: sourceHeader ?? `upload/${file.filename}`, title: titleHeader || undefined });
-    const job = await dependencies.queueDocumentUpload.execute({ source: input.source, title: input.title, filename: file.filename, mimeType: file.mimetype || "application/octet-stream", payload: await file.toBuffer() });
+    const job = await dependencies.queueDocumentUpload.execute({ tenantId: config.DEFAULT_TENANT_ID, source: input.source, title: input.title, filename: file.filename, mimeType: file.mimetype || "application/octet-stream", payload: await file.toBuffer() });
     return reply.code(202).send({ job: serializeJob(job) });
   });
   app.get("/v1/admin/uploads", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
-    return { jobs: (await dependencies.listIngestionJobs(30)).map(serializeJob) };
+    return { jobs: (await dependencies.listIngestionJobs(config.DEFAULT_TENANT_ID, 30)).map(serializeJob) };
   });
   app.post("/v1/admin/uploads/:jobId/retry", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
     const { jobId } = z.object({ jobId: z.string().uuid() }).parse(request.params);
     try {
-      await dependencies.retryIngestionJob.execute(jobId);
+      await dependencies.retryIngestionJob.execute(jobId, config.DEFAULT_TENANT_ID);
       return reply.code(202).send({ jobId, status: "queued" });
     } catch (error) {
       return reply.code(409).send({ error: error instanceof Error ? error.message : "Unable to retry ingestion job." });
@@ -133,7 +133,7 @@ export async function buildApp(dependencies: HttpDependencies) {
       if (!matchesApiKey(adminKey, config.ADMIN_API_KEY as string)) return reply.code(401).send({ error: "Unauthorized" });
     }
     const input = documentSchema.parse(request.body);
-    const result = await dependencies.ingestDocument.execute(input);
+    const result = await dependencies.ingestDocument.execute({ ...input, tenantId: config.DEFAULT_TENANT_ID });
     if (result.highRiskChunks > 0) {
       request.log.warn({ documentId: result.id, highRiskChunks: result.highRiskChunks }, "High-risk chunks excluded from Q&A context");
     }

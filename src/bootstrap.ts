@@ -42,7 +42,8 @@ export function createApplication() {
     vectorCandidateMultiplier: config.HYBRID_VECTOR_CANDIDATE_MULTIPLIER,
     keywordCandidateMultiplier: config.HYBRID_KEYWORD_CANDIDATE_MULTIPLIER,
     reciprocalRankConstant: config.RRF_K,
-    rerankerCandidateMultiplier: config.RERANKER_CANDIDATE_MULTIPLIER
+    rerankerCandidateMultiplier: config.RERANKER_CANDIDATE_MULTIPLIER,
+    defaultTenantId: config.DEFAULT_TENANT_ID
   });
   const ragWorkflow = new LangGraphRagWorkflow(searchDocuments, answerGenerator, {
     maxContextChars: 12_000,
@@ -64,7 +65,7 @@ export function createApplication() {
       queueDocumentUpload: new QueueDocumentUploadUseCase(jobs, originals),
       processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, new MultiFormatDocumentTextExtractor(), ingestDocument, originals),
       retryIngestionJob: new RetryIngestionJobUseCase(jobs),
-      listIngestionJobs: (limit: number) => jobs.list(limit),
+      listIngestionJobs: (tenantId: string, limit: number) => jobs.list(tenantId, limit),
       searchDocuments,
       answerQuestion: new AnswerQuestionUseCase(answerWorkflow)
     },

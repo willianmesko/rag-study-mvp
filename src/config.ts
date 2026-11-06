@@ -52,6 +52,7 @@ const environment = z.object({
   SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   SUPABASE_UPLOAD_BUCKET: z.string().min(3).max(63).default("rag-originals"),
+  DEFAULT_TENANT_ID: z.string().uuid().default("00000000-0000-4000-8000-000000000001"),
   ADMIN_EMAILS: z.string().optional().transform((value) =>
     (value ?? "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean)
   ),

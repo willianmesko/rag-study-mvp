@@ -49,7 +49,7 @@ export class IngestDocumentUseCase {
     }));
 
     const persisted = await this.documents.replace(
-      { source: input.source, title: input.title, metadata: input.metadata ?? {} },
+      { tenantId: input.tenantId, source: input.source, title: input.title, metadata: input.metadata ?? {} },
       embeddedChunks
     );
     return {

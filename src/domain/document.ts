@@ -1,6 +1,7 @@
 import type { PromptInjectionAssessment } from "./security/prompt-injection.js";
 
 export type DocumentInput = {
+  tenantId: string;
   source: string;
   title?: string;
   text: string;

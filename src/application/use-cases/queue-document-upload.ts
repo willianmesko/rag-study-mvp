@@ -5,7 +5,7 @@ import type { OriginalFileStore } from "../ports/original-file-store.js";
 export class QueueDocumentUploadUseCase {
   constructor(private readonly jobs: IngestionJobRepository, private readonly originals: OriginalFileStore) {}
 
-  async execute(input: { source: string; title?: string; filename: string; mimeType: string; payload: Buffer }) {
+  async execute(input: { tenantId: string; source: string; title?: string; filename: string; mimeType: string; payload: Buffer }) {
     if (!this.originals.isEnabled()) {
       return this.jobs.enqueue({ ...input, title: input.title ?? null, storagePath: null });
     }

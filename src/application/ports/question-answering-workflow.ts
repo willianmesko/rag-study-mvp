@@ -6,6 +6,6 @@ export type AnswerQuestionResult = {
 };
 
 export interface QuestionAnsweringWorkflow {
-  answer(input: { question: string; topK?: number }): Promise<AnswerQuestionResult>;
+  answer(input: { question: string; topK?: number; tenantId?: string }): Promise<AnswerQuestionResult>;
 }
 

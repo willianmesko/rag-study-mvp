@@ -3,7 +3,7 @@ import type { QuestionAnsweringWorkflow, AnswerQuestionResult } from "../ports/q
 export class AnswerQuestionUseCase {
   constructor(private readonly workflow: QuestionAnsweringWorkflow) {}
 
-  execute(input: { question: string; topK?: number }): Promise<AnswerQuestionResult> {
+  execute(input: { question: string; topK?: number; tenantId?: string }): Promise<AnswerQuestionResult> {
     return this.workflow.answer(input);
   }
 }
