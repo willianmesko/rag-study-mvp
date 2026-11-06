@@ -35,10 +35,10 @@ export class PgQuotaRepository implements QuotaRepository {
   async consumeUpload(input: { tenantId: string; actorKey: string; bytes: number; limit: number }): Promise<QuotaResult> {
     const result = await this.pool.query<UsageRow>(
       `INSERT INTO tenant_daily_usage (tenant_id, actor_key, uploaded_bytes)
-       SELECT $1, $2, $3 WHERE $3 <= $4
+       SELECT $1, $2, $3::BIGINT WHERE $3::BIGINT <= $4::BIGINT
        ON CONFLICT (tenant_id, actor_key, usage_date) DO UPDATE
          SET uploaded_bytes = tenant_daily_usage.uploaded_bytes + EXCLUDED.uploaded_bytes, updated_at = NOW()
-         WHERE tenant_daily_usage.uploaded_bytes + EXCLUDED.uploaded_bytes <= $4
+         WHERE tenant_daily_usage.uploaded_bytes + EXCLUDED.uploaded_bytes <= $4::BIGINT
        RETURNING qa_requests, uploaded_bytes`,
       [input.tenantId, input.actorKey, input.bytes, input.limit]
     );
