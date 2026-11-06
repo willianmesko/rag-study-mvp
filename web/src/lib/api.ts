@@ -65,6 +65,7 @@ export const api = {
     request<SearchResponse>(`/v1/search?${new URLSearchParams({ q: input.query, topK: String(input.topK) })}`),
   answer: (input: { question: string; topK: number }) => request<QuestionResponse>("/v1/qa", { method: "POST", body: JSON.stringify(input) }),
   listUploads: (accessToken: string) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { headers: { authorization: `Bearer ${accessToken}` } }),
+  retryUpload: (jobId: string, accessToken: string) => request<{ jobId: string; status: string }>(`/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}` } }),
   uploadDocument: async (input: { file: File; source: string; title?: string; accessToken: string }) => {
     const body = new FormData(); body.append("file", input.file);
     const response = await fetch(`${apiBaseUrl}/v1/admin/uploads`, { method: "POST", body, headers: { authorization: `Bearer ${input.accessToken}`, "x-document-source": input.source, ...(input.title ? { "x-document-title": input.title } : {}) } });

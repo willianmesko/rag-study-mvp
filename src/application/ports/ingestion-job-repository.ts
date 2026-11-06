@@ -22,5 +22,6 @@ export interface IngestionJobRepository {
   claimNext(): Promise<IngestionJob | null>;
   complete(id: string, result: { chunkCount: number; highRiskChunks: number }): Promise<void>;
   fail(id: string, error: string): Promise<void>;
+  retry(id: string): Promise<boolean>;
   list(limit: number): Promise<Omit<IngestionJob, "payload">[]>;
 }

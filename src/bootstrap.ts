@@ -3,6 +3,7 @@ import { IngestDocumentUseCase } from "./application/use-cases/ingest-document.j
 import { SearchDocumentsUseCase } from "./application/use-cases/search-documents.js";
 import { QueueDocumentUploadUseCase } from "./application/use-cases/queue-document-upload.js";
 import { ProcessNextIngestionJobUseCase } from "./application/use-cases/process-next-ingestion-job.js";
+import { RetryIngestionJobUseCase } from "./application/use-cases/retry-ingestion-job.js";
 import { config } from "./config.js";
 import type { AnswerGenerator } from "./application/ports/answer-generator.js";
 import type { EmbeddingProvider } from "./application/ports/embedding-provider.js";
@@ -62,6 +63,7 @@ export function createApplication() {
       ingestDocument,
       queueDocumentUpload: new QueueDocumentUploadUseCase(jobs, originals),
       processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, new MultiFormatDocumentTextExtractor(), ingestDocument, originals),
+      retryIngestionJob: new RetryIngestionJobUseCase(jobs),
       listIngestionJobs: (limit: number) => jobs.list(limit),
       searchDocuments,
       answerQuestion: new AnswerQuestionUseCase(answerWorkflow)

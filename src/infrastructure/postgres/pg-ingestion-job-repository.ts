@@ -18,5 +18,9 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
   async complete(id: string, result: { chunkCount: number; highRiskChunks: number }) { await this.pool.query("UPDATE ingestion_jobs SET status='completed', progress=100, chunk_count=$2, high_risk_chunks=$3, payload=NULL, updated_at=NOW() WHERE id=$1", [id, result.chunkCount, result.highRiskChunks]); }
   // Keep a failed payload/object reference so the job can safely be retried.
   async fail(id: string, error: string) { await this.pool.query("UPDATE ingestion_jobs SET status='failed', progress=100, error=$2, updated_at=NOW() WHERE id=$1", [id, error]); }
+  async retry(id: string) {
+    const result = await this.pool.query("UPDATE ingestion_jobs SET status='queued', progress=0, error=NULL, updated_at=NOW() WHERE id=$1 AND status='failed'", [id]);
+    return result.rowCount === 1;
+  }
   async list(limit: number) { const result = await this.pool.query<Row>(`SELECT ${columns.replace("payload, ", "")} FROM ingestion_jobs ORDER BY created_at DESC LIMIT $1`, [limit]); return result.rows.map(({ payload: _payload, ...row }) => map({ ...row, payload: null })); }
 }

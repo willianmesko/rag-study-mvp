@@ -9,6 +9,7 @@ import type { IngestDocumentUseCase } from "../../application/use-cases/ingest-d
 import type { SearchDocumentsUseCase } from "../../application/use-cases/search-documents.js";
 import type { QueueDocumentUploadUseCase } from "../../application/use-cases/queue-document-upload.js";
 import type { ProcessNextIngestionJobUseCase } from "../../application/use-cases/process-next-ingestion-job.js";
+import type { RetryIngestionJobUseCase } from "../../application/use-cases/retry-ingestion-job.js";
 import type { IngestionJob } from "../../application/ports/ingestion-job-repository.js";
 import { config } from "../../config.js";
 
@@ -27,6 +28,7 @@ type HttpDependencies = {
   answerQuestion: AnswerQuestionUseCase;
   queueDocumentUpload: QueueDocumentUploadUseCase;
   processNextIngestionJob: ProcessNextIngestionJobUseCase;
+  retryIngestionJob: RetryIngestionJobUseCase;
   listIngestionJobs: (limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
 };
 
@@ -112,6 +114,17 @@ export async function buildApp(dependencies: HttpDependencies) {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
     return { jobs: (await dependencies.listIngestionJobs(30)).map(serializeJob) };
+  });
+  app.post("/v1/admin/uploads/:jobId/retry", async (request, reply) => {
+    const authorization = await authorizeAdmin(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { jobId } = z.object({ jobId: z.string().uuid() }).parse(request.params);
+    try {
+      await dependencies.retryIngestionJob.execute(jobId);
+      return reply.code(202).send({ jobId, status: "queued" });
+    } catch (error) {
+      return reply.code(409).send({ error: error instanceof Error ? error.message : "Unable to retry ingestion job." });
+    }
   });
   app.post("/v1/documents", async (request, reply) => {
     if (config.DEMO_MODE) {
