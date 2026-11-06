@@ -18,6 +18,8 @@ import type { ManagedDocument, StoredChunk } from "../../application/ports/docum
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
 import type { QuotaResult } from "../../application/ports/quota-repository.js";
 import type { UsageSummary } from "../../application/ports/usage-metrics-repository.js";
+import type { EvaluationRun } from "../../application/ports/evaluation-repository.js";
+import type { RunEvaluationUseCase } from "../../application/use-cases/run-evaluation.js";
 import type { TenantMembership, TenantRole, WorkspaceMember } from "../../application/ports/tenant-membership-repository.js";
 import { config } from "../../config.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
@@ -51,6 +53,8 @@ type HttpDependencies = {
   consumeQuestionQuota: (tenantId: string, actorKey: string) => Promise<QuotaResult>;
   consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => Promise<QuotaResult>;
   getUsageSummary: (tenantId: string, days: number) => Promise<UsageSummary>;
+  listEvaluationRuns: (tenantId: string, limit: number) => Promise<EvaluationRun[]>;
+  runEvaluation: RunEvaluationUseCase;
   invalidateSemanticCache: (tenantId: string) => Promise<void>;
   recordAuditEvent: AuditEventRepository["record"];
 };
@@ -252,6 +256,17 @@ export async function buildApp(dependencies: HttpDependencies) {
     const summary = await dependencies.getUsageSummary(authorization.tenantId, days);
     return { days, summary, alert: { thresholdUsd: config.USAGE_ALERT_THRESHOLD_USD, triggered: summary.estimatedCostUsd >= config.USAGE_ALERT_THRESHOLD_USD } };
   });
+  app.get("/v1/admin/evaluations", async (request, reply) => {
+    const authorization = await authorizeOwner(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { limit } = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20) }).parse(request.query);
+    return { runs: (await dependencies.listEvaluationRuns(authorization.tenantId, limit)).map(serializeEvaluationRun) };
+  });
+  app.post("/v1/admin/evaluations/run", async (request, reply) => {
+    const authorization = await authorizeOwner(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    return reply.code(201).send({ run: serializeEvaluationRun(await dependencies.runEvaluation.execute({ tenantId: authorization.tenantId })) });
+  });
   app.post("/v1/admin/uploads/:jobId/retry", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
@@ -387,6 +402,10 @@ function serializeIngestionEvent(event: IngestionJobEvent) {
 
 function serializeDocument(document: ManagedDocument) {
   return { id: document.id, source: document.source, title: document.title, chunkCount: document.chunkCount, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() };
+}
+
+function serializeEvaluationRun(run: EvaluationRun) {
+  return { ...run, createdAt: run.createdAt.toISOString() };
 }
 
 function serializeStoredChunk(chunk: StoredChunk) {

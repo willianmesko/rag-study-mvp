@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type IngestionEvent, type ManagedDocument, type UploadJob, type Workspace } from "../../../shared/api/rag-api";
 import { supabase } from "../../../shared/lib/supabase";
+import { EvaluationPanel } from "../../evaluation-dashboard/ui/EvaluationPanel";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
@@ -76,6 +77,7 @@ export function AdminPanel({ selectedWorkspaceId, onWorkspaceChange }: { selecte
   const readOnly = workspace?.role === "viewer";
   const members = useQuery({ queryKey: ["workspace-members", token, workspaceId], queryFn: () => api.listWorkspaceMembers(workspaceId, token as string), enabled: Boolean(token && workspaceId && workspace?.role === "owner") });
   const usage = useQuery({ queryKey: ["usage-summary", token, workspaceId], queryFn: () => api.getUsageSummary(token as string, workspaceId), enabled: Boolean(token && workspaceId && workspace?.role === "owner"), refetchInterval: 30_000 });
+  const evaluations = useQuery({ queryKey: ["evaluation-runs", token, workspaceId], queryFn: () => api.listEvaluationRuns(token as string, workspaceId), enabled: Boolean(token && workspaceId && workspace?.role === "owner") });
   const chunks = useQuery({
     queryKey: ["document-chunks", token, selectedDocument?.id],
     queryFn: () => api.listDocumentChunks(selectedDocument?.id as string, token as string, workspaceId),
@@ -158,6 +160,13 @@ export function AdminPanel({ selectedWorkspaceId, onWorkspaceChange }: { selecte
       void refreshDocuments(); void jobs.refetch();
     }
   });
+  const runEvaluation = useMutation({
+    mutationFn: () => {
+      if (!token || !workspaceId) throw new Error("Select a workspace.");
+      return api.runEvaluation(token, workspaceId);
+    },
+    onSuccess: () => { setMessage("Evaluation completed and saved."); void queryClient.invalidateQueries({ queryKey: ["evaluation-runs", token, workspaceId] }); }
+  });
 
   async function logout() { await supabase?.auth.signOut(); setToken(null); setSelectedDocument(null); setMessage("Signed out."); }
   function submitLogin(event: FormEvent) { event.preventDefault(); login.mutate(); }
@@ -182,7 +191,7 @@ export function AdminPanel({ selectedWorkspaceId, onWorkspaceChange }: { selecte
     return <section className="mx-auto max-w-xl space-y-5 rounded-2xl border border-slate-800 bg-slate-900/40 p-6"><div><p className="text-xs font-semibold tracking-[.18em] uppercase text-cyan-300">Onboarding</p><h2 className="mt-2 text-2xl font-semibold">Create your first workspace</h2><p className="mt-2 text-sm text-slate-400">A workspace separates documents, members, and permissions. You will be its owner.</p></div><form className="grid gap-4" onSubmit={submitWorkspace}><input className="field" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} placeholder="Workspace name (for example, TI)" minLength={2} maxLength={100} required /><input className="field" value={workspaceSlug} onChange={(event) => setWorkspaceSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))} placeholder="Slug (for example, ti)" pattern="[a-z0-9-]{2,60}" minLength={2} maxLength={60} required /><button className="primary-button w-fit" disabled={createWorkspace.isPending}>{createWorkspace.isPending ? "Creating…" : "Create workspace"}</button>{createWorkspace.error && <p role="alert" className="text-sm text-rose-300">{createWorkspace.error.message}</p>}</form><button className="text-sm text-slate-400 hover:text-white" onClick={() => void logout()}>Sign out</button></section>;
   }
 
-  const actionError = upload.error ?? retry.error ?? reindex.error ?? remove.error ?? inviteMember.error ?? changeMemberRole.error ?? removeMember.error;
+  const actionError = upload.error ?? retry.error ?? reindex.error ?? remove.error ?? inviteMember.error ?? changeMemberRole.error ?? removeMember.error ?? runEvaluation.error;
   return (
     <section className="space-y-8">
       <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold tracking-[.18em] uppercase text-cyan-300">Protected area</p><h2 className="mt-2 text-2xl font-semibold">Manage the corpus</h2><p className="mt-2 text-sm text-slate-400">Uploads, reindexing, and deletion happen on the server; original files are never public.</p></div><button className="text-sm text-slate-400 hover:text-white" onClick={() => void logout()}>Sign out</button></div>
@@ -192,6 +201,7 @@ export function AdminPanel({ selectedWorkspaceId, onWorkspaceChange }: { selecte
       {workspace?.role === "owner" && <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-6"><div><h3 className="font-medium">Workspace members</h3><p className="mt-1 text-xs text-slate-500">Only owners can invite, change the role of, or remove editors and viewers.</p></div><form className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]" onSubmit={submitInvitation}><input className="field" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="email@example.com" required /><select className="field" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as "editor" | "viewer")}><option value="viewer">Viewer · read-only</option><option value="editor">Editor · corpus</option></select><button className="primary-button" disabled={inviteMember.isPending}>{inviteMember.isPending ? "Sending…" : "Invite"}</button></form><div className="divide-y divide-slate-800 rounded-xl border border-slate-800">{members.data?.members.map((member) => <div className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm" key={member.userId}><div><p className="text-slate-200">{member.email ?? "Email unavailable"}</p><p className="font-mono text-xs text-slate-500">{member.role}</p></div>{member.role === "owner" ? <span className="text-xs text-cyan-300">Protected owner</span> : <div className="flex items-center gap-2"><select className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs" value={member.role} onChange={(event) => changeMemberRole.mutate({ userId: member.userId, role: event.target.value as "editor" | "viewer" })}><option value="viewer">Viewer</option><option value="editor">Editor</option></select><button className="text-xs text-rose-300 hover:text-rose-100" type="button" onClick={() => { if (window.confirm(`Remove ${member.email ?? "this member"}?`)) removeMember.mutate(member.userId); }}>Remove</button></div>}</div>)}</div></section>}
 
       {workspace?.role === "owner" && <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6"><div className="flex items-center justify-between gap-3"><div><h3 className="font-medium">AI usage · last 30 days</h3><p className="mt-1 text-xs text-slate-500">Estimated values use configured model prices. Cache hits have no model cost.</p></div><span className={`font-mono text-xs ${usage.data?.alert.triggered ? "text-rose-300" : "text-cyan-300"}`}>${usage.data?.summary.estimatedCostUsd.toFixed(4) ?? "0.0000"}</span></div>{usage.data?.alert.triggered && <p className="mt-3 rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-xs text-rose-200">Estimated usage reached the configured budget alert of ${usage.data.alert.thresholdUsd.toFixed(2)}. Review provider usage before enabling more traffic.</p>}<div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><div className="rounded-lg bg-slate-950/60 p-3"><p className="text-xs text-slate-500">Requests</p><p className="mt-1 font-mono text-sm">{usage.data?.summary.requests ?? 0}</p></div><div className="rounded-lg bg-slate-950/60 p-3"><p className="text-xs text-slate-500">Cache hits</p><p className="mt-1 font-mono text-sm">{usage.data?.summary.cacheHits ?? 0}</p></div><div className="rounded-lg bg-slate-950/60 p-3"><p className="text-xs text-slate-500">Average latency</p><p className="mt-1 font-mono text-sm">{Math.round(usage.data?.summary.averageLatencyMs ?? 0)} ms</p></div><div className="rounded-lg bg-slate-950/60 p-3"><p className="text-xs text-slate-500">Provider failures</p><p className="mt-1 font-mono text-sm">{usage.data?.summary.providerFailures ?? 0}</p></div></div></section>}
+      {workspace?.role === "owner" && <EvaluationPanel runs={evaluations.data?.runs ?? []} isLoading={evaluations.isLoading} isRunning={runEvaluation.isPending} onRun={() => runEvaluation.mutate()} />}
 
       {!readOnly && <form className="grid gap-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-6" onSubmit={submitUpload}><p className="text-sm font-medium text-slate-200">Add a document</p><input className="field" value={source} onChange={(event) => setSource(event.target.value)} placeholder="Unique source (for example, docs/architecture)" /><input className="field" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Optional title" /><input className="field" type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} required /><button className="primary-button w-fit" disabled={upload.isPending}>{upload.isPending ? "Queueing…" : "Send for processing"}</button></form>}
 

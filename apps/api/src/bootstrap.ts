@@ -27,12 +27,14 @@ import { PgAuditEventRepository } from "./infrastructure/postgres/pg-audit-event
 import { PgTenantMembershipRepository } from "./infrastructure/postgres/pg-tenant-membership-repository.js";
 import { PgSemanticAnswerCache } from "./infrastructure/postgres/pg-semantic-answer-cache.js";
 import { PgUsageMetricsRepository } from "./infrastructure/postgres/pg-usage-metrics-repository.js";
+import { PgEvaluationRepository } from "./infrastructure/postgres/pg-evaluation-repository.js";
 import { RedactingAnswerGenerator } from "./infrastructure/security/redacting-answer-generator.js";
 import { RedactingEmbeddingProvider } from "./infrastructure/security/redacting-embedding-provider.js";
 import { MultiFormatDocumentTextExtractor } from "./infrastructure/ingestion/document-text-extractor.js";
 import { createPostgresPool } from "./infrastructure/postgres/pool.js";
 import { PassThroughReranker } from "./infrastructure/reranking/pass-through-reranker.js";
 import { SupabaseOriginalFileStore } from "./infrastructure/storage/supabase-original-file-store.js";
+import { RunEvaluationUseCase } from "./application/use-cases/run-evaluation.js";
 
 export function createApplication() {
   const pool = createPostgresPool(config.DATABASE_URL);
@@ -46,6 +48,7 @@ export function createApplication() {
   const memberships = new PgTenantMembershipRepository(pool);
   const semanticCache = new PgSemanticAnswerCache(pool, config.EMBEDDING_DIMENSIONS);
   const usageMetrics = new PgUsageMetricsRepository(pool);
+  const evaluations = new PgEvaluationRepository(pool);
   const originals = new SupabaseOriginalFileStore(
     config.SUPABASE_URL,
     config.SUPABASE_SERVICE_ROLE_KEY,
@@ -97,6 +100,13 @@ export function createApplication() {
       consumeQuestionQuota: (tenantId: string, actorKey: string) => quotas.consumeQuestion({ tenantId, actorKey, tenantLimit: config.DAILY_TENANT_QA_LIMIT, actorLimit: config.DAILY_USER_QA_LIMIT }),
       consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => quotas.consumeUpload({ tenantId, actorKey, bytes, limit: config.DAILY_ADMIN_UPLOAD_BYTES_LIMIT }),
       getUsageSummary: (tenantId: string, days: number) => usageMetrics.summarize({ tenantId, days }),
+      listEvaluationRuns: (tenantId: string, limit: number) => evaluations.list(tenantId, limit),
+      runEvaluation: new RunEvaluationUseCase(searchDocuments, evaluations, {
+        embeddingProvider: config.EMBEDDING_PROVIDER,
+        embeddingModel: config.EMBEDDING_PROVIDER === "openrouter" ? config.OPENROUTER_EMBEDDING_MODEL : config.EMBEDDING_PROVIDER === "bedrock" ? config.BEDROCK_EMBEDDING_MODEL_ID : config.OLLAMA_EMBEDDING_MODEL,
+        chatProvider: config.CHAT_PROVIDER,
+        chatModel: config.CHAT_PROVIDER === "openrouter" ? config.OPENROUTER_CHAT_MODEL : config.CHAT_PROVIDER === "bedrock" ? config.BEDROCK_CHAT_MODEL_ID : config.OLLAMA_CHAT_MODEL
+      }),
       invalidateSemanticCache: (tenantId: string) => semanticCache.invalidateTenant(tenantId),
       recordAuditEvent: auditEvents.record.bind(auditEvents),
       searchDocuments,

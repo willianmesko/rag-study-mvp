@@ -43,6 +43,10 @@ product decision, credentials, or additional operational cost.
 - CI quality gates for every push and pull request: typecheck, unit tests,
   production builds, prompt-injection regression, deterministic golden-set
   retrieval, and Promptfoo security checks.
+- Evaluation dashboard MVP: owner-only persisted evaluation runs with hit rate,
+  MRR, injection pass rate, provider/model metadata, pass/fail thresholds, and
+  historical run comparison. Faithfulness and context precision remain
+  explicitly pending until an LLM judge or Ragas evaluator is connected.
 
 ## Next, in priority order
 
@@ -89,8 +93,8 @@ product decision, credentials, or additional operational cost.
    - Persist question history and thumbs-up/thumbs-down feedback in the backend,
      scoped by workspace and user, instead of keeping it only in the browser.
    - Stream grounded answers and citations to the frontend as the model runs.
-   - Add an evaluation dashboard with hit rate, MRR, faithfulness, and prompt-
-     injection pass rate, linked to versioned evaluation runs.
+   - Extend the evaluation dashboard with faithfulness and context precision
+     from an approved LLM judge or Ragas evaluation job.
    - Deliver real workspace invitations through Supabase Auth email flows or a
      transactional provider such as Resend.
    - Add document filters for source, language, date range, and file type.

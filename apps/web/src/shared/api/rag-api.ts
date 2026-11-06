@@ -38,6 +38,27 @@ export type Workspace = { tenantId: string; tenantName: string; tenantSlug: stri
 export type WorkspaceMember = { userId: string; email: string | null; role: Workspace["role"]; createdAt: string };
 export type UsageSummary = { requests: number; cacheHits: number; inputTokens: number; outputTokens: number; estimatedCostUsd: number; averageLatencyMs: number; providerFailures: number };
 export type UsageAlert = { thresholdUsd: number; triggered: boolean };
+export type EvaluationRun = {
+  id: string;
+  tenantId: string;
+  datasetName: string;
+  datasetVersion: string;
+  commitSha: string | null;
+  embeddingProvider: string;
+  embeddingModel: string;
+  chatProvider: string;
+  chatModel: string;
+  totalCases: number;
+  hitRate: number;
+  meanReciprocalRank: number;
+  faithfulness: number | null;
+  contextPrecision: number | null;
+  injectionPassRate: number;
+  passed: boolean;
+  durationMs: number;
+  failureDetails: Record<string, unknown>;
+  createdAt: string;
+};
 
 type ErrorBody = { error?: string; message?: string };
 
@@ -90,6 +111,8 @@ export const api = {
   listUploads: (accessToken: string, workspaceId?: string) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
   listUploadEvents: (jobId: string, accessToken: string, workspaceId?: string) => request<{ events: IngestionEvent[] }>(`/v1/admin/uploads/${jobId}/events`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   getUsageSummary: (accessToken: string, workspaceId: string, days = 30) => request<{ days: number; summary: UsageSummary; alert: UsageAlert }>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listEvaluationRuns: (accessToken: string, workspaceId: string) => request<{ runs: EvaluationRun[] }>("/v1/admin/evaluations?limit=20", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  runEvaluation: (accessToken: string, workspaceId: string) => request<{ run: EvaluationRun }>("/v1/admin/evaluations/run", { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   retryUpload: (jobId: string, accessToken: string, workspaceId?: string) => request<{ jobId: string; status: string }>(`/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listDocuments: (accessToken: string, workspaceId?: string) => request<{ documents: ManagedDocument[] }>("/v1/admin/documents", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listDocumentChunks: (documentId: string, accessToken: string, workspaceId?: string) => request<{ chunks: StoredChunk[] }>(`/v1/admin/documents/${documentId}/chunks`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
