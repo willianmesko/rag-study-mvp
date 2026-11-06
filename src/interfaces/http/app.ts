@@ -16,7 +16,7 @@ import type { IngestionJob } from "../../application/ports/ingestion-job-reposit
 import type { ManagedDocument, StoredChunk } from "../../application/ports/document-repository.js";
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
 import type { QuotaResult } from "../../application/ports/quota-repository.js";
-import type { TenantMembership } from "../../application/ports/tenant-membership-repository.js";
+import type { TenantMembership, TenantRole, WorkspaceMember } from "../../application/ports/tenant-membership-repository.js";
 import { config } from "../../config.js";
 
 const documentSchema = z.object({
@@ -37,6 +37,14 @@ type HttpDependencies = {
   retryIngestionJob: RetryIngestionJobUseCase;
   listIngestionJobs: (tenantId: string, limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
   findPrimaryMembership: (userId: string) => Promise<TenantMembership | null>;
+  listMemberships: (userId: string) => Promise<TenantMembership[]>;
+  findMembership: (userId: string, tenantId: string) => Promise<TenantMembership | null>;
+  createWorkspace: (input: { userId: string; name: string; slug: string }) => Promise<TenantMembership>;
+  listWorkspaceMembers: (tenantId: string) => Promise<WorkspaceMember[]>;
+  addWorkspaceMember: (input: { tenantId: string; userId: string; role: Exclude<TenantRole, "owner"> }) => Promise<void>;
+  changeWorkspaceMemberRole: (input: { tenantId: string; userId: string; role: Exclude<TenantRole, "owner"> }) => Promise<boolean>;
+  removeWorkspaceMember: (input: { tenantId: string; userId: string }) => Promise<boolean>;
+  recordWorkspaceInvitation: (input: { tenantId: string; email: string; role: Exclude<TenantRole, "owner">; invitedBy: string; invitedUserId: string }) => Promise<void>;
   listDocuments: (tenantId: string, limit: number) => Promise<ManagedDocument[]>;
   listDocumentChunks: (tenantId: string, documentId: string, limit: number) => Promise<StoredChunk[]>;
   reindexDocument: ReindexDocumentUseCase;
@@ -57,8 +65,8 @@ function applyCorsHeaders(origin: string | undefined, reply: { header: (name: st
   if (!origin) return true;
   if (!config.ALLOWED_ORIGINS.includes(origin)) return false;
   reply.header("access-control-allow-origin", origin);
-  reply.header("access-control-allow-methods", "GET, POST, DELETE, OPTIONS");
-  reply.header("access-control-allow-headers", "authorization, content-type, x-document-source, x-document-title");
+  reply.header("access-control-allow-methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  reply.header("access-control-allow-headers", "authorization, content-type, x-document-source, x-document-title, x-workspace-id");
   reply.header("access-control-max-age", "600");
   reply.header("vary", "Origin");
   return true;
@@ -102,7 +110,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     return reply.code(500).send({ error: "Internal server error" });
   });
   app.get("/health", async () => ({ status: "ok" }));
-  const authorizeAdmin = async (request: { headers: Record<string, string | string[] | undefined> }) => {
+  const authorizeMember = async (request: { headers: Record<string, string | string[] | undefined> }) => {
     if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return { ok: false as const, status: 503, error: "Admin upload is not configured." };
     const authorization = request.headers.authorization;
     const token = typeof authorization === "string" && authorization.startsWith("Bearer ") ? authorization.slice(7) : undefined;
@@ -110,10 +118,89 @@ export async function buildApp(dependencies: HttpDependencies) {
     const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user) return { ok: false as const, status: 403, error: "Administrator access required." };
-    const membership = await dependencies.findPrimaryMembership(data.user.id);
-    if (!membership || (membership.role !== "owner" && membership.role !== "editor")) return { ok: false as const, status: 403, error: "Editor or owner access required." };
+    const requestedTenant = typeof request.headers["x-workspace-id"] === "string" ? request.headers["x-workspace-id"] : undefined;
+    const membership = requestedTenant ? await dependencies.findMembership(data.user.id, requestedTenant) : await dependencies.findPrimaryMembership(data.user.id);
+    if (!membership) return { ok: false as const, status: 403, error: "Workspace membership required." };
     return { ok: true as const, userId: data.user.id, tenantId: membership.tenantId, role: membership.role };
   };
+  const authorizeAdmin = async (request: { headers: Record<string, string | string[] | undefined> }) => {
+    const authorization = await authorizeMember(request);
+    if (!authorization.ok) return authorization;
+    if (authorization.role === "viewer") return { ok: false as const, status: 403, error: "Editor or owner access required." };
+    return authorization;
+  };
+  const authorizeOwner = async (request: { headers: Record<string, string | string[] | undefined> }) => {
+    const authorization = await authorizeMember(request);
+    if (!authorization.ok) return authorization;
+    if (authorization.role !== "owner") return { ok: false as const, status: 403, error: "Only the workspace owner can manage members." };
+    return authorization;
+  };
+  app.get("/v1/workspaces", async (request, reply) => {
+    if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return reply.code(503).send({ error: "Workspace access is not configured." });
+    const authorization = request.headers.authorization;
+    const token = typeof authorization === "string" && authorization.startsWith("Bearer ") ? authorization.slice(7) : undefined;
+    if (!token) return reply.code(401).send({ error: "Authentication required." });
+    const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data.user) return reply.code(403).send({ error: "Authentication required." });
+    return { workspaces: await dependencies.listMemberships(data.user.id) };
+  });
+  app.post("/v1/workspaces", async (request, reply) => {
+    if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return reply.code(503).send({ error: "Workspace access is not configured." });
+    const token = typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer ") ? request.headers.authorization.slice(7) : undefined;
+    if (!token) return reply.code(401).send({ error: "Authentication required." });
+    const supabase=createClient(config.SUPABASE_URL,config.SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    const {data,error}=await supabase.auth.getUser(token); if(error||!data.user)return reply.code(403).send({error:"Authentication required."});
+    const input=z.object({name:z.string().min(3).max(100),slug:z.string().regex(/^[a-z0-9-]{3,60}$/)}).parse(request.body);
+    try{return reply.code(201).send({workspace:await dependencies.createWorkspace({userId:data.user.id,...input})});}catch{return reply.code(409).send({error:"Workspace name or slug already exists."});}
+  });
+  app.get("/v1/workspaces/:workspaceId/members", async (request, reply) => {
+    const authorization = await authorizeOwner(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { workspaceId } = z.object({ workspaceId: z.string().uuid() }).parse(request.params);
+    if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
+    if (!config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY) return reply.code(503).send({ error: "Member management is not configured." });
+    const admin = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (error) return reply.code(502).send({ error: "Unable to load workspace members." });
+    const emails = new Map(data.users.map((user) => [user.id, user.email ?? null]));
+    const members = await dependencies.listWorkspaceMembers(authorization.tenantId);
+    return { members: members.map((member) => ({ userId: member.userId, email: emails.get(member.userId) ?? null, role: member.role, createdAt: member.createdAt.toISOString() })) };
+  });
+  app.post("/v1/workspaces/:workspaceId/invitations", async (request, reply) => {
+    const authorization = await authorizeOwner(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { workspaceId } = z.object({ workspaceId: z.string().uuid() }).parse(request.params);
+    if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
+    if (!config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY || !config.APP_BASE_URL) return reply.code(503).send({ error: "Invitations are not configured." });
+    const input = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: z.enum(["editor", "viewer"]) }).parse(request.body);
+    const admin = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(input.email, { redirectTo: config.APP_BASE_URL });
+    if (error || !data.user) return reply.code(409).send({ error: error?.message ?? "Unable to invite this email." });
+    await dependencies.addWorkspaceMember({ tenantId: authorization.tenantId, userId: data.user.id, role: input.role });
+    await dependencies.recordWorkspaceInvitation({ tenantId: authorization.tenantId, email: input.email, role: input.role, invitedBy: authorization.userId, invitedUserId: data.user.id });
+    await dependencies.recordAuditEvent({ tenantId: authorization.tenantId, actorUserId: authorization.userId, action: "workspace.member_invited", resourceType: "tenant_membership", resourceId: null, requestId: request.id, metadata: { role: input.role } });
+    return reply.code(201).send({ member: { userId: data.user.id, email: input.email, role: input.role } });
+  });
+  app.patch("/v1/workspaces/:workspaceId/members/:userId", async (request, reply) => {
+    const authorization = await authorizeOwner(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { workspaceId, userId } = z.object({ workspaceId: z.string().uuid(), userId: z.string().uuid() }).parse(request.params);
+    if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
+    const { role } = z.object({ role: z.enum(["editor", "viewer"]) }).parse(request.body);
+    const updated = await dependencies.changeWorkspaceMemberRole({ tenantId: authorization.tenantId, userId, role });
+    if (!updated) return reply.code(409).send({ error: "Owners cannot have their role changed." });
+    return reply.code(204).send();
+  });
+  app.delete("/v1/workspaces/:workspaceId/members/:userId", async (request, reply) => {
+    const authorization = await authorizeOwner(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { workspaceId, userId } = z.object({ workspaceId: z.string().uuid(), userId: z.string().uuid() }).parse(request.params);
+    if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
+    const removed = await dependencies.removeWorkspaceMember({ tenantId: authorization.tenantId, userId });
+    if (!removed) return reply.code(409).send({ error: "Owners cannot be removed." });
+    return reply.code(204).send();
+  });
   app.post("/v1/admin/uploads", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
@@ -138,7 +225,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     return reply.code(202).send({ job: serializeJob(job) });
   });
   app.get("/v1/admin/uploads", async (request, reply) => {
-    const authorization = await authorizeAdmin(request);
+    const authorization = await authorizeMember(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
     return { jobs: (await dependencies.listIngestionJobs(authorization.tenantId, 30)).map(serializeJob) };
   });
@@ -163,12 +250,12 @@ export async function buildApp(dependencies: HttpDependencies) {
     }
   });
   app.get("/v1/admin/documents", async (request, reply) => {
-    const authorization = await authorizeAdmin(request);
+    const authorization = await authorizeMember(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
     return { documents: (await dependencies.listDocuments(authorization.tenantId, 100)).map(serializeDocument) };
   });
   app.get("/v1/admin/documents/:documentId/chunks", async (request, reply) => {
-    const authorization = await authorizeAdmin(request);
+    const authorization = await authorizeMember(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
     const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
     return { chunks: (await dependencies.listDocumentChunks(authorization.tenantId, documentId, 200)).map(serializeStoredChunk) };

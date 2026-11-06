@@ -109,12 +109,16 @@ retry. Nenhuma chave é necessária no frontend.
    UX de `viewer` e políticas RLS revisadas para uma futura conexão direta do
    navegador a dados permitidos. A API não deve aceitar `tenant_id` vindo do
    navegador.
-6. **Observabilidade:** traces no LangSmith *ou* Langfuse/Phoenix, métricas de
+6. **Arquitetura do frontend:** migrar a UI para Feature-Sliced Design, com
+   `app`, `pages`, `widgets`, `features`, `entities` e `shared`; manter cada
+   fluxo (perguntas, administração de corpus, autenticação) coeso e impedir
+   que componentes de páginas acumulem regra de negócio e chamadas HTTP.
+7. **Observabilidade:** traces no LangSmith *ou* Langfuse/Phoenix, métricas de
    latência, custo, falhas e volume sem registrar conteúdo ou segredos.
-7. **Qualidade de retrieval:** habilitar e medir Jina reranker somente com
+8. **Qualidade de retrieval:** habilitar e medir Jina reranker somente com
    `JINA_API_KEY`; comparar recall, MRR, latência e custo contra o golden set.
-8. **Worker dedicado:** Redis + BullMQ e serviço Render separado quando jobs
+9. **Worker dedicado:** Redis + BullMQ e serviço Render separado quando jobs
    grandes, concorrência ou retries com backoff justificarem o custo adicional.
-9. **Produção econômica:** Cloudflare Pages/Render/Supabase gratuitos para demo;
+10. **Produção econômica:** Cloudflare Pages/Render/Supabase gratuitos para demo;
    alertas de orçamento, backups, domínio, limites por identidade e política de
    retenção antes de receber usuários reais.
