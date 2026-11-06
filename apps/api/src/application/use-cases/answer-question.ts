@@ -11,7 +11,7 @@ export class AnswerQuestionUseCase {
     private readonly embeddings: EmbeddingProvider,
     private readonly cache: SemanticAnswerCache,
     private readonly usage: UsageMetricsRepository,
-    private readonly options: { cacheTtlSeconds: number; cacheMinimumSimilarity: number; provider: string; model: string; inputCostPer1kUsd: number; outputCostPer1kUsd: number }
+    private readonly options: { cacheTtlSeconds: number; cacheMinimumSimilarity: number; provider: string; model: string; maxOutputTokens: number; maxEstimatedCostUsd: number; inputCostPer1kUsd: number; outputCostPer1kUsd: number }
   ) {}
 
   async execute(input: { question: string; topK?: number; tenantId: string; actorKey: string }): Promise<AnswerQuestionResult> {
@@ -22,6 +22,12 @@ export class AnswerQuestionUseCase {
     if (cached) {
       await this.recordUsage(input, safeQuestion, cached.answer, startedAt, true, false);
       return { answer: cached.answer, sources: redactSources(cached.sources) };
+    }
+    const estimatedInputTokens = Math.ceil(safeQuestion.length / 4);
+    const worstCaseCostUsd = (estimatedInputTokens / 1_000) * this.options.inputCostPer1kUsd
+      + (this.options.maxOutputTokens / 1_000) * this.options.outputCostPer1kUsd;
+    if (worstCaseCostUsd > this.options.maxEstimatedCostUsd) {
+      throw new Error("This request exceeds the configured AI cost budget.");
     }
     try {
       const result = await this.workflow.answer({ question: safeQuestion, topK: input.topK, tenantId: input.tenantId, queryEmbedding: embedding });

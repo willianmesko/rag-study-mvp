@@ -6,7 +6,7 @@ import { requestProviderJson } from "../http/provider-client.js";
 const responseSchema = z.object({ message: z.object({ content: z.string() }) });
 
 export class OllamaAnswerGenerator implements AnswerGenerator {
-  constructor(private readonly baseUrl: string, private readonly model: string) {}
+  constructor(private readonly baseUrl: string, private readonly model: string, private readonly maxOutputTokens = 500) {}
 
   async generate(question: string, context: string): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context);
@@ -16,7 +16,7 @@ export class OllamaAnswerGenerator implements AnswerGenerator {
       body: JSON.stringify({
         model: this.model,
         stream: false,
-        options: { temperature: 0, num_predict: 500 },
+        options: { temperature: 0, num_predict: this.maxOutputTokens },
         messages: [
           { role: "system", content: prompt.system },
           { role: "user", content: prompt.user }

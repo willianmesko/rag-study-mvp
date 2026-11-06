@@ -196,6 +196,39 @@ after deciding what content and metadata may leave the system. A future
 production deployment can use LangSmith or an OpenTelemetry-compatible platform,
 not both by default.
 
+### What Promptfoo does
+
+Promptfoo is a test runner for LLM prompts and providers. It executes a matrix of
+inputs, sends them to a configured provider, evaluates assertions, and returns a
+non-zero exit code when a case regresses. This repository uses a local provider
+that calls the deterministic prompt-injection scanner, so the default CI check
+does not transmit document text, prompts, or secrets to a hosted model.
+
+### Structured output and Zod status
+
+Request validation is fully shared through `packages/contracts`, but generated
+answers were previously free text. The LangGraph boundary now asks providers for
+a JSON answer with `answer`, `citedChunkIds`, and `refusalReason`, parses it with
+Zod, and rejects citations that do not belong to retrieved chunks. Plain-text
+local models remain supported as a compatibility fallback and are marked as
+unstructured; a stricter production setting can reject that fallback.
+
+### Agent safety boundary
+
+The current workflow is still a bounded RAG agent rather than a general-purpose
+tool-using agent. Its safety policy is explicit:
+
+| Model may decide | Code must enforce |
+| --- | --- |
+| How to phrase a grounded answer | Tenant scope and RBAC |
+| Which retrieved evidence is relevant | Prompt-injection filtering |
+| Whether to express uncertainty | Citation allowlist |
+| Whether a refusal is appropriate | Step, token, time, and cost budgets |
+
+Read-only workspace tools are defined as an allowlist, but no write-capable tool
+is exposed yet. Actions that mutate data, contact external systems, or execute
+code will require an approval checkpoint before they are added.
+
 ## Deployment profile
 
 The economical demonstration profile is:

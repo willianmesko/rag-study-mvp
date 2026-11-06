@@ -48,6 +48,8 @@ Zod schemas in both applications.
   fused with Reciprocal Rank Fusion (RRF).
 - Optional second-stage reranking.
 - Grounded Q&A using a LangGraph workflow with source citations.
+- Structured grounded answers validated with Zod, citation allowlisting, and
+  configurable agent step, timeout, token, and cost budgets.
 - Prompt-injection scanning before external reranking or answer generation.
 - Private administrative ingestion for PDF, DOCX, TXT, and Markdown.
 - Workspaces with `owner`, `editor`, and read-only `viewer` roles.

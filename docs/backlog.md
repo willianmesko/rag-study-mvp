@@ -43,6 +43,10 @@ product decision, credentials, or additional operational cost.
 - CI quality gates for every push and pull request: typecheck, unit tests,
   production builds, prompt-injection regression, deterministic golden-set
   retrieval, and Promptfoo security checks.
+- Bounded agent safety baseline: structured answer parsing with Zod, retrieved
+  citation validation, read-only tool allowlist definitions, step and timeout
+  guards, configurable output-token limits, and an estimated per-request cost
+  ceiling.
 - Evaluation dashboard MVP: owner-only persisted evaluation runs with hit rate,
   MRR, injection pass rate, provider/model metadata, pass/fail thresholds, and
   historical run comparison. Faithfulness and context precision remain
@@ -149,3 +153,51 @@ product decision, credentials, or additional operational cost.
    - Add isolated execution for any future write-capable tool, with approval,
      idempotency keys, retries, dead-letter handling, and a replayable audit
      record.
+
+11. **Infrastructure as code and AWS production reference**
+   - Keep the low-cost Render/Supabase demo as the default deployment path.
+   - Add Terraform roots and reusable modules for dev, staging, and production,
+     with remote state, mandatory tags, least-privilege IAM, permission
+     boundaries, and separate plan/apply approvals.
+   - Add an optional AWS architecture reference:
+
+     ```text
+     CloudFront → API Gateway → Lambda → Step Functions
+                                      ├── ingestion
+                                      ├── retrieval
+                                      ├── agent workflow
+                                      └── evaluation replay
+
+     DynamoDB → state and idempotency
+     S3 → private source files
+     Bedrock → embeddings and chat
+     EventBridge → domain events
+     CloudWatch → metrics and alarms
+     ```
+
+   - Document the mapping between the demo adapters and the AWS adapters before
+     enabling any paid AWS resource.
+
+12. **GitLab CI/CD compatibility**
+   - Add a `.gitlab-ci.yml` equivalent to the GitHub quality harness.
+   - Run typecheck, tests, build, security evals, golden set, Promptfoo, and
+     Terraform validation as release gates.
+   - Add environment-specific deploy jobs, manual production approval, stored
+     evaluation artifacts, and rollback instructions.
+
+13. **Resilient integrations**
+   - Add idempotency keys and deduplication to uploads, ingestion jobs, model
+     calls, and external notifications.
+   - Standardize exponential-backoff retries, rate-limit handling, permanent
+     failure classification, and stale-state detection.
+   - Add an outbox pattern, dead-letter queue, replay commands, and operational
+     runbooks for failed or partially delivered events.
+
+14. **Project-owned MCP server**
+   - Expose read-only tools first: `search_workspace`, `get_document`,
+     `list_sources`, `get_ingestion_status`, `run_evaluation`, and
+     `get_quality_report`.
+   - Require tenant scope, RBAC, audit events, timeout and rate-limit guards,
+     Zod schemas, and an explicit allowlist on every tool call.
+   - Add approval-gated write tools only after isolated execution, idempotency,
+     retries, dead-letter handling, and replayable audit records exist.

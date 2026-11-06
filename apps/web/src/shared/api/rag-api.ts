@@ -28,6 +28,9 @@ export type IngestResponse = { documentId: string; chunkCount: number; highRiskC
 export type QuestionSource = { chunkId: string; documentId: string; source: string; title: string | null; chunk: number; score: number; excerpt: string };
 export type QuestionResponse = {
   answer: string;
+  citedChunkIds?: string[];
+  structuredOutput?: boolean;
+  refusalReason?: string | null;
   sources: QuestionSource[];
 };
 export type UploadJob = { id: string; source: string; title: string | null; filename: string; mimeType: string; status: "queued" | "processing" | "completed" | "failed"; progress: number; error: string | null; chunkCount: number | null; highRiskChunks: number | null; createdAt: string; updatedAt: string };

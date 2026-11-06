@@ -6,7 +6,7 @@ import { requestProviderJson } from "../http/provider-client.js";
 const responseSchema = z.object({ choices: z.array(z.object({ message: z.object({ content: z.string().nullable() }) })).min(1) });
 
 export class OpenRouterAnswerGenerator implements AnswerGenerator {
-  constructor(private readonly baseUrl: string, private readonly apiKey: string, private readonly model: string) {}
+  constructor(private readonly baseUrl: string, private readonly apiKey: string, private readonly model: string, private readonly maxOutputTokens = 500) {}
 
   async generate(question: string, context: string): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context);
@@ -15,7 +15,7 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
       body: JSON.stringify({
         model: this.model,
-        max_tokens: 500,
+        max_tokens: this.maxOutputTokens,
         temperature: 0,
         messages: [
           { role: "system", content: prompt.system },

@@ -64,7 +64,10 @@ export function createApplication() {
   });
   const ragWorkflow = new LangGraphRagWorkflow(searchDocuments, answerGenerator, {
     maxContextChars: 12_000,
-    minimumScore: config.RAG_MINIMUM_SCORE
+    minimumScore: config.RAG_MINIMUM_SCORE,
+    maxSteps: config.AGENT_MAX_STEPS,
+    timeoutMs: config.AGENT_TIMEOUT_MS,
+    requireStructuredOutput: config.REQUIRE_STRUCTURED_ANSWER
   });
   const answerWorkflow = new LangSmithTracingWorkflow(ragWorkflow, {
     enabled: config.LANGSMITH_TRACING,
@@ -115,6 +118,8 @@ export function createApplication() {
         cacheMinimumSimilarity: config.SEMANTIC_CACHE_MINIMUM_SIMILARITY,
         provider: config.CHAT_PROVIDER,
         model: config.CHAT_PROVIDER === "openrouter" ? config.OPENROUTER_CHAT_MODEL : config.CHAT_PROVIDER === "bedrock" ? config.BEDROCK_CHAT_MODEL_ID : config.OLLAMA_CHAT_MODEL,
+        maxOutputTokens: config.CHAT_MAX_OUTPUT_TOKENS,
+        maxEstimatedCostUsd: config.MAX_ESTIMATED_COST_USD_PER_REQUEST,
         inputCostPer1kUsd: config.ESTIMATED_INPUT_COST_PER_1K_USD,
         outputCostPer1kUsd: config.ESTIMATED_OUTPUT_COST_PER_1K_USD
       })
@@ -159,16 +164,17 @@ function createEmbeddingProvider(): EmbeddingProvider {
 function createAnswerGenerator(): AnswerGenerator {
   switch (config.CHAT_PROVIDER) {
     case "ollama":
-      return new OllamaAnswerGenerator(config.OLLAMA_BASE_URL, config.OLLAMA_CHAT_MODEL);
+      return new OllamaAnswerGenerator(config.OLLAMA_BASE_URL, config.OLLAMA_CHAT_MODEL, config.CHAT_MAX_OUTPUT_TOKENS);
     case "openrouter":
       return new OpenRouterAnswerGenerator(
         config.OPENROUTER_BASE_URL,
         config.OPENROUTER_API_KEY as string,
-        config.OPENROUTER_CHAT_MODEL
+        config.OPENROUTER_CHAT_MODEL,
+        config.CHAT_MAX_OUTPUT_TOKENS
       );
     case "bedrock": {
       const bedrock = createBedrockClient(config.AWS_REGION);
-      return new BedrockAnswerGenerator(bedrock, config.BEDROCK_CHAT_MODEL_ID);
+      return new BedrockAnswerGenerator(bedrock, config.BEDROCK_CHAT_MODEL_ID, config.CHAT_MAX_OUTPUT_TOKENS);
     }
   }
 }

@@ -378,6 +378,9 @@ export async function buildApp(dependencies: HttpDependencies) {
     const result = await dependencies.answerQuestion.execute({ question, topK, tenantId, actorKey });
     return {
       answer: result.answer,
+      citedChunkIds: result.citedChunkIds ?? [],
+      structuredOutput: result.structuredOutput ?? false,
+      refusalReason: result.refusalReason ?? null,
       sources: result.sources.map(({ chunkId, documentId, source, title, ordinal, score, content }) => ({
         chunkId,
         documentId,
