@@ -29,23 +29,16 @@ O banco e a aplicação são deliberadamente separados: o Docker Compose executa
 
 ```text
 .
+├── apps/
+│   ├── api/                     # Fastify, Clean Architecture, migrações e evals
+│   │   ├── src/                 # domínio, aplicação, infraestrutura e interfaces
+│   │   ├── db/migrations/       # esquema pgvector versionado
+│   │   └── evals/               # golden set, segurança e Promptfoo
+│   └── web/                     # React, TypeScript, Tailwind e React Query
+│       └── src/                 # Feature-Sliced Design
+├── packages/
+│   └── contracts/               # schemas Zod e tipos compartilhados API ↔ web
 ├── compose.yaml                 # PostgreSQL 16 + pgvector
-├── db/migrations/               # esquema versionado, índices HNSW e GIN
-├── src/
-│   ├── domain/                  # entidades e regra de chunking, sem I/O
-│   ├── application/             # casos de uso, portas e políticas de resposta
-│   ├── infrastructure/          # adaptadores de provedores, LangGraph e pgvector
-│   ├── interfaces/              # adaptadores de entrada: HTTP Fastify e CLI
-│   ├── bootstrap.ts             # composição das dependências concretas
-│   └── server.ts                # inicialização e desligamento da API
-├── web/                          # React, TypeScript, Tailwind, Zod e React Query
-│   └── src/
-│       ├── app/                  # inicialização e providers globais
-│       ├── pages/                # composição das telas
-│       ├── widgets/              # blocos de tela: layout e administração
-│       ├── features/             # fluxos: ingestão, busca, Q&A e histórico
-│       ├── entities/             # modelos de domínio do frontend
-│       └── shared/               # API, validação, UI e utilitários reutilizáveis
 └── README.md
 ```
 
@@ -72,6 +65,15 @@ inicializa providers; `pages` compõe a tela; `widgets` reúne blocos de tela;
 interface; e `shared` concentra API, schemas Zod, componentes visuais e
 utilitários. Isso deixa uma futura migração para monorepo simples, pois o
 frontend já tem fronteiras internas explícitas.
+
+### Monorepo
+
+O npm workspaces organiza os aplicativos em `apps/api` e `apps/web`; o pacote
+`@rag-study/contracts` é compilado antes dos dois e entrega contratos Zod
+compartilhados. Assim, validações de documento, pergunta e papéis de workspace
+não podem divergir entre navegador e API. Os comandos da raiz continuam sendo
+os pontos de entrada: `npm run dev:api`, `npm run dev:web`, `npm run build` e
+`npm test`.
 
 ## Pré-requisitos
 
@@ -175,7 +177,7 @@ npm run ingest -- examples/rag-fundamentals.md golden/rag-fundamentals
 npm run eval:golden -- evals/golden-set.v1.json
 ```
 
-O relatório mede `hitRate` (a fonte esperada apareceu no top-K?) e `MRR` (quão cedo ela apareceu). As metas vivem no JSON e o comando retorna código de erro se não forem atendidas, o que permite usá-lo depois em CI. Veja [evals/README.md](evals/README.md) para Ragas e Promptfoo.
+O relatório mede `hitRate` (a fonte esperada apareceu no top-K?) e `MRR` (quão cedo ela apareceu). As metas vivem no JSON e o comando retorna código de erro se não forem atendidas, o que permite usá-lo depois em CI. Veja [apps/api/evals/README.md](apps/api/evals/README.md) para Ragas e Promptfoo.
 
 Ou envie o documento diretamente:
 
@@ -196,7 +198,7 @@ Para proteger a API local quando ela for exposta, defina `API_KEY` no `.env` e e
 
 ### Demo pública de baixo custo
 
-O projeto inclui um caminho de publicação com frontend estático, API e banco separados. A demo pública é somente leitura: `DEMO_MODE=true` oculta a ingestão no frontend e exige `x-admin-api-key` na API para alterar o corpus. Veja o guia completo em [docs/deploy-public-demo.md](docs/deploy-public-demo.md). O `render.yaml` e o `Dockerfile` deixam a API pronta para um deploy em container; mantenha chaves e URLs de banco apenas nas variáveis de ambiente do provedor.
+O projeto inclui um caminho de publicação com frontend estático, API e banco separados. A demo pública é somente leitura: `DEMO_MODE=true` oculta a ingestão no frontend e exige `x-admin-api-key` na API para alterar o corpus. Veja o guia completo em [docs/deploy-public-demo.md](docs/deploy-public-demo.md). O `render.yaml` e o `apps/api/Dockerfile` deixam a API pronta para um deploy em container; mantenha chaves e URLs de banco apenas nas variáveis de ambiente do provedor.
 
 ### Upload administrativo assíncrono
 
@@ -219,7 +221,7 @@ Por padrão, para a demo de baixo custo, o arquivo fica temporariamente como `by
 
 ### 1. Chunking
 
-Um embedding representa um texto em tamanho limitado. Indexar o documento inteiro mistura assuntos, piora a recuperação e pode exceder o limite do modelo. `src/domain/chunk.ts` agrupa sentenças por **caracteres** (1.200 por padrão), preservando cerca de 200 caracteres ao cruzar a fronteira.
+Um embedding representa um texto em tamanho limitado. Indexar o documento inteiro mistura assuntos, piora a recuperação e pode exceder o limite do modelo. `apps/api/src/domain/chunk.ts` agrupa sentenças por **caracteres** (1.200 por padrão), preservando cerca de 200 caracteres ao cruzar a fronteira.
 
 É uma escolha didática, não uma regra universal. Em produção, meça chunks em *tokens*, mantenha títulos/metadata junto do conteúdo, use separadores de estrutura (Markdown/HTML) e avalie tamanhos e overlaps com perguntas reais. Chunks menores melhoram precisão; maiores carregam mais contexto, mas também ruído e custo.
 
@@ -284,7 +286,7 @@ Cada push e pull request executa typecheck, testes, build, a suíte determiníst
 de prompt injection, o golden set em corpus local e o gate Promptfoo. Uma falha
 de avaliação falha o workflow. O Promptfoo roda no GitHub Actions com Node 24 e
 usa um provider local, portanto não envia o corpus ou chaves para serviços
-externos. Consulte [evals/README.md](evals/README.md) para distinguir o golden
+externos. Consulte [apps/api/evals/README.md](apps/api/evals/README.md) para distinguir o golden
 set determinístico de CI da avaliação de integração com pgvector e embeddings
 reais.
 

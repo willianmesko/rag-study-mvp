@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../../../shared/api/rag-api";
-import { documentInputSchema } from "../../../shared/lib/schemas";
+import { documentInputSchema } from "@rag-study/contracts";
 import { getRequestErrorMessage } from "../../../shared/lib/request-error";
 import { InputLabel } from "../../../shared/ui/InputLabel";
 import { SectionTitle } from "../../../shared/ui/SectionTitle";

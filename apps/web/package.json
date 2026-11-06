@@ -1,5 +1,5 @@
 {
-  "name": "rag-study-web",
+  "name": "@rag-study/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@rag-study/contracts": "0.1.0",
     "@tanstack/react-query": "^5.66.8",
+    "@supabase/supabase-js": "^2.49.8",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "zod": "4.6.7"

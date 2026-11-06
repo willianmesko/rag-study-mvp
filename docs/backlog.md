@@ -38,6 +38,9 @@ para que a demo não esconda trabalho operacional pendente.
 - Frontend reorganizado em Feature-Sliced Design: `app`, `pages`, `widgets`,
   `features`, `entities` e `shared`; fluxos de ingestão, busca, perguntas e
   histórico não ficam mais concentrados na página principal.
+- Monorepo formal com npm workspaces: `apps/api`, `apps/web` e
+  `packages/contracts`; schemas Zod usados nos dois aplicativos evitam que os
+  contratos HTTP de documento, pergunta e papéis de workspace se desencontrem.
 
 ## Próximas etapas, por prioridade
 
@@ -102,10 +105,7 @@ para que a demo não esconda trabalho operacional pendente.
    acessa as tabelas e valida membership. Antes de expor qualquer tabela pelo
    Data API, criar políticas explícitas por `auth.uid()` e tenant, testar BOLA
    e revisar as permissões do schema público.
-6. **Monorepo formal:** separar API e web em `apps/api` e `apps/web`, extrair
-   contratos reutilizáveis para `packages/contracts` e configurar scripts,
-   builds e deploys por aplicativo sem duplicar tipos ou variáveis públicas.
-7. **Observabilidade:** traces no LangSmith *ou* Langfuse/Phoenix, métricas de
+6. **Observabilidade:** traces no LangSmith *ou* Langfuse/Phoenix, métricas de
    latência, custo, falhas e volume sem registrar conteúdo ou segredos.
 8. **Qualidade de retrieval:** habilitar e medir Jina reranker somente com
    `JINA_API_KEY`; comparar recall, MRR, latência e custo contra o golden set.

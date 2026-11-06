@@ -48,7 +48,7 @@ Não use a chave de banco no frontend e não versione a URL com senha.
 ## 3. Frontend no Cloudflare Pages
 
 1. Importe o mesmo repositório.
-2. Use `npm run build:web` como comando de build e `web/dist` como diretório de saída.
+2. Use `npm run build:web` como comando de build e `apps/web/dist` como diretório de saída.
 3. Adicione as variáveis públicas de build:
 
    ```text

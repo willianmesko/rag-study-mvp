@@ -3,7 +3,7 @@ services:
     runtime: static
     name: rag-study-demo-web
     buildCommand: npm ci && npm run build:web
-    staticPublishPath: web/dist
+    staticPublishPath: apps/web/dist
     routes:
       - type: rewrite
         source: /*
@@ -26,6 +26,7 @@ services:
   - type: web
     runtime: docker
     name: rag-study-demo-api
+    dockerfilePath: apps/api/Dockerfile
     plan: free
     healthCheckPath: /health
     envVars:

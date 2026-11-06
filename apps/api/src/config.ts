@@ -1,5 +1,10 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
+
+// Keep the developer-facing .env at the monorepo root while the API runs from
+// apps/api. Container deployments rely on real environment variables instead.
+dotenv.config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
 
 const provider = z.enum(["ollama", "openrouter", "bedrock"]);
 const rerankerProvider = z.enum(["none", "jina"]);
@@ -78,7 +83,7 @@ if (config.CHUNK_OVERLAP >= config.CHUNK_SIZE) {
 // subtle class of errors where embeddings are accepted but cannot be compared.
 if (config.EMBEDDING_DIMENSIONS !== 1024) {
   throw new Error(
-    "This MVP schema uses vector(1024). Update db/migrations/001_initial.sql before changing EMBEDDING_DIMENSIONS."
+    "This MVP schema uses vector(1024). Update apps/api/db/migrations/001_initial.sql before changing EMBEDDING_DIMENSIONS."
   );
 }
 

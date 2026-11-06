@@ -79,11 +79,11 @@ export const api = {
   changeWorkspaceMemberRole: (input: { workspaceId: string; userId: string; role: "editor" | "viewer"; accessToken: string }) => requestVoid(`/v1/workspaces/${input.workspaceId}/members/${input.userId}`, { method: "PATCH", body: JSON.stringify({ role: input.role }), headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
   removeWorkspaceMember: (input: { workspaceId: string; userId: string; accessToken: string }) => requestVoid(`/v1/workspaces/${input.workspaceId}/members/${input.userId}`, { method: "DELETE", headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
   health: () => request<Health>("/health"),
-  ingest: (input: { source: string; title?: string; text: string; metadata: Record<string, unknown> }) =>
+  ingest: (input: DocumentInput) =>
     request<IngestResponse>("/v1/documents", { method: "POST", body: JSON.stringify(input) }),
-  search: (input: { query: string; topK: number }) =>
-    request<SearchResponse>(`/v1/search?${new URLSearchParams({ q: input.query, topK: String(input.topK) })}`),
-  answer: (input: { question: string; topK: number }) => request<QuestionResponse>("/v1/qa", { method: "POST", body: JSON.stringify(input) }),
+  search: (input: SearchInput) =>
+    request<SearchResponse>(`/v1/search?${new URLSearchParams({ q: input.query, topK: String(input.topK ?? 5) })}`),
+  answer: (input: QuestionInput) => request<QuestionResponse>("/v1/qa", { method: "POST", body: JSON.stringify({ ...input, topK: input.topK ?? 5 }) }),
   listUploads: (accessToken: string, workspaceId?: string) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
   retryUpload: (jobId: string, accessToken: string, workspaceId?: string) => request<{ jobId: string; status: string }>(`/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listDocuments: (accessToken: string, workspaceId?: string) => request<{ documents: ManagedDocument[] }>("/v1/admin/documents", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
@@ -97,4 +97,6 @@ export const api = {
     return response.json() as Promise<{ job: UploadJob }>;
   }
 };
+
+import type { DocumentInput, QuestionInput, SearchInput } from "@rag-study/contracts";
 

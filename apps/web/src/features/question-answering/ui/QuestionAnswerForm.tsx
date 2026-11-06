@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import type { QuestionResponse, QuestionSource } from "../../../shared/api/rag-api";
 import { api } from "../../../shared/api/rag-api";
 import { getRequestErrorMessage } from "../../../shared/lib/request-error";
-import { questionInputSchema } from "../../../shared/lib/schemas";
+import { questionInputSchema } from "@rag-study/contracts";
 import { InputLabel } from "../../../shared/ui/InputLabel";
 import { SectionTitle } from "../../../shared/ui/SectionTitle";
 

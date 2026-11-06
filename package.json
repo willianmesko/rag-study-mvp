@@ -3,53 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "description": "A study-focused custom RAG MVP using TypeScript, pgvector and Amazon Bedrock.",
-  "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
-  "workspaces": [
-    "web"
-  ],
+  "workspaces": ["apps/*", "packages/*"],
+  "engines": { "node": ">=20" },
   "scripts": {
     "dev": "npm run dev:api",
-    "dev:api": "tsx watch src/server.ts",
-    "dev:web": "npm --workspace web run dev",
-    "start": "node dist/server.js",
+    "dev:api": "npm --workspace @rag-study/api run dev",
+    "dev:web": "npm --workspace @rag-study/web run dev",
+    "start": "npm --workspace @rag-study/api run start",
+    "build:contracts": "npm --workspace @rag-study/contracts run build",
+    "build:api": "npm run build:contracts && npm --workspace @rag-study/api run build",
+    "build:web": "npm run build:contracts && npm --workspace @rag-study/web run build",
     "build": "npm run build:api && npm run build:web",
-    "build:api": "tsc -p tsconfig.json",
-    "build:web": "npm --workspace web run build",
-    "typecheck": "tsc --noEmit && npm --workspace web run typecheck",
-    "test": "tsx --test src/rag/chunk.test.ts src/application/use-cases/search-documents.test.ts src/application/use-cases/document-management.test.ts src/application/evaluation/golden-set.test.ts src/application/evaluation/prompt-injection-suite.test.ts src/application/policies/grounded-answer-policy.test.ts src/application/policies/lexical-query.test.ts src/domain/security/prompt-injection.test.ts src/infrastructure/jina/jina-reranker.test.ts src/infrastructure/langgraph/langgraph-rag-workflow.test.ts",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "ingest": "tsx src/interfaces/cli/ingest.ts",
-    "eval:golden": "tsx src/interfaces/cli/evaluate-golden-set.ts",
-    "eval:golden:ci": "tsx src/interfaces/cli/evaluate-golden-set-ci.ts evals/golden-set.v1.json evals/corpus-manifest.v1.json",
-    "eval:security": "tsx src/interfaces/cli/evaluate-prompt-injection.ts",
-    "eval:promptfoo": "promptfoo eval -c evals/promptfoo/promptfooconfig.yaml --no-cache"
+    "typecheck": "npm run build:contracts && npm --workspace @rag-study/api run typecheck && npm --workspace @rag-study/web run typecheck",
+    "test": "npm --workspace @rag-study/api run test",
+    "db:migrate": "npm --workspace @rag-study/api run db:migrate",
+    "ingest": "npm --workspace @rag-study/api run ingest",
+    "eval:golden": "npm --workspace @rag-study/api run eval:golden --",
+    "eval:golden:ci": "npm --workspace @rag-study/api run eval:golden:ci --",
+    "eval:security": "npm --workspace @rag-study/api run eval:security --",
+    "eval:promptfoo": "npm --workspace @rag-study/api run eval:promptfoo"
   },
-  "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.990.0",
-    "@fastify/multipart": "^10.1.7",
-    "@fastify/rate-limit": "^10.3.0",
-    "@langchain/langgraph": "^1.7.0",
-    "@supabase/supabase-js": "^2.49.8",
-    "dotenv": "^16.6.1",
-    "fastify": "5.12.8",
-    "langsmith": "^0.11.8",
-    "mammoth": "^1.13.0",
-    "pdf-parse": "^2.4.5",
-    "pg": "^8.16.3",
-    "zod": "4.6.7"
-  },
-  "devDependencies": {
-    "@types/node": "^22.15.30",
-    "@types/pdf-parse": "^1.1.5",
-    "@types/pg": "^8.15.4",
-    "promptfoo": "0.125.1",
-    "tsx": "^4.20.3",
-    "typescript": "^5.8.3"
-  },
-  "overrides": {
-    "light-my-request": "6.6.0"
-  }
+  "overrides": { "light-my-request": "6.6.0" }
 }

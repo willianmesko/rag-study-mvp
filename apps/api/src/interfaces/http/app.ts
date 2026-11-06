@@ -3,6 +3,7 @@ import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import Fastify from "fastify";
 import { createClient } from "@supabase/supabase-js";
+import { documentInputSchema, questionInputSchema, workspaceMemberRoleSchema } from "@rag-study/contracts";
 import { ZodError, z } from "zod";
 import type { AnswerQuestionUseCase } from "../../application/use-cases/answer-question.js";
 import type { IngestDocumentUseCase } from "../../application/use-cases/ingest-document.js";
@@ -19,14 +20,9 @@ import type { QuotaResult } from "../../application/ports/quota-repository.js";
 import type { TenantMembership, TenantRole, WorkspaceMember } from "../../application/ports/tenant-membership-repository.js";
 import { config } from "../../config.js";
 
-const documentSchema = z.object({
-  source: z.string().min(1).max(1_000),
-  title: z.string().min(1).max(500).optional(),
-  text: z.string().min(1).max(500_000),
-  metadata: z.record(z.string(), z.unknown()).default({})
-});
 const searchSchema = z.object({ q: z.string().min(1).max(5_000), topK: z.coerce.number().int().min(1).max(20).optional() });
-const qaSchema = z.object({ question: z.string().min(1).max(5_000), topK: z.number().int().min(1).max(20).optional() });
+const invitationSchema = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: workspaceMemberRoleSchema });
+const memberRoleSchema = z.object({ role: workspaceMemberRoleSchema });
 
 type HttpDependencies = {
   ingestDocument: IngestDocumentUseCase;
@@ -173,7 +169,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { workspaceId } = z.object({ workspaceId: z.string().uuid() }).parse(request.params);
     if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
     if (!config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY || !config.APP_BASE_URL) return reply.code(503).send({ error: "Invitations are not configured." });
-    const input = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: z.enum(["editor", "viewer"]) }).parse(request.body);
+    const input = invitationSchema.parse(request.body);
     const admin = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await admin.auth.admin.inviteUserByEmail(input.email, { redirectTo: config.APP_BASE_URL });
     if (error || !data.user) return reply.code(409).send({ error: error?.message ?? "Unable to invite this email." });
@@ -187,7 +183,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
     const { workspaceId, userId } = z.object({ workspaceId: z.string().uuid(), userId: z.string().uuid() }).parse(request.params);
     if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
-    const { role } = z.object({ role: z.enum(["editor", "viewer"]) }).parse(request.body);
+    const { role } = memberRoleSchema.parse(request.body);
     const updated = await dependencies.changeWorkspaceMemberRole({ tenantId: authorization.tenantId, userId, role });
     if (!updated) return reply.code(409).send({ error: "Owners cannot have their role changed." });
     return reply.code(204).send();
@@ -300,7 +296,7 @@ export async function buildApp(dependencies: HttpDependencies) {
       const adminKey = typeof providedAdminKey === "string" ? providedAdminKey : undefined;
       if (!matchesApiKey(adminKey, config.ADMIN_API_KEY as string)) return reply.code(401).send({ error: "Unauthorized" });
     }
-    const input = documentSchema.parse(request.body);
+    const input = documentInputSchema.parse(request.body);
     const textBytes = Buffer.byteLength(input.text, "utf8");
     const quota = await dependencies.consumeAdminUploadQuota(config.DEFAULT_TENANT_ID, "api-key", textBytes);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily upload quota reached. Try again tomorrow." });
@@ -324,7 +320,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     return { results: await dependencies.searchDocuments.execute({ query: q, topK }) };
   });
   app.post("/v1/qa", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
-    const { question, topK } = qaSchema.parse(request.body);
+    const { question, topK } = questionInputSchema.parse(request.body);
     const quota = await dependencies.consumeQuestionQuota(config.DEFAULT_TENANT_ID, "tenant");
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
     const result = await dependencies.answerQuestion.execute({ question, topK, tenantId: config.DEFAULT_TENANT_ID });

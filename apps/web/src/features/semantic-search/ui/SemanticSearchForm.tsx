@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../../../shared/api/rag-api";
 import { getRequestErrorMessage } from "../../../shared/lib/request-error";
-import { searchInputSchema } from "../../../shared/lib/schemas";
+import { searchInputSchema } from "@rag-study/contracts";
 import { InputLabel } from "../../../shared/ui/InputLabel";
 import { SearchResultCard } from "../../../shared/ui/SearchResultCard";
 import { SectionTitle } from "../../../shared/ui/SectionTitle";
