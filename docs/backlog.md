@@ -224,3 +224,42 @@ product decision, credentials, or additional operational cost.
      Zod schemas, and an explicit allowlist on every tool call.
    - Add approval-gated write tools only after isolated execution, idempotency,
      retries, dead-letter handling, and replayable audit records exist.
+
+16. **Guided onboarding for non-technical teams**
+   - Create a first-run, step-by-step onboarding flow for users who do not know
+     RAG terminology or infrastructure concepts.
+   - Start with a plain-language goal, for example: “Make your law firm’s
+     internal materials searchable and answer questions with sources.”
+   - Guide the user through workspace creation, use-case selection, inviting
+     teammates, uploading the first documents, waiting for processing, and
+     asking the first grounded question.
+   - Explain key concepts at the moment they matter: documents, chunks,
+     embeddings, retrieval, citations, similarity scores, and why similarity
+     is not factual certainty.
+   - Add a legal-workspace starter template with safe sample content, suggested
+     questions, document naming guidance, and privacy/data-handling notes.
+   - Persist onboarding progress so it can be resumed, skipped, or revisited
+     from Help without blocking experienced users.
+   - Make steps role-aware: owners configure the workspace, editors add
+     knowledge, and viewers learn how to search and inspect sources.
+   - Acceptance criteria: a new non-technical user can create a workspace,
+     ingest a document, ask a question, and understand the cited answer without
+     reading technical documentation.
+
+17. **Real-time chat and streaming answers**
+   - Stream answer progress to the browser: request accepted, retrieving,
+     generating, validating citations, and completed/refused/failed.
+   - Stream structured answer deltas and citations while preserving the final
+     Zod-validated response contract.
+   - Use authenticated Server-Sent Events (SSE) as the default transport for
+     one-way model output; support `AbortController` cancellation and a
+     non-streaming fallback when streaming is unavailable.
+   - Persist request/run status so a reconnect can recover the final answer and
+     never expose provider credentials to the browser.
+   - Use WebSocket only when the product needs true bidirectional realtime
+     behavior, such as collaborative sessions, presence, live approvals, or
+     interactive tool execution.
+   - Enforce tenant scope, quotas, timeouts, backpressure, correlation IDs,
+     safe disconnect handling, and audit metadata for every stream.
+   - Add tests for partial output, cancellation, reconnect, provider failure,
+     citation validation, and fallback to the regular HTTP response.
