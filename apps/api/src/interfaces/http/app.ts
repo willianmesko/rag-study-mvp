@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import Fastify from "fastify";
@@ -17,8 +17,10 @@ import type { IngestionJob, IngestionJobEvent } from "../../application/ports/in
 import type { ManagedDocument, StoredChunk } from "../../application/ports/document-repository.js";
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
 import type { QuotaResult } from "../../application/ports/quota-repository.js";
+import type { UsageSummary } from "../../application/ports/usage-metrics-repository.js";
 import type { TenantMembership, TenantRole, WorkspaceMember } from "../../application/ports/tenant-membership-repository.js";
 import { config } from "../../config.js";
+import { redactPii } from "../../domain/security/pii-redaction.js";
 
 const searchSchema = z.object({ q: z.string().min(1).max(5_000), topK: z.coerce.number().int().min(1).max(20).optional() });
 const invitationSchema = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: workspaceMemberRoleSchema });
@@ -48,6 +50,8 @@ type HttpDependencies = {
   deleteDocument: DeleteDocumentUseCase;
   consumeQuestionQuota: (tenantId: string, actorKey: string) => Promise<QuotaResult>;
   consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => Promise<QuotaResult>;
+  getUsageSummary: (tenantId: string, days: number) => Promise<UsageSummary>;
+  invalidateSemanticCache: (tenantId: string) => Promise<void>;
   recordAuditEvent: AuditEventRepository["record"];
 };
 
@@ -67,6 +71,15 @@ function applyCorsHeaders(origin: string | undefined, reply: { header: (name: st
   reply.header("access-control-max-age", "600");
   reply.header("vary", "Origin");
   return true;
+}
+
+function anonymousActorKey(request: { headers: Record<string, string | string[] | undefined>; ip?: string }): string {
+  // Do not trust a client-supplied X-Forwarded-For value for quota identity.
+  // Render/Fastify can be configured with a trusted proxy separately when a
+  // production deployment needs the original address.
+  const source = request.ip ?? "unknown";
+  const secret = config.USAGE_HASH_SECRET ?? config.SUPABASE_SERVICE_ROLE_KEY ?? config.ADMIN_API_KEY ?? "local-development-only-not-for-production";
+  return `anonymous:${createHmac("sha256", secret).update(source).digest("hex").slice(0, 32)}`;
 }
 
 export async function buildApp(dependencies: HttpDependencies) {
@@ -232,6 +245,13 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { jobId } = z.object({ jobId: z.string().uuid() }).parse(request.params);
     return { events: (await dependencies.listIngestionEvents(jobId, authorization.tenantId, 100)).map(serializeIngestionEvent) };
   });
+  app.get("/v1/admin/usage", async (request, reply) => {
+    const authorization = await authorizeOwner(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { days } = z.object({ days: z.coerce.number().int().min(1).max(90).default(30) }).parse(request.query);
+    const summary = await dependencies.getUsageSummary(authorization.tenantId, days);
+    return { days, summary, alert: { thresholdUsd: config.USAGE_ALERT_THRESHOLD_USD, triggered: summary.estimatedCostUsd >= config.USAGE_ALERT_THRESHOLD_USD } };
+  });
   app.post("/v1/admin/uploads/:jobId/retry", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
@@ -286,6 +306,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
     const deleted = await dependencies.deleteDocument.execute({ documentId, tenantId: authorization.tenantId });
     if (!deleted) return reply.code(404).send({ error: "Document not found." });
+    await dependencies.invalidateSemanticCache(authorization.tenantId);
     await dependencies.recordAuditEvent({
       tenantId: authorization.tenantId,
       actorUserId: authorization.userId,
@@ -328,9 +349,14 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.post("/v1/qa", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
     const { question, topK } = questionInputSchema.parse(request.body);
-    const quota = await dependencies.consumeQuestionQuota(config.DEFAULT_TENANT_ID, "tenant");
+    const hasAuthorization = typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer ");
+    const authorization = hasAuthorization ? await authorizeMember(request) : null;
+    if (authorization && !authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const tenantId = authorization?.ok ? authorization.tenantId : config.DEFAULT_TENANT_ID;
+    const actorKey = authorization?.ok ? `user:${authorization.userId}` : anonymousActorKey(request);
+    const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
-    const result = await dependencies.answerQuestion.execute({ question, topK, tenantId: config.DEFAULT_TENANT_ID });
+    const result = await dependencies.answerQuestion.execute({ question, topK, tenantId, actorKey });
     return {
       answer: result.answer,
       sources: result.sources.map(({ chunkId, documentId, source, title, ordinal, score, content }) => ({
@@ -340,7 +366,7 @@ export async function buildApp(dependencies: HttpDependencies) {
         title,
         chunk: ordinal,
         score,
-        excerpt: content.slice(0, 1_200)
+        excerpt: redactPii(content.slice(0, 1_200)).text
       }))
     };
   });

@@ -208,12 +208,11 @@ Render static site  →  Render API  →  Supabase Postgres/Storage/Auth
 The frontend publishes `apps/web/dist`; the API builds from the repository root
 with `apps/api/Dockerfile`. Configuration is supplied by the hosting platform,
 not committed files. The deployment guide lists the required variables and
-acceptance checks.
+acceptance checks. Supabase RLS policies allow authenticated workspace reads by
+membership, while cache, quota, audit, and usage tables remain backend-only.
 
 ## Next architectural increments
 
-1. Redact PII before sending context to external providers.
-2. Add tenant-scoped semantic caching with explicit invalidation on reindex.
-3. Record usage, estimated tokens, latency, and budget alerts.
-4. Add OCR, URL ingestion, language detection, and structure-aware chunking.
-5. Move large ingestion workloads to a dedicated queue worker when required.
+1. Capture provider-native token usage where available.
+2. Add OCR, URL ingestion, language detection, and structure-aware chunking.
+3. Move large ingestion workloads to a dedicated queue worker when required.

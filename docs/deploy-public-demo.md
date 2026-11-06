@@ -45,6 +45,11 @@ SUPABASE_SERVICE_ROLE_KEY=...       # backend only; optional for private origina
 ADMIN_EMAILS=admin@example.com
 DEMO_MODE=true
 HOST=0.0.0.0
+DAILY_USER_QA_LIMIT=30
+SEMANTIC_CACHE_TTL_SECONDS=3600
+USAGE_ALERT_THRESHOLD_USD=1
+# Optional: use a 32+ character secret for anonymous quota hashing.
+# USAGE_HASH_SECRET=...
 ```
 
 Keep `RERANKER_PROVIDER=none` and `LANGSMITH_TRACING=false` for the lowest-cost
@@ -82,7 +87,7 @@ database, service-role, or administrative secrets with that prefix.
 
 ## Before accepting real users
 
-Add identity-level limits, PII redaction, semantic caching with tenant isolation,
-usage and cost alerts, backups, retention policies, and a security review. Do
+Keep the owner-only usage dashboard and budget threshold enabled. Add provider-
+native token accounting, backups, retention policies, and a security review. Do
 not expose direct database APIs or external tools before their authorization
 policies and tests are in place.

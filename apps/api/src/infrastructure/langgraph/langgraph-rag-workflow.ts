@@ -6,13 +6,14 @@ import type { RetrievedChunk } from "../../domain/document.js";
 import { isSafeForAnswer } from "../../domain/security/prompt-injection.js";
 
 type Retriever = {
-  execute(input: { query: string; topK?: number; tenantId?: string }): Promise<RetrievedChunk[]>;
+  execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[] }): Promise<RetrievedChunk[]>;
 };
 
 const RagState = Annotation.Root({
   question: Annotation<string>,
   topK: Annotation<number | undefined>,
   tenantId: Annotation<string | undefined>,
+  queryEmbedding: Annotation<number[] | undefined>,
   matches: Annotation<RetrievedChunk[]>(),
   context: Annotation<string>(),
   hasContext: Annotation<boolean>(),
@@ -30,7 +31,7 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
     this.graph = this.createGraph();
   }
 
-  async answer(input: { question: string; topK?: number; tenantId?: string }): Promise<AnswerQuestionResult> {
+  async answer(input: { question: string; topK?: number; tenantId?: string; queryEmbedding?: number[] }): Promise<AnswerQuestionResult> {
     const output = await this.graph.invoke(input);
     if (!output.hasContext) {
       return { answer: output.answer, sources: [] };
@@ -54,7 +55,7 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
       .addNode(
         "retrieve",
         async (state) => {
-          const matches = await this.retriever.execute({ query: state.question, topK: state.topK, tenantId: state.tenantId });
+          const matches = await this.retriever.execute({ query: state.question, topK: state.topK, tenantId: state.tenantId, queryEmbedding: state.queryEmbedding });
           return { matches: matches.filter((match) => isSafeForAnswer(match.security)) };
         },
         { retryPolicy: { maxAttempts: 3, initialInterval: 0.25, maxInterval: 1, backoffFactor: 2 } }

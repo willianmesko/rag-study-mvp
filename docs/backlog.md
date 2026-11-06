@@ -26,6 +26,11 @@ product decision, credentials, or additional operational cost.
 - Persisted ingestion timeline: stage start/end events, durations, safe counts,
   and errors are available to the protected administration UI without storing
   document content in the event stream.
+- PII redaction before external embedding/chat providers, workspace-isolated
+  semantic answer cache, per-user question quotas, estimated usage metrics,
+  owner-only usage dashboard, and configurable budget alerts.
+- Supabase RLS policies for authenticated workspace reads; backend-only tables
+  remain inaccessible through the publishable Data API by design.
 - Workspace onboarding, switching, `owner`/`editor`/`viewer` roles, invitations,
   member management, and server-side authorization on every protected route.
 - Feature-Sliced Design frontend and npm-workspaces monorepo with shared Zod
@@ -39,12 +44,10 @@ product decision, credentials, or additional operational cost.
    - Keep test corpora and provider keys isolated from production data.
 
 2. **Security and cost controls**
-   - Detect and redact PII before sending a question or retrieved context to an
-     external provider.
-   - Add tenant-scoped semantic caching with TTL and invalidation on reindex.
-   - Add atomic quotas per end user in addition to tenant-wide quotas.
-   - Track requests, estimated tokens, latency, cache hit rate, and provider
-     failures; add budget alerts before the configured threshold.
+   - Capture provider-native token usage where each provider exposes it; current
+     hosted-demo metrics use a documented character-based estimate.
+   - Add external notification delivery for budget alerts if the demo grows
+     beyond the owner-only dashboard.
 
 3. **Improve ingestion**
    - Add OCR for scanned PDFs. OCR (Optical Character Recognition) converts text
@@ -64,7 +67,7 @@ product decision, credentials, or additional operational cost.
    - Compare providers and prompts with a versioned evaluation report.
 
 6. **Production readiness**
-   - Create explicit RLS policies before exposing a database API.
+   - Review RLS policies again before exposing any new database API surface.
    - Move high-volume jobs to Redis + BullMQ and a dedicated worker only when
      workload justifies its cost.
    - Add backups, retention policy, domain, identity limits, and incident runbook

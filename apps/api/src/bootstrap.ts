@@ -25,6 +25,10 @@ import { PgIngestionJobRepository } from "./infrastructure/postgres/pg-ingestion
 import { PgQuotaRepository } from "./infrastructure/postgres/pg-quota-repository.js";
 import { PgAuditEventRepository } from "./infrastructure/postgres/pg-audit-event-repository.js";
 import { PgTenantMembershipRepository } from "./infrastructure/postgres/pg-tenant-membership-repository.js";
+import { PgSemanticAnswerCache } from "./infrastructure/postgres/pg-semantic-answer-cache.js";
+import { PgUsageMetricsRepository } from "./infrastructure/postgres/pg-usage-metrics-repository.js";
+import { RedactingAnswerGenerator } from "./infrastructure/security/redacting-answer-generator.js";
+import { RedactingEmbeddingProvider } from "./infrastructure/security/redacting-embedding-provider.js";
 import { MultiFormatDocumentTextExtractor } from "./infrastructure/ingestion/document-text-extractor.js";
 import { createPostgresPool } from "./infrastructure/postgres/pool.js";
 import { PassThroughReranker } from "./infrastructure/reranking/pass-through-reranker.js";
@@ -32,14 +36,16 @@ import { SupabaseOriginalFileStore } from "./infrastructure/storage/supabase-ori
 
 export function createApplication() {
   const pool = createPostgresPool(config.DATABASE_URL);
-  const embeddings = createEmbeddingProvider();
-  const answerGenerator = createAnswerGenerator();
+  const embeddings = new RedactingEmbeddingProvider(createEmbeddingProvider());
+  const answerGenerator = new RedactingAnswerGenerator(createAnswerGenerator());
   const reranker = createReranker();
   const documents = new PgDocumentRepository(pool, config.EMBEDDING_DIMENSIONS);
   const jobs = new PgIngestionJobRepository(pool);
   const quotas = new PgQuotaRepository(pool);
   const auditEvents = new PgAuditEventRepository(pool);
   const memberships = new PgTenantMembershipRepository(pool);
+  const semanticCache = new PgSemanticAnswerCache(pool, config.EMBEDDING_DIMENSIONS);
+  const usageMetrics = new PgUsageMetricsRepository(pool);
   const originals = new SupabaseOriginalFileStore(
     config.SUPABASE_URL,
     config.SUPABASE_SERVICE_ROLE_KEY,
@@ -71,7 +77,7 @@ export function createApplication() {
     useCases: {
       ingestDocument,
       queueDocumentUpload: new QueueDocumentUploadUseCase(jobs, originals),
-      processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, new MultiFormatDocumentTextExtractor(), ingestDocument, originals),
+      processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, new MultiFormatDocumentTextExtractor(), ingestDocument, originals, semanticCache),
       retryIngestionJob: new RetryIngestionJobUseCase(jobs),
       listIngestionJobs: (tenantId: string, limit: number) => jobs.list(tenantId, limit),
       listIngestionEvents: (jobId: string, tenantId: string, limit: number) => jobs.listEvents(jobId, tenantId, limit),
@@ -88,11 +94,20 @@ export function createApplication() {
       listDocumentChunks: (tenantId: string, documentId: string, limit: number) => documents.listChunks({ tenantId, documentId, limit }),
       reindexDocument: new ReindexDocumentUseCase(jobs),
       deleteDocument: new DeleteDocumentUseCase(documents, jobs, originals),
-      consumeQuestionQuota: (tenantId: string, actorKey: string) => quotas.consumeQuestion({ tenantId, actorKey, limit: config.DAILY_TENANT_QA_LIMIT }),
+      consumeQuestionQuota: (tenantId: string, actorKey: string) => quotas.consumeQuestion({ tenantId, actorKey, tenantLimit: config.DAILY_TENANT_QA_LIMIT, actorLimit: config.DAILY_USER_QA_LIMIT }),
       consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => quotas.consumeUpload({ tenantId, actorKey, bytes, limit: config.DAILY_ADMIN_UPLOAD_BYTES_LIMIT }),
+      getUsageSummary: (tenantId: string, days: number) => usageMetrics.summarize({ tenantId, days }),
+      invalidateSemanticCache: (tenantId: string) => semanticCache.invalidateTenant(tenantId),
       recordAuditEvent: auditEvents.record.bind(auditEvents),
       searchDocuments,
-      answerQuestion: new AnswerQuestionUseCase(answerWorkflow)
+      answerQuestion: new AnswerQuestionUseCase(answerWorkflow, embeddings, semanticCache, usageMetrics, {
+        cacheTtlSeconds: config.SEMANTIC_CACHE_TTL_SECONDS,
+        cacheMinimumSimilarity: config.SEMANTIC_CACHE_MINIMUM_SIMILARITY,
+        provider: config.CHAT_PROVIDER,
+        model: config.CHAT_PROVIDER === "openrouter" ? config.OPENROUTER_CHAT_MODEL : config.CHAT_PROVIDER === "bedrock" ? config.BEDROCK_CHAT_MODEL_ID : config.OLLAMA_CHAT_MODEL,
+        inputCostPer1kUsd: config.ESTIMATED_INPUT_COST_PER_1K_USD,
+        outputCostPer1kUsd: config.ESTIMATED_OUTPUT_COST_PER_1K_USD
+      })
     },
     close: () => pool.end()
   };

@@ -20,8 +20,8 @@ export class SearchDocumentsUseCase {
     }
   ) {}
 
-  async execute(input: { query: string; topK?: number; tenantId?: string }): Promise<RetrievedChunk[]> {
-    const queryEmbedding = await this.embeddings.embed(input.query, "query");
+  async execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[] }): Promise<RetrievedChunk[]> {
+    const queryEmbedding = input.queryEmbedding ?? await this.embeddings.embed(input.query, "query");
     const limit = input.topK ?? this.options.defaultTopK;
     const rerankCandidateLimit = this.reranker.enabled
       ? limit * this.options.rerankerCandidateMultiplier

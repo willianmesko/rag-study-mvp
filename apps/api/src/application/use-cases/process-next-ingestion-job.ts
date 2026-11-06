@@ -2,9 +2,10 @@ import type { DocumentTextExtractor } from "../ports/document-text-extractor.js"
 import type { IngestionJobRepository } from "../ports/ingestion-job-repository.js";
 import type { OriginalFileStore } from "../ports/original-file-store.js";
 import type { IngestDocumentUseCase } from "./ingest-document.js";
+import type { SemanticAnswerCache } from "../ports/semantic-answer-cache.js";
 
 export class ProcessNextIngestionJobUseCase {
-  constructor(private readonly jobs: IngestionJobRepository, private readonly extractor: DocumentTextExtractor, private readonly ingest: IngestDocumentUseCase, private readonly originals: OriginalFileStore) {}
+  constructor(private readonly jobs: IngestionJobRepository, private readonly extractor: DocumentTextExtractor, private readonly ingest: IngestDocumentUseCase, private readonly originals: OriginalFileStore, private readonly cache?: SemanticAnswerCache) {}
 
   async execute(): Promise<boolean> {
     const job = await this.jobs.claimNext();
@@ -24,6 +25,7 @@ export class ProcessNextIngestionJobUseCase {
         (event) => this.jobs.recordEvent({ jobId: job.id, tenantId: job.tenantId, ...event })
       );
       await this.jobs.complete(job.id, { documentId: result.id, ...result });
+      await this.cache?.invalidateTenant(job.tenantId);
       await this.jobs.recordEvent({ jobId: job.id, tenantId: job.tenantId, stage: "completed", status: "completed", details: { documentId: result.id, chunkCount: result.chunkCount, highRiskChunks: result.highRiskChunks } });
     } catch (error) {
       const message = error instanceof Error ? error.message.slice(0, 1000) : "Unexpected ingestion error";
