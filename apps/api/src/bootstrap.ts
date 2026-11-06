@@ -6,6 +6,7 @@ import { ProcessNextIngestionJobUseCase } from "./application/use-cases/process-
 import { RetryIngestionJobUseCase } from "./application/use-cases/retry-ingestion-job.js";
 import { ReindexDocumentUseCase } from "./application/use-cases/reindex-document.js";
 import { DeleteDocumentUseCase } from "./application/use-cases/delete-document.js";
+import { GetDocumentOriginalUseCase } from "./application/use-cases/get-document-original.js";
 import { config } from "./config.js";
 import type { AnswerGenerator } from "./application/ports/answer-generator.js";
 import type { EmbeddingProvider } from "./application/ports/embedding-provider.js";
@@ -106,6 +107,7 @@ export function createApplication() {
       recordWorkspaceInvitation: memberships.recordInvitation.bind(memberships),
       listDocuments: (tenantId: string, limit: number) => documents.list(tenantId, limit),
       listDocumentChunks: (tenantId: string, documentId: string, limit: number) => documents.listChunks({ tenantId, documentId, limit }),
+      getDocumentOriginal: new GetDocumentOriginalUseCase(jobs, originals),
       reindexDocument: new ReindexDocumentUseCase(jobs),
       deleteDocument: new DeleteDocumentUseCase(documents, jobs, originals),
       consumeQuestionQuota: (tenantId: string, actorKey: string) => quotas.consumeQuestion({ tenantId, actorKey, tenantLimit: config.DAILY_TENANT_QA_LIMIT, actorLimit: config.DAILY_USER_QA_LIMIT }),

@@ -40,7 +40,8 @@ export type AnswerStreamEvent =
   | { type: "error"; error: string };
 export type UploadJob = { id: string; source: string; title: string | null; filename: string; mimeType: string; status: "queued" | "processing" | "completed" | "failed"; progress: number; error: string | null; chunkCount: number | null; highRiskChunks: number | null; createdAt: string; updatedAt: string };
 export type IngestionEvent = { id: string; stage: string; status: "started" | "completed" | "failed" | "info"; durationMs: number | null; details: Record<string, unknown>; createdAt: string };
-export type ManagedDocument = { id: string; source: string; title: string | null; chunkCount: number; createdAt: string; updatedAt: string };
+export type ManagedDocument = { id: string; source: string; title: string | null; chunkCount: number; createdAt: string; updatedAt: string; hasOriginal?: boolean };
+type OriginalDocumentFile = { blob: Blob; filename: string; isPdf: boolean };
 export type StoredChunk = { id: string; ordinal: number; content: string; security: SearchResult["security"]; createdAt: string };
 export type Workspace = { tenantId: string; tenantName: string; tenantSlug: string; role: "owner" | "editor" | "viewer" };
 export type WorkspaceMember = { userId: string; email: string | null; role: Workspace["role"]; createdAt: string };
@@ -72,6 +73,17 @@ type ErrorBody = { error?: string; message?: string };
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const workspaceHeaders = (workspaceId?: string): Record<string, string> => workspaceId ? { "x-workspace-id": workspaceId } : {};
+
+function originalFilename(disposition: string | null, fallback: string): string {
+  const encoded = disposition?.match(/(?:^|;)\s*filename\*\s*=\s*UTF-8'[^']*'([^;]+)/i)?.[1];
+  if (!encoded) return fallback;
+  try {
+    const filename = decodeURIComponent(encoded.trim()).replace(/[/\\\p{Cc}\u202a-\u202e\u2066-\u2069]/gu, "_").trim();
+    return filename && filename !== "." && filename !== ".." ? filename : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -170,6 +182,22 @@ export const api = {
   runEvaluation: (accessToken: string, workspaceId: string) => request<{ run: EvaluationRun }>("/v1/admin/evaluations/run", { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   retryUpload: (jobId: string, accessToken: string, workspaceId?: string) => request<{ jobId: string; status: string }>(`/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listDocuments: (accessToken: string, workspaceId?: string) => request<{ documents: ManagedDocument[] }>("/v1/admin/documents", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  getOriginalDocument: async (input: { documentId: string; accessToken: string; workspaceId: string; signal: AbortSignal }): Promise<OriginalDocumentFile> => {
+    const response = await fetch(`${apiBaseUrl}/v1/admin/documents/${encodeURIComponent(input.documentId)}/original`, {
+      headers: { authorization: `Bearer ${input.accessToken}`, "x-workspace-id": input.workspaceId },
+      signal: input.signal,
+      cache: "no-store",
+      redirect: "error"
+    });
+    if (!response.ok) throw new ApiError("The original file could not be loaded.", response.status);
+    const contentType = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
+    const isPdf = contentType === "application/pdf";
+    if (!isPdf && contentType !== "application/octet-stream") {
+      throw new ApiError("The server returned an unexpected file format.", 502);
+    }
+    const filename = originalFilename(response.headers.get("content-disposition"), isPdf ? "original-file.pdf" : "original-file");
+    return { blob: await response.blob(), filename, isPdf };
+  },
   listDocumentChunks: (documentId: string, accessToken: string, workspaceId?: string) => request<{ chunks: StoredChunk[] }>(`/v1/admin/documents/${documentId}/chunks`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   reindexDocument: (documentId: string, accessToken: string, workspaceId?: string) => request<{ job: UploadJob }>(`/v1/admin/documents/${documentId}/reindex`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   deleteDocument: (documentId: string, accessToken: string, workspaceId?: string) => requestVoid(`/v1/admin/documents/${documentId}`, { method: "DELETE", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),

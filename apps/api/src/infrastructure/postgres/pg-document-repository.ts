@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import type { DocumentRepository, HybridSearchInput, ManagedDocument, StoredChunk } from "../../application/ports/document-repository.js";
 import type { EmbeddedChunk, RetrievedChunk } from "../../domain/document.js";
 import type { PromptInjectionAssessment } from "../../domain/security/prompt-injection.js";
+import { indexedOriginalPredicate } from "./indexed-original.js";
 import { toVectorLiteral } from "./pgvector.js";
 
 type SearchRow = {
@@ -23,6 +24,7 @@ type ManagedDocumentRow = {
   source: string;
   title: string | null;
   chunk_count: number;
+  has_original: boolean;
   created_at: Date;
   updated_at: Date;
 };
@@ -167,7 +169,8 @@ export class PgDocumentRepository implements DocumentRepository {
 
   async list(tenantId: string, limit: number): Promise<ManagedDocument[]> {
     const result = await this.pool.query<ManagedDocumentRow>(
-      `SELECT d.id, d.source, d.title, COUNT(c.id)::int AS chunk_count, d.created_at, d.updated_at
+      `SELECT d.id, d.source, d.title, COUNT(c.id)::int AS chunk_count, d.created_at, d.updated_at,
+              EXISTS (SELECT 1 FROM ingestion_jobs j WHERE ${indexedOriginalPredicate}) AS has_original
        FROM documents d
        LEFT JOIN chunks c ON c.document_id = d.id
        WHERE d.tenant_id = $1
@@ -181,6 +184,7 @@ export class PgDocumentRepository implements DocumentRepository {
       source: row.source,
       title: row.title,
       chunkCount: Number(row.chunk_count),
+      hasOriginal: row.has_original,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));

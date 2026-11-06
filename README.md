@@ -108,6 +108,15 @@ English language data is installed. The default budget is eight pages requiring
 OCR and 45 seconds per recognition run. Split longer scans before uploading or
 adjust the bounded settings documented in `.env.example`.
 
+### Open an original upload
+
+In **Workspace → Knowledge**, choose **Original file** on an indexed document.
+PDFs can open in a new tab, and every available original can be downloaded.
+Members can open files in their own workspace, including viewers. The API
+checks membership, serves the original bytes with caching disabled, and records
+the access in the audit trail. The action appears when the indexed revision is
+linked to a retained upload.
+
 ## Common commands
 
 ```bash

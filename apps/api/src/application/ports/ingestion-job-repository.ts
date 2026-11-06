@@ -30,6 +30,8 @@ export type IngestionJob = {
   updatedAt: Date;
 };
 
+export type IndexedOriginal = Pick<IngestionJob, "filename" | "mimeType" | "payload" | "storagePath">;
+
 export interface IngestionJobRepository {
   enqueue(input: Omit<IngestionJob, "id" | "documentId" | "status" | "progress" | "error" | "chunkCount" | "highRiskChunks" | "createdAt" | "updatedAt">): Promise<IngestionJob>;
   claimNext(): Promise<IngestionJob | null>;
@@ -37,6 +39,7 @@ export interface IngestionJobRepository {
   fail(id: string, error: string): Promise<void>;
   retry(id: string, tenantId: string): Promise<boolean>;
   list(tenantId: string, limit: number): Promise<Omit<IngestionJob, "payload">[]>;
+  findIndexedOriginal(input: { documentId: string; tenantId: string }): Promise<IndexedOriginal | null>;
   requeueDocument(documentId: string, tenantId: string): Promise<IngestionJob | null>;
   listStoragePathsForDocument(documentId: string, tenantId: string): Promise<string[]>;
   deleteForDocument(documentId: string, tenantId: string): Promise<void>;

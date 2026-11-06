@@ -16,6 +16,7 @@ export type ManagedDocument = {
   source: string;
   title: string | null;
   chunkCount: number;
+  hasOriginal: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

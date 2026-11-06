@@ -7,6 +7,7 @@ import { SelectField } from "../../../shared/ui/SelectField";
 import type { WorkspaceSection } from "../../../shared/lib/app-route";
 import { WorkspaceOverview } from "../../workspace-control-center/ui/WorkspaceOverview";
 import { OcrEventDetails } from "./OcrEventDetails";
+import { OriginalDocumentAction } from "./OriginalDocumentAction";
 
 type Translate = ReturnType<typeof useLocale>["t"];
 
@@ -449,6 +450,8 @@ export function AdminPanel({ section, workspace, token, onSectionChange }: {
                     </button>
                     <div className="flex shrink-0 flex-wrap items-start gap-3 text-xs font-medium">
                       <button type="button" className="text-cyan-300 hover:text-cyan-100" onClick={() => setSelectedDocument(document)}>{t("View passages", "Ver trechos")}</button>
+                      {document.hasOriginal === true && <OriginalDocumentAction documentId={document.id} documentName={document.title ?? document.source}
+                        accessToken={token} workspaceId={workspaceId} />}
                       {workspace && !readOnly && <>
                         <button type="button" className="text-violet-300 hover:text-violet-100" onClick={() => reindex.mutate(document.id)} disabled={reindex.isPending}>{t("Refresh index", "Atualizar índice")}</button>
                         <button type="button" className="text-rose-300 hover:text-rose-100" onClick={() => confirmDelete(document)} disabled={remove.isPending}>{t("Delete", "Excluir")}</button>

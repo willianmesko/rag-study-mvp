@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
-import type { IngestionJob, IngestionJobEvent, IngestionJobRepository } from "../../application/ports/ingestion-job-repository.js";
+import type { IndexedOriginal, IngestionJob, IngestionJobEvent, IngestionJobRepository } from "../../application/ports/ingestion-job-repository.js";
+import { indexedOriginalPredicate } from "./indexed-original.js";
 
 type Row = { id: string; tenant_id: string; document_id: string | null; source: string; title: string | null; filename: string; mime_type: string; payload: Buffer | null; storage_path: string | null; status: IngestionJob["status"]; progress: number; error: string | null; chunk_count: number | null; high_risk_chunks: number | null; created_at: Date; updated_at: Date };
 const columns = "id, tenant_id, document_id, source, title, filename, mime_type, payload, storage_path, status, progress, error, chunk_count, high_risk_chunks, created_at, updated_at";
@@ -32,19 +33,24 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
     return result.rowCount === 1;
   }
   async list(tenantId: string, limit: number) { const result = await this.pool.query<Row>(`SELECT ${columns.replace("payload, ", "")} FROM ingestion_jobs WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT $2`, [tenantId, limit]); return result.rows.map(({ payload: _payload, ...row }) => map({ ...row, payload: null })); }
+  async findIndexedOriginal(input: { documentId: string; tenantId: string }): Promise<IndexedOriginal | null> {
+    const result = await this.pool.query<Pick<Row, "filename" | "mime_type" | "payload" | "storage_path">>(
+      `SELECT j.filename, j.mime_type, j.payload, j.storage_path
+       FROM documents d
+       JOIN ingestion_jobs j ON ${indexedOriginalPredicate}
+       WHERE d.tenant_id = $1 AND d.id = $2`,
+      [input.tenantId, input.documentId]
+    );
+    const row = result.rows[0];
+    return row ? { filename: row.filename, mimeType: row.mime_type, payload: row.payload, storagePath: row.storage_path } : null;
+  }
+
   async requeueDocument(documentId: string, tenantId: string): Promise<IngestionJob | null> {
     const result = await this.pool.query<Row>(
-      `WITH candidate AS (
-         SELECT id FROM ingestion_jobs
-         WHERE tenant_id = $1 AND document_id = $2 AND status = 'completed'
-           AND (payload IS NOT NULL OR storage_path IS NOT NULL)
-         ORDER BY updated_at DESC
-         LIMIT 1
-       )
-       UPDATE ingestion_jobs j
+      `UPDATE ingestion_jobs j
        SET status = 'queued', progress = 0, error = NULL, chunk_count = NULL, high_risk_chunks = NULL, updated_at = NOW()
-       FROM candidate
-       WHERE j.id = candidate.id
+       FROM documents d
+       WHERE d.tenant_id = $1 AND d.id = $2 AND j.status = 'completed' AND ${indexedOriginalPredicate}
        RETURNING ${columns.split(", ").map((column) => `j.${column}`).join(", ")}`,
       [tenantId, documentId]
     );

@@ -25,6 +25,9 @@ product decision, credentials, or additional operational cost.
   build verification, and GitHub Actions.
 - Document management: list, inspect chunks, reindex from a private original,
   delete, clickable answer sources, and browser-local question feedback.
+- Original uploads in Knowledge: workspace members can open retained PDFs or
+  download the original bytes for the indexed revision. The API checks access
+  and audits reads.
 - Ingestion pipeline visualization: file received, extraction, chunking,
   security scan, embeddings, and vector persistence.
 - Persisted ingestion timeline: stage start/end events, durations, safe counts,

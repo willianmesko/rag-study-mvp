@@ -14,6 +14,7 @@ import type { ProcessNextIngestionJobUseCase } from "../../application/use-cases
 import type { RetryIngestionJobUseCase } from "../../application/use-cases/retry-ingestion-job.js";
 import type { ReindexDocumentUseCase } from "../../application/use-cases/reindex-document.js";
 import type { DeleteDocumentUseCase } from "../../application/use-cases/delete-document.js";
+import type { GetDocumentOriginalUseCase } from "../../application/use-cases/get-document-original.js";
 import type { IngestionJob, IngestionJobEvent } from "../../application/ports/ingestion-job-repository.js";
 import type { ManagedDocument, StoredChunk } from "../../application/ports/document-repository.js";
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
@@ -49,6 +50,7 @@ type HttpDependencies = {
   recordWorkspaceInvitation: (input: { tenantId: string; email: string; role: Exclude<TenantRole, "owner">; invitedBy: string; invitedUserId: string }) => Promise<void>;
   listDocuments: (tenantId: string, limit: number) => Promise<ManagedDocument[]>;
   listDocumentChunks: (tenantId: string, documentId: string, limit: number) => Promise<StoredChunk[]>;
+  getDocumentOriginal: Pick<GetDocumentOriginalUseCase, "execute">;
   reindexDocument: ReindexDocumentUseCase;
   deleteDocument: DeleteDocumentUseCase;
   consumeQuestionQuota: (tenantId: string, actorKey: string) => Promise<QuotaResult>;
@@ -65,6 +67,14 @@ function matchesApiKey(candidate: string | undefined, expected: string): boolean
   const actual = Buffer.from(candidate);
   const wanted = Buffer.from(expected);
   return actual.length === wanted.length && timingSafeEqual(actual, wanted);
+}
+
+function originalFileDisposition(value: string): string {
+  const basename = (value.split(/[/\\]/).at(-1) ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim();
+  const filename = Array.from(basename).slice(0, 240).join("") || "document";
+  const ascii = filename.replace(/[^a-zA-Z0-9 ._-]/g, "_");
+  const encoded = encodeURIComponent(filename).replace(/['()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
 
 function applyCorsHeaders(origin: string | undefined, reply: { header: (name: string, value: string) => unknown }): boolean {
@@ -125,15 +135,18 @@ export async function buildApp(dependencies: HttpDependencies) {
     return reply.code(500).send({ error: "Internal server error" });
   });
   app.get("/health", async () => ({ status: "ok", capabilities: { pdfOcr: config.PDF_OCR_ENABLED } }));
-  const authorizeMember = async (request: { headers: Record<string, string | string[] | undefined> }) => {
+  const authorizeMember = async (request: { headers: Record<string, string | string[] | undefined> }, requireExplicitWorkspace = false) => {
     if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return { ok: false as const, status: 503, error: "Admin upload is not configured." };
     const authorization = request.headers.authorization;
     const token = typeof authorization === "string" && authorization.startsWith("Bearer ") ? authorization.slice(7) : undefined;
     if (!token) return { ok: false as const, status: 401, error: "Authentication required." };
+    const requestedTenant = typeof request.headers["x-workspace-id"] === "string" ? request.headers["x-workspace-id"] : undefined;
+    if (requireExplicitWorkspace && !z.string().uuid().safeParse(requestedTenant).success) {
+      return { ok: false as const, status: 400, error: "Select a valid workspace." };
+    }
     const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user) return { ok: false as const, status: 403, error: "Administrator access required." };
-    const requestedTenant = typeof request.headers["x-workspace-id"] === "string" ? request.headers["x-workspace-id"] : undefined;
     const membership = requestedTenant ? await dependencies.findMembership(data.user.id, requestedTenant) : await dependencies.findPrimaryMembership(data.user.id);
     if (!membership) return { ok: false as const, status: 403, error: "Workspace membership required." };
     return { ok: true as const, userId: data.user.id, tenantId: membership.tenantId, role: membership.role };
@@ -313,6 +326,30 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
     return { chunks: (await dependencies.listDocumentChunks(authorization.tenantId, documentId, 200)).map(serializeStoredChunk) };
   });
+  app.get("/v1/admin/documents/:documentId/original", { exposeHeadRoute: false }, async (request, reply) => {
+    const authorization = await authorizeMember(request, true);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
+    const original = await dependencies.getDocumentOriginal.execute({ tenantId: authorization.tenantId, documentId });
+    if (!original) return reply.code(404).send({ error: "Original file not available." });
+
+    await dependencies.recordAuditEvent({
+      tenantId: authorization.tenantId,
+      actorUserId: authorization.userId,
+      action: "document.original_read",
+      resourceType: "document",
+      resourceId: documentId,
+      requestId: request.id,
+      metadata: {}
+    });
+    const isPdf = (original.mimeType === "application/pdf" || /\.pdf$/i.test(original.filename))
+      && original.payload.toString("utf8", 0, 5) === "%PDF-";
+    return reply
+      .type(isPdf ? "application/pdf" : "application/octet-stream")
+      .header("content-disposition", originalFileDisposition(original.filename))
+      .header("access-control-expose-headers", "content-disposition")
+      .send(original.payload);
+  });
   app.post("/v1/admin/documents/:documentId/reindex", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
@@ -358,7 +395,10 @@ export async function buildApp(dependencies: HttpDependencies) {
     const textBytes = Buffer.byteLength(input.text, "utf8");
     const quota = await dependencies.consumeAdminUploadQuota(config.DEFAULT_TENANT_ID, "api-key", textBytes);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily upload quota reached. Try again tomorrow." });
-    const result = await dependencies.ingestDocument.execute({ ...input, tenantId: config.DEFAULT_TENANT_ID });
+    // Only the upload worker can associate an indexed revision with an original.
+    const metadata = { ...input.metadata };
+    delete metadata.ingestionJobId;
+    const result = await dependencies.ingestDocument.execute({ ...input, metadata, tenantId: config.DEFAULT_TENANT_ID });
     await dependencies.recordAuditEvent({
       tenantId: config.DEFAULT_TENANT_ID,
       actorUserId: null,
@@ -455,7 +495,7 @@ function serializeIngestionEvent(event: IngestionJobEvent) {
 }
 
 function serializeDocument(document: ManagedDocument) {
-  return { id: document.id, source: document.source, title: document.title, chunkCount: document.chunkCount, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() };
+  return { id: document.id, source: document.source, title: document.title, chunkCount: document.chunkCount, hasOriginal: document.hasOriginal, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() };
 }
 
 function serializeEvaluationRun(run: EvaluationRun) {

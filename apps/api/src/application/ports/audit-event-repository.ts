@@ -2,7 +2,7 @@ export interface AuditEventRepository {
   record(input: {
     tenantId: string;
     actorUserId: string | null;
-    action: "document.upload_queued" | "document.ingested_via_api" | "document.reindex_queued" | "document.deleted" | "ingestion.retry_queued" | "workspace.member_invited";
+    action: "document.upload_queued" | "document.ingested_via_api" | "document.original_read" | "document.reindex_queued" | "document.deleted" | "ingestion.retry_queued" | "workspace.member_invited";
     resourceType: "document" | "ingestion_job" | "tenant_membership";
     resourceId: string | null;
     requestId: string;
