@@ -35,6 +35,9 @@ para que a demo não esconda trabalho operacional pendente.
   persistida no navegador; viewers têm somente leitura; owners convidam por
   e-mail, alteram editor/viewer e removem membros não-owner. A API valida a
   sessão e o papel em toda rota, e a chave de serviço nunca chega ao frontend.
+- Frontend reorganizado em Feature-Sliced Design: `app`, `pages`, `widgets`,
+  `features`, `entities` e `shared`; fluxos de ingestão, busca, perguntas e
+  histórico não ficam mais concentrados na página principal.
 
 ## Próximas etapas, por prioridade
 
@@ -99,10 +102,9 @@ para que a demo não esconda trabalho operacional pendente.
    acessa as tabelas e valida membership. Antes de expor qualquer tabela pelo
    Data API, criar políticas explícitas por `auth.uid()` e tenant, testar BOLA
    e revisar as permissões do schema público.
-6. **Arquitetura do frontend:** migrar a UI para Feature-Sliced Design, com
-   `app`, `pages`, `widgets`, `features`, `entities` e `shared`; manter cada
-   fluxo (perguntas, administração de corpus, autenticação) coeso e impedir
-   que componentes de páginas acumulem regra de negócio e chamadas HTTP.
+6. **Monorepo formal:** separar API e web em `apps/api` e `apps/web`, extrair
+   contratos reutilizáveis para `packages/contracts` e configurar scripts,
+   builds e deploys por aplicativo sem duplicar tipos ou variáveis públicas.
 7. **Observabilidade:** traces no LangSmith *ou* Langfuse/Phoenix, métricas de
    latência, custo, falhas e volume sem registrar conteúdo ou segredos.
 8. **Qualidade de retrieval:** habilitar e medir Jina reranker somente com

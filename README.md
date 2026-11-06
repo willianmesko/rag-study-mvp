@@ -39,6 +39,13 @@ O banco e a aplicação são deliberadamente separados: o Docker Compose executa
 │   ├── bootstrap.ts             # composição das dependências concretas
 │   └── server.ts                # inicialização e desligamento da API
 ├── web/                          # React, TypeScript, Tailwind, Zod e React Query
+│   └── src/
+│       ├── app/                  # inicialização e providers globais
+│       ├── pages/                # composição das telas
+│       ├── widgets/              # blocos de tela: layout e administração
+│       ├── features/             # fluxos: ingestão, busca, Q&A e histórico
+│       ├── entities/             # modelos de domínio do frontend
+│       └── shared/               # API, validação, UI e utilitários reutilizáveis
 └── README.md
 ```
 
@@ -56,6 +63,15 @@ HTTP / CLI  →  casos de uso  →  portas  ←  Ollama / OpenRouter / Bedrock /
 - `interfaces` traduz HTTP e CLI para os casos de uso, sem lógica de RAG.
 - `bootstrap.ts` é o único lugar que junta implementações concretas. Assim, trocar Bedrock por Ollama não exige alterar os casos de uso nem a API.
 - A política de resposta fica centralizada em `application/policies`, evitando que cada provedor de LLM tenha um prompt de segurança diferente.
+
+### Feature-Sliced Design no frontend
+
+O frontend segue uma versão pragmática de Feature-Sliced Design (FSD): `app`
+inicializa providers; `pages` compõe a tela; `widgets` reúne blocos de tela;
+`features` contém os fluxos acionáveis; `entities` define modelos próprios da
+interface; e `shared` concentra API, schemas Zod, componentes visuais e
+utilitários. Isso deixa uma futura migração para monorepo simples, pois o
+frontend já tem fronteiras internas explícitas.
 
 ## Pré-requisitos
 

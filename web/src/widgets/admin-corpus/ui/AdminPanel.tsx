@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type ManagedDocument, type UploadJob, type Workspace } from "../lib/api";
-import { supabase } from "../lib/supabase";
+import { api, type ManagedDocument, type UploadJob, type Workspace } from "../../../shared/api/rag-api";
+import { supabase } from "../../../shared/lib/supabase";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));

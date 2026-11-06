@@ -25,9 +25,10 @@ export type SearchResult = {
 
 export type SearchResponse = { results: SearchResult[] };
 export type IngestResponse = { documentId: string; chunkCount: number; highRiskChunks: number };
+export type QuestionSource = { chunkId: string; documentId: string; source: string; title: string | null; chunk: number; score: number; excerpt: string };
 export type QuestionResponse = {
   answer: string;
-  sources: Array<{ chunkId: string; documentId: string; source: string; title: string | null; chunk: number; score: number; excerpt: string }>;
+  sources: QuestionSource[];
 };
 export type UploadJob = { id: string; source: string; title: string | null; filename: string; mimeType: string; status: "queued" | "processing" | "completed" | "failed"; progress: number; error: string | null; chunkCount: number | null; highRiskChunks: number | null; createdAt: string; updatedAt: string };
 export type ManagedDocument = { id: string; source: string; title: string | null; chunkCount: number; createdAt: string; updatedAt: string };
