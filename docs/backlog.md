@@ -35,6 +35,11 @@ product decision, credentials, or additional operational cost.
   member management, and server-side authorization on every protected route.
 - Feature-Sliced Design frontend and npm-workspaces monorepo with shared Zod
   contracts in `packages/contracts`.
+- Professional UX/UI first pass: shared design tokens and components, clearer
+  information architecture, workspace-aware question/search flows, responsive
+  layouts, keyboard-visible focus states, reduced-motion support, loading/
+  empty/error/success states, animated ingestion progress, source inspection,
+  and document/job filters in the administration area.
 
 ## Next, in priority order
 
@@ -73,23 +78,9 @@ product decision, credentials, or additional operational cost.
    - Add backups, retention policy, domain, identity limits, and incident runbook
      before onboarding real users.
 
-7. **Professional UX/UI redesign**
-   - Audit the current information architecture and simplify the primary flows:
-     ask a question, inspect sources, upload a document, and manage a workspace.
-   - Create a coherent design system with tokens for typography, spacing, color,
-     borders, elevation, responsive breakpoints, and semantic status colors.
-   - Refine the visual language for a professional AI product while preserving
-     the educational explanation of chunks, similarity scores, citations, and
-     the RAG pipeline.
-   - Add robust loading, skeleton, empty, success, error, retry, disabled, and
-     permission-denied states to every feature slice.
-   - Improve the ingestion timeline with progressive motion, step transitions,
-     duration/count summaries, failure recovery, and reduced-motion support.
-   - Add purposeful micro-interactions for source expansion, citation focus,
-     workspace switching, feedback, uploads, reindexing, and destructive actions.
-   - Make the admin area feel like a real product: clearer hierarchy, document
-     search/filtering, usage cards, member management, and responsive layouts.
-   - Validate keyboard navigation, focus visibility, contrast, screen-reader
-     labels, touch targets, and WCAG-oriented accessibility requirements.
-   - Run visual QA on mobile, tablet, and desktop; check bundle size, animation
-     performance, and layout stability before publishing the redesign.
+7. **Professional UX/UI hardening**
+   - Run screenshot-based visual QA on mobile, tablet, and desktop in CI once a
+     browser runner is available in the deployment pipeline.
+   - Add a formal visual-regression baseline and automated contrast checks.
+   - Continue refining member management and workspace onboarding with the same
+     design tokens and state model.

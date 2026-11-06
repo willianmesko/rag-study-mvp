@@ -343,9 +343,13 @@ export async function buildApp(dependencies: HttpDependencies) {
     }
     return reply.code(201).send({ documentId: result.id, chunkCount: result.chunkCount, highRiskChunks: result.highRiskChunks });
   });
-  app.get("/v1/search", async (request) => {
+  app.get("/v1/search", async (request, reply) => {
     const { q, topK } = searchSchema.parse(request.query);
-    return { results: await dependencies.searchDocuments.execute({ query: q, topK }) };
+    const hasAuthorization = typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer ");
+    const authorization = hasAuthorization ? await authorizeMember(request) : null;
+    if (authorization && !authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const tenantId = authorization?.ok ? authorization.tenantId : config.DEFAULT_TENANT_ID;
+    return { results: await dependencies.searchDocuments.execute({ query: q, topK, tenantId }) };
   });
   app.post("/v1/qa", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
     const { question, topK } = questionInputSchema.parse(request.body);

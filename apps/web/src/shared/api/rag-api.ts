@@ -36,6 +36,8 @@ export type ManagedDocument = { id: string; source: string; title: string | null
 export type StoredChunk = { id: string; ordinal: number; content: string; security: SearchResult["security"]; createdAt: string };
 export type Workspace = { tenantId: string; tenantName: string; tenantSlug: string; role: "owner" | "editor" | "viewer" };
 export type WorkspaceMember = { userId: string; email: string | null; role: Workspace["role"]; createdAt: string };
+export type UsageSummary = { requests: number; cacheHits: number; inputTokens: number; outputTokens: number; estimatedCostUsd: number; averageLatencyMs: number; providerFailures: number };
+export type UsageAlert = { thresholdUsd: number; triggered: boolean };
 
 type ErrorBody = { error?: string; message?: string };
 
@@ -82,11 +84,12 @@ export const api = {
   health: () => request<Health>("/health"),
   ingest: (input: DocumentInput) =>
     request<IngestResponse>("/v1/documents", { method: "POST", body: JSON.stringify(input) }),
-  search: (input: SearchInput) =>
-    request<SearchResponse>(`/v1/search?${new URLSearchParams({ q: input.query, topK: String(input.topK ?? 5) })}`),
-  answer: (input: QuestionInput) => request<QuestionResponse>("/v1/qa", { method: "POST", body: JSON.stringify({ ...input, topK: input.topK ?? 5 }) }),
+  search: (input: SearchInput & { accessToken?: string; workspaceId?: string }) =>
+    request<SearchResponse>(`/v1/search?${new URLSearchParams({ q: input.query, topK: String(input.topK ?? 5) })}`, { headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) } }),
+  answer: (input: QuestionInput & { accessToken?: string; workspaceId?: string }) => request<QuestionResponse>("/v1/qa", { method: "POST", body: JSON.stringify({ question: input.question, topK: input.topK ?? 5 }), headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) } }),
   listUploads: (accessToken: string, workspaceId?: string) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
   listUploadEvents: (jobId: string, accessToken: string, workspaceId?: string) => request<{ events: IngestionEvent[] }>(`/v1/admin/uploads/${jobId}/events`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  getUsageSummary: (accessToken: string, workspaceId: string, days = 30) => request<{ days: number; summary: UsageSummary; alert: UsageAlert }>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   retryUpload: (jobId: string, accessToken: string, workspaceId?: string) => request<{ jobId: string; status: string }>(`/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listDocuments: (accessToken: string, workspaceId?: string) => request<{ documents: ManagedDocument[] }>("/v1/admin/documents", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listDocumentChunks: (documentId: string, accessToken: string, workspaceId?: string) => request<{ chunks: StoredChunk[] }>(`/v1/admin/documents/${documentId}/chunks`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
