@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from "pg";
-import type { DocumentRepository, HybridSearchInput } from "../../application/ports/document-repository.js";
+import type { DocumentRepository, HybridSearchInput, ManagedDocument, StoredChunk } from "../../application/ports/document-repository.js";
 import type { EmbeddedChunk, RetrievedChunk } from "../../domain/document.js";
 import type { PromptInjectionAssessment } from "../../domain/security/prompt-injection.js";
 import { toVectorLiteral } from "./pgvector.js";
@@ -16,6 +16,23 @@ type SearchRow = {
   vector_rank: number | null;
   keyword_rank: number | null;
   fusion_score: number;
+};
+
+type ManagedDocumentRow = {
+  id: string;
+  source: string;
+  title: string | null;
+  chunk_count: number;
+  created_at: Date;
+  updated_at: Date;
+};
+
+type StoredChunkRow = {
+  id: string;
+  ordinal: number;
+  content: string;
+  metadata: unknown;
+  created_at: Date;
 };
 
 const unknownLegacySecurity: PromptInjectionAssessment = {
@@ -146,6 +163,54 @@ export class PgDocumentRepository implements DocumentRepository {
         fusionScore: Number(row.fusion_score)
       }
     }));
+  }
+
+  async list(tenantId: string, limit: number): Promise<ManagedDocument[]> {
+    const result = await this.pool.query<ManagedDocumentRow>(
+      `SELECT d.id, d.source, d.title, COUNT(c.id)::int AS chunk_count, d.created_at, d.updated_at
+       FROM documents d
+       LEFT JOIN chunks c ON c.document_id = d.id
+       WHERE d.tenant_id = $1
+       GROUP BY d.id
+       ORDER BY d.updated_at DESC, d.id
+       LIMIT $2`,
+      [tenantId, limit]
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      source: row.source,
+      title: row.title,
+      chunkCount: Number(row.chunk_count),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  }
+
+  async listChunks(input: { tenantId: string; documentId: string; limit: number }): Promise<StoredChunk[]> {
+    const result = await this.pool.query<StoredChunkRow>(
+      `SELECT c.id, c.ordinal, c.content, c.metadata, c.created_at
+       FROM chunks c
+       JOIN documents d ON d.id = c.document_id
+       WHERE d.tenant_id = $1 AND c.document_id = $2
+       ORDER BY c.ordinal
+       LIMIT $3`,
+      [input.tenantId, input.documentId, input.limit]
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      ordinal: row.ordinal,
+      content: row.content,
+      security: readSecurity(row.metadata),
+      createdAt: row.created_at
+    }));
+  }
+
+  async delete(input: { tenantId: string; documentId: string }): Promise<boolean> {
+    const result = await this.pool.query(
+      "DELETE FROM documents WHERE tenant_id = $1 AND id = $2",
+      [input.tenantId, input.documentId]
+    );
+    return result.rowCount === 1;
   }
 
   private async insertChunk(client: PoolClient, documentId: string, chunk: EmbeddedChunk): Promise<void> {

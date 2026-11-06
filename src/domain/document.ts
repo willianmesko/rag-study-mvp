@@ -38,5 +38,7 @@ export type RetrievedChunk = {
   };
 };
 
-export type Citation = Pick<RetrievedChunk, "source" | "title" | "ordinal" | "score">;
+// A citation carries the exact retrieved chunk shown to the answer generator.
+// This lets the UI make sources inspectable without performing a second search.
+export type Citation = Pick<RetrievedChunk, "chunkId" | "documentId" | "source" | "title" | "ordinal" | "score" | "content">;
 

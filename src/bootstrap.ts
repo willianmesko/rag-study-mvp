@@ -4,6 +4,8 @@ import { SearchDocumentsUseCase } from "./application/use-cases/search-documents
 import { QueueDocumentUploadUseCase } from "./application/use-cases/queue-document-upload.js";
 import { ProcessNextIngestionJobUseCase } from "./application/use-cases/process-next-ingestion-job.js";
 import { RetryIngestionJobUseCase } from "./application/use-cases/retry-ingestion-job.js";
+import { ReindexDocumentUseCase } from "./application/use-cases/reindex-document.js";
+import { DeleteDocumentUseCase } from "./application/use-cases/delete-document.js";
 import { config } from "./config.js";
 import type { AnswerGenerator } from "./application/ports/answer-generator.js";
 import type { EmbeddingProvider } from "./application/ports/embedding-provider.js";
@@ -70,6 +72,10 @@ export function createApplication() {
       processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, new MultiFormatDocumentTextExtractor(), ingestDocument, originals),
       retryIngestionJob: new RetryIngestionJobUseCase(jobs),
       listIngestionJobs: (tenantId: string, limit: number) => jobs.list(tenantId, limit),
+      listDocuments: (tenantId: string, limit: number) => documents.list(tenantId, limit),
+      listDocumentChunks: (tenantId: string, documentId: string, limit: number) => documents.listChunks({ tenantId, documentId, limit }),
+      reindexDocument: new ReindexDocumentUseCase(jobs),
+      deleteDocument: new DeleteDocumentUseCase(documents, jobs, originals),
       consumeQuestionQuota: (tenantId: string, actorKey: string) => quotas.consumeQuestion({ tenantId, actorKey, limit: config.DAILY_TENANT_QA_LIMIT }),
       consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => quotas.consumeUpload({ tenantId, actorKey, bytes, limit: config.DAILY_ADMIN_UPLOAD_BYTES_LIMIT }),
       recordAuditEvent: auditEvents.record.bind(auditEvents),

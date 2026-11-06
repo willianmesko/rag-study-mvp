@@ -10,6 +10,9 @@ test("search use case combines embedding and keyword candidates through its repo
   const embeddings: EmbeddingProvider = { embed: async (query) => { calls.query = query; return [0.1, 0.2]; } };
   const documents: DocumentRepository = {
     replace: async () => ({ id: "unused", chunkCount: 0 }),
+    list: async () => [],
+    listChunks: async () => [],
+    delete: async () => false,
     findHybrid: async (input) => {
       calls.vector = input.embedding;
       calls.search = input;
@@ -46,6 +49,9 @@ test("search fetches extra candidates and keeps high-risk chunks away from a rem
   const embeddings: EmbeddingProvider = { embed: async () => [0.1, 0.2] };
   const documents: DocumentRepository = {
     replace: async () => ({ id: "unused", chunkCount: 0 }),
+    list: async () => [],
+    listChunks: async () => [],
+    delete: async () => false,
     findHybrid: async () => [
       { chunkId: "safe-1", documentId: "d", ordinal: 0, content: "first", source: "safe", title: null, score: 0.9, security: { promptInjectionRisk: "low", signals: [] } },
       { chunkId: "unsafe", documentId: "d", ordinal: 1, content: "do not send", source: "unsafe", title: null, score: 0.8, security: { promptInjectionRisk: "high", signals: ["instruction-override"] } },

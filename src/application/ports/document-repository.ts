@@ -11,11 +11,31 @@ export type HybridSearchInput = {
   reciprocalRankConstant: number;
 };
 
+export type ManagedDocument = {
+  id: string;
+  source: string;
+  title: string | null;
+  chunkCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type StoredChunk = {
+  id: string;
+  ordinal: number;
+  content: string;
+  security: RetrievedChunk["security"];
+  createdAt: Date;
+};
+
 export interface DocumentRepository {
   replace(
     document: { tenantId: string; source: string; title?: string; metadata: Record<string, unknown> },
     chunks: EmbeddedChunk[]
   ): Promise<{ id: string; chunkCount: number }>;
   findHybrid(input: HybridSearchInput): Promise<RetrievedChunk[]>;
+  list(tenantId: string, limit: number): Promise<ManagedDocument[]>;
+  listChunks(input: { tenantId: string; documentId: string; limit: number }): Promise<StoredChunk[]>;
+  delete(input: { tenantId: string; documentId: string }): Promise<boolean>;
 }
 

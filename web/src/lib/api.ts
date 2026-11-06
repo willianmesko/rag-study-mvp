@@ -27,9 +27,11 @@ export type SearchResponse = { results: SearchResult[] };
 export type IngestResponse = { documentId: string; chunkCount: number; highRiskChunks: number };
 export type QuestionResponse = {
   answer: string;
-  sources: Array<{ source: string; title: string | null; chunk: number; score: number }>;
+  sources: Array<{ chunkId: string; documentId: string; source: string; title: string | null; chunk: number; score: number; excerpt: string }>;
 };
 export type UploadJob = { id: string; source: string; title: string | null; filename: string; mimeType: string; status: "queued" | "processing" | "completed" | "failed"; progress: number; error: string | null; chunkCount: number | null; highRiskChunks: number | null; createdAt: string; updatedAt: string };
+export type ManagedDocument = { id: string; source: string; title: string | null; chunkCount: number; createdAt: string; updatedAt: string };
+export type StoredChunk = { id: string; ordinal: number; content: string; security: SearchResult["security"]; createdAt: string };
 
 type ErrorBody = { error?: string; message?: string };
 
@@ -57,6 +59,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function requestVoid(path: string, init?: RequestInit): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}${path}`, init);
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as ErrorBody;
+    throw new ApiError(body.error ?? body.message ?? "Não foi possível concluir a solicitação.", response.status);
+  }
+}
+
 export const api = {
   health: () => request<Health>("/health"),
   ingest: (input: { source: string; title?: string; text: string; metadata: Record<string, unknown> }) =>
@@ -66,6 +76,10 @@ export const api = {
   answer: (input: { question: string; topK: number }) => request<QuestionResponse>("/v1/qa", { method: "POST", body: JSON.stringify(input) }),
   listUploads: (accessToken: string) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { headers: { authorization: `Bearer ${accessToken}` } }),
   retryUpload: (jobId: string, accessToken: string) => request<{ jobId: string; status: string }>(`/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}` } }),
+  listDocuments: (accessToken: string) => request<{ documents: ManagedDocument[] }>("/v1/admin/documents", { headers: { authorization: `Bearer ${accessToken}` } }),
+  listDocumentChunks: (documentId: string, accessToken: string) => request<{ chunks: StoredChunk[] }>(`/v1/admin/documents/${documentId}/chunks`, { headers: { authorization: `Bearer ${accessToken}` } }),
+  reindexDocument: (documentId: string, accessToken: string) => request<{ job: UploadJob }>(`/v1/admin/documents/${documentId}/reindex`, { method: "POST", headers: { authorization: `Bearer ${accessToken}` } }),
+  deleteDocument: (documentId: string, accessToken: string) => requestVoid(`/v1/admin/documents/${documentId}`, { method: "DELETE", headers: { authorization: `Bearer ${accessToken}` } }),
   uploadDocument: async (input: { file: File; source: string; title?: string; accessToken: string }) => {
     const body = new FormData(); body.append("file", input.file);
     const response = await fetch(`${apiBaseUrl}/v1/admin/uploads`, { method: "POST", body, headers: { authorization: `Bearer ${input.accessToken}`, "x-document-source": input.source, ...(input.title ? { "x-document-title": input.title } : {}) } });

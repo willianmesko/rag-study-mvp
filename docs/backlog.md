@@ -22,6 +22,9 @@ para que a demo não esconda trabalho operacional pendente.
   conteúdo de documento ou IP em texto puro.
 - Golden set determinístico, testes de prompt injection, testes unitários,
   typecheck, build e GitHub Actions.
+- UX de produto: administrador lista documentos, visualiza chunks, reindexa a
+  partir do original privado e exclui documento/chunks/original; fontes de Q&A
+  são clicáveis e cada navegador mantém seu próprio histórico com feedback.
 
 ## Pendente para ativar amanhã
 
@@ -61,10 +64,7 @@ retry. Nenhuma chave é necessária no frontend.
    escaneado contém páginas como imagens e precisa de OCR antes de gerar chunks
    e embeddings. A extração deve sinalizar baixa confiança para revisão humana.
 
-4. **UX de produto:** lista de documentos, reindexar e excluir, visualizar
-   chunks, fontes clicáveis, histórico de perguntas e feedback 👍/👎.
-
-   Inclui a **visualização do pipeline RAG no upload:** transformar o processamento de
+4. **Visualização do pipeline RAG no upload:** transformar o processamento de
    documento em uma linha do tempo visível na área administrativa: arquivo
    recebido → texto extraído → chunks criados → chunks sinalizados por risco →
    embeddings gerados → persistência vetorial → documento pronto para busca.

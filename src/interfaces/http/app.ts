@@ -10,7 +10,10 @@ import type { SearchDocumentsUseCase } from "../../application/use-cases/search-
 import type { QueueDocumentUploadUseCase } from "../../application/use-cases/queue-document-upload.js";
 import type { ProcessNextIngestionJobUseCase } from "../../application/use-cases/process-next-ingestion-job.js";
 import type { RetryIngestionJobUseCase } from "../../application/use-cases/retry-ingestion-job.js";
+import type { ReindexDocumentUseCase } from "../../application/use-cases/reindex-document.js";
+import type { DeleteDocumentUseCase } from "../../application/use-cases/delete-document.js";
 import type { IngestionJob } from "../../application/ports/ingestion-job-repository.js";
+import type { ManagedDocument, StoredChunk } from "../../application/ports/document-repository.js";
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
 import type { QuotaResult } from "../../application/ports/quota-repository.js";
 import { config } from "../../config.js";
@@ -32,6 +35,10 @@ type HttpDependencies = {
   processNextIngestionJob: ProcessNextIngestionJobUseCase;
   retryIngestionJob: RetryIngestionJobUseCase;
   listIngestionJobs: (tenantId: string, limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
+  listDocuments: (tenantId: string, limit: number) => Promise<ManagedDocument[]>;
+  listDocumentChunks: (tenantId: string, documentId: string, limit: number) => Promise<StoredChunk[]>;
+  reindexDocument: ReindexDocumentUseCase;
+  deleteDocument: DeleteDocumentUseCase;
   consumeQuestionQuota: (tenantId: string, actorKey: string) => Promise<QuotaResult>;
   consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => Promise<QuotaResult>;
   recordAuditEvent: AuditEventRepository["record"];
@@ -48,7 +55,7 @@ function applyCorsHeaders(origin: string | undefined, reply: { header: (name: st
   if (!origin) return true;
   if (!config.ALLOWED_ORIGINS.includes(origin)) return false;
   reply.header("access-control-allow-origin", origin);
-  reply.header("access-control-allow-methods", "GET, POST, OPTIONS");
+  reply.header("access-control-allow-methods", "GET, POST, DELETE, OPTIONS");
   reply.header("access-control-allow-headers", "authorization, content-type, x-document-source, x-document-title");
   reply.header("access-control-max-age", "600");
   reply.header("vary", "Origin");
@@ -152,6 +159,51 @@ export async function buildApp(dependencies: HttpDependencies) {
       return reply.code(409).send({ error: error instanceof Error ? error.message : "Unable to retry ingestion job." });
     }
   });
+  app.get("/v1/admin/documents", async (request, reply) => {
+    const authorization = await authorizeAdmin(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    return { documents: (await dependencies.listDocuments(config.DEFAULT_TENANT_ID, 100)).map(serializeDocument) };
+  });
+  app.get("/v1/admin/documents/:documentId/chunks", async (request, reply) => {
+    const authorization = await authorizeAdmin(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
+    return { chunks: (await dependencies.listDocumentChunks(config.DEFAULT_TENANT_ID, documentId, 200)).map(serializeStoredChunk) };
+  });
+  app.post("/v1/admin/documents/:documentId/reindex", async (request, reply) => {
+    const authorization = await authorizeAdmin(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
+    const job = await dependencies.reindexDocument.execute({ documentId, tenantId: config.DEFAULT_TENANT_ID });
+    if (!job) return reply.code(409).send({ error: "This document has no stored original available for reindexing." });
+    await dependencies.recordAuditEvent({
+      tenantId: config.DEFAULT_TENANT_ID,
+      actorUserId: authorization.userId,
+      action: "document.reindex_queued",
+      resourceType: "ingestion_job",
+      resourceId: job.id,
+      requestId: request.id,
+      metadata: { documentId }
+    });
+    return reply.code(202).send({ job: serializeJob(job) });
+  });
+  app.delete("/v1/admin/documents/:documentId", async (request, reply) => {
+    const authorization = await authorizeAdmin(request);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
+    const deleted = await dependencies.deleteDocument.execute({ documentId, tenantId: config.DEFAULT_TENANT_ID });
+    if (!deleted) return reply.code(404).send({ error: "Document not found." });
+    await dependencies.recordAuditEvent({
+      tenantId: config.DEFAULT_TENANT_ID,
+      actorUserId: authorization.userId,
+      action: "document.deleted",
+      resourceType: "document",
+      resourceId: documentId,
+      requestId: request.id,
+      metadata: {}
+    });
+    return reply.code(204).send();
+  });
   app.post("/v1/documents", async (request, reply) => {
     if (config.DEMO_MODE) {
       const providedAdminKey = request.headers["x-admin-api-key"];
@@ -186,12 +238,31 @@ export async function buildApp(dependencies: HttpDependencies) {
     const quota = await dependencies.consumeQuestionQuota(config.DEFAULT_TENANT_ID, "tenant");
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
     const result = await dependencies.answerQuestion.execute({ question, topK, tenantId: config.DEFAULT_TENANT_ID });
-    return { answer: result.answer, sources: result.sources.map(({ source, title, ordinal, score }) => ({ source, title, chunk: ordinal, score })) };
+    return {
+      answer: result.answer,
+      sources: result.sources.map(({ chunkId, documentId, source, title, ordinal, score, content }) => ({
+        chunkId,
+        documentId,
+        source,
+        title,
+        chunk: ordinal,
+        score,
+        excerpt: content.slice(0, 1_200)
+      }))
+    };
   });
   return app;
 }
 
 function serializeJob(job: Omit<IngestionJob, "payload"> | IngestionJob) {
   return { id: job.id, source: job.source, title: job.title, filename: job.filename, mimeType: job.mimeType, status: job.status, progress: job.progress, error: job.error, chunkCount: job.chunkCount, highRiskChunks: job.highRiskChunks, createdAt: job.createdAt.toISOString(), updatedAt: job.updatedAt.toISOString() };
+}
+
+function serializeDocument(document: ManagedDocument) {
+  return { id: document.id, source: document.source, title: document.title, chunkCount: document.chunkCount, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() };
+}
+
+function serializeStoredChunk(chunk: StoredChunk) {
+  return { id: chunk.id, ordinal: chunk.ordinal, content: chunk.content, security: chunk.security, createdAt: chunk.createdAt.toISOString() };
 }
 

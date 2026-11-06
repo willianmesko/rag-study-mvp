@@ -19,7 +19,7 @@
     "build:api": "tsc -p tsconfig.json",
     "build:web": "npm --workspace web run build",
     "typecheck": "tsc --noEmit && npm --workspace web run typecheck",
-    "test": "tsx --test src/rag/chunk.test.ts src/application/use-cases/search-documents.test.ts src/application/evaluation/golden-set.test.ts src/application/evaluation/prompt-injection-suite.test.ts src/application/policies/grounded-answer-policy.test.ts src/application/policies/lexical-query.test.ts src/domain/security/prompt-injection.test.ts src/infrastructure/jina/jina-reranker.test.ts src/infrastructure/langgraph/langgraph-rag-workflow.test.ts",
+    "test": "tsx --test src/rag/chunk.test.ts src/application/use-cases/search-documents.test.ts src/application/use-cases/document-management.test.ts src/application/evaluation/golden-set.test.ts src/application/evaluation/prompt-injection-suite.test.ts src/application/policies/grounded-answer-policy.test.ts src/application/policies/lexical-query.test.ts src/domain/security/prompt-injection.test.ts src/infrastructure/jina/jina-reranker.test.ts src/infrastructure/langgraph/langgraph-rag-workflow.test.ts",
     "db:migrate": "tsx src/db/migrate.ts",
     "ingest": "tsx src/interfaces/cli/ingest.ts",
     "eval:golden": "tsx src/interfaces/cli/evaluate-golden-set.ts",

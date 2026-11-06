@@ -1,19 +1,42 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { api, ApiError, type SearchResult } from "./lib/api";
+import { api, ApiError, type QuestionResponse, type SearchResult } from "./lib/api";
 import { documentInputSchema, questionInputSchema, searchInputSchema } from "./lib/schemas";
 import { AdminPanel } from "./components/AdminPanel";
 
-type Tab = "ingest" | "search" | "answer" | "admin";
+type Tab = "ingest" | "search" | "answer" | "history" | "admin";
 
 const tabs: Array<{ id: Tab; label: string; number: string }> = [
   { id: "ingest", label: "Indexar", number: "01" },
   { id: "search", label: "Buscar", number: "02" },
-  { id: "answer", label: "Responder", number: "03" }
-  ,{ id: "admin", label: "Administrar", number: "04" }
+  { id: "answer", label: "Responder", number: "03" },
+  { id: "history", label: "Histórico", number: "04" },
+  { id: "admin", label: "Administrar", number: "05" }
 ];
 const isPublicDemo = import.meta.env.VITE_DEMO_MODE === "true";
 const visibleTabs = isPublicDemo ? tabs.filter((tab) => tab.id !== "ingest") : tabs;
+const historyStorageKey = "rag-lab-question-history-v1";
+
+type Source = QuestionResponse["sources"][number];
+type QuestionHistoryEntry = {
+  id: string;
+  question: string;
+  answer: string;
+  sources: Source[];
+  createdAt: string;
+  feedback: "up" | "down" | null;
+};
+
+function readQuestionHistory(): QuestionHistoryEntry[] {
+  try {
+    const stored = window.localStorage.getItem(historyStorageKey);
+    if (!stored) return [];
+    const parsed: unknown = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed as QuestionHistoryEntry[] : [];
+  } catch {
+    return [];
+  }
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 500) {
@@ -89,11 +112,30 @@ export function App() {
   const [question, setQuestion] = useState("");
   const [topK, setTopK] = useState(5);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [questionHistory, setQuestionHistory] = useState<QuestionHistoryEntry[]>(readQuestionHistory);
+  const [selectedSource, setSelectedSource] = useState<Source | null>(null);
 
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 30_000 });
   const ingest = useMutation({ mutationFn: api.ingest });
   const search = useMutation({ mutationFn: api.search });
-  const answer = useMutation({ mutationFn: api.answer });
+  const answer = useMutation({
+    mutationFn: api.answer,
+    onSuccess: (result, input) => {
+      const entry: QuestionHistoryEntry = {
+        id: crypto.randomUUID(),
+        question: input.question,
+        answer: result.answer,
+        sources: result.sources,
+        createdAt: new Date().toISOString(),
+        feedback: null
+      };
+      setQuestionHistory((history) => [entry, ...history].slice(0, 20));
+    }
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(historyStorageKey, JSON.stringify(questionHistory));
+  }, [questionHistory]);
 
   function validate<T>(parse: () => T): T | null {
     try {
@@ -122,6 +164,10 @@ export function App() {
     event.preventDefault();
     const parsed = validate(() => questionInputSchema.parse({ question, topK }));
     if (parsed) answer.mutate(parsed);
+  }
+
+  function setFeedback(id: string, feedback: "up" | "down") {
+    setQuestionHistory((history) => history.map((entry) => entry.id === id ? { ...entry, feedback } : entry));
   }
 
   const apiOnline = health.data?.status === "ok";
@@ -251,12 +297,33 @@ export function App() {
                       <div className="border-t border-cyan-400/10 pt-4">
                         <p className="text-xs font-semibold tracking-[0.14em] text-cyan-300 uppercase">Fontes recuperadas</p>
                         <ul className="mt-3 grid gap-2">
-                          {answer.data.sources.map((item) => <li key={`${item.source}-${item.chunk}`} className="flex justify-between gap-4 text-xs text-slate-400"><span className="truncate">{item.title ?? item.source} · chunk {item.chunk}</span><span className="font-mono text-cyan-300">{item.score.toFixed(3)}</span></li>)}
+                          {answer.data.sources.map((item) => <li key={item.chunkId} className="flex justify-between gap-4 text-xs text-slate-400"><button type="button" onClick={() => setSelectedSource(item)} className="truncate text-left hover:text-cyan-200 hover:underline">{item.title ?? item.source} · chunk {item.chunk}</button><span className="font-mono text-cyan-300">{item.score.toFixed(3)}</span></li>)}
                         </ul>
                       </div>
                     </div>
                   )}
                 </form>
+              )}
+
+              {selectedSource && (
+                <section className="mt-6 rounded-2xl border border-violet-400/20 bg-violet-400/5 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div><p className="text-xs font-semibold tracking-[0.14em] text-violet-300 uppercase">Fonte citada</p><p className="mt-2 text-sm font-medium text-slate-100">{selectedSource.title ?? selectedSource.source} · chunk {selectedSource.chunk}</p></div>
+                    <button type="button" className="text-xs text-slate-400 hover:text-white" onClick={() => setSelectedSource(null)}>Fechar</button>
+                  </div>
+                  <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-300">{selectedSource.excerpt}</p>
+                </section>
+              )}
+
+              {activeTab === "history" && (
+                <section className="space-y-6">
+                  <SectionTitle eyebrow="Etapa 04" title="Histórico e feedback">
+                    Suas últimas perguntas ficam somente neste navegador. Use o feedback para marcar respostas que devem virar casos de avaliação depois.
+                  </SectionTitle>
+                  <div className="flex items-center justify-between gap-4"><p className="text-sm text-slate-400">{questionHistory.length} pergunta(s) salvas neste dispositivo.</p>{questionHistory.length > 0 && <button type="button" className="text-sm text-rose-300 hover:text-rose-100" onClick={() => setQuestionHistory([])}>Limpar histórico</button>}</div>
+                  {questionHistory.length === 0 && <p className="rounded-xl border border-dashed border-slate-700 p-5 text-sm text-slate-400">Faça uma pergunta na etapa “Responder” para criar seu histórico local.</p>}
+                  <div className="grid gap-4">{questionHistory.map((entry) => <article key={entry.id} className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5"><div className="flex flex-wrap items-start justify-between gap-3"><p className="text-sm font-medium text-slate-100">{entry.question}</p><time className="font-mono text-[11px] text-slate-500">{new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.createdAt))}</time></div><p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-300">{entry.answer}</p><div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-4"><div className="flex gap-2"><button type="button" className={`rounded-md px-3 py-1.5 text-xs ${entry.feedback === "up" ? "bg-emerald-500/20 text-emerald-200" : "bg-slate-800 text-slate-300 hover:text-white"}`} onClick={() => setFeedback(entry.id, "up")}>👍 Útil</button><button type="button" className={`rounded-md px-3 py-1.5 text-xs ${entry.feedback === "down" ? "bg-rose-500/20 text-rose-200" : "bg-slate-800 text-slate-300 hover:text-white"}`} onClick={() => setFeedback(entry.id, "down")}>👎 Melhorar</button></div><div className="flex max-w-full gap-2 overflow-x-auto">{entry.sources.map((source) => <button type="button" key={source.chunkId} onClick={() => setSelectedSource(source)} className="shrink-0 rounded-md border border-slate-700 px-2 py-1 text-[11px] text-cyan-300 hover:border-cyan-400/50">Fonte {source.chunk + 1}</button>)}</div></div></article>)}</div>
+                </section>
               )}
 
               {activeTab === "admin" && <AdminPanel />}

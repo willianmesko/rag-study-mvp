@@ -37,7 +37,15 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
     }
     return {
       answer: output.answer,
-      sources: output.matches.map(({ source, title, ordinal, score }) => ({ source, title, ordinal, score }))
+      sources: output.matches.map(({ chunkId, documentId, source, title, ordinal, score, content }) => ({
+        chunkId,
+        documentId,
+        source,
+        title,
+        ordinal,
+        score,
+        content
+      }))
     };
   }
 

@@ -13,7 +13,7 @@ export class ProcessNextIngestionJobUseCase {
       const payload = job.payload ?? await this.readStoredOriginal(job.storagePath);
       const text = await this.extractor.extract({ ...job, payload });
       const result = await this.ingest.execute({ tenantId: job.tenantId, source: job.source, title: job.title ?? undefined, text, metadata: { filename: job.filename, mimeType: job.mimeType, ingestionJobId: job.id } });
-      await this.jobs.complete(job.id, result);
+      await this.jobs.complete(job.id, { documentId: result.id, ...result });
     } catch (error) {
       await this.jobs.fail(job.id, error instanceof Error ? error.message.slice(0, 1000) : "Unexpected ingestion error");
     }
