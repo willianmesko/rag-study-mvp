@@ -253,6 +253,16 @@ ORDER BY embedding <=> '[...]'::vector
 LIMIT 5;
 ```
 
+## Gates de qualidade no CI
+
+Cada push e pull request executa typecheck, testes, build, a suíte determinística
+de prompt injection, o golden set em corpus local e o gate Promptfoo. Uma falha
+de avaliação falha o workflow. O Promptfoo roda no GitHub Actions com Node 24 e
+usa um provider local, portanto não envia o corpus ou chaves para serviços
+externos. Consulte [evals/README.md](evals/README.md) para distinguir o golden
+set determinístico de CI da avaliação de integração com pgvector e embeddings
+reais.
+
 ## Decisões e próximos experimentos
 
 O estado operacional e as próximas entregas estão em [docs/backlog.md](docs/backlog.md).

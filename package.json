@@ -23,7 +23,9 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "ingest": "tsx src/interfaces/cli/ingest.ts",
     "eval:golden": "tsx src/interfaces/cli/evaluate-golden-set.ts",
-    "eval:security": "tsx src/interfaces/cli/evaluate-prompt-injection.ts"
+    "eval:golden:ci": "tsx src/interfaces/cli/evaluate-golden-set-ci.ts evals/golden-set.v1.json evals/corpus-manifest.v1.json",
+    "eval:security": "tsx src/interfaces/cli/evaluate-prompt-injection.ts",
+    "eval:promptfoo": "promptfoo eval -c evals/promptfoo/promptfooconfig.yaml --no-cache"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.990.0",
@@ -43,6 +45,7 @@
     "@types/node": "^22.15.30",
     "@types/pdf-parse": "^1.1.5",
     "@types/pg": "^8.15.4",
+    "promptfoo": "0.125.1",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   },

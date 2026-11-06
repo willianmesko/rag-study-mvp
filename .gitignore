@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 coverage/
+.promptfoo/
 .DS_Store
 
 # Artefatos intermediários usados para gerar o guia visual; as versões finais

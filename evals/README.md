@@ -23,6 +23,21 @@ npm run eval:golden -- evals/golden-set.v1.json
 
 Comece com 20 a 50 perguntas reais. Versione cada mudança no conjunto e divida os casos por intenção, idioma, formato do documento e dificuldade. Só eleve `RAG_MINIMUM_SCORE`, chunk size ou modelo depois de comparar os relatórios.
 
+### Gate determinístico de CI
+
+O GitHub Actions também executa o mesmo golden set em modo determinístico:
+
+```bash
+npm run eval:golden:ci
+```
+
+Esse modo lê o manifesto `corpus-manifest.v1.json`, divide os arquivos de teste
+em chunks e usa recuperação lexical local. Ele não chama um modelo, banco remoto
+ou serviço pago; seu objetivo é bloquear regressões no corpus de teste, no
+formato do golden set e na lógica do harness. A execução `eval:golden` continua
+sendo a avaliação de integração para rodar manualmente com pgvector e o provedor
+de embeddings realmente escolhido.
+
 ## 2. Qualidade RAG com Ragas
 
 Ragas complementa o golden set com métricas como *context precision*, *context recall* e *faithfulness*. Use-o quando já tiver respostas de referência ou um avaliador bem definido. Ele é uma ferramenta Python independente do backend TypeScript:
@@ -37,7 +52,19 @@ Monte uma tabela com `question`, `answer`, `contexts` e, quando aplicável, `gro
 
 ## 3. Segurança e prompt injection com Promptfoo
 
-Promptfoo é útil para regressões de prompts e testes adversariais: instruções no documento como “ignore as regras”, tentativa de exfiltrar contexto de outro tenant, jailbreak e afirmações sem fonte. A versão atual requer Node.js 22.22 ou superior, então ela não é dependência deste MVP enquanto o ambiente local estiver no Node 20.
+Promptfoo é útil para regressões de prompts e testes adversariais: instruções no documento como “ignore as regras”, tentativa de exfiltrar contexto de outro tenant, jailbreak e afirmações sem fonte. A versão atual requer Node.js 22.22 ou superior; por isso o workflow usa Node 24, mesmo que um computador local ainda use Node 20.
+
+O gate atual é determinístico e não envia conteúdo nem chaves a terceiros:
+
+```bash
+npm run build:api
+npm run eval:promptfoo
+```
+
+Ele usa um provider JavaScript local que exercita o classificador de prompt
+injection da aplicação. É uma proteção de regressão; red teaming gerativo com
+modelo atacante ficará em uma etapa posterior, isolado do corpus real e com
+orçamento explícito.
 
 Quando migrar o runtime, crie uma configuração Promptfoo que execute contra uma API de teste sem dados reais. Não coloque chaves em YAML versionado. Comece pelos casos abaixo e trate o resultado como uma triagem, não como prova de segurança:
 
