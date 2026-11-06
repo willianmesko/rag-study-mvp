@@ -34,20 +34,37 @@ retry. Nenhuma chave é necessária no frontend.
 
 ## Próximas etapas, por prioridade
 
-1. **RBAC e tenant real:** tabela de memberships, papéis (`owner`, `editor`,
+1. **Visualização do pipeline RAG no upload:** transformar o processamento de
+   documento em uma linha do tempo visível na área administrativa: arquivo
+   recebido → texto extraído → chunks criados → chunks sinalizados por risco →
+   embeddings gerados → persistência vetorial → documento pronto para busca.
+   A tela deve mostrar contagens, tempo por etapa, erros e um preview seguro de
+   alguns chunks, sem vazar o documento para usuários não autorizados.
+
+   - Um documento gera **vários chunks**; o número depende do tamanho e da
+     estrutura do texto, `CHUNK_SIZE` e `CHUNK_OVERLAP`.
+   - O **score de retrieval é similaridade/relevância relativa**, não uma
+     probabilidade nem uma certeza de que a resposta está correta. A interface
+     deve usar rótulos como “mais relacionado” e exibir fonte/citação, em vez
+     de afirmar confiança factual.
+   - A implementação precisa de eventos de progresso persistidos por job e uma
+     API administrativa para ler o resumo de ingestão. O navegador somente
+     consulta esse estado; nunca executa embeddings ou acessa segredos.
+
+2. **RBAC e tenant real:** tabela de memberships, papéis (`owner`, `editor`,
    `viewer`), tenant derivado da sessão autenticada e políticas RLS revisadas.
    A API não deve aceitar `tenant_id` vindo do navegador.
-2. **Gestão do corpus:** listar documentos por tenant, apagar documento + chunks
+3. **Gestão do corpus:** listar documentos por tenant, apagar documento + chunks
    + original no Storage, retenção configurável e reindexação versionada.
-3. **Observabilidade:** traces no LangSmith *ou* Langfuse/Phoenix, métricas de
+4. **Observabilidade:** traces no LangSmith *ou* Langfuse/Phoenix, métricas de
    latência, custo, falhas e volume sem registrar conteúdo ou segredos.
-4. **Evaluation harness:** aumentar o golden set com dados reais, rodar a suíte
+5. **Evaluation harness:** aumentar o golden set com dados reais, rodar a suíte
    de segurança no CI, adicionar Promptfoo contra ambiente sem dados reais e,
    depois, Ragas para contexto/fidelidade.
-5. **Qualidade de retrieval:** habilitar e medir Jina reranker somente com
+6. **Qualidade de retrieval:** habilitar e medir Jina reranker somente com
    `JINA_API_KEY`; comparar recall, MRR, latência e custo contra o golden set.
-6. **Worker dedicado:** Redis + BullMQ e serviço Render separado quando jobs
+7. **Worker dedicado:** Redis + BullMQ e serviço Render separado quando jobs
    grandes, concorrência ou retries com backoff justificarem o custo adicional.
-7. **Produção econômica:** Cloudflare Pages/Render/Supabase gratuitos para demo;
+8. **Produção econômica:** Cloudflare Pages/Render/Supabase gratuitos para demo;
    alertas de orçamento, backups, domínio, limites por identidade e política de
    retenção antes de receber usuários reais.
