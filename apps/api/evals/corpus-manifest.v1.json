@@ -3,7 +3,7 @@
   "documents": [
     {
       "source": "golden/rag-fundamentals",
-      "path": "examples/rag-fundamentals.md"
+      "path": "../../examples/rag-fundamentals.md"
     }
   ]
 }
