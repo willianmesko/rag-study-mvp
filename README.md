@@ -188,7 +188,7 @@ O frontend público também possui uma aba **Administrar**, mas ela não conhece
 
 Após o upload, `POST /v1/admin/uploads` grava um job durável no PostgreSQL. O worker incorporado busca jobs pendentes, extrai texto de PDF, DOCX, TXT ou Markdown e então executa o pipeline normal de chunking, embeddings e triagem de prompt injection. A interface consulta `GET /v1/admin/uploads` para exibir `queued`, `processing`, `completed` ou `failed`.
 
-Para uma demo de baixo custo, o arquivo fica temporariamente como `bytea` no banco e é apagado quando o job termina. Para documentos grandes ou retenção de originais, o próximo passo é mover o payload para um bucket privado do Supabase Storage e executar o worker em serviço separado.
+Por padrão, para a demo de baixo custo, o arquivo fica temporariamente como `bytea` no banco e é apagado quando o job termina. Se `SUPABASE_SERVICE_ROLE_KEY` estiver configurada **somente no backend**, o original é salvo no bucket privado `rag-originals` (configurável por `SUPABASE_UPLOAD_BUCKET`) e o banco conserva apenas a chave opaca do objeto. Crie esse bucket como **privado** no Supabase Storage; jamais use uma variável `VITE_` para a chave de serviço. Os arquivos privados permitem retenção e retry seguro; o worker ainda pode futuramente ser separado da API.
 
 ## O que está acontecendo de verdade
 

@@ -6,7 +6,8 @@ export type IngestionJob = {
   title: string | null;
   filename: string;
   mimeType: string;
-  payload: Buffer;
+  payload: Buffer | null;
+  storagePath: string | null;
   status: IngestionJobStatus;
   progress: number;
   error: string | null;

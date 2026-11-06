@@ -50,6 +50,8 @@ const environment = z.object({
   ADMIN_API_KEY: z.string().min(16).optional(),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  SUPABASE_UPLOAD_BUCKET: z.string().min(3).max(63).default("rag-originals"),
   ADMIN_EMAILS: z.string().optional().transform((value) =>
     (value ?? "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean)
   ),

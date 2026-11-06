@@ -9,7 +9,9 @@ async function main(): Promise<void> {
   const worker = setInterval(() => {
     if (processing) return;
     processing = true;
-    void application.useCases.processNextIngestionJob.execute().finally(() => { processing = false; });
+    void application.useCases.processNextIngestionJob.execute()
+      .catch((error: unknown) => app.log.error(error, "Ingestion worker failed."))
+      .finally(() => { processing = false; });
   }, config.INGESTION_WORKER_INTERVAL_MS);
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`Received ${signal}; shutting down.`);
