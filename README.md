@@ -1,13 +1,12 @@
-# RAG Study Lab
+# Lumora
 
-A production-oriented, study-focused RAG application built with TypeScript,
+Lumora is a production-oriented, study-focused RAG application built with TypeScript,
 PostgreSQL/pgvector, LangGraph, Supabase Auth, and interchangeable AI providers.
 It keeps ingestion, retrieval, safety controls, and evaluation explicit so each
 part of the system can be understood and measured.
 
-> The goal is to understand the path from document to chunk to embedding to
-> retrieval to grounded answer, while keeping the codebase close to a real
-> product architecture.
+> Lumora makes workspace knowledge easier to search, understand, and trust while
+> keeping the path from document to chunk to embedding to grounded answer visible.
 
 ## Architecture at a glance
 

@@ -17,6 +17,14 @@
   .ambient-glow--cyan { top: -18rem; left: 18%; background: #06b6d4; }
   .ambient-glow--blue { top: 12%; right: -18rem; background: #2563eb; }
   .panel { @apply rounded-2xl border border-slate-800/90 bg-slate-900/55 p-5 shadow-2xl shadow-slate-950/20 backdrop-blur sm:p-6; }
+  .brand-mark { @apply grid size-10 shrink-0 place-items-center rounded-2xl bg-slate-900 shadow-lg shadow-cyan-950/30 ring-1 ring-cyan-300/20; }
+  .brand-mark--compact { @apply size-8 rounded-xl; }
+  .brand-mark svg { @apply size-7; }
+  .brand-mark--compact svg { @apply size-5; }
+  .lumora-mascot { display: block; object-fit: contain; filter: drop-shadow(0 16px 28px rgb(34 211 238 / .13)); }
+  .lumora-mascot--sm { width: 4.5rem; height: 4.5rem; }
+  .lumora-mascot--md { width: 8rem; height: 8rem; }
+  .lumora-mascot--lg { width: 13rem; height: 13rem; }
   .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-300; }
   .status-dot { @apply size-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.12)]; }
   .status-pill { @apply inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-300; }
