@@ -1,0 +1,47 @@
+{
+  "name": "rag-study-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A study-focused custom RAG MVP using TypeScript, pgvector and Amazon Bedrock.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run dev:api",
+    "dev:api": "tsx watch src/server.ts",
+    "dev:web": "npm --workspace web run dev",
+    "start": "node dist/server.js",
+    "build": "npm run build:api && npm run build:web",
+    "build:api": "tsc -p tsconfig.json",
+    "build:web": "npm --workspace web run build",
+    "typecheck": "tsc --noEmit && npm --workspace web run typecheck",
+    "test": "tsx --test src/rag/chunk.test.ts src/application/use-cases/search-documents.test.ts src/application/evaluation/golden-set.test.ts src/application/evaluation/prompt-injection-suite.test.ts src/application/policies/grounded-answer-policy.test.ts src/application/policies/lexical-query.test.ts src/domain/security/prompt-injection.test.ts src/infrastructure/jina/jina-reranker.test.ts src/infrastructure/langgraph/langgraph-rag-workflow.test.ts",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "ingest": "tsx src/interfaces/cli/ingest.ts",
+    "eval:golden": "tsx src/interfaces/cli/evaluate-golden-set.ts",
+    "eval:security": "tsx src/interfaces/cli/evaluate-prompt-injection.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.990.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@langchain/langgraph": "^1.7.0",
+    "dotenv": "^16.6.1",
+    "fastify": "5.12.8",
+    "langsmith": "^0.11.8",
+    "pg": "^8.16.3",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "@types/pg": "^8.15.4",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "overrides": {
+    "light-my-request": "6.6.0"
+  }
+}

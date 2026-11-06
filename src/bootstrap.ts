@@ -1,0 +1,107 @@
+import { AnswerQuestionUseCase } from "./application/use-cases/answer-question.js";
+import { IngestDocumentUseCase } from "./application/use-cases/ingest-document.js";
+import { SearchDocumentsUseCase } from "./application/use-cases/search-documents.js";
+import { config } from "./config.js";
+import type { AnswerGenerator } from "./application/ports/answer-generator.js";
+import type { EmbeddingProvider } from "./application/ports/embedding-provider.js";
+import type { Reranker } from "./application/ports/reranker.js";
+import { BedrockAnswerGenerator } from "./infrastructure/bedrock/bedrock-answer-generator.js";
+import { createBedrockClient } from "./infrastructure/bedrock/client.js";
+import { TitanEmbeddingProvider } from "./infrastructure/bedrock/titan-embedding-provider.js";
+import { LangGraphRagWorkflow } from "./infrastructure/langgraph/langgraph-rag-workflow.js";
+import { LangSmithTracingWorkflow } from "./infrastructure/langsmith/langsmith-tracing-workflow.js";
+import { JinaReranker } from "./infrastructure/jina/jina-reranker.js";
+import { OllamaAnswerGenerator } from "./infrastructure/ollama/ollama-answer-generator.js";
+import { OllamaEmbeddingProvider } from "./infrastructure/ollama/ollama-embedding-provider.js";
+import { OpenRouterAnswerGenerator } from "./infrastructure/openrouter/openrouter-answer-generator.js";
+import { OpenRouterEmbeddingProvider } from "./infrastructure/openrouter/openrouter-embedding-provider.js";
+import { PgDocumentRepository } from "./infrastructure/postgres/pg-document-repository.js";
+import { createPostgresPool } from "./infrastructure/postgres/pool.js";
+import { PassThroughReranker } from "./infrastructure/reranking/pass-through-reranker.js";
+
+export function createApplication() {
+  const pool = createPostgresPool(config.DATABASE_URL);
+  const embeddings = createEmbeddingProvider();
+  const answerGenerator = createAnswerGenerator();
+  const reranker = createReranker();
+  const documents = new PgDocumentRepository(pool, config.EMBEDDING_DIMENSIONS);
+  const searchDocuments = new SearchDocumentsUseCase(embeddings, documents, reranker, {
+    defaultTopK: config.RETRIEVAL_TOP_K,
+    vectorCandidateMultiplier: config.HYBRID_VECTOR_CANDIDATE_MULTIPLIER,
+    keywordCandidateMultiplier: config.HYBRID_KEYWORD_CANDIDATE_MULTIPLIER,
+    reciprocalRankConstant: config.RRF_K,
+    rerankerCandidateMultiplier: config.RERANKER_CANDIDATE_MULTIPLIER
+  });
+  const ragWorkflow = new LangGraphRagWorkflow(searchDocuments, answerGenerator, {
+    maxContextChars: 12_000,
+    minimumScore: config.RAG_MINIMUM_SCORE
+  });
+  const answerWorkflow = new LangSmithTracingWorkflow(ragWorkflow, {
+    enabled: config.LANGSMITH_TRACING,
+    projectName: config.LANGSMITH_PROJECT
+  });
+
+  return {
+    useCases: {
+      ingestDocument: new IngestDocumentUseCase(embeddings, documents, {
+        chunkSize: config.CHUNK_SIZE,
+        chunkOverlap: config.CHUNK_OVERLAP,
+        embeddingConcurrency: 3
+      }),
+      searchDocuments,
+      answerQuestion: new AnswerQuestionUseCase(answerWorkflow)
+    },
+    close: () => pool.end()
+  };
+}
+
+function createReranker(): Reranker {
+  if (config.RERANKER_PROVIDER === "jina") {
+    return new JinaReranker(
+      config.JINA_BASE_URL,
+      config.JINA_API_KEY as string,
+      config.JINA_RERANKER_MODEL
+    );
+  }
+  return new PassThroughReranker();
+}
+
+function createEmbeddingProvider(): EmbeddingProvider {
+  switch (config.EMBEDDING_PROVIDER) {
+    case "ollama":
+      return new OllamaEmbeddingProvider(
+        config.OLLAMA_BASE_URL,
+        config.OLLAMA_EMBEDDING_MODEL,
+        config.EMBEDDING_DIMENSIONS
+      );
+    case "openrouter":
+      return new OpenRouterEmbeddingProvider(
+        config.OPENROUTER_BASE_URL,
+        config.OPENROUTER_API_KEY as string,
+        config.OPENROUTER_EMBEDDING_MODEL,
+        config.EMBEDDING_DIMENSIONS
+      );
+    case "bedrock": {
+      const bedrock = createBedrockClient(config.AWS_REGION);
+      return new TitanEmbeddingProvider(bedrock, config.BEDROCK_EMBEDDING_MODEL_ID, config.EMBEDDING_DIMENSIONS);
+    }
+  }
+}
+
+function createAnswerGenerator(): AnswerGenerator {
+  switch (config.CHAT_PROVIDER) {
+    case "ollama":
+      return new OllamaAnswerGenerator(config.OLLAMA_BASE_URL, config.OLLAMA_CHAT_MODEL);
+    case "openrouter":
+      return new OpenRouterAnswerGenerator(
+        config.OPENROUTER_BASE_URL,
+        config.OPENROUTER_API_KEY as string,
+        config.OPENROUTER_CHAT_MODEL
+      );
+    case "bedrock": {
+      const bedrock = createBedrockClient(config.AWS_REGION);
+      return new BedrockAnswerGenerator(bedrock, config.BEDROCK_CHAT_MODEL_ID);
+    }
+  }
+}
+

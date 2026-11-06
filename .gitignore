@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+coverage/
+.DS_Store
+
+# Artefatos intermediários usados para gerar o guia visual; as versões finais
+# para estudo ficam em outputs/.
+work/
+

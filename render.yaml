@@ -1,0 +1,29 @@
+services:
+  - type: web
+    runtime: docker
+    name: rag-study-demo-api
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: DEMO_MODE
+        value: "true"
+      - key: EMBEDDING_PROVIDER
+        value: openrouter
+      - key: CHAT_PROVIDER
+        value: openrouter
+      - key: RERANKER_PROVIDER
+        value: none
+      - key: LANGSMITH_TRACING
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: ADMIN_API_KEY
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        sync: false

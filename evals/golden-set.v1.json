@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "name": "RAG fundamentals retrieval",
+  "thresholds": {
+    "hitRate": 1,
+    "meanReciprocalRank": 1
+  },
+  "cases": [
+    {
+      "id": "rag-definition",
+      "question": "O que significa RAG?",
+      "expectedSources": ["golden/rag-fundamentals"]
+    },
+    {
+      "id": "chunking-overlap",
+      "question": "Por que usar overlap entre chunks?",
+      "expectedSources": ["golden/rag-fundamentals"]
+    },
+    {
+      "id": "hnsw-tradeoff",
+      "question": "Qual é a troca envolvida ao usar HNSW?",
+      "expectedSources": ["golden/rag-fundamentals"]
+    },
+    {
+      "id": "prompt-injection",
+      "question": "Como tratar instruções encontradas em documentos recuperados?",
+      "expectedSources": ["golden/rag-fundamentals"]
+    }
+  ]
+}

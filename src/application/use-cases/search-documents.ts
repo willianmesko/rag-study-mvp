@@ -1,0 +1,48 @@
+import type { RetrievedChunk } from "../../domain/document.js";
+import { isSafeForAnswer } from "../../domain/security/prompt-injection.js";
+import { toLexicalQuery } from "../policies/lexical-query.js";
+import type { DocumentRepository } from "../ports/document-repository.js";
+import type { EmbeddingProvider } from "../ports/embedding-provider.js";
+import type { Reranker } from "../ports/reranker.js";
+
+export class SearchDocumentsUseCase {
+  constructor(
+    private readonly embeddings: EmbeddingProvider,
+    private readonly documents: DocumentRepository,
+    private readonly reranker: Reranker,
+    private readonly options: {
+      defaultTopK: number;
+      vectorCandidateMultiplier: number;
+      keywordCandidateMultiplier: number;
+      reciprocalRankConstant: number;
+      rerankerCandidateMultiplier: number;
+    }
+  ) {}
+
+  async execute(input: { query: string; topK?: number }): Promise<RetrievedChunk[]> {
+    const queryEmbedding = await this.embeddings.embed(input.query, "query");
+    const limit = input.topK ?? this.options.defaultTopK;
+    const rerankCandidateLimit = this.reranker.enabled
+      ? limit * this.options.rerankerCandidateMultiplier
+      : limit;
+    const candidates = await this.documents.findHybrid({
+      embedding: queryEmbedding,
+      query: input.query,
+      lexicalQuery: toLexicalQuery(input.query),
+      limit: rerankCandidateLimit,
+      vectorCandidateLimit: rerankCandidateLimit * this.options.vectorCandidateMultiplier,
+      keywordCandidateLimit: rerankCandidateLimit * this.options.keywordCandidateMultiplier,
+      reciprocalRankConstant: this.options.reciprocalRankConstant
+    });
+
+    if (!this.reranker.enabled) return candidates.slice(0, limit);
+
+    // High-risk chunks remain inspectable through search, but never leave this
+    // process to a remote reranker and never reach the answer-generation model.
+    const safeCandidates = candidates.filter((candidate) => isSafeForAnswer(candidate.security));
+    const highRiskCandidates = candidates.filter((candidate) => !isSafeForAnswer(candidate.security));
+    const reranked = await this.reranker.rerank({ query: input.query, candidates: safeCandidates, limit });
+    return [...reranked, ...highRiskCandidates].slice(0, limit);
+  }
+}
+
