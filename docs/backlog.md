@@ -15,7 +15,8 @@ para que a demo não esconda trabalho operacional pendente.
   restritos. O backend já conhece o adaptador de Storage privado.
 - Isolamento por tenant no banco: documentos e jobs possuem `tenant_id`; a
   ingestão e as consultas híbridas recebem esse identificador obrigatoriamente.
-  A demo usa o tenant fixo `demo` enquanto não há onboarding de organizações.
+  O tenant é derivado da membership validada da sessão, e não é aceito do
+  navegador como dado de confiança.
 - Guardrails iniciais de custo: quota diária de perguntas por tenant, quota diária
   de bytes enviados por administrador e auditoria de uploads/retries. A auditoria
   guarda somente identificadores e metadados técnicos; não guarda perguntas,
@@ -29,22 +30,11 @@ para que a demo não esconda trabalho operacional pendente.
   extração, chunking, triagem, embeddings e persistência vetorial. A próxima
   evolução é persistir duração e contagens de cada etapa, não apenas o progresso
   agregado atual.
-- Base de RBAC: `tenant_memberships` com papéis `owner`, `editor` e `viewer`.
-  A API deriva o tenant da sessão validada e só `owner`/`editor` administram o
-  corpus; nenhum endpoint administrativo aceita tenant do navegador.
-
-## Pendente para ativar amanhã
-
-### Ativar retenção de originais no Storage privado
-
-**Ação manual necessária:** adicionar `SUPABASE_SERVICE_ROLE_KEY` somente ao
-serviço `rag-study-demo-api` no Render, usando a chave `service_role` do projeto
-Supabase. Não versionar, não enviar em chat e nunca usar o prefixo `VITE_`.
-
-Sem essa variável, a demo continua segura e funcional: o upload fica no job do
-banco apenas durante a extração e é removido ao concluir. Com a variável, o
-arquivo original vai para o bucket privado e pode ser retido para auditoria ou
-retry. Nenhuma chave é necessária no frontend.
+- RBAC e multi-tenant para a demo: onboarding cria um workspace com owner;
+  memberships suportam `owner`, `editor` e `viewer`; troca de workspace é
+  persistida no navegador; viewers têm somente leitura; owners convidam por
+  e-mail, alteram editor/viewer e removem membros não-owner. A API valida a
+  sessão e o papel em toda rota, e a chave de serviço nunca chega ao frontend.
 
 ## Próximas etapas, por prioridade
 
@@ -105,10 +95,10 @@ retry. Nenhuma chave é necessária no frontend.
      API administrativa para ler o resumo de ingestão. O navegador somente
      consulta esse estado; nunca executa embeddings ou acessa segredos.
 
-5. **RBAC e tenant real:** onboarding/convites de memberships, troca de tenant,
-   UX de `viewer` e políticas RLS revisadas para uma futura conexão direta do
-   navegador a dados permitidos. A API não deve aceitar `tenant_id` vindo do
-   navegador.
+5. **Políticas RLS para acesso direto futuro:** hoje a API é a única camada que
+   acessa as tabelas e valida membership. Antes de expor qualquer tabela pelo
+   Data API, criar políticas explícitas por `auth.uid()` e tenant, testar BOLA
+   e revisar as permissões do schema público.
 6. **Arquitetura do frontend:** migrar a UI para Feature-Sliced Design, com
    `app`, `pages`, `widgets`, `features`, `entities` e `shared`; manter cada
    fluxo (perguntas, administração de corpus, autenticação) coeso e impedir
