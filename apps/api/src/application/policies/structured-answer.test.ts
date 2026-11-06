@@ -14,6 +14,13 @@ test("structured answer validator rejects citations outside retrieved context", 
   assert.deepEqual(result.citedChunkIds, []);
 });
 
+test("a structured answer needs at least one source unless it declines the question", () => {
+  const allowed = new Set(["S1"]);
+  const answer = parseGroundedAnswer('{"answer":"Unsupported.","citedChunkIds":[]}');
+  assert.equal(validateGroundedAnswer(answer, allowed).refusalReason, "invalid_citations");
+  assert.equal(validateGroundedAnswer({ ...answer, refusalReason: "insufficient_context" }, allowed).refusalReason, "insufficient_context");
+});
+
 test("parser keeps legacy plain-text providers usable but marks them unstructured", () => {
   const result = parseGroundedAnswer("A plain-text answer.");
   assert.equal(result.structured, false);

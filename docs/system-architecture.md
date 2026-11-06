@@ -254,9 +254,12 @@ does not transmit document text, prompts, or secrets to a hosted model.
 Request validation is fully shared through `packages/contracts`, but generated
 answers were previously free text. The LangGraph boundary now asks providers for
 a JSON answer with `answer`, `citedChunkIds`, and `refusalReason`, parses it with
-Zod, and rejects citations that do not belong to retrieved chunks. Plain-text
-local models remain supported as a compatibility fallback and are marked as
-unstructured; a stricter production setting can reject that fallback.
+Zod, and verifies the short source labels (`S1`, `S2`) against the passages
+included in the prompt. The API maps those labels to database chunk IDs after
+validation. This keeps internal IDs outside the prompt and its PII redaction
+step. Structured answers must include a valid citation, and refusals are not
+cached. Plain-text local models remain available as an unstructured fallback
+that production can disable.
 
 ### Agent safety boundary
 

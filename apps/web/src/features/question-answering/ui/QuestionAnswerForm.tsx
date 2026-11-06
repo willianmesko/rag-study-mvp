@@ -18,6 +18,23 @@ const statusCopy: Record<StreamStatus, [string, string]> = {
   cached: ["Opening a saved answer", "Abrindo uma resposta já preparada"]
 };
 
+function getRefusalCopy(reason: QuestionResponse["refusalReason"]): [string, string] | null {
+  switch (reason) {
+    case "insufficient_context":
+      return ["I could not find enough information in the workspace documents to answer. Try a more specific question or check that the relevant document is indexed.",
+        "Não encontrei informações suficientes nos documentos deste espaço para responder. Faça uma pergunta mais específica ou verifique se o documento relevante foi indexado."];
+    case "invalid_citations":
+      return ["I could not match the answer’s citations to the passages I found. Try again or make your question more specific.",
+        "Não consegui vincular as citações da resposta aos trechos encontrados. Tente novamente ou faça uma pergunta mais específica."];
+    case "unstructured_model_output":
+      return ["I could not prepare an answer with sources this time. Try again or make your question more specific.",
+        "Desta vez, não consegui preparar uma resposta com fontes. Tente novamente ou faça uma pergunta mais específica."];
+    default:
+      return reason ? ["I could not answer this question. Try asking it a different way.",
+        "Não consegui responder a essa pergunta. Tente perguntar de outra forma."] : null;
+  }
+}
+
 export function QuestionAnswerForm({ onAnswered, onInspectSource, accessToken, workspaceId, workspaceName }: {
   onAnswered: (input: { question: string; response: QuestionResponse }) => void;
   onInspectSource: (source: QuestionSource) => void;
@@ -70,7 +87,7 @@ export function QuestionAnswerForm({ onAnswered, onInspectSource, accessToken, w
       }
       if (controller.signal.aborted) return;
       setAnswer(response);
-      onAnswered({ question: input.question, response });
+      if (!response.refusalReason) onAnswered({ question: input.question, response });
     } catch (error) {
       if (!controller.signal.aborted) {
         setStreamError(error instanceof Error ? error : new Error("The answer could not be completed."));
@@ -84,6 +101,7 @@ export function QuestionAnswerForm({ onAnswered, onInspectSource, accessToken, w
   const isStreaming = streamStatus !== null;
   const error = invalidInput ? t("Enter a question of up to 5,000 characters.", "Digite uma pergunta de até 5.000 caracteres.")
     : streamError ? getRequestErrorMessage(streamError, locale) : null;
+  const refusalCopy = getRefusalCopy(answer?.refusalReason);
 
   return (
     <form className="space-y-7" onSubmit={submit} aria-busy={isStreaming}>
@@ -133,20 +151,19 @@ export function QuestionAnswerForm({ onAnswered, onInspectSource, accessToken, w
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="eyebrow">{t("Your answer", "Sua resposta")}</p>
-              {answer.sources.length > 0 && <p className="mt-1 text-xs text-slate-400">
+              {!refusalCopy && answer.sources.length > 0 && <p className="mt-1 text-xs text-slate-400">
                 {answer.sources.length.toLocaleString(locale)} {answer.sources.length === 1 ? t("supporting passage", "trecho de referência") : t("supporting passages", "trechos de referência")}
               </p>}
             </div>
-            <span className={`status-pill ${answer.refusalReason ? "status-pill--warning" : "status-pill--success"}`}>
-              {answer.refusalReason ? t("Answer unavailable", "Resposta indisponível")
-                : answer.structuredOutput ? t("Citations checked", "Citações conferidas") : t("Sources included", "Fontes incluídas")}
-            </span>
+            {refusalCopy ? <span className="status-pill status-pill--warning">{t("Answer unavailable", "Resposta indisponível")}</span>
+              : Boolean(answer.citedChunkIds?.length) ? <span className="status-pill status-pill--success">{t("Citations checked", "Citações conferidas")}</span>
+              : answer.sources.length > 0 && <span className="status-pill status-pill--success">{t("Sources included", "Fontes incluídas")}</span>}
           </div>
-          <p className="mt-5 whitespace-pre-wrap text-sm leading-7 text-slate-200">
-            {answer.refusalReason === "insufficient_context" ? t("I could not find enough information in the workspace documents to answer.", "Não encontrei informações suficientes nos documentos deste espaço para responder.") : answer.answer}
+          <p role={refusalCopy ? "status" : undefined} className="mt-5 whitespace-pre-wrap text-sm leading-7 text-slate-200">
+            {refusalCopy ? t(...refusalCopy) : answer.answer}
           </p>
         </div>
-        <RagEvidencePanel sources={answer.sources} onInspectSource={onInspectSource} />
+        {!refusalCopy && <RagEvidencePanel sources={answer.sources} onInspectSource={onInspectSource} />}
       </>}
       {error && !isStreaming && <p role="alert" className="error-message">{error}</p>}
     </form>

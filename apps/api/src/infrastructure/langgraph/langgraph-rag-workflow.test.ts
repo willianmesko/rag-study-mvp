@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AnswerGenerator } from "../../application/ports/answer-generator.js";
+import type { RetrievedChunk } from "../../domain/document.js";
+import { RedactingAnswerGenerator } from "../security/redacting-answer-generator.js";
 import { LangGraphRagWorkflow } from "./langgraph-rag-workflow.js";
 
 test("LangGraph workflow retrieves context before generating an answer", async () => {
@@ -62,7 +64,7 @@ test("LangGraph validates structured citations against retrieved chunks", async 
         source: "golden/rag", title: "RAG", score: 0.91, security: { promptInjectionRisk: "low", signals: [] }
       }]
     },
-    { generate: async () => JSON.stringify({ answer: "Grounded answer.", citedChunkIds: ["chunk-1"], refusalReason: null }) } satisfies AnswerGenerator,
+    { generate: async () => JSON.stringify({ answer: "Grounded answer.", citedChunkIds: ["S1"], refusalReason: null }) } satisfies AnswerGenerator,
     { maxContextChars: 1_000, minimumScore: 0.3 }
   );
 
@@ -91,7 +93,9 @@ test("LangGraph can require structured output for production providers", async (
 
 test("LangGraph streams retrieval, generation, tokens, and validation events", async () => {
   const events: string[] = [];
-  const streamed = JSON.stringify({ answer: "Grounded answer.", citedChunkIds: ["chunk-1"], refusalReason: null });
+  const answer = `Grounded answer.\n\n${"a".repeat(70)} 😊`;
+  const streamed = JSON.stringify({ answer, citedChunkIds: ["S1"], refusalReason: null });
+  const deltas: string[] = [];
   const workflow = new LangGraphRagWorkflow(
     {
       execute: async () => [{
@@ -111,9 +115,66 @@ test("LangGraph streams retrieval, generation, tokens, and validation events", a
 
   const result = await workflow.answerStream({ question: "What are embeddings?" }, (event) => {
     events.push(event.type);
+    if (event.type === "token") deltas.push(event.delta);
   });
-  assert.equal(result.answer, "Grounded answer.");
+  assert.equal(result.answer, answer);
+  assert.equal(deltas.join(""), answer);
   assert.deepEqual(events.slice(0, 3), ["retrieving", "generating", "validating"]);
   assert.ok(events.slice(3).every((event) => event === "token"));
   assert.ok(events.slice(3).length > 0);
+});
+
+const ragChunk: RetrievedChunk = {
+  chunkId: "12345678-a123-4bcd-8abc-abc123def456",
+  documentId: "rag-guide",
+  ordinal: 0,
+  content: "RAG combina busca de documentos com geração de respostas. Contato: study@example.com.",
+  source: "guide/rag",
+  title: "RAG",
+  score: 0.92,
+  security: { promptInjectionRisk: "low", signals: [] }
+};
+
+test("RAG citations survive PII redaction in both answer paths", async () => {
+  const provider = new RedactingAnswerGenerator({
+    generate: async (_question, context) => {
+      assert.doesNotMatch(context, /12345678|study@example\.com/);
+      assert.match(context, /\[REDACTED_EMAIL\]/);
+      const reference = /source_ref="([^"]+)"/.exec(context)?.[1];
+      assert.equal(reference, "S1");
+      return JSON.stringify({ answer: "RAG combina busca e geração.", citedChunkIds: [reference, reference] });
+    }
+  });
+  const workflow = new LangGraphRagWorkflow({ execute: async () => [ragChunk] }, provider, {
+    maxContextChars: 1_000, minimumScore: 0.3, requireStructuredOutput: true
+  });
+  const input = { question: "O que é RAG?" };
+  const answer = await workflow.answer(input);
+  assert.equal(answer.answer, "RAG combina busca e geração.");
+  assert.equal(answer.refusalReason, undefined);
+  assert.deepEqual(answer.citedChunkIds, [ragChunk.chunkId]);
+  assert.deepEqual(answer.sources.map((source) => source.chunkId), [ragChunk.chunkId]);
+  assert.deepEqual(await workflow.answerStream(input, () => undefined), answer);
+});
+
+test("RAG refuses citations outside the prompt and never streams the rejected answer", async () => {
+  const workflow = new LangGraphRagWorkflow({
+    execute: async () => [ragChunk, { ...ragChunk, chunkId: "other-chunk", content: "Outside the budget." }]
+  }, {
+    generate: async (_question, context) => {
+      assert.match(context, /source_ref="S1"/);
+      assert.doesNotMatch(context, /source_ref="S2"|Outside the budget/);
+      return JSON.stringify({ answer: "Unverified answer.", citedChunkIds: ["S1", "S2"] });
+    }
+  }, { maxContextChars: ragChunk.content.length, minimumScore: 0.3 });
+  const input = { question: "O que é RAG?" };
+  const answer = await workflow.answer(input);
+  assert.equal(answer.refusalReason, "invalid_citations");
+  assert.deepEqual(answer.sources, []);
+  assert.deepEqual(answer.citedChunkIds, []);
+  const deltas: string[] = [];
+  assert.deepEqual(await workflow.answerStream(input, (event) => {
+    if (event.type === "token") deltas.push(event.delta);
+  }), answer);
+  assert.deepEqual(deltas, []);
 });

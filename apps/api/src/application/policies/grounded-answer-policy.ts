@@ -1,4 +1,9 @@
-import type { RetrievedChunk } from "../../domain/document.js";
+import type { Citation, RetrievedChunk } from "../../domain/document.js";
+
+export type GroundedContext = {
+  text: string;
+  sourcesByReference: ReadonlyMap<string, Citation>;
+};
 
 const systemInstructions = [
   "You answer questions using only the retrieved reference material.",
@@ -9,24 +14,28 @@ const systemInstructions = [
   "If the reference material does not support an answer, say that plainly.",
   "Answer in the language of the user's question.",
   "Return only a JSON object with this shape: {\"answer\": string, \"citedChunkIds\": string[], \"refusalReason\": string|null}.",
-  "citedChunkIds must contain only the exact chunk_id values from the retrieved reference material."
+  "For a supported answer, cite at least one source. In citedChunkIds, copy the exact source_ref labels (for example, S1) from the supporting passages.",
+  "For an unsupported answer, return an empty citedChunkIds array and set refusalReason to insufficient_context."
 ].join(" ");
 
 function escapePromptData(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
-export function formatUntrustedContext(matches: RetrievedChunk[], maxChars: number): string {
+export function formatUntrustedContext(matches: RetrievedChunk[], maxChars: number): GroundedContext {
   let remaining = maxChars;
-  return matches
-    .map((match, index) => {
-      const content = match.content.slice(0, remaining);
-      remaining -= content.length;
-      if (!content) return "";
-      return `<untrusted_document chunk_id="${escapePromptData(match.chunkId)}" ordinal="${match.ordinal}">\n${escapePromptData(content)}\n</untrusted_document>`;
-    })
-    .filter(Boolean)
-    .join("\n\n");
+  const sourcesByReference = new Map<string, Citation>();
+  const passages: string[] = [];
+  for (const { chunkId, documentId, source, title, ordinal, score, content } of matches) {
+    if (remaining <= 0) break;
+    const excerpt = content.slice(0, remaining);
+    if (!excerpt.trim()) continue;
+    remaining -= excerpt.length;
+    const reference = `S${sourcesByReference.size + 1}`;
+    sourcesByReference.set(reference, { chunkId, documentId, source, title, ordinal, score, content: excerpt });
+    passages.push(`<untrusted_document source_ref="${reference}">\n${escapePromptData(excerpt)}\n</untrusted_document>`);
+  }
+  return { text: passages.join("\n\n"), sourcesByReference };
 }
 
 export function createGroundedAnswerPrompt(question: string, context: string): { system: string; user: string } {

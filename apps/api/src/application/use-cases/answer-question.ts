@@ -3,6 +3,7 @@ import type { AnswerWorkflowEvent, QuestionAnsweringWorkflow, AnswerQuestionResu
 import type { EmbeddingProvider } from "../ports/embedding-provider.js";
 import type { SemanticAnswerCache } from "../ports/semantic-answer-cache.js";
 import type { UsageMetricsRepository } from "../ports/usage-metrics-repository.js";
+import { invalidCitationsAnswer } from "../policies/structured-answer.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 
 export class AnswerQuestionUseCase {
@@ -19,7 +20,7 @@ export class AnswerQuestionUseCase {
     const safeQuestion = redactPii(input.question).text;
     const embedding = await this.embeddings.embed(safeQuestion, "query");
     const cached = await this.cache.findSimilar({ tenantId: input.tenantId, embedding, minimumSimilarity: this.options.cacheMinimumSimilarity });
-    if (cached) {
+    if (cached && cached.sources.length > 0 && cached.answer !== invalidCitationsAnswer) {
       await input.onEvent?.({ type: "cached" });
       await input.onEvent?.({ type: "validating" });
       await this.recordUsage(input, safeQuestion, cached.answer, startedAt, true, false);
@@ -36,7 +37,9 @@ export class AnswerQuestionUseCase {
       const result = this.workflow.answerStream
         ? await this.workflow.answerStream(workflowInput, input.onEvent ?? (() => undefined))
         : await this.workflow.answer(workflowInput);
-      await this.cache.put({ tenantId: input.tenantId, questionHash: createHash("sha256").update(safeQuestion).digest("hex"), embedding, answer: result.answer, sources: redactSources(result.sources), expiresAt: new Date(Date.now() + this.options.cacheTtlSeconds * 1_000) });
+      if (!result.refusalReason && result.sources.length > 0) {
+        await this.cache.put({ tenantId: input.tenantId, questionHash: createHash("sha256").update(safeQuestion).digest("hex"), embedding, answer: result.answer, sources: redactSources(result.sources), expiresAt: new Date(Date.now() + this.options.cacheTtlSeconds * 1_000) });
+      }
       await this.recordUsage(input, safeQuestion, result.answer, startedAt, false, false);
       return result;
     } catch (error) {

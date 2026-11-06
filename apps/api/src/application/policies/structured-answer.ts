@@ -12,6 +12,8 @@ export type ParsedGroundedAnswer = GroundedAnswer & {
   structured: boolean;
 };
 
+export const invalidCitationsAnswer = "I could not safely validate the sources returned by the model, so I am declining to answer.";
+
 function removeCodeFence(value: string): string {
   return value.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 }
@@ -33,11 +35,11 @@ export function parseGroundedAnswer(raw: string): ParsedGroundedAnswer {
   }
 }
 
-export function validateGroundedAnswer(answer: ParsedGroundedAnswer, allowedChunkIds: ReadonlySet<string>): ParsedGroundedAnswer {
-  const invalidChunkIds = answer.citedChunkIds.filter((chunkId) => !allowedChunkIds.has(chunkId));
-  if (invalidChunkIds.length === 0) return answer;
+export function validateGroundedAnswer(answer: ParsedGroundedAnswer, allowedReferences: ReadonlySet<string>): ParsedGroundedAnswer {
+  const missingCitations = answer.structured && !answer.refusalReason && answer.citedChunkIds.length === 0;
+  if (!missingCitations && answer.citedChunkIds.every((reference) => allowedReferences.has(reference))) return answer;
   return {
-    answer: "I could not safely validate the sources returned by the model, so I am declining to answer.",
+    answer: invalidCitationsAnswer,
     citedChunkIds: [],
     refusalReason: "invalid_citations",
     structured: answer.structured
