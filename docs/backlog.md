@@ -100,3 +100,52 @@ product decision, credentials, or additional operational cost.
    - Add document filters for source, language, date range, and file type.
    - Add side-by-side model/prompt comparison for answer quality, latency, cost,
      citations, and safety outcomes.
+
+8. **Model routing and comparative evaluation**
+   - Add a backend-owned allowlist of chat models. The frontend may select only
+     models exposed by the active workspace configuration; it must never submit
+     an arbitrary provider model identifier.
+   - Add chat-model selection per question and per evaluation run, with provider,
+     model, prompt version, latency, token usage, estimated cost, citation
+     validity, and injection pass rate recorded for every result.
+   - Add side-by-side answer comparison for two allowlisted chat models, using
+     the same retrieved context and prompt version so the comparison is fair.
+   - Keep the embedding model fixed per index/workspace. Changing it requires an
+     explicit embedding-version migration, dimension validation, semantic-cache
+     invalidation, and a full document reindex before activation.
+   - Configure reranking as an independent second-stage model. Evaluate Jina or
+     another approved reranker against the golden set before enabling it.
+   - Add model-routing policies for simple versus complex questions and provider
+     fallback, with hard token, latency, and spend budgets enforced in code.
+   - Add regression reports that compare the current run with the previous
+     baseline and fail release gates when recall, precision, safety, latency, or
+     cost crosses a configured threshold.
+
+9. **LangGraph workflow expansion**
+   - Add adaptive RAG: retrieve, apply a relevance gate, rewrite the query when
+     evidence is weak, retry retrieval once, and refuse when evidence remains
+     insufficient.
+   - Add citation verification after generation. Accept only citations that
+     refer to retrieved chunks; otherwise repair the answer or return a safe
+     refusal.
+   - Orchestrate advanced ingestion as a checkpointed graph: extraction, text
+     quality gate, OCR fallback, metadata, language detection, structure-aware
+     chunking, security scan, embeddings, and persistence. Retry only the failed
+     node and preserve safe stage metrics.
+   - Add an evaluation graph that runs retrieval metrics, answer generation,
+     faithfulness, context precision, and security checks into one versioned
+     report.
+   - Add human-in-the-loop checkpoints for sensitive actions. The graph must
+     pause after policy evaluation, persist the approval request, and resume only
+     after an authorized user confirms it.
+   - Add durable state, cancellation, step limits, timeouts, and per-run budgets
+     so a misbehaving model cannot create an unbounded loop or spend indefinitely.
+
+10. **Agent tools and MCP safety**
+   - Add a project-owned MCP server with read-only workspace tools first:
+     search, source inspection, ingestion status, and evaluation reports.
+   - Enforce tenant scope, RBAC, schema validation, audit events, rate limits,
+     timeouts, and explicit tool allowlists on every MCP call.
+   - Add isolated execution for any future write-capable tool, with approval,
+     idempotency keys, retries, dead-letter handling, and a replayable audit
+     record.
