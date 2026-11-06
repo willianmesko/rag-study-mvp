@@ -34,7 +34,29 @@ retry. Nenhuma chave é necessária no frontend.
 
 ## Próximas etapas, por prioridade
 
-1. **Visualização do pipeline RAG no upload:** transformar o processamento de
+1. **Evals no CI:** executar golden set, testes de prompt injection e Promptfoo
+   a cada push; bloquear a publicação quando houver regressão. O golden set
+   precisa usar corpus e provedor de teste isolados; Promptfoo não deve receber
+   dados reais nem chaves em arquivos versionados.
+
+2. **Segurança e custo:** limites por usuário e tenant, quotas de tokens e
+   uploads, auditoria administrativa sem conteúdo sensível, redação de PII
+   antes de provedores externos, cache semântico com chave por tenant e alertas
+   de gasto antes de atingir o orçamento.
+
+3. **Melhorar ingestão:** OCR para PDFs escaneados, importação de URLs/HTML,
+   metadados, detecção de idioma e chunking por estrutura de documento.
+
+   **OCR** (*Optical Character Recognition*, reconhecimento óptico de
+   caracteres) lê uma imagem de texto e a converte em texto selecionável e
+   pesquisável. Um PDF criado digitalmente normalmente já contém texto; um PDF
+   escaneado contém páginas como imagens e precisa de OCR antes de gerar chunks
+   e embeddings. A extração deve sinalizar baixa confiança para revisão humana.
+
+4. **UX de produto:** lista de documentos, reindexar e excluir, visualizar
+   chunks, fontes clicáveis, histórico de perguntas e feedback 👍/👎.
+
+   Inclui a **visualização do pipeline RAG no upload:** transformar o processamento de
    documento em uma linha do tempo visível na área administrativa: arquivo
    recebido → texto extraído → chunks criados → chunks sinalizados por risco →
    embeddings gerados → persistência vetorial → documento pronto para busca.
@@ -51,20 +73,15 @@ retry. Nenhuma chave é necessária no frontend.
      API administrativa para ler o resumo de ingestão. O navegador somente
      consulta esse estado; nunca executa embeddings ou acessa segredos.
 
-2. **RBAC e tenant real:** tabela de memberships, papéis (`owner`, `editor`,
+5. **RBAC e tenant real:** tabela de memberships, papéis (`owner`, `editor`,
    `viewer`), tenant derivado da sessão autenticada e políticas RLS revisadas.
    A API não deve aceitar `tenant_id` vindo do navegador.
-3. **Gestão do corpus:** listar documentos por tenant, apagar documento + chunks
-   + original no Storage, retenção configurável e reindexação versionada.
-4. **Observabilidade:** traces no LangSmith *ou* Langfuse/Phoenix, métricas de
+6. **Observabilidade:** traces no LangSmith *ou* Langfuse/Phoenix, métricas de
    latência, custo, falhas e volume sem registrar conteúdo ou segredos.
-5. **Evaluation harness:** aumentar o golden set com dados reais, rodar a suíte
-   de segurança no CI, adicionar Promptfoo contra ambiente sem dados reais e,
-   depois, Ragas para contexto/fidelidade.
-6. **Qualidade de retrieval:** habilitar e medir Jina reranker somente com
+7. **Qualidade de retrieval:** habilitar e medir Jina reranker somente com
    `JINA_API_KEY`; comparar recall, MRR, latência e custo contra o golden set.
-7. **Worker dedicado:** Redis + BullMQ e serviço Render separado quando jobs
+8. **Worker dedicado:** Redis + BullMQ e serviço Render separado quando jobs
    grandes, concorrência ou retries com backoff justificarem o custo adicional.
-8. **Produção econômica:** Cloudflare Pages/Render/Supabase gratuitos para demo;
+9. **Produção econômica:** Cloudflare Pages/Render/Supabase gratuitos para demo;
    alertas de orçamento, backups, domínio, limites por identidade e política de
    retenção antes de receber usuários reais.
