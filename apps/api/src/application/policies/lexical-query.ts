@@ -10,6 +10,6 @@ const stopWords = new Set([
  * into an accidental zero-result query.
  */
 export function toLexicalQuery(question: string): string {
-  const tokens = question.toLocaleLowerCase("pt-BR").match(/[\p{L}\p{N}_-]+/gu) ?? [];
+  const tokens = question.toLocaleLowerCase("en-US").match(/[\p{L}\p{N}_-]+/gu) ?? [];
   return tokens.filter((token) => token.length > 1 && !stopWords.has(token)).join(" ");
 }

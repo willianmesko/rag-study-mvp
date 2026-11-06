@@ -64,7 +64,7 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
         answer: await this.answerGenerator.generate(state.question, state.context)
       }))
       .addNode("no_context", () => ({
-        answer: "Não encontrei contexto suficientemente relevante nos documentos indexados para responder com segurança.",
+        answer: "I could not find sufficiently relevant context in the indexed documents to answer safely.",
         hasContext: false
       }))
       .addEdge(START, "retrieve")

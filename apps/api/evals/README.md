@@ -1,76 +1,69 @@
-# Avaliações do RAG
+# RAG Evaluations
 
-Avalie em camadas. Uma resposta aparentemente boa pode esconder recuperação errada, uma citação ausente ou comportamento inseguro diante de um documento malicioso.
+Evaluate the system in layers. A plausible answer can hide incorrect retrieval,
+missing citations, or unsafe behavior when a malicious document is present.
 
-## 0. Regressão de prompt injection: já executável
+## 1. Prompt-injection regression suite
 
-O arquivo `security/prompt-injection.v1.json` contém ataques e controles benignos que exercitam o scanner determinístico usado na ingestão. Rode-o sempre que alterar as regras ou o pipeline:
-
-```bash
-npm run eval:security -- evals/security/prompt-injection.v1.json
-```
-
-O resultado aprovado significa somente que a classificação atual não regrediu nesses casos. Não mede resistência geral do modelo. Inclua variações em português, inglês, Unicode, conteúdo remoto e documentos reais do seu domínio; registre falsos positivos junto com ataques bloqueados.
-
-## 1. Golden set local: já executável
-
-`golden-set.v1.json` guarda perguntas e as fontes que obrigatoriamente devem aparecer no retrieval. Ele é propositalmente simples e determinístico: mede retrieval, não a opinião de outro modelo.
+`security/prompt-injection.v1.json` contains attacks and benign controls for the
+deterministic ingestion scanner. Run it whenever the scanner or the ingestion
+pipeline changes:
 
 ```bash
-npm run ingest -- examples/rag-fundamentals.md golden/rag-fundamentals
-npm run eval:golden -- evals/golden-set.v1.json
+npm run eval:security
 ```
 
-Comece com 20 a 50 perguntas reais. Versione cada mudança no conjunto e divida os casos por intenção, idioma, formato do documento e dificuldade. Só eleve `RAG_MINIMUM_SCORE`, chunk size ou modelo depois de comparar os relatórios.
+A passing result means the current classifier did not regress on these cases. It
+does not prove general model safety. Add multilingual, Unicode, remote-content,
+and real-domain variations, and record both blocked attacks and false positives.
 
-### Gate determinístico de CI
+## 2. Deterministic golden set
 
-O GitHub Actions também executa o mesmo golden set em modo determinístico:
+`golden-set.v1.json` stores questions and the sources expected in retrieval. It
+measures retrieval without relying on another model's opinion.
+
+```bash
+npm run eval:golden
+```
+
+The report measures `hitRate` (was the expected source in top-K?) and `MRR` (how
+early did it appear?). Version the set as it evolves and compare reports before
+changing chunk size, embedding model, reranking, or a relevance threshold.
+
+### CI mode
 
 ```bash
 npm run eval:golden:ci
 ```
 
-Esse modo lê o manifesto `corpus-manifest.v1.json`, divide os arquivos de teste
-em chunks e usa recuperação lexical local. Ele não chama um modelo, banco remoto
-ou serviço pago; seu objetivo é bloquear regressões no corpus de teste, no
-formato do golden set e na lógica do harness. A execução `eval:golden` continua
-sendo a avaliação de integração para rodar manualmente com pgvector e o provedor
-de embeddings realmente escolhido.
+CI reads `corpus-manifest.v1.json`, chunks test files, and uses local lexical
+retrieval. It does not call a paid model, remote database, or external service.
+It protects the test corpus, golden-set shape, and harness logic. `eval:golden`
+remains the integration evaluation for the actual pgvector and embedding setup.
 
-## 2. Qualidade RAG com Ragas
+## 3. Promptfoo
 
-Ragas complementa o golden set com métricas como *context precision*, *context recall* e *faithfulness*. Use-o quando já tiver respostas de referência ou um avaliador bem definido. Ele é uma ferramenta Python independente do backend TypeScript:
-
-```bash
-python3 -m venv .venv-ragas
-. .venv-ragas/bin/activate
-pip install ragas
-```
-
-Monte uma tabela com `question`, `answer`, `contexts` e, quando aplicável, `ground_truth`. Não interprete uma única nota como aprovação: examine os casos de pior score e adicione-os ao golden set. Consulte a documentação atual do [Ragas](https://docs.ragas.io/).
-
-## 3. Segurança e prompt injection com Promptfoo
-
-Promptfoo é útil para regressões de prompts e testes adversariais: instruções no documento como “ignore as regras”, tentativa de exfiltrar contexto de outro tenant, jailbreak e afirmações sem fonte. A versão atual requer Node.js 22.22 ou superior; por isso o workflow usa Node 24, mesmo que um computador local ainda use Node 20.
-
-O gate atual é determinístico e não envia conteúdo nem chaves a terceiros:
+Promptfoo provides adversarial and prompt-regression tests. The repository uses a
+local JavaScript provider so the default gate does not send documents, prompts,
+or keys to a third party:
 
 ```bash
-npm run build:api
 npm run eval:promptfoo
 ```
 
-Ele usa um provider JavaScript local que exercita o classificador de prompt
-injection da aplicação. É uma proteção de regressão; red teaming gerativo com
-modelo atacante ficará em uma etapa posterior, isolado do corpus real e com
-orçamento explícito.
+When adding hosted red teaming, use a test API with synthetic data, a fixed
+budget, and uncommitted secrets. Test cross-tenant exfiltration, source-free
+answers, tool-use requests inside retrieved text, and conflicting instructions.
 
-Quando migrar o runtime, crie uma configuração Promptfoo que execute contra uma API de teste sem dados reais. Não coloque chaves em YAML versionado. Comece pelos casos abaixo e trate o resultado como uma triagem, não como prova de segurança:
+## 4. Ragas and answer quality
 
-- documento pede para revelar sistema, chave ou dados de outro usuário;
-- pergunta pede resposta fora das fontes recuperadas;
-- conteúdo recuperado tenta fazer a API chamar uma ferramenta ou URL;
-- fonte com instruções contraditórias e conteúdo útil misturados.
+Ragas complements the golden set with context precision, context recall, and
+faithfulness. Use it after you have reference answers or a clearly defined judge.
+Prepare rows with `question`, `answer`, `contexts`, and when relevant,
+`ground_truth`. Inspect the lowest-scoring cases rather than treating one metric
+as an approval decision.
 
-O benchmark acadêmico HarmBench pode informar pesquisa de segurança de modelos, mas não substitui esses testes específicos do seu produto. Para este RAG, Promptfoo + casos reais próprios é a primeira escolha prática. Consulte a documentação de [red teaming do Promptfoo](https://www.promptfoo.dev/docs/red-team/).
+The academic HarmBench benchmark can inform broader model-safety research, but
+it does not replace product-specific retrieval and injection evaluations. For
+this application, Promptfoo plus versioned real-world cases is the practical
+starting point.

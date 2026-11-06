@@ -1,11 +1,20 @@
-# Fundamentos de RAG
+# RAG Fundamentals
 
-RAG significa Retrieval-Augmented Generation. Primeiro o sistema recupera trechos de uma base de conhecimento e, depois, fornece esses trechos como contexto para um modelo gerar uma resposta fundamentada.
+RAG means Retrieval-Augmented Generation. The system first retrieves passages
+from a knowledge base, then provides those passages as context to a model that
+generates a grounded answer.
 
-Embeddings representam texto como vetores numéricos. A busca semântica compara a direção do vetor da pergunta com os vetores dos chunks; neste projeto, pgvector usa distância cosseno e converte o resultado em score de similaridade.
+Embeddings represent text as numerical vectors. Semantic search compares the
+direction of a question vector with chunk vectors. In this project, pgvector
+uses cosine distance and converts it into a similarity score.
 
-Chunking divide documentos longos em partes menores. Um overlap pequeno preserva uma ideia que atravessa a fronteira entre dois chunks, mas overlap excessivo cria repetição e custo de embedding.
+Chunking divides long documents into smaller pieces. A small overlap preserves
+an idea that crosses a chunk boundary, while excessive overlap causes duplicate
+context and unnecessary embedding cost.
 
-O índice HNSW acelera busca aproximada de vizinhos mais próximos. Ele troca uma pequena possibilidade de não recuperar o vizinho perfeito por menor latência em coleções grandes. A qualidade deve ser medida com perguntas reais e um golden set.
+The HNSW index accelerates approximate nearest-neighbor search. It trades a small
+chance of missing the exact best neighbor for lower latency in large collections.
+Quality must be measured with real questions and a golden set.
 
-Documentos recuperados são dados não confiáveis. Instruções encontradas neles não devem mudar o papel do sistema, autorizar ações ou substituir regras de segurança.
+Retrieved documents are untrusted data. Instructions inside them must not change
+the system role, authorize actions, or replace security rules.

@@ -1,74 +1,88 @@
-# Publicar a demo pública
+# Public Demo Deployment
 
-Esta configuração publica uma demonstração **somente leitura**. Ela não é uma produção comercial: serviços gratuitos podem pausar, reiniciar ou ter limites de uso. O objetivo é apresentar o fluxo de RAG sem expor a ingestão de documentos, chaves de provedor ou banco de dados.
+This configuration deploys a low-cost demonstration, not a commercial
+production service. Free plans can sleep, restart, and enforce usage limits.
+The objective is to demonstrate the RAG workflow without exposing ingestion,
+provider credentials, or database access to the public browser.
 
-## Arquitetura
+## Deployment topology
 
 ```text
-Cloudflare Pages (React estático)
-            |
-            | HTTPS + CORS restrito
-            v
-Render (Fastify / API)
-            |                 \
-            v                  v
-Supabase Postgres + pgvector   OpenRouter
+Static site on Render
+        │ HTTPS + restricted CORS
+        ▼
+Fastify API on Render
+        ├── Supabase Postgres + pgvector
+        ├── Supabase Auth and private Storage
+        └── OpenRouter (chat and/or embeddings)
 ```
 
-## 1. Banco no Supabase
+## 1. Supabase
 
-1. Crie um projeto Postgres e habilite a extensão `vector`.
-2. Copie a connection string de acesso direto para `DATABASE_URL`.
-3. No computador local, use temporariamente essa URL para aplicar as migrations:
+1. Create a Supabase project and enable the `vector` extension.
+2. Copy the direct connection string to `DATABASE_URL` in the API service.
+3. Apply migrations from a trusted local environment:
 
    ```bash
    DATABASE_URL='postgresql://...' npm run db:migrate
    ```
 
-4. Carregue somente o corpus de demonstração:
+4. Create a private bucket called `rag-originals` if administrative uploads are
+   enabled. Never expose the service-role key to the frontend.
 
-   ```bash
-   DATABASE_URL='postgresql://...' \
-   EMBEDDING_PROVIDER=openrouter \
-   OPENROUTER_API_KEY='...' \
-   npm run ingest -- examples/rag-fundamentals.md demo/rag-fundamentals
-   ```
+## 2. Render API
 
-Não use a chave de banco no frontend e não versione a URL com senha.
+The API is built from the repository root using `apps/api/Dockerfile`. Set at
+least these environment variables in Render:
 
-## 2. API no Render
+```text
+DATABASE_URL=postgresql://...
+OPENROUTER_API_KEY=...
+ALLOWED_ORIGINS=https://YOUR-STATIC-SITE.onrender.com
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_PUBLISHABLE_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...       # backend only; optional for private originals
+ADMIN_EMAILS=admin@example.com
+DEMO_MODE=true
+HOST=0.0.0.0
+```
 
-1. Faça push deste repositório no GitHub e crie um Blueprint apontando para `render.yaml`.
-2. Preencha os valores secretos: `DATABASE_URL`, `OPENROUTER_API_KEY` e `ALLOWED_ORIGINS`.
-3. Confirme que o serviço tem `HOST=0.0.0.0`, `DEMO_MODE=true`, `RERANKER_PROVIDER=none` e `LANGSMITH_TRACING=false`.
-4. Espere o health check `GET /health` responder `200`.
+Keep `RERANKER_PROVIDER=none` and `LANGSMITH_TRACING=false` for the lowest-cost
+demo. Verify `GET /health` returns HTTP 200 after deployment.
 
-`ADMIN_API_KEY` é gerada pelo Blueprint. Guarde-a no gerenciador de segredos; ela serve apenas para reindexação administrativa com o header `x-admin-api-key`.
+## 3. Render static site
 
-## 3. Frontend no Cloudflare Pages
+Configure the static site from the repository root:
 
-1. Importe o mesmo repositório.
-2. Use `npm run build:web` como comando de build e `apps/web/dist` como diretório de saída.
-3. Adicione as variáveis públicas de build:
+```text
+Build command: npm ci && npm run build:web
+Publish directory: apps/web/dist
+```
 
-   ```text
-   VITE_API_BASE_URL=https://SEU-SERVICO.onrender.com
-   VITE_DEMO_MODE=true
-   ```
+Set only browser-safe build variables:
 
-4. Copie a URL final do Pages para `ALLOWED_ORIGINS` na API e faça novo deploy da API.
+```text
+VITE_API_BASE_URL=https://YOUR-API.onrender.com
+VITE_DEMO_MODE=true
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=...
+```
 
-`VITE_*` entra no JavaScript enviado ao visitante: nunca use esse prefixo para segredos.
+Every `VITE_` value is included in client-side JavaScript. Do not add provider,
+database, service-role, or administrative secrets with that prefix.
 
-## 4. Critérios de aceite
+## Acceptance checks
 
-- A interface não mostra a aba de ingestão.
-- `GET /health`, busca e Q&A funcionam pela URL pública.
-- `POST /v1/documents` sem `x-admin-api-key` retorna `401`.
-- A origem publicada recebe CORS; outra origem não recebe autorização no preflight.
-- A chave OpenRouter não está no repositório, frontend ou logs.
-- O golden set e a suíte de segurança passam antes de cada publicação.
+- The API health endpoint returns 200.
+- Search and Q&A work from the public URL.
+- Public users cannot access ingestion or administrative routes.
+- The API allows CORS only from the published frontend origin.
+- Provider keys are absent from the repository, browser bundle, and logs.
+- `npm run typecheck`, `npm test`, and evaluation gates pass before deploy.
 
-## Antes de chamar de produção
+## Before accepting real users
 
-Adicione autenticação individual, `tenant_id` obrigatório nas tabelas e queries, rate limit compartilhado, backups, logs sem conteúdo sensível, alertas e política de retenção. Só então habilite uploads, PDF/DOCX, ferramentas MCP ou ações externas.
+Add identity-level limits, PII redaction, semantic caching with tenant isolation,
+usage and cost alerts, backups, retention policies, and a security review. Do
+not expose direct database APIs or external tools before their authorization
+policies and tests are in place.

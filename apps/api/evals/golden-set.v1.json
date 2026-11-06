@@ -8,22 +8,22 @@
   "cases": [
     {
       "id": "rag-definition",
-      "question": "O que significa RAG?",
+      "question": "What does RAG mean?",
       "expectedSources": ["golden/rag-fundamentals"]
     },
     {
       "id": "chunking-overlap",
-      "question": "Por que usar overlap entre chunks?",
+      "question": "Why use overlap between chunks?",
       "expectedSources": ["golden/rag-fundamentals"]
     },
     {
       "id": "hnsw-tradeoff",
-      "question": "Qual é a troca envolvida ao usar HNSW?",
+      "question": "What is the trade-off when using HNSW?",
       "expectedSources": ["golden/rag-fundamentals"]
     },
     {
       "id": "prompt-injection",
-      "question": "Como tratar instruções encontradas em documentos recuperados?",
+      "question": "How should instructions found in retrieved documents be handled?",
       "expectedSources": ["golden/rag-fundamentals"]
     }
   ]

@@ -58,7 +58,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ErrorBody;
-    throw new ApiError(body.error ?? body.message ?? "Não foi possível concluir a solicitação.", response.status);
+    throw new ApiError(body.error ?? body.message ?? "The request could not be completed.", response.status);
   }
   return response.json() as Promise<T>;
 }
@@ -67,7 +67,7 @@ async function requestVoid(path: string, init?: RequestInit): Promise<void> {
   const response = await fetch(`${apiBaseUrl}${path}`, init);
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ErrorBody;
-    throw new ApiError(body.error ?? body.message ?? "Não foi possível concluir a solicitação.", response.status);
+    throw new ApiError(body.error ?? body.message ?? "The request could not be completed.", response.status);
   }
 }
 
@@ -93,7 +93,7 @@ export const api = {
   uploadDocument: async (input: { file: File; source: string; title?: string; accessToken: string; workspaceId?: string }) => {
     const body = new FormData(); body.append("file", input.file);
     const response = await fetch(`${apiBaseUrl}/v1/admin/uploads`, { method: "POST", body, headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId), "x-document-source": input.source, ...(input.title ? { "x-document-title": input.title } : {}) } });
-    if (!response.ok) { const error = await response.json().catch(() => ({})) as ErrorBody; throw new ApiError(error.error ?? "Não foi possível enviar o arquivo.", response.status); }
+    if (!response.ok) { const error = await response.json().catch(() => ({})) as ErrorBody; throw new ApiError(error.error ?? "The file could not be uploaded.", response.status); }
     return response.json() as Promise<{ job: UploadJob }>;
   }
 };

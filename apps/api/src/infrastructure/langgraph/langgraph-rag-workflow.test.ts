@@ -12,15 +12,15 @@ test("LangGraph workflow retrieves context before generating an answer", async (
         source: "golden/rag", title: "RAG", score: 0.91, security: { promptInjectionRisk: "low", signals: [] }
       }]
     },
-    { generate: async (_question, context) => { receivedContext = context; return "Embeddings representam texto como vetores."; } } satisfies AnswerGenerator,
+    { generate: async (_question, context) => { receivedContext = context; return "Embeddings represent text as vectors."; } } satisfies AnswerGenerator,
     { maxContextChars: 1_000, minimumScore: 0.3 }
   );
 
-  const result = await workflow.answer({ question: "O que são embeddings?" });
+  const result = await workflow.answer({ question: "What are embeddings?" });
   assert.match(receivedContext, /Embeddings map text to vectors/);
   assert.match(receivedContext, /untrusted_document/);
   assert.equal(result.sources[0]?.source, "golden/rag");
-  assert.match(result.answer, /vetores/);
+  assert.match(result.answer, /vectors/);
 });
 
 test("LangGraph workflow declines to answer when retrieval is below the relevance threshold", async () => {
@@ -32,7 +32,7 @@ test("LangGraph workflow declines to answer when retrieval is below the relevanc
 
   const result = await workflow.answer({ question: "Pergunta sem contexto" });
   assert.equal(result.sources.length, 0);
-  assert.match(result.answer, /não encontrei contexto/i);
+  assert.match(result.answer, /could not find sufficiently relevant context/i);
 });
 
 test("LangGraph excludes high-risk retrieved chunks from the model context", async () => {
@@ -49,7 +49,7 @@ test("LangGraph excludes high-risk retrieved chunks from the model context", asy
     { maxContextChars: 1_000, minimumScore: 0.3 }
   );
 
-  const result = await workflow.answer({ question: "Qual é a instrução?" });
+  const result = await workflow.answer({ question: "What is the instruction?" });
   assert.equal(result.sources.length, 0);
-  assert.match(result.answer, /não encontrei contexto/i);
+  assert.match(result.answer, /could not find sufficiently relevant context/i);
 });

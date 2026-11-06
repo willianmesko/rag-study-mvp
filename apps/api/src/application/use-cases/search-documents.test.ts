@@ -29,13 +29,13 @@ test("search use case combines embedding and keyword candidates through its repo
     rerankerCandidateMultiplier: 4,
     defaultTenantId: "tenant-a"
   });
-  await useCase.execute({ query: "O que é RAG?", topK: 3 });
-  assert.equal(calls.query, "O que é RAG?");
+  await useCase.execute({ query: "What is RAG?", topK: 3 });
+  assert.equal(calls.query, "What is RAG?");
   assert.deepEqual(calls.vector, [0.1, 0.2]);
   assert.deepEqual(calls.search, {
     tenantId: "tenant-a",
     embedding: [0.1, 0.2],
-    query: "O que é RAG?",
+    query: "What is RAG?",
     lexicalQuery: "rag",
     limit: 3,
     vectorCandidateLimit: 12,
