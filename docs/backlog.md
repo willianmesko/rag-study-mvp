@@ -10,6 +10,10 @@ product decision, credentials, or additional operational cost.
   cited answers.
 - Supabase Auth, asynchronous PDF/DOCX/TXT/Markdown ingestion, local text
   extraction, processing status, and job retry.
+- Local Portuguese and English OCR for scanned PDFs, including mixed documents
+  with selectable text. The ingestion timeline records duration, page counts,
+  recognition confidence, and actionable failure messages. The Docker image
+  verifies both languages on synthetic scanned PDFs during its build.
 - Private original-file storage, constrained upload size and MIME types, and a
   server-only storage adapter.
 - Tenant isolation for documents and jobs. The tenant is derived from validated
@@ -54,8 +58,8 @@ product decision, credentials, or additional operational cost.
 
 ## Delivery sequence
 
-1. Advanced ingestion — OCR, URL/HTML, metadata, language detection, and
-   structure-aware chunking.
+1. Advanced ingestion — URL/HTML, metadata, language detection, and
+   structure-aware chunking. Scanned PDF OCR is complete.
 2. RAG visualization — controlled passage previews and score interpretation.
 3. UX quality — responsive visual tests, contrast, accessibility, and team flows.
 4. Workspace Control Center — finish extracting independent section widgets.
@@ -83,11 +87,8 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      beyond the owner-only dashboard.
 
 2. **Improve ingestion**
-   - Add OCR for scanned PDFs. OCR (Optical Character Recognition) converts text
-     inside an image into selectable, searchable text before chunking.
    - Support URL/HTML import, metadata extraction, language detection, and
      structure-aware chunking.
-   - Add OCR-specific quality signals to the existing ingestion timeline.
 
 3. **RAG pipeline visualization**
    - Add a limited, explicitly approved chunk preview to the existing timeline.

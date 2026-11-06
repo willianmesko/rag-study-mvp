@@ -6,6 +6,7 @@ import { EvaluationPanel } from "../../evaluation-dashboard/ui/EvaluationPanel";
 import { SelectField } from "../../../shared/ui/SelectField";
 import type { WorkspaceSection } from "../../../shared/lib/app-route";
 import { WorkspaceOverview } from "../../workspace-control-center/ui/WorkspaceOverview";
+import { OcrEventDetails } from "./OcrEventDetails";
 
 type Translate = ReturnType<typeof useLocale>["t"];
 
@@ -38,14 +39,24 @@ function eventForStage(events: IngestionEvent[], stage: string) {
   return [...events].reverse().find((event) => event.stage === stage);
 }
 
+function ocrEventForCurrentAttempt(events: IngestionEvent[]) {
+  for (let index = events.length - 1; index >= 0; index--) {
+    const event = events[index];
+    if (event.stage === "ocr") return event;
+    if (event.stage === "queued" || (event.stage === "processing" && event.status === "started")) return undefined;
+  }
+}
+
 function PipelineVisualization({ job, events }: { job: UploadJob; events: IngestionEvent[] }) {
   const { locale, t } = useLocale();
   const number = new Intl.NumberFormat(locale);
   const percent = new Intl.NumberFormat(locale, { style: "percent" }).format(job.progress / 100);
+  const ocrEvent = job.status === "queued" ? undefined : ocrEventForCurrentAttempt(events);
   const pipelineSteps = [
     ["queued", t("File received", "Arquivo recebido")],
     ["source_read", t("Source read", "Fonte lida")],
-    ["text_extraction", t("Text extracted", "Texto extraído")],
+    ["text_extraction", ocrEvent ? t("Text extraction", "Extração de texto") : t("Text extracted", "Texto extraído")],
+    ...(ocrEvent ? [["ocr", t("Text recognition (OCR)", "Reconhecimento de texto (OCR)")]] : []),
     ["chunking", t("Passages prepared", "Trechos preparados")],
     ["security_scan", t("Safety checked", "Segurança verificada")],
     ["embedding", t("Embeddings generated", "Representações vetoriais geradas")],
@@ -68,11 +79,12 @@ function PipelineVisualization({ job, events }: { job: UploadJob; events: Ingest
       </div>
       <ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {pipelineSteps.map(([stage, label], index) => {
-          const event = eventForStage(events, stage);
+          const event = stage === "ocr" ? ocrEvent : eventForStage(events, stage);
           const complete = event?.status === "completed";
           const active = event?.status === "started";
           const failed = event?.status === "failed";
           const details = event?.details;
+          const ocrSkipped = stage === "ocr" && event?.status === "info" && details?.code === "ocr_disabled";
           const count = typeof details?.chunkCount === "number" ? number.format(details.chunkCount) + " " + t("passages", "trechos")
             : typeof details?.vectorCount === "number" ? number.format(details.vectorCount) + " " + t("vectors", "vetores")
             : typeof details?.highRiskChunks === "number" ? number.format(details.highRiskChunks) + " " + t("high risk", "com risco alto")
@@ -80,6 +92,7 @@ function PipelineVisualization({ job, events }: { job: UploadJob; events: Ingest
           const tone = complete ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
             : failed ? "border-rose-400/30 bg-rose-400/10 text-rose-200"
             : active ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100"
+            : ocrSkipped ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
             : "border-slate-800 bg-slate-950/40 text-slate-500";
           const indicator = active ? "animate-pulse bg-cyan-400 text-slate-950"
             : complete ? "bg-emerald-400 text-slate-950" : "bg-slate-800";
@@ -90,14 +103,18 @@ function PipelineVisualization({ job, events }: { job: UploadJob; events: Ingest
                 <span>{label}</span>
               </div>
               {event && <p className="mt-2 pl-9 font-mono text-[10px] opacity-80">
-                {event.durationMs !== null ? number.format(event.durationMs) + " ms" : active ? t("in progress", "em andamento") : t("recorded", "registrado")}
+                {ocrSkipped ? t("skipped", "não executado")
+                  : event.durationMs !== null ? number.format(event.durationMs) + " ms"
+                  : active ? t("in progress", "em andamento")
+                  : t("recorded", "registrado")}
                 {count && " · " + count}
               </p>}
+              {stage === "ocr" && event && <OcrEventDetails event={event} />}
             </li>
           );
         })}
       </ol>
-      {job.error && <p role="alert" className="mt-4 text-xs text-rose-300">{t("This file could not be processed. Check the file and try again.", "Não foi possível processar este arquivo. Verifique o arquivo e tente novamente.")}</p>}
+      {job.error && ocrEvent?.status !== "failed" && <p role="alert" className="mt-4 text-xs text-rose-300">{t("This file could not be processed. Check the file and try again.", "Não foi possível processar este arquivo. Verifique o arquivo e tente novamente.")}</p>}
     </section>
   );
 }
@@ -131,7 +148,7 @@ export function AdminPanel({ section, workspace, token, onSectionChange }: {
   });
   const activeJob = jobs.data?.jobs.find((job) => job.status === "processing" || job.status === "queued") ?? jobs.data?.jobs[0];
   const ingestionEvents = useQuery({
-    queryKey: ["ingestion-events", token, workspaceId, activeJob?.id],
+    queryKey: ["ingestion-events", token, workspaceId, activeJob?.id, activeJob?.status],
     queryFn: () => api.listUploadEvents(activeJob?.id as string, token as string, workspaceId),
     enabled: Boolean(token && workspace && activeJob?.id && section === "processing"), refetchInterval: activeJob?.status === "processing" || activeJob?.status === "queued" ? 1_500 : false
   });

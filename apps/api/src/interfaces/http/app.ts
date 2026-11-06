@@ -124,7 +124,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     app.log.error(error);
     return reply.code(500).send({ error: "Internal server error" });
   });
-  app.get("/health", async () => ({ status: "ok" }));
+  app.get("/health", async () => ({ status: "ok", capabilities: { pdfOcr: config.PDF_OCR_ENABLED } }));
   const authorizeMember = async (request: { headers: Record<string, string | string[] | undefined> }) => {
     if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return { ok: false as const, status: 503, error: "Admin upload is not configured." };
     const authorization = request.headers.authorization;

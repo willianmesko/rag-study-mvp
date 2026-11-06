@@ -18,7 +18,16 @@ export class ProcessNextIngestionJobUseCase {
       await this.jobs.recordEvent({ jobId: job.id, tenantId: job.tenantId, stage: "source_read", status: "completed", durationMs: Date.now() - sourceReadStartedAt, details: { bytes: payload.byteLength } });
       const extractionStartedAt = Date.now();
       await this.jobs.recordEvent({ jobId: job.id, tenantId: job.tenantId, stage: "text_extraction", status: "started" });
-      const extracted = await this.extractor.extract({ ...job, payload });
+      const extracted = await this.extractor.extract(
+        { filename: job.filename, mimeType: job.mimeType, payload },
+        (event) => this.jobs.recordEvent({ jobId: job.id, tenantId: job.tenantId, ...event })
+      ).catch(async (error: unknown) => {
+        await this.jobs.recordEvent({
+          jobId: job.id, tenantId: job.tenantId, stage: "text_extraction", status: "failed",
+          durationMs: Date.now() - extractionStartedAt
+        });
+        throw error;
+      });
       await this.jobs.recordEvent({ jobId: job.id, tenantId: job.tenantId, stage: "text_extraction", status: "completed", durationMs: Date.now() - extractionStartedAt, details: { characters: extracted.text.length } });
       const result = await this.ingest.execute(
         { tenantId: job.tenantId, source: job.source, title: job.title ?? undefined, text: extracted.text, metadata: { filename: job.filename, mimeType: job.mimeType, ingestionJobId: job.id, ...extracted.metadata } },

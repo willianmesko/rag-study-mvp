@@ -15,7 +15,9 @@ RUN npm run build:api
 
 FROM node:24-alpine AS runtime
 WORKDIR /app
-ENV NODE_ENV=production
+ENV NODE_ENV=production PDF_OCR_ENABLED=true
+
+RUN apk add --no-cache poppler-utils tesseract-ocr tesseract-ocr-data-eng tesseract-ocr-data-por
 
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/package.json
@@ -26,5 +28,6 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/packages/contracts/dist ./packages/contracts/dist
 USER node
+RUN PDF_OCR_SMOKE_LANGUAGES=eng+por node --test apps/api/dist/infrastructure/ingestion/pdf-ocr.native.test.js
 EXPOSE 3000
 CMD ["node", "apps/api/dist/server.js"]

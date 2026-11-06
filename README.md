@@ -51,7 +51,8 @@ Zod schemas in both applications.
 - Structured grounded answers validated with Zod, citation allowlisting, and
   configurable agent step, timeout, token, and cost budgets.
 - Prompt-injection scanning before external reranking or answer generation.
-- Private administrative ingestion for PDF, DOCX, TXT, and Markdown.
+- Private administrative ingestion for PDF, DOCX, TXT, and Markdown, with OCR
+  for scanned PDFs.
 - Workspaces with `owner`, `editor`, and read-only `viewer` roles.
 - Workspace control center with routed Overview, Knowledge, Processing, Team,
   Evaluations, and Settings sections plus a guided first-run onboarding path.
@@ -90,6 +91,22 @@ npm run dev:web
 
 Open `http://localhost:5173`. The Vite development proxy forwards API requests
 to `http://localhost:3000`, so no provider secret is exposed to the browser.
+
+### Scanned PDFs
+
+In a signed-in workspace, upload a PDF in **Knowledge** and check **Processing**
+for its OCR step. Lumora keeps the PDF's existing text and recognizes pages
+without usable text in Portuguese and English. The timeline shows duration,
+page counts, and estimated recognition confidence. OCR can misread accents and
+small, blurry, or handwritten text. Review the original when accuracy matters.
+
+The Docker API image includes Poppler and Tesseract and enables OCR by default.
+For an API run directly on macOS, install them with
+`brew install poppler tesseract tesseract-lang` and set
+`PDF_OCR_ENABLED=true` in `.env`. Set `PDF_OCR_LANGUAGES=eng` if only
+English language data is installed. The default budget is eight pages requiring
+OCR and 45 seconds per recognition run. Split longer scans before uploading or
+adjust the bounded settings documented in `.env.example`.
 
 ## Common commands
 

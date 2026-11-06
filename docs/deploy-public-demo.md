@@ -55,6 +55,12 @@ USAGE_ALERT_THRESHOLD_USD=1
 Keep `RERANKER_PROVIDER=none` and `LANGSMITH_TRACING=false` for the lowest-cost
 demo. Verify `GET /health` returns HTTP 200 after deployment.
 
+Both API Dockerfiles install Poppler and Tesseract with English and Portuguese
+language data and enable PDF OCR. Verify `capabilities.pdfOcr` in the health
+response. OCR runs in the existing ingestion worker and uses its existing
+upload authorization, quotas, and private originals. Set `PDF_OCR_ENABLED=false`
+on the API service to disable the fallback if needed.
+
 ## 3. Render static site
 
 Configure the static site from the repository root:

@@ -31,6 +31,7 @@ import { PgEvaluationRepository } from "./infrastructure/postgres/pg-evaluation-
 import { RedactingAnswerGenerator } from "./infrastructure/security/redacting-answer-generator.js";
 import { RedactingEmbeddingProvider } from "./infrastructure/security/redacting-embedding-provider.js";
 import { MultiFormatDocumentTextExtractor } from "./infrastructure/ingestion/document-text-extractor.js";
+import { PopplerTesseractOcr } from "./infrastructure/ingestion/pdf-ocr.js";
 import { createPostgresPool } from "./infrastructure/postgres/pool.js";
 import { PassThroughReranker } from "./infrastructure/reranking/pass-through-reranker.js";
 import { SupabaseOriginalFileStore } from "./infrastructure/storage/supabase-original-file-store.js";
@@ -79,11 +80,18 @@ export function createApplication() {
     chunkOverlap: config.CHUNK_OVERLAP,
     embeddingConcurrency: 3
   });
+  const extractor = new MultiFormatDocumentTextExtractor({
+    ocr: config.PDF_OCR_ENABLED ? new PopplerTesseractOcr({
+      languages: config.PDF_OCR_LANGUAGES,
+      timeoutMs: config.PDF_OCR_TIMEOUT_MS
+    }) : undefined,
+    maxOcrPages: config.PDF_OCR_MAX_PAGES
+  });
   return {
     useCases: {
       ingestDocument,
       queueDocumentUpload: new QueueDocumentUploadUseCase(jobs, originals),
-      processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, new MultiFormatDocumentTextExtractor(), ingestDocument, originals, semanticCache),
+      processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, extractor, ingestDocument, originals, semanticCache),
       retryIngestionJob: new RetryIngestionJobUseCase(jobs),
       listIngestionJobs: (tenantId: string, limit: number) => jobs.list(tenantId, limit),
       listIngestionEvents: (jobId: string, tenantId: string, limit: number) => jobs.listEvents(jobId, tenantId, limit),

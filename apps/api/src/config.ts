@@ -78,6 +78,10 @@ const environment = z.object({
   ),
   UPLOAD_MAX_BYTES: z.coerce.number().int().min(1_000).max(10_000_000).default(5_000_000),
   INGESTION_WORKER_INTERVAL_MS: z.coerce.number().int().min(1_000).max(60_000).default(5_000),
+  PDF_OCR_ENABLED: booleanEnvironment.default(false),
+  PDF_OCR_LANGUAGES: z.enum(["eng", "por", "eng+por", "por+eng"]).default("eng+por"),
+  PDF_OCR_MAX_PAGES: z.coerce.number().int().min(1).max(20).default(8),
+  PDF_OCR_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(90_000).default(45_000),
   // Comma-separated browser origins. Keep this empty during local development,
   // where Vite proxies requests, and set it to the published frontend URL.
   ALLOWED_ORIGINS: z.string().optional().transform((value) =>
