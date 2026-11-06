@@ -159,7 +159,19 @@ export async function buildApp(dependencies: HttpDependencies) {
       if (!matchesApiKey(adminKey, config.ADMIN_API_KEY as string)) return reply.code(401).send({ error: "Unauthorized" });
     }
     const input = documentSchema.parse(request.body);
+    const textBytes = Buffer.byteLength(input.text, "utf8");
+    const quota = await dependencies.consumeAdminUploadQuota(config.DEFAULT_TENANT_ID, "api-key", textBytes);
+    if (!quota.allowed) return reply.code(429).send({ error: "Daily upload quota reached. Try again tomorrow." });
     const result = await dependencies.ingestDocument.execute({ ...input, tenantId: config.DEFAULT_TENANT_ID });
+    await dependencies.recordAuditEvent({
+      tenantId: config.DEFAULT_TENANT_ID,
+      actorUserId: null,
+      action: "document.ingested_via_api",
+      resourceType: "document",
+      resourceId: result.id,
+      requestId: request.id,
+      metadata: { bytes: textBytes }
+    });
     if (result.highRiskChunks > 0) {
       request.log.warn({ documentId: result.id, highRiskChunks: result.highRiskChunks }, "High-risk chunks excluded from Q&A context");
     }

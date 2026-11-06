@@ -2,8 +2,8 @@ export interface AuditEventRepository {
   record(input: {
     tenantId: string;
     actorUserId: string | null;
-    action: "document.upload_queued" | "ingestion.retry_queued";
-    resourceType: "ingestion_job";
+    action: "document.upload_queued" | "document.ingested_via_api" | "ingestion.retry_queued";
+    resourceType: "document" | "ingestion_job";
     resourceId: string;
     requestId: string;
     metadata: Record<string, string | number | boolean | null>;
