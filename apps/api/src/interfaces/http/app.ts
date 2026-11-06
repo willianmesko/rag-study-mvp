@@ -161,7 +161,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (!token) return reply.code(401).send({ error: "Authentication required." });
     const supabase=createClient(config.SUPABASE_URL,config.SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     const {data,error}=await supabase.auth.getUser(token); if(error||!data.user)return reply.code(403).send({error:"Authentication required."});
-    const input=z.object({name:z.string().min(3).max(100),slug:z.string().regex(/^[a-z0-9-]{3,60}$/)}).parse(request.body);
+    const input=z.object({name:z.string().trim().min(2).max(100),slug:z.string().trim().toLowerCase().regex(/^[a-z0-9-]{2,60}$/)}).parse(request.body);
     try{return reply.code(201).send({workspace:await dependencies.createWorkspace({userId:data.user.id,...input})});}catch{return reply.code(409).send({error:"Workspace name or slug already exists."});}
   });
   app.get("/v1/workspaces/:workspaceId/members", async (request, reply) => {
