@@ -30,9 +30,30 @@
   .status-pill { @apply inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-300; }
   .status-pill--success { @apply border-emerald-500/30 bg-emerald-500/10 text-emerald-300; }
   .status-pill--warning { @apply border-amber-500/30 bg-amber-500/10 text-amber-300; }
-  .workspace-switcher { @apply grid min-w-52 gap-1.5 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2; }
-  .workspace-switcher__label { @apply text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500; }
-  .workspace-switcher select { @apply w-full bg-transparent text-xs font-medium text-slate-100 outline-none; }
+  .select-field { @apply grid min-w-0 max-w-full gap-1.5; }
+  .select-field__label { @apply text-xs font-medium text-slate-300; }
+  .select-field__trigger {
+    @apply flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-950/80 px-3 py-2 text-start text-sm font-medium text-slate-100 transition-colors hover:border-cyan-400/50 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .select-field__trigger[data-state="open"] { @apply border-cyan-400/70 bg-slate-900; }
+  .select-field__trigger[data-state="open"] .select-field__chevron { transform: rotate(180deg); }
+  .select-field__value { @apply min-w-0 truncate; }
+  .select-field__chevron { @apply size-4 shrink-0 text-slate-400 transition-transform; }
+  .select-field__menu {
+    @apply z-50 flex flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-900 text-slate-100 shadow-xl shadow-slate-950/70;
+    width: min(max(11rem, var(--radix-select-trigger-width)), var(--radix-select-content-available-width));
+    max-height: min(20rem, var(--radix-select-content-available-height));
+  }
+  .select-field__viewport { @apply min-h-0 p-1; }
+  .select-field__option {
+    @apply relative flex min-h-11 cursor-pointer select-none items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm leading-5 outline-none;
+    overflow-wrap: anywhere;
+  }
+  .select-field__option[data-state="checked"] { @apply bg-cyan-400/10 font-medium text-cyan-100; }
+  .select-field__option[data-highlighted] { @apply bg-slate-700 text-white; }
+  .select-field__description { @apply mt-0.5 block text-xs font-normal text-slate-300; }
+  .select-field__indicator { @apply size-4 shrink-0 text-cyan-300; }
+  .select-field__scroll { @apply flex h-6 shrink-0 items-center justify-center bg-slate-800; }
   .workspace-context { @apply flex items-center gap-3 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] px-3.5 py-3; }
   .workspace-context__dot { @apply size-2 rounded-full bg-cyan-300 shadow-[0_0_0_4px_rgba(103,232,249,0.1)]; }
   .source-row { @apply flex items-center justify-between gap-4 rounded-xl border border-slate-800/80 bg-slate-950/35 px-3 py-2.5 transition-colors hover:border-cyan-400/30 hover:bg-cyan-400/[0.03]; }

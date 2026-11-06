@@ -8,7 +8,7 @@
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "tsx --test src/rag/chunk.test.ts src/application/use-cases/search-documents.test.ts src/application/use-cases/document-management.test.ts src/application/use-cases/run-evaluation.test.ts src/application/evaluation/golden-set.test.ts src/application/evaluation/prompt-injection-suite.test.ts src/application/policies/grounded-answer-policy.test.ts src/application/policies/structured-answer.test.ts src/application/policies/agent-execution-policy.test.ts src/application/policies/lexical-query.test.ts src/domain/security/prompt-injection.test.ts src/domain/security/pii-redaction.test.ts src/infrastructure/jina/jina-reranker.test.ts src/infrastructure/langgraph/langgraph-rag-workflow.test.ts",
+    "test": "tsx --test src/rag/chunk.test.ts src/application/use-cases/search-documents.test.ts src/application/use-cases/document-management.test.ts src/application/use-cases/run-evaluation.test.ts src/application/evaluation/golden-set.test.ts src/application/evaluation/prompt-injection-suite.test.ts src/application/policies/grounded-answer-policy.test.ts src/application/policies/structured-answer.test.ts src/application/policies/agent-execution-policy.test.ts src/application/policies/lexical-query.test.ts src/domain/security/prompt-injection.test.ts src/domain/security/pii-redaction.test.ts src/infrastructure/jina/jina-reranker.test.ts src/infrastructure/langgraph/langgraph-rag-workflow.test.ts src/interfaces/http/query-scope.test.ts",
     "db:migrate": "tsx src/db/migrate.ts",
     "ingest": "tsx src/interfaces/cli/ingest.ts",
     "eval:golden": "tsx src/interfaces/cli/evaluate-golden-set.ts",

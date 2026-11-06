@@ -52,7 +52,29 @@ product decision, credentials, or additional operational cost.
   historical run comparison. Faithfulness and context precision remain
   explicitly pending until an LLM judge or Ragas evaluator is connected.
 
-## Next, in priority order
+## Delivery sequence
+
+1. Advanced ingestion — OCR, URL/HTML, metadata, language detection, and
+   structure-aware chunking.
+2. RAG visualization — controlled passage previews and score interpretation.
+3. UX quality — responsive visual tests, contrast, accessibility, and team flows.
+4. Workspace Control Center — finish extracting independent section widgets.
+5. Product expansion — demo datasets, backend history and feedback, invites,
+   filters, and faithfulness evaluation.
+6. Real-time chat — reconnect, resume, and provider cancellation.
+7. Portuguese and English — verify automatic UI locale and evaluate retrieval in
+   both languages.
+8. Onboarding — validate the standalone Milo flow and sync progress across devices.
+9. Project-owned MCP — workspace-scoped read tools.
+
+Run independent tasks within a milestone in parallel, integrate in this order,
+and update this backlog after validating each shipped capability.
+
+## Backlog by area
+
+**Next product priority.** Add chat-model selection from a backend-owned
+allowlist (item 9). Start with an explicitly configured workspace default and
+make model availability, cost estimates, and quota behavior visible in Ask.
 
 1. **Security and cost controls**
    - Capture provider-native token usage where each provider exposes it; current
@@ -98,6 +120,8 @@ product decision, credentials, or additional operational cost.
      before onboarding real users.
 
 6. **Professional UX/UI hardening**
+   - Implemented a shared responsive select for workspace switching, chat and
+     search result limits, member roles, and processing filters.
    - Run screenshot-based visual QA on mobile, tablet, and desktop in CI once a
      browser runner is available in the deployment pipeline.
    - Add a formal visual-regression baseline and automated contrast checks.
@@ -243,10 +267,13 @@ product decision, credentials, or additional operational cost.
      retries, dead-letter handling, and replayable audit records exist.
 
 16. **Guided onboarding for non-technical teams**
-   - The bilingual Milo guide now offers role-aware steps, Legal and IT
-     examples, an interactive citation example, and a suggested question that
-     opens the chat as an editable draft. Progress is saved per workspace on
-     the current browser.
+   - Implemented a dedicated sign-in page, an explicitly separate public demo,
+     and a standalone bilingual Milo guide before entering the private app.
+     Users can create a workspace, choose a goal, optionally upload a document,
+     and explore a sample answer and citation. The workspace opens after they
+     finish the guide. Progress is saved per user and workspace in the browser.
+   - Public demo search and chat use the configured demo corpus. Requests
+     carrying a private workspace selector require authenticated membership.
    - Create a first-run, step-by-step onboarding flow for users who do not know
      RAG terminology or infrastructure concepts.
    - Start with a plain-language goal, for example: “Make your law firm’s
@@ -294,19 +321,19 @@ product decision, credentials, or additional operational cost.
 
 18. **Portuguese and English support**
    - The interface now supports Brazilian Portuguese and English with automatic
-     browser-language selection and a saved manual override. Chat language
+     detection using the device time zone and browser language. Chat language
      fallback and multilingual retrieval evaluation remain follow-up work.
    - Localize the web interface in Brazilian Portuguese (`pt-BR`) and English
      (`en`), including onboarding, workspace navigation, chat statuses, errors,
      and empty states. Format dates and numbers for the selected locale.
-   - Detect the interface language from browser preferences on first visit.
-     Default to English when no supported locale matches. Add a global language
-     selector and persist explicit choices so they take precedence on return.
+   - Prefer Portuguese in recognized Portuguese-speaking time zones, then use
+     browser language preferences. Default to English when neither signal
+     resolves to a supported locale.
    - Detect the language of each question independently of the interface and
      answer in that language. Use the selected interface language when a
      question is short, ambiguous, or mixes languages without a clear majority.
    - Build on ingestion language detection to label documents as Portuguese,
      English, mixed, or unknown. Keep citation excerpts in the source language.
-   - Add acceptance tests for automatic selection, saved overrides, and
+   - Add acceptance tests for automatic regional and browser selection, and
      English-to-Portuguese and Portuguese-to-English retrieval with grounded
      answers and citations.

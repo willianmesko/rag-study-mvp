@@ -10,9 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/react-select": "2.4.1",
     "@rag-study/contracts": "0.1.0",
-    "@tanstack/react-query": "^5.66.8",
     "@supabase/supabase-js": "^2.49.8",
+    "@tanstack/react-query": "^5.66.8",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "zod": "4.6.7"
@@ -26,4 +27,3 @@
     "vite": "^6.2.0"
   }
 }
-

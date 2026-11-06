@@ -6,6 +6,7 @@ import { useLocale } from "../../../shared/i18n/locale";
 import { getRequestErrorMessage } from "../../../shared/lib/request-error";
 import { InputLabel } from "../../../shared/ui/InputLabel";
 import { SearchResultCard } from "../../../shared/ui/SearchResultCard";
+import { SelectField } from "../../../shared/ui/SelectField";
 import { SectionTitle } from "../../../shared/ui/SectionTitle";
 
 export function SemanticSearchForm({ accessToken, workspaceId, workspaceName }: { accessToken?: string | null; workspaceId?: string; workspaceName?: string }) {
@@ -45,11 +46,9 @@ export function SemanticSearchForm({ accessToken, workspaceId, workspaceName }: 
           <span id="search-hint" className="text-xs font-normal text-slate-400">{t("Use your own words or enter a term from a document.", "Use suas próprias palavras ou digite um termo de um documento.")}</span>
         </InputLabel>
         <div className="flex flex-wrap items-end justify-between gap-5">
-          <InputLabel label={t("Results to show", "Resultados para mostrar")}>
-            <select value={topK} onChange={(event) => setTopK(Number(event.target.value))} className="field w-36">
-              {[3, 5, 8, 10].map((value) => <option key={value} value={value}>{value}</option>)}
-            </select>
-          </InputLabel>
+          <SelectField className="w-44" label={t("Results to show", "Resultados para mostrar")}
+            value={String(topK)} onValueChange={(value) => setTopK(Number(value))}
+            options={["3", "5", "8", "10"].map((value) => ({ value, label: value }))} />
           <button className="primary-button" disabled={search.isPending || query.trim().length === 0} type="submit">
             {search.isPending && <span className="spinner" aria-hidden="true" />}
             {search.isPending ? t("Searching…", "Buscando…") : t("Search", "Buscar")}

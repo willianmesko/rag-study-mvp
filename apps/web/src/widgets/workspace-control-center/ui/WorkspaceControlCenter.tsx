@@ -1,22 +1,16 @@
-import { navigateTo, type WorkspaceSection } from "../../../shared/lib/app-route";
+import type { Workspace } from "../../../shared/api/rag-api";
+import type { WorkspaceSection } from "../../../shared/lib/app-route";
 import { useLocale } from "../../../shared/i18n/locale";
 import { WorkspaceSectionNav } from "./WorkspaceSectionNav";
 import { AdminPanel } from "../../admin-corpus/ui/AdminPanel";
 
-export function WorkspaceControlCenter({ section, role, selectedWorkspaceId, onWorkspaceChange, onSectionChange, onAsk }: {
+export function WorkspaceControlCenter({ section, workspace, token, onSectionChange }: {
   section: WorkspaceSection;
-  role?: "owner" | "editor" | "viewer";
-  selectedWorkspaceId?: string;
-  onWorkspaceChange: (workspaceId: string) => void;
+  workspace: Workspace;
+  token: string;
   onSectionChange: (section: WorkspaceSection) => void;
-  onAsk?: (question: string) => void;
 }) {
   const { t } = useLocale();
-
-  function openChat(question?: string) {
-    if (question && onAsk) onAsk(question);
-    else navigateTo("/ask");
-  }
 
   return (
     <section className="space-y-6">
@@ -32,8 +26,8 @@ export function WorkspaceControlCenter({ section, role, selectedWorkspaceId, onW
         </div>
         <span className="status-pill">{t("Workspace", "Espaço de trabalho")}</span>
       </div>
-      <WorkspaceSectionNav activeSection={section} role={role} onChange={onSectionChange} />
-      <AdminPanel section={section} selectedWorkspaceId={selectedWorkspaceId} onWorkspaceChange={onWorkspaceChange} onSectionChange={onSectionChange} onNavigateToAsk={openChat} />
+      <WorkspaceSectionNav activeSection={section} role={workspace.role} onChange={onSectionChange} />
+      <AdminPanel key={workspace.tenantId} section={section} workspace={workspace} token={token} onSectionChange={onSectionChange} />
     </section>
   );
 }

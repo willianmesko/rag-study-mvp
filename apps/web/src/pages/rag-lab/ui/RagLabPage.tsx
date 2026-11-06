@@ -1,135 +1,268 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import type { QuestionSource } from "../../../shared/api/rag-api";
-import { api } from "../../../shared/api/rag-api";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Session } from "@supabase/supabase-js";
 import type { QuestionHistoryEntry } from "../../../entities/question/model/history";
 import { DocumentIngestionForm } from "../../../features/document-ingestion/ui/DocumentIngestionForm";
 import { QuestionAnswerForm } from "../../../features/question-answering/ui/QuestionAnswerForm";
 import { QuestionHistoryPanel } from "../../../features/question-history/ui/QuestionHistoryPanel";
 import { SemanticSearchForm } from "../../../features/semantic-search/ui/SemanticSearchForm";
-import { SourcePreview } from "../../../shared/ui/SourcePreview";
-import { WorkspaceControlCenter } from "../../../widgets/workspace-control-center/ui/WorkspaceControlCenter";
-import { LabHeader } from "../../../widgets/lab-layout/ui/LabHeader";
-import { LabNavigation, type LabTab } from "../../../widgets/lab-layout/ui/LabNavigation";
-import { RagLearningAside } from "../../../widgets/lab-layout/ui/RagLearningAside";
-import { supabase } from "../../../shared/lib/supabase";
-import { navigateTo, pathForTab, readAppRoute, type WorkspaceSection } from "../../../shared/lib/app-route";
+import { SignInPage } from "../../sign-in/ui/SignInPage";
+import { api, type QuestionSource, type Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
+import { navigateTo, pathForTab, readAppRoute, type LabRoute } from "../../../shared/lib/app-route";
+import { supabase } from "../../../shared/lib/supabase";
+import { SourcePreview } from "../../../shared/ui/SourcePreview";
+import { LabHeader } from "../../../widgets/lab-layout/ui/LabHeader";
+import { LabNavigation } from "../../../widgets/lab-layout/ui/LabNavigation";
+import { RagLearningAside } from "../../../widgets/lab-layout/ui/RagLearningAside";
 
-const isPublicDemo = import.meta.env.VITE_DEMO_MODE === "true";
-const historyStorageKey = "rag-lab-question-history-v1";
-const workspaceStorageKey = "rag-lab-workspace-id";
+const OnboardingPage = lazy(() => import("../../onboarding/ui/OnboardingPage").then(({ OnboardingPage }) => ({ default: OnboardingPage })));
+const WorkspaceControlCenter = lazy(() => import("../../../widgets/workspace-control-center/ui/WorkspaceControlCenter").then(({ WorkspaceControlCenter }) => ({ default: WorkspaceControlCenter })));
+const overviewPath = "/workspace/overview";
+const publicDemo = import.meta.env.VITE_DEMO_MODE === "true";
+const canIndexDemo = import.meta.env.DEV && !publicDemo;
+const demoAvailable = publicDemo || import.meta.env.DEV;
 
-function readSavedWorkspace(): string {
-  try { return window.localStorage.getItem(workspaceStorageKey) ?? ""; } catch { return ""; }
+function readLocal(key: string): string | null {
+  try { return window.localStorage.getItem(key); } catch { return null; }
 }
 
 function saveLocal(key: string, value: string): void {
-  try { window.localStorage.setItem(key, value); } catch { /* The current session can continue. */ }
+  try { window.localStorage.setItem(key, value); } catch { /* Storage is optional. */ }
 }
 
-function readQuestionHistory(): QuestionHistoryEntry[] {
+function completionKey(userId: string, workspaceId: string): string {
+  return `lumora-setup-completed:${userId}:${workspaceId}`;
+}
+
+function readQuestionHistory(key: string): QuestionHistoryEntry[] {
   try {
-    const stored = window.localStorage.getItem(historyStorageKey);
-    return stored && Array.isArray(JSON.parse(stored)) ? JSON.parse(stored) as QuestionHistoryEntry[] : [];
+    const entries: unknown = JSON.parse(readLocal(key) ?? "[]");
+    return Array.isArray(entries) ? entries as QuestionHistoryEntry[] : [];
   } catch {
     return [];
   }
 }
 
+function StatusScreen({ message, onRetry, onSignOut }: { message: string; onRetry?: () => void; onSignOut?: () => void }) {
+  const { t } = useLocale();
+  return (
+    <main className="app-shell grid min-h-svh place-items-center p-5">
+      <section className="panel w-full max-w-md">
+        <p className="eyebrow">Lumora</p>
+        <p className="mt-2 text-slate-200" role={onRetry ? "alert" : "status"}>{message}</p>
+        {onRetry && <div className="mt-5 flex flex-wrap gap-3">
+          <button className="primary-button" type="button" onClick={onRetry}>{t("Try again", "Tentar novamente")}</button>
+          {onSignOut && <button className="secondary-button" type="button" onClick={onSignOut}>{t("Sign out", "Sair")}</button>}
+        </div>}
+      </section>
+    </main>
+  );
+}
+
 export function RagLabPage() {
   const { t } = useLocale();
-  const [route, setRoute] = useState(() => readAppRoute(window.location.pathname, isPublicDemo));
-  const [history, setHistory] = useState<QuestionHistoryEntry[]>(readQuestionHistory);
-  const [selectedSource, setSelectedSource] = useState<QuestionSource | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [workspaceId, setWorkspaceId] = useState(readSavedWorkspace);
-  const [suggestedQuestion, setSuggestedQuestion] = useState("");
-  const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 30_000 });
-  const workspaces = useQuery({ queryKey: ["workspaces", accessToken], queryFn: () => api.workspaces(accessToken as string), enabled: Boolean(accessToken) });
-  const availableWorkspaces = workspaces.data?.workspaces ?? [];
-  const activeWorkspace = availableWorkspaces.find((workspace) => workspace.tenantId === workspaceId) ?? availableWorkspaces[0];
-  const activeTab = route.tab;
-  const workspaceSection: WorkspaceSection = route.tab === "admin" ? route.workspaceSection : "overview";
+  const queryClient = useQueryClient();
+  const [pathname, setPathname] = useState(() => window.location.pathname);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(!supabase);
+  const [selected, setSelected] = useState<{ userId: string; workspaceId: string } | null>(null);
+  const [completedThisSession, setCompletedThisSession] = useState<string[]>([]);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState(false);
+  const returnPath = useRef<string | null>(null);
+  const route = readAppRoute(pathname);
+  const demoRoute = route.kind === "demo" && demoAvailable && (route.lab.tab !== "ingest" || canIndexDemo);
+  const token = session?.access_token;
+  const userId = session?.user.id;
+  const workspaceQuery = useQuery({
+    queryKey: ["workspaces", token],
+    queryFn: () => api.workspaces(token!),
+    enabled: Boolean(token && !demoRoute)
+  });
+  const workspaces = workspaceQuery.data?.workspaces ?? [];
+  const rememberedWorkspaceId = userId && selected && selected.userId === userId
+    ? selected.workspaceId
+    : userId ? readLocal(`lumora-workspace:${userId}`) : null;
+  const activeWorkspace = workspaces.find((workspace) => workspace.tenantId === rememberedWorkspaceId) ?? workspaces[0];
+  const activeSetup = userId && activeWorkspace ? completionKey(userId, activeWorkspace.tenantId) : null;
+  const setupComplete = Boolean(activeSetup && (completedThisSession.includes(activeSetup) || readLocal(activeSetup) === "done"));
 
   useEffect(() => {
-    const onPopState = () => {
-      const nextRoute = readAppRoute(window.location.pathname, isPublicDemo);
-      setRoute(nextRoute);
-      setSelectedSource(null);
-      if (nextRoute.tab !== "answer") setSuggestedQuestion("");
+    const update = () => {
+      setPathname(window.location.pathname);
+      window.scrollTo(0, 0);
     };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    window.addEventListener("popstate", update);
+    return () => window.removeEventListener("popstate", update);
   }, []);
 
   useEffect(() => {
-    void supabase?.auth.getSession().then(({ data }) => setAccessToken(data.session?.access_token ?? null));
-    const listener = supabase?.auth.onAuthStateChange((_event, session) => setAccessToken(session?.access_token ?? null));
+    const listener = supabase?.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAuthReady(true);
+    });
     return () => listener?.data.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (activeWorkspace && activeWorkspace.tenantId !== workspaceId) {
-      setWorkspaceId(activeWorkspace.tenantId);
-      saveLocal(workspaceStorageKey, activeWorkspace.tenantId);
+    if (demoRoute || !authReady) return;
+    if (!session) {
+      if (route.kind === "private") returnPath.current = pathname;
+      navigateTo("/sign-in", { replace: true });
+    } else if (workspaceQuery.isSuccess && !workspaceQuery.isError) {
+      if (!setupComplete) navigateTo("/onboarding", { replace: true });
+      else if (route.kind !== "private") {
+        const next = returnPath.current ?? overviewPath;
+        returnPath.current = null;
+        navigateTo(next, { replace: true });
+      } else {
+        returnPath.current = null;
+      }
     }
-  }, [activeWorkspace, workspaceId]);
+  }, [authReady, demoRoute, pathname, route.kind, session, setupComplete, workspaceQuery.isSuccess, workspaceQuery.isError]);
+
+  function selectWorkspace(workspaceId: string) {
+    if (!userId) return;
+    setSelected({ userId, workspaceId });
+    saveLocal(`lumora-workspace:${userId}`, workspaceId);
+  }
+
+  function workspaceCreated(workspace: Workspace) {
+    queryClient.setQueryData<{ workspaces: Workspace[] }>(["workspaces", token], (current) => ({
+      workspaces: [...(current?.workspaces ?? []).filter((item) => item.tenantId !== workspace.tenantId), workspace]
+    }));
+    selectWorkspace(workspace.tenantId);
+  }
+
+  function finishOnboarding() {
+    if (!activeSetup) return;
+    saveLocal(activeSetup, "done");
+    setCompletedThisSession((keys) => [...keys, activeSetup]);
+    returnPath.current = null;
+    navigateTo(overviewPath, { replace: true });
+  }
+
+  async function signOut() {
+    if (!supabase || signingOut) return;
+    setSigningOut(true);
+    setSignOutError(false);
+    try {
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      if (error) throw error;
+      setSession(null);
+      setSelected(null);
+      returnPath.current = null;
+      navigateTo("/sign-in", { replace: true });
+    } catch {
+      setSignOutError(true);
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
+  const loadingText = t("Opening Lumora…", "Abrindo o Lumora…");
+  const signOutMessage = signOutError ? t("We could not sign you out. Try again.", "Não conseguimos sair da sua conta. Tente novamente.") : null;
+
+  if (demoRoute && route.kind === "demo") {
+    return <LabExperience key="demo" scope="demo" lab={route.lab} accountAction={{
+      label: session ? t("My workspace", "Meu espaço de trabalho") : t("Sign in", "Entrar"),
+      onClick: () => navigateTo(session ? overviewPath : "/sign-in")
+    }} />;
+  }
+  if (!authReady) return <StatusScreen message={loadingText} />;
+  if (!session || !token || !userId) {
+    return <SignInPage demoAvailable={demoAvailable} onSuccess={setSession}
+      onDemo={() => navigateTo(canIndexDemo ? "/demo/index" : "/demo")} />;
+  }
+  if (workspaceQuery.isError) {
+    return <StatusScreen message={signOutMessage ?? t("We could not load your workspaces.", "Não conseguimos carregar seus espaços de trabalho.")}
+      onRetry={() => void workspaceQuery.refetch()} onSignOut={() => void signOut()} />;
+  }
+  if (workspaceQuery.isPending) return <StatusScreen message={t("Loading your workspaces…", "Carregando seus espaços de trabalho…")} />;
+
+  if (!activeWorkspace || !setupComplete) {
+    return <Suspense fallback={<StatusScreen message={loadingText} />}>
+      <OnboardingPage key={userId} workspace={activeWorkspace} workspaces={workspaces} accessToken={token} userId={userId}
+        onWorkspaceCreated={workspaceCreated} onWorkspaceChange={selectWorkspace} onComplete={finishOnboarding} onSignOut={() => void signOut()} />
+      {signOutMessage && <p className="error-message fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md" role="alert">{signOutMessage}</p>}
+    </Suspense>;
+  }
+
+  const lab = route.kind === "private" ? route.lab : { tab: "admin", workspaceSection: "overview" } as const;
+  const scope = `${userId}:${activeWorkspace.tenantId}`;
+  return <LabExperience key={scope} scope={scope} lab={lab}
+    privateArea={{ token, workspace: activeWorkspace, workspaces, onWorkspaceChange: selectWorkspace }}
+    accountAction={{ label: signingOut ? t("Signing out…", "Saindo…") : t("Sign out", "Sair"), onClick: () => void signOut(), disabled: signingOut }}
+    accountError={signOutMessage} />;
+}
+
+type PrivateArea = {
+  token: string;
+  workspace: Workspace;
+  workspaces: Workspace[];
+  onWorkspaceChange: (workspaceId: string) => void;
+};
+
+function LabExperience({ scope, lab, privateArea, accountAction, accountError }: {
+  scope: string;
+  lab: LabRoute;
+  privateArea?: PrivateArea;
+  accountAction: { label: string; onClick: () => void; disabled?: boolean };
+  accountError?: string | null;
+}) {
+  const { t } = useLocale();
+  const demo = !privateArea;
+  const historyKey = `lumora-question-history-v2:${scope}`;
+  const [history, setHistory] = useState(() => readQuestionHistory(historyKey));
+  const [selectedSource, setSelectedSource] = useState<QuestionSource | null>(null);
+  const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 30_000 });
+  const activeTab = lab.tab;
+  const workspaceId = privateArea?.workspace.tenantId;
+  const workspaceName = privateArea?.workspace.tenantName;
 
   useEffect(() => {
-    saveLocal(historyStorageKey, JSON.stringify(history));
-  }, [history]);
+    const clearPreview = () => setSelectedSource(null);
+    window.addEventListener("popstate", clearPreview);
+    return () => window.removeEventListener("popstate", clearPreview);
+  }, []);
+
+  useEffect(() => { saveLocal(historyKey, JSON.stringify(history)); }, [history, historyKey]);
 
   function addAnswer({ question, response }: { question: string; response: { answer: string; sources: QuestionSource[] } }) {
-    setHistory((items) => [{ id: crypto.randomUUID(), question, answer: response.answer, sources: response.sources, createdAt: new Date().toISOString(), feedback: null }, ...items].slice(0, 20));
+    setHistory((items) => [{
+      id: crypto.randomUUID(), question, answer: response.answer, sources: response.sources,
+      createdAt: new Date().toISOString(), feedback: null
+    }, ...items].slice(0, 20));
   }
 
   function setFeedback(id: string, feedback: "up" | "down") {
     setHistory((items) => items.map((item) => item.id === id ? { ...item, feedback } : item));
   }
 
-  function changeWorkspace(nextId: string) {
-    setWorkspaceId(nextId);
-    setSelectedSource(null);
-    setSuggestedQuestion("");
-    saveLocal(workspaceStorageKey, nextId);
-  }
-  function changeTab(nextTab: LabTab) {
-    navigateTo(pathForTab(nextTab, workspaceSection));
-  }
-  function changeSection(nextSection: WorkspaceSection) {
-    navigateTo(pathForTab("admin", nextSection));
-  }
-  function openSuggestedQuestion(question: string) {
-    setSuggestedQuestion(question);
-    changeTab("answer");
-  }
-
-  const privateScope = activeWorkspace?.tenantId ?? (accessToken ? "signed-in" : "demo");
   return (
     <main className="app-shell text-slate-100">
-      <div className="ambient-glow ambient-glow--cyan" />
-      <div className="ambient-glow ambient-glow--blue" />
-      <div className="relative mx-auto grid min-h-screen max-w-[1500px] lg:grid-cols-[17rem_1fr]">
-        <LabNavigation activeTab={activeTab} onTabChange={changeTab} publicDemo={isPublicDemo} />
+      <div className="ambient-glow ambient-glow--cyan" aria-hidden="true" />
+      <div className="ambient-glow ambient-glow--blue" aria-hidden="true" />
+      <div className="relative mx-auto grid min-h-screen max-w-[1500px] grid-cols-[minmax(0,1fr)] lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <LabNavigation activeTab={activeTab} onTabChange={(tab) => navigateTo(pathForTab(tab, lab.workspaceSection, demo))}
+          publicDemo={demo} canIndex={demo && canIndexDemo} />
         <section className="min-w-0 p-5 sm:p-8 lg:p-10">
-          <LabHeader online={health.data?.status === "ok"} loading={health.isLoading} publicDemo={isPublicDemo}
-            workspaces={availableWorkspaces} workspaceId={activeWorkspace?.tenantId ?? ""} onWorkspaceChange={changeWorkspace} />
-          {accessToken && workspaces.isError && <p role="alert" className="error-message mt-5">
-            {t("We could not load your workspaces. Sign in again to access private documents.",
-               "Não conseguimos carregar seus espaços de trabalho. Entre novamente para acessar documentos privados.")}
-          </p>}
-          {accessToken && activeTab !== "admin" && workspaces.isSuccess && availableWorkspaces.length === 0 &&
-            <p role="status" className="empty-state mt-5">{t("Open Workspace to create your first space.", "Abra Espaço de trabalho para criar seu primeiro espaço.")}</p>}
-          <div className={`mt-8 grid gap-8 ${activeTab === "admin" ? "" : "xl:grid-cols-[minmax(0,1fr)_18rem]"}`}>
+          <LabHeader online={health.data?.status === "ok"} loading={health.isLoading} publicDemo={demo}
+            workspaces={privateArea?.workspaces ?? []} workspaceId={workspaceId ?? ""}
+            onWorkspaceChange={(id) => privateArea?.onWorkspaceChange(id)} accountAction={accountAction} />
+          {accountError && <p className="error-message mt-5" role="alert">{accountError}</p>}
+          <div className={`mt-8 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-8 ${activeTab === "admin" ? "" : "xl:grid-cols-[minmax(0,1fr)_18rem]"}`}>
             <div className="min-w-0">
               {activeTab === "ingest" && <DocumentIngestionForm />}
-              {activeTab === "search" && <SemanticSearchForm key={privateScope} accessToken={accessToken} workspaceId={activeWorkspace?.tenantId} workspaceName={activeWorkspace?.tenantName} />}
-              {activeTab === "answer" && <QuestionAnswerForm key={privateScope} initialQuestion={suggestedQuestion} accessToken={accessToken}
-                workspaceId={activeWorkspace?.tenantId} workspaceName={activeWorkspace?.tenantName} onAnswered={addAnswer} onInspectSource={setSelectedSource} />}
+              {activeTab === "search" && <SemanticSearchForm accessToken={privateArea?.token} workspaceId={workspaceId} workspaceName={workspaceName} />}
+              {activeTab === "answer" && <QuestionAnswerForm accessToken={privateArea?.token} workspaceId={workspaceId}
+                workspaceName={workspaceName} onAnswered={addAnswer} onInspectSource={setSelectedSource} />}
               {activeTab === "history" && <QuestionHistoryPanel history={history} onClear={() => setHistory([])} onFeedback={setFeedback} onInspectSource={setSelectedSource} />}
-              {activeTab === "admin" && <WorkspaceControlCenter section={workspaceSection} role={activeWorkspace?.role} selectedWorkspaceId={activeWorkspace?.tenantId}
-                onWorkspaceChange={changeWorkspace} onSectionChange={changeSection} onAsk={openSuggestedQuestion} />}
+              {lab.tab === "admin" && privateArea && <Suspense fallback={<p role="status" className="empty-state">{t("Opening workspace…", "Abrindo o espaço…")}</p>}>
+                <WorkspaceControlCenter section={lab.workspaceSection} workspace={privateArea.workspace} token={privateArea.token}
+                  onSectionChange={(section) => navigateTo(pathForTab("admin", section))} />
+              </Suspense>}
               {selectedSource && <SourcePreview source={selectedSource} onClose={() => setSelectedSource(null)} />}
             </div>
             {activeTab !== "admin" && <RagLearningAside />}

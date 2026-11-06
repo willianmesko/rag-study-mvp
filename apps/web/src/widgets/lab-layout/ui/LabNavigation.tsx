@@ -1,7 +1,6 @@
 import { useLocale } from "../../../shared/i18n/locale";
 import { BrandMark } from "../../../shared/ui/BrandMark";
-
-export type LabTab = "ingest" | "search" | "answer" | "history" | "admin";
+import type { LabRoute } from "../../../shared/lib/app-route";
 
 const tabs = [
   ["ingest", "Index", "Indexar", "01"],
@@ -11,9 +10,14 @@ const tabs = [
   ["admin", "Workspace", "Espaço de trabalho", "05"]
 ] as const;
 
-export function LabNavigation({ activeTab, onTabChange, publicDemo }: { activeTab: LabTab; onTabChange: (tab: LabTab) => void; publicDemo: boolean }) {
+export function LabNavigation({ activeTab, onTabChange, publicDemo, canIndex }: {
+  activeTab: LabRoute["tab"];
+  onTabChange: (tab: LabRoute["tab"]) => void;
+  publicDemo: boolean;
+  canIndex: boolean;
+}) {
   const { t } = useLocale();
-  const visibleTabs = publicDemo ? tabs.filter(([id]) => id !== "ingest") : tabs;
+  const visibleTabs = tabs.filter(([id]) => (id !== "ingest" || canIndex) && (id !== "admin" || !publicDemo));
 
   return (
     <aside className="relative z-10 border-b border-slate-800/80 bg-slate-950/65 p-5 backdrop-blur-xl lg:border-r lg:border-b-0 lg:p-6">

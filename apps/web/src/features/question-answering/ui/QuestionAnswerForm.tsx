@@ -6,6 +6,7 @@ import { getRequestErrorMessage } from "../../../shared/lib/request-error";
 import { InputLabel } from "../../../shared/ui/InputLabel";
 import { SectionTitle } from "../../../shared/ui/SectionTitle";
 import { RagEvidencePanel } from "../../../shared/ui/RagEvidencePanel";
+import { SelectField } from "../../../shared/ui/SelectField";
 
 type StreamStatus = "accepted" | "retrieving" | "generating" | "validating" | "cached";
 
@@ -17,8 +18,7 @@ const statusCopy: Record<StreamStatus, [string, string]> = {
   cached: ["Opening a saved answer", "Abrindo uma resposta já preparada"]
 };
 
-export function QuestionAnswerForm({ initialQuestion = "", onAnswered, onInspectSource, accessToken, workspaceId, workspaceName }: {
-  initialQuestion?: string;
+export function QuestionAnswerForm({ onAnswered, onInspectSource, accessToken, workspaceId, workspaceName }: {
   onAnswered: (input: { question: string; response: QuestionResponse }) => void;
   onInspectSource: (source: QuestionSource) => void;
   accessToken?: string | null;
@@ -26,7 +26,7 @@ export function QuestionAnswerForm({ initialQuestion = "", onAnswered, onInspect
   workspaceName?: string;
 }) {
   const { t, locale } = useLocale();
-  const [question, setQuestion] = useState(initialQuestion);
+  const [question, setQuestion] = useState("");
   const [topK, setTopK] = useState(5);
   const [invalidInput, setInvalidInput] = useState(false);
   const [streamStatus, setStreamStatus] = useState<StreamStatus | null>(null);
@@ -108,11 +108,9 @@ export function QuestionAnswerForm({ initialQuestion = "", onAnswered, onInspect
           </span>
         </InputLabel>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <InputLabel label={t("Passages to search", "Trechos para consultar")}>
-            <select value={topK} onChange={(event) => setTopK(Number(event.target.value))} className="field w-32">
-              {[3, 5, 8].map((value) => <option key={value} value={value}>{value}</option>)}
-            </select>
-          </InputLabel>
+          <SelectField className="w-44" label={t("Passages to search", "Trechos para consultar")}
+            value={String(topK)} onValueChange={(value) => setTopK(Number(value))}
+            options={["3", "5", "8"].map((value) => ({ value, label: value }))} />
           <div className="flex flex-wrap gap-2">
             {isStreaming && <button className="secondary-button" type="button" onClick={() => controllerRef.current?.abort()}>{t("Stop answer", "Parar resposta")}</button>}
             <button className="primary-button" disabled={isStreaming || question.trim().length === 0} type="submit">

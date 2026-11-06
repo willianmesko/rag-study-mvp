@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
-import Fastify from "fastify";
+import Fastify, { type FastifyRequest } from "fastify";
 import { createClient } from "@supabase/supabase-js";
 import { documentInputSchema, questionInputSchema, workspaceMemberRoleSchema } from "@rag-study/contracts";
 import { ZodError, z } from "zod";
@@ -150,6 +150,20 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (authorization.role !== "owner") return { ok: false as const, status: 403, error: "Only the workspace owner can manage members." };
     return authorization;
   };
+  async function resolveQueryScope(request: FastifyRequest) {
+    if (request.headers.authorization?.startsWith("Bearer ")) {
+      const membership = await authorizeMember(request);
+      if (!membership.ok) return membership;
+      return { ok: true as const, tenantId: membership.tenantId, actorKey: `user:${membership.userId}` };
+    }
+
+    const requestsPrivateAccess = request.headers.authorization !== undefined || request.headers["x-workspace-id"] !== undefined;
+    const requiresProductionAuth = process.env.NODE_ENV === "production" && !config.DEMO_MODE && !config.API_KEY;
+    if (requestsPrivateAccess || requiresProductionAuth) {
+      return { ok: false as const, status: 401, error: "Authentication required." };
+    }
+    return { ok: true as const, tenantId: config.DEFAULT_TENANT_ID, actorKey: anonymousActorKey(request) };
+  }
   app.get("/v1/workspaces", async (request, reply) => {
     if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return reply.code(503).send({ error: "Workspace access is not configured." });
     const authorization = request.headers.authorization;
@@ -361,19 +375,15 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.get("/v1/search", async (request, reply) => {
     const { q, topK } = searchSchema.parse(request.query);
-    const hasAuthorization = typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer ");
-    const authorization = hasAuthorization ? await authorizeMember(request) : null;
-    if (authorization && !authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
-    const tenantId = authorization?.ok ? authorization.tenantId : config.DEFAULT_TENANT_ID;
-    return { results: await dependencies.searchDocuments.execute({ query: q, topK, tenantId }) };
+    const scope = await resolveQueryScope(request);
+    if (!scope.ok) return reply.code(scope.status).send({ error: scope.error });
+    return { results: await dependencies.searchDocuments.execute({ query: q, topK, tenantId: scope.tenantId }) };
   });
   app.post("/v1/qa", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
     const { question, topK } = questionInputSchema.parse(request.body);
-    const hasAuthorization = typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer ");
-    const authorization = hasAuthorization ? await authorizeMember(request) : null;
-    if (authorization && !authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
-    const tenantId = authorization?.ok ? authorization.tenantId : config.DEFAULT_TENANT_ID;
-    const actorKey = authorization?.ok ? `user:${authorization.userId}` : anonymousActorKey(request);
+    const scope = await resolveQueryScope(request);
+    if (!scope.ok) return reply.code(scope.status).send({ error: scope.error });
+    const { tenantId, actorKey } = scope;
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
     const result = await dependencies.answerQuestion.execute({ question, topK, tenantId, actorKey });
@@ -395,11 +405,9 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.post("/v1/qa/stream", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
     const { question, topK } = questionInputSchema.parse(request.body);
-    const hasAuthorization = typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer ");
-    const authorization = hasAuthorization ? await authorizeMember(request) : null;
-    if (authorization && !authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
-    const tenantId = authorization?.ok ? authorization.tenantId : config.DEFAULT_TENANT_ID;
-    const actorKey = authorization?.ok ? `user:${authorization.userId}` : anonymousActorKey(request);
+    const scope = await resolveQueryScope(request);
+    if (!scope.ok) return reply.code(scope.status).send({ error: scope.error });
+    const { tenantId, actorKey } = scope;
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
 

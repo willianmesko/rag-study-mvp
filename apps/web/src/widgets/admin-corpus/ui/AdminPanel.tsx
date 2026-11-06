@@ -1,19 +1,13 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api, type IngestionEvent, type ManagedDocument, type UploadJob, type Workspace } from "../../../shared/api/rag-api";
-import { supabase } from "../../../shared/lib/supabase";
 import { useLocale } from "../../../shared/i18n/locale";
 import { EvaluationPanel } from "../../evaluation-dashboard/ui/EvaluationPanel";
-import { Mascot } from "../../../shared/ui/Mascot";
+import { SelectField } from "../../../shared/ui/SelectField";
 import type { WorkspaceSection } from "../../../shared/lib/app-route";
 import { WorkspaceOverview } from "../../workspace-control-center/ui/WorkspaceOverview";
-import { WorkspaceOnboardingWizard } from "../../workspace-onboarding/ui/WorkspaceOnboardingWizard";
 
 type Translate = ReturnType<typeof useLocale>["t"];
-
-function toWorkspaceSlug(name: string) {
-  return name.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/[^a-z0-9]+/g, "-").slice(0, 60).replace(/^-+|-+$/g, "");
-}
 
 function roleLabel(role: Workspace["role"], t: Translate) {
   return { owner: t("Owner", "Proprietário"), editor: t("Editor", "Editor"), viewer: t("Viewer", "Leitor") }[role];
@@ -108,57 +102,28 @@ function PipelineVisualization({ job, events }: { job: UploadJob; events: Ingest
   );
 }
 
-export function AdminPanel({ section = "knowledge", selectedWorkspaceId, onWorkspaceChange, onSectionChange, onNavigateToAsk }: {
-  section?: WorkspaceSection;
-  selectedWorkspaceId?: string;
-  onWorkspaceChange?: (workspaceId: string) => void;
-  onSectionChange?: (section: WorkspaceSection) => void;
-  onNavigateToAsk?: (question?: string) => void;
+export function AdminPanel({ section, workspace, token, onSectionChange }: {
+  section: WorkspaceSection;
+  workspace: Workspace;
+  token: string;
+  onSectionChange: (section: WorkspaceSection) => void;
 }) {
   const { locale, t } = useLocale();
   const number = new Intl.NumberFormat(locale);
   const date = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" });
   const currency = new Intl.NumberFormat(locale, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 4 });
   const queryClient = useQueryClient();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [source, setSource] = useState("");
   const [title, setTitle] = useState("");
-  const [token, setToken] = useState<string | null>(null);
-  const [message, setMessage] = useState<"login" | "workspace" | "invite" | "member" | "upload" | "retry" | "reindex" | "remove" | "evaluate" | null>(null);
+  const [message, setMessage] = useState<"invite" | "member" | "upload" | "retry" | "reindex" | "remove" | "evaluate" | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<ManagedDocument | null>(null);
-  const [workspaceId, setWorkspaceId] = useState(() => selectedWorkspaceId ?? "");
-  const [workspaceName, setWorkspaceName] = useState("");
-  const [workspaceSlugOverride, setWorkspaceSlugOverride] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("viewer");
   const [documentFilter, setDocumentFilter] = useState("");
   const [jobFilter, setJobFilter] = useState<"all" | UploadJob["status"]>("all");
-  const workspaceSlug = workspaceSlugOverride ?? toWorkspaceSlug(workspaceName);
-
-  useEffect(() => {
-    const listener = supabase?.auth.onAuthStateChange((_event, session) => setToken(session?.access_token ?? null));
-    return () => listener?.data.subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (selectedWorkspaceId && selectedWorkspaceId !== workspaceId) {
-      setWorkspaceId(selectedWorkspaceId);
-      setSelectedDocument(null);
-    }
-  }, [selectedWorkspaceId, workspaceId]);
-
-  const workspaces = useQuery({ queryKey: ["workspaces", token], queryFn: () => api.workspaces(token as string), enabled: Boolean(token) });
-  const availableWorkspaces = workspaces.data?.workspaces ?? [];
-  useEffect(() => {
-    const first = availableWorkspaces[0];
-    if (first && !availableWorkspaces.some((item) => item.tenantId === workspaceId)) {
-      setWorkspaceId(first.tenantId);
-    }
-  }, [availableWorkspaces, workspaceId]);
-  const workspace = availableWorkspaces.find((item) => item.tenantId === workspaceId);
-  const readOnly = workspace?.role === "viewer";
+  const workspaceId = workspace.tenantId;
+  const readOnly = workspace.role === "viewer";
 
   const jobs = useQuery({
     queryKey: ["ingestion-jobs", token, workspaceId], queryFn: () => api.listUploads(token as string, workspaceId),
@@ -184,31 +149,6 @@ export function AdminPanel({ section = "knowledge", selectedWorkspaceId, onWorks
   });
   const refreshDocuments = () => queryClient.invalidateQueries({ queryKey: ["documents", token] });
 
-  const login = useMutation({
-    mutationFn: async () => {
-      if (!supabase) throw new Error("Supabase Auth is not configured for this demo.");
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error || !data.session) throw error ?? new Error("The session could not be started.");
-      return data.session.access_token;
-    },
-    onSuccess: (accessToken) => { setToken(accessToken); setMessage("login"); }
-  });
-  const createWorkspace = useMutation({
-    mutationFn: () => {
-      if (!token) throw new Error("Your session has expired.");
-      return api.createWorkspace({ name: workspaceName, slug: workspaceSlug, accessToken: token });
-    },
-    onSuccess: ({ workspace: created }) => {
-      queryClient.setQueryData<{ workspaces: Workspace[] }>(["workspaces", token], (current) => ({
-        workspaces: [...(current?.workspaces ?? []).filter((item) => item.tenantId !== created.tenantId), created]
-      }));
-      setWorkspaceId(created.tenantId);
-      onWorkspaceChange?.(created.tenantId);
-      onSectionChange?.("overview");
-      setWorkspaceName(""); setWorkspaceSlugOverride(null); setMessage("workspace");
-      void queryClient.invalidateQueries({ queryKey: ["workspaces", token] });
-    }
-  });
   const inviteMember = useMutation({
     mutationFn: () => {
       if (!token || !workspaceId) throw new Error("Select a workspace.");
@@ -221,14 +161,17 @@ export function AdminPanel({ section = "knowledge", selectedWorkspaceId, onWorks
       if (!token || !workspaceId) throw new Error("Select a workspace.");
       return api.changeWorkspaceMemberRole({ workspaceId, userId, role, accessToken: token });
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["workspace-members", token, workspaceId] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workspace-members", token, workspaceId] })
   });
   const removeMember = useMutation({
     mutationFn: (userId: string) => {
       if (!token || !workspaceId) throw new Error("Select a workspace.");
       return api.removeWorkspaceMember({ workspaceId, userId, accessToken: token });
     },
-    onSuccess: () => { setMessage("member"); void queryClient.invalidateQueries({ queryKey: ["workspace-members", token, workspaceId] }); }
+    onSuccess: () => {
+      setMessage("member");
+      return queryClient.invalidateQueries({ queryKey: ["workspace-members", token, workspaceId] });
+    }
   });
   const upload = useMutation({
     mutationFn: () => {
@@ -272,84 +215,10 @@ export function AdminPanel({ section = "knowledge", selectedWorkspaceId, onWorks
     onSuccess: () => { setMessage("evaluate"); void queryClient.invalidateQueries({ queryKey: ["evaluation-runs", token, workspaceId] }); }
   });
 
-  async function logout() { await supabase?.auth.signOut(); setToken(null); setSelectedDocument(null); setMessage(null); }
-  function submitLogin(event: FormEvent) { event.preventDefault(); login.mutate(); }
   function submitUpload(event: FormEvent) { event.preventDefault(); upload.mutate(); }
-  function submitWorkspace(event: FormEvent) { event.preventDefault(); createWorkspace.mutate(); }
   function submitInvitation(event: FormEvent) { event.preventDefault(); inviteMember.mutate(); }
   function confirmDelete(document: ManagedDocument) {
     if (window.confirm(t(`Remove “${document.title ?? document.source}” and its original file?`, `Remover “${document.title ?? document.source}” e o arquivo original?`))) remove.mutate(document.id);
-  }
-
-  const signOut = <button className="text-sm text-slate-400 hover:text-white" type="button" onClick={() => void logout()}>{t("Sign out", "Sair")}</button>;
-  const retryButton = (retry: () => void) => <button type="button" className="secondary-button" onClick={retry}>{t("Try again", "Tentar novamente")}</button>;
-  if (!supabase) {
-    return (
-      <section className="space-y-4">
-        <h2 className="text-2xl font-semibold">{t("Workspace sign-in unavailable", "Acesso ao espaço indisponível")}</h2>
-        <p className="error-message">{t("Workspace sign-in is not configured. Ask your administrator to enable it.", "O acesso ao espaço ainda precisa ser configurado. Peça ajuda à pessoa responsável pela administração.")}</p>
-      </section>
-    );
-  }
-  if (!token) {
-    return (
-      <form className="panel mx-auto max-w-xl space-y-5" onSubmit={submitLogin}>
-        <div className="flex items-center gap-4">
-          <Mascot size="sm" />
-          <div>
-            <p className="eyebrow">{t("Welcome back", "Que bom ter você de volta")}</p>
-            <h2 className="mt-1 text-2xl font-semibold">{t("Open your knowledge library", "Acesse sua biblioteca de documentos")}</h2>
-          </div>
-        </div>
-        <p className="text-sm text-slate-400">{t("Sign in to access your workspace, documents, and team.", "Entre para acessar seu espaço de trabalho, documentos e equipe.")}</p>
-        <label className="grid gap-2 text-sm text-slate-300">
-          {t("Work email", "E-mail profissional")}
-          <input className="field" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-        </label>
-        <label className="grid gap-2 text-sm text-slate-300">
-          {t("Password", "Senha")}
-          <input className="field" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-        </label>
-        <button className="primary-button" disabled={login.isPending}>{login.isPending ? t("Signing in…", "Entrando…") : t("Continue", "Continuar")}</button>
-        {login.error && <p role="alert" className="error-message">{t("We could not sign you in. Check your email and password and try again.", "Não foi possível entrar. Confira o e-mail e a senha e tente novamente.")}</p>}
-      </form>
-    );
-  }
-  if (workspaces.isLoading) {
-    return <p className="empty-state" role="status">{t("Loading workspaces…", "Carregando espaços de trabalho…")}</p>;
-  }
-  if (workspaces.isError) {
-    return <div className="space-y-3"><p role="alert" className="error-message">{requestError(workspaces.error, t, t("We could not load your workspaces.", "Não foi possível carregar seus espaços de trabalho."))}</p>{retryButton(() => void workspaces.refetch())}{signOut}</div>;
-  }
-  if (availableWorkspaces.length === 0) {
-    return (
-      <section className="panel mx-auto max-w-xl space-y-5">
-        <div className="flex items-center gap-4">
-          <Mascot size="sm" />
-          <div>
-            <p className="eyebrow">{t("Your first space", "Seu primeiro espaço")}</p>
-            <h2 className="mt-1 text-2xl font-semibold">{t("Create a workspace", "Crie um espaço de trabalho")}</h2>
-          </div>
-        </div>
-        <p className="text-sm text-slate-400">{t("A workspace is where your team keeps its documents and asks questions about them.", "Um espaço de trabalho é onde sua equipe reúne documentos e faz perguntas sobre eles.")}</p>
-        <form className="grid gap-4" onSubmit={submitWorkspace}>
-          <label className="grid gap-2 text-sm text-slate-300">
-            {t("Workspace name", "Nome do espaço")}
-            <input className="field" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)}
-              placeholder={t("For example, Legal team", "Por exemplo, Equipe jurídica")} minLength={2} maxLength={100} required />
-          </label>
-          <label className="grid gap-2 text-sm text-slate-300">
-            {t("Workspace URL", "Endereço do espaço")}
-            <input className="field" value={workspaceSlug} onChange={(event) => setWorkspaceSlugOverride(event.target.value.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/[^a-z0-9-]/g, "-"))}
-              placeholder={t("For example, legal-team", "Por exemplo, equipe-juridica")} pattern="[a-z0-9\-]{2,60}" minLength={2} maxLength={60} required />
-            <span className="text-xs text-slate-400">{t("Use lowercase letters, numbers, and hyphens.", "Use letras minúsculas sem acento, números e hífens.")}</span>
-          </label>
-          <button className="primary-button w-fit" disabled={createWorkspace.isPending}>{createWorkspace.isPending ? t("Creating…", "Criando…") : t("Create workspace", "Criar espaço")}</button>
-          {createWorkspace.error && <p role="alert" className="error-message">{requestError(createWorkspace.error, t, t("We could not create the workspace. Check the name and address and try again.", "Não foi possível criar o espaço. Confira o nome e o endereço e tente novamente."))}</p>}
-        </form>
-        {signOut}
-      </section>
-    );
   }
 
   const sectionCopy = {
@@ -362,8 +231,6 @@ export function AdminPanel({ section = "knowledge", selectedWorkspaceId, onWorks
   };
   const [heading, description] = sectionCopy[section];
   const messages = {
-    login: t("You are signed in.", "Você entrou no seu espaço de trabalho."),
-    workspace: t("Workspace created. You are its owner.", "Espaço criado. Você é o proprietário."),
     invite: t("Invitation sent.", "Convite enviado."),
     member: t("Member removed.", "Membro removido."),
     upload: t("File received. You can follow its progress in Processing.", "Arquivo recebido. Você pode acompanhar o andamento em Processamento."),
@@ -387,6 +254,11 @@ export function AdminPanel({ section = "knowledge", selectedWorkspaceId, onWorks
     [document.title, document.source].join(" ").toLocaleLowerCase(locale).includes(documentFilter.trim().toLocaleLowerCase(locale))
   ));
   const filteredJobs = (jobs.data?.jobs ?? []).filter((job) => jobFilter === "all" || job.status === jobFilter);
+  const memberRoleOptions = [
+    { value: "viewer", label: roleLabel("viewer", t), description: t("Can search and read documents.", "Pode buscar e ler documentos.") },
+    { value: "editor", label: roleLabel("editor", t), description: t("Can add and manage documents.", "Pode adicionar e gerenciar documentos.") }
+  ];
+  const memberEditPending = changeMemberRole.isPending || removeMember.isPending;
   const jobStatuses = ["queued", "processing", "completed", "failed"] as const;
   const riskLabel = { high: t("High", "Alto"), medium: t("Medium", "Médio"), low: t("Low", "Baixo") };
   const usageMetrics = usage.data ? [
@@ -404,18 +276,13 @@ export function AdminPanel({ section = "knowledge", selectedWorkspaceId, onWorks
           <h2 className="mt-2 text-2xl font-semibold text-white">{heading}</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{description}</p>
         </div>
-        {signOut}
       </div>
       {readOnly && <p className="rounded-xl border border-violet-400/30 bg-violet-400/10 p-3 text-sm text-violet-100">{t("Your access is read-only. You can browse documents and track processing.", "Seu acesso é somente leitura. Você pode explorar documentos e acompanhar o processamento.")}</p>}
 
       {section === "overview" && (
         <div className="space-y-6">
-          {workspace && <WorkspaceOnboardingWizard key={workspaceId} workspaceId={workspaceId} currentSection={section}
-            role={workspace.role} workspaceName={workspace.tenantName} hasDocuments={Boolean(documents.data?.documents.length)}
-            hasProcessingJobs={Boolean(jobs.data?.jobs.length)} onAsk={onNavigateToAsk}
-            onNavigate={(target) => target === "answer" ? onNavigateToAsk?.() : onSectionChange?.(target)} />}
           <WorkspaceOverview workspace={workspace} documents={documents.data?.documents ?? []} jobs={jobs.data?.jobs ?? []}
-            usage={usage.data?.summary} evaluations={evaluations.data?.runs ?? []} onNavigate={(nextSection) => onSectionChange?.(nextSection)} />
+            usage={usage.data?.summary} evaluations={evaluations.data?.runs ?? []} onNavigate={onSectionChange} />
         </div>
       )}
 
@@ -426,39 +293,40 @@ export function AdminPanel({ section = "knowledge", selectedWorkspaceId, onWorks
             <h3 className="mt-2 text-lg font-semibold text-white">{t("Workspace members", "Membros do espaço")}</h3>
             <p className="mt-2 text-sm text-slate-400">{t("Owners can invite, change roles, and remove members.", "Proprietários podem convidar, alterar perfis e remover membros.")}</p>
           </div>
-          <form className="grid gap-3 sm:grid-cols-[1fr_10rem_auto] sm:items-end" onSubmit={submitInvitation}>
-            <label className="grid gap-2 text-sm text-slate-300">
+          <form className="grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-[minmax(0,1fr)_minmax(9rem,12rem)_auto]" onSubmit={submitInvitation}>
+            <label className="grid min-w-0 gap-2 text-sm text-slate-300">
               {t("Email", "E-mail")}
               <input className="field" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="name@example.com" required />
             </label>
-            <label className="grid gap-2 text-sm text-slate-300">
-              {t("Role", "Perfil")}
-              <select className="field" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as "editor" | "viewer")}>
-                <option value="viewer">{t("Viewer · read-only", "Leitor · somente leitura")}</option>
-                <option value="editor">{t("Editor · documents", "Editor · documentos")}</option>
-              </select>
-            </label>
-            <button className="primary-button" disabled={inviteMember.isPending}>{inviteMember.isPending ? t("Sending…", "Enviando…") : t("Invite member", "Convidar")}</button>
+            <SelectField label={t("Role", "Perfil")} value={inviteRole} options={memberRoleOptions} disabled={inviteMember.isPending}
+              onValueChange={(role) => {
+                if (role === "editor" || role === "viewer") setInviteRole(role);
+              }} />
+            <button className="primary-button sm:col-span-2 sm:justify-self-start lg:col-span-1" disabled={inviteMember.isPending}>{inviteMember.isPending ? t("Sending…", "Enviando…") : t("Invite member", "Convidar")}</button>
           </form>
           <div className="divide-y divide-slate-800 rounded-xl border border-slate-800">
             {members.isLoading && <p className="p-4 text-sm text-slate-400" role="status">{t("Loading members…", "Carregando membros…")}</p>}
             {members.isError && <p className="p-4 text-sm text-rose-200" role="alert">{requestError(members.error, t, t("We could not load workspace members.", "Não foi possível carregar os membros do espaço."))}</p>}
             {members.data?.members.map((member) => {
               const name = member.email ?? t("Email unavailable", "E-mail indisponível");
+              const pendingRole = changeMemberRole.isPending && changeMemberRole.variables?.userId === member.userId
+                ? changeMemberRole.variables.role : undefined;
               return (
                 <div className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm" key={member.userId}>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1 basis-48">
                     <p className="break-words text-slate-200">{name}</p>
                     <p className="mt-1 text-xs text-slate-500">{roleLabel(member.role, t)}</p>
                   </div>
                   {member.role === "owner" ? <span className="text-xs text-cyan-300">{t("Owner role protected", "Perfil de proprietário protegido")}</span> : (
-                    <div className="flex items-center gap-2">
-                      <select className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs" aria-label={t("Role for " + name, "Perfil de " + name)} value={member.role}
-                        onChange={(event) => changeMemberRole.mutate({ userId: member.userId, role: event.target.value as "editor" | "viewer" })}>
-                        <option value="viewer">{roleLabel("viewer", t)}</option>
-                        <option value="editor">{roleLabel("editor", t)}</option>
-                      </select>
-                      <button className="text-xs text-rose-300 hover:text-rose-100" type="button" onClick={() => {
+                    <div className="flex w-full items-center gap-2 sm:w-auto">
+                      <SelectField label={t("Role for " + name, "Perfil de " + name)} hideLabel
+                        className="min-w-0 flex-1 sm:w-32" value={pendingRole ?? member.role} options={memberRoleOptions} disabled={memberEditPending}
+                        onValueChange={(role) => {
+                          if ((role === "editor" || role === "viewer") && role !== member.role) {
+                            changeMemberRole.mutate({ userId: member.userId, role });
+                          }
+                        }} />
+                      <button className="secondary-button min-h-11 shrink-0 text-rose-300 hover:text-rose-100" type="button" disabled={memberEditPending} onClick={() => {
                         if (window.confirm(t("Remove " + name + "?", "Remover " + name + "?"))) removeMember.mutate(member.userId);
                       }}>{t("Remove", "Remover")}</button>
                     </div>
@@ -613,10 +481,16 @@ export function AdminPanel({ section = "knowledge", selectedWorkspaceId, onWorks
                 <h3 className="mt-2 text-lg font-semibold text-white">{t("Recently processed files", "Arquivos processados recentemente")}</h3>
                 <p className="mt-2 text-sm text-slate-400">{t("Follow each file from upload to search.", "Acompanhe cada arquivo do envio à busca.")}</p>
               </div>
-              <select className="field w-auto py-2 text-xs" aria-label={t("Filter by processing status", "Filtrar por status de processamento")} value={jobFilter} onChange={(event) => setJobFilter(event.target.value as typeof jobFilter)}>
-                <option value="all">{t("All statuses", "Todos os status")}</option>
-                {jobStatuses.map((status) => <option key={status} value={status}>{statusLabel(status, t)}</option>)}
-              </select>
+              <SelectField label={t("Processing status", "Status do processamento")} className="w-full sm:w-52"
+                value={jobFilter}
+                options={[
+                  { value: "all", label: t("All statuses", "Todos os status") },
+                  ...jobStatuses.map((status) => ({ value: status, label: statusLabel(status, t) }))
+                ]}
+                onValueChange={(value) => {
+                  const status = jobStatuses.find((item) => item === value);
+                  if (value === "all" || status) setJobFilter(status ?? "all");
+                }} />
             </div>
             {jobs.isLoading && <p className="text-sm text-slate-400" role="status">{t("Loading files…", "Carregando arquivos…")}</p>}
             {jobs.isError && <p className="error-message" role="alert">{requestError(jobs.error, t, t("We could not load processing jobs.", "Não foi possível carregar os processamentos."))}</p>}

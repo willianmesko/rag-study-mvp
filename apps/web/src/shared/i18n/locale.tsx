@@ -1,18 +1,19 @@
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from "react";
 
 export type Locale = "en" | "pt-BR";
-export type LanguagePreference = Locale | "auto";
 export type Translate = (english: string, portuguese: string) => string;
 
-const storageKey = "lumora-language";
-const LocaleContext = createContext<{
-  locale: Locale;
-  preference: LanguagePreference;
-  setPreference: (preference: LanguagePreference) => void;
-  t: Translate;
-} | null>(null);
+const LocaleContext = createContext<{ locale: Locale; t: Translate } | null>(null);
+const portugueseTimeZones = new Set([
+  "America/Araguaina", "America/Bahia", "America/Belem", "America/Boa_Vista",
+  "America/Campo_Grande", "America/Cuiaba", "America/Eirunepe", "America/Fortaleza",
+  "America/Maceio", "America/Manaus", "America/Noronha", "America/Porto_Velho",
+  "America/Recife", "America/Rio_Branco", "America/Santarem", "America/Sao_Paulo",
+  "Atlantic/Azores", "Atlantic/Madeira", "Europe/Lisbon"
+]);
 
-export function detectLocale(languages: readonly string[]): Locale {
+export function detectLocale(languages: readonly string[], timeZone?: string): Locale {
+  if (timeZone && portugueseTimeZones.has(timeZone)) return "pt-BR";
   for (const language of languages) {
     const base = language.toLowerCase().split("-")[0];
     if (base === "pt") return "pt-BR";
@@ -22,27 +23,16 @@ export function detectLocale(languages: readonly string[]): Locale {
 }
 
 function browserLocale(): Locale {
-  return detectLocale(navigator.languages.length ? navigator.languages : [navigator.language]);
-}
-
-function readPreference(): LanguagePreference {
-  try {
-    const saved = window.localStorage.getItem(storageKey);
-    if (saved === "en" || saved === "pt-BR") return saved;
-  } catch {
-    // The preference can still be changed for this session.
-  }
-  return "auto";
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return detectLocale(navigator.languages.length ? navigator.languages : [navigator.language], timeZone);
 }
 
 export function LocaleProvider({ children }: PropsWithChildren) {
-  const [preference, updatePreference] = useState(readPreference);
-  const [detected, setDetected] = useState(browserLocale);
-  const locale = preference === "auto" ? detected : preference;
+  const [locale, setLocale] = useState(browserLocale);
   const t: Translate = (english, portuguese) => locale === "pt-BR" ? portuguese : english;
 
   useEffect(() => {
-    const onLanguageChange = () => setDetected(browserLocale());
+    const onLanguageChange = () => setLocale(browserLocale());
     window.addEventListener("languagechange", onLanguageChange);
     return () => window.removeEventListener("languagechange", onLanguageChange);
   }, []);
@@ -56,17 +46,7 @@ export function LocaleProvider({ children }: PropsWithChildren) {
       : "Lumora turns workspace knowledge into clear, grounded answers.");
   }, [locale]);
 
-  function setPreference(next: LanguagePreference) {
-    updatePreference(next);
-    try {
-      if (next === "auto") window.localStorage.removeItem(storageKey);
-      else window.localStorage.setItem(storageKey, next);
-    } catch {
-      // The current session continues to use the new preference.
-    }
-  }
-
-  return <LocaleContext.Provider value={{ locale, preference, setPreference, t }}>{children}</LocaleContext.Provider>;
+  return <LocaleContext.Provider value={{ locale, t }}>{children}</LocaleContext.Provider>;
 }
 
 export function useLocale() {
