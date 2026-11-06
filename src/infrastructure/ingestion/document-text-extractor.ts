@@ -1,5 +1,5 @@
 import mammoth from "mammoth";
-import pdf from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import type { DocumentTextExtractor } from "../../application/ports/document-text-extractor.js";
 
 const textTypes = new Set(["text/plain", "text/markdown", "application/octet-stream"]);
@@ -8,7 +8,10 @@ export class MultiFormatDocumentTextExtractor implements DocumentTextExtractor {
   async extract(input: { filename: string; mimeType: string; payload: Buffer }): Promise<string> {
     const extension = input.filename.toLowerCase().split(".").pop();
     let text: string;
-    if (extension === "pdf" || input.mimeType === "application/pdf") text = (await pdf(input.payload)).text;
+    if (extension === "pdf" || input.mimeType === "application/pdf") {
+      const parser = new PDFParse({ data: input.payload });
+      try { text = (await parser.getText()).text; } finally { await parser.destroy(); }
+    }
     else if (extension === "docx" || input.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") text = (await mammoth.extractRawText({ buffer: input.payload })).value;
     else if (extension === "txt" || extension === "md" || extension === "markdown" || textTypes.has(input.mimeType)) text = input.payload.toString("utf8");
     else throw new Error("Unsupported file type. Use PDF, DOCX, TXT or Markdown.");
