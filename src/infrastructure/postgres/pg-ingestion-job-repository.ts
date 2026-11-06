@@ -12,7 +12,7 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
     return map(result.rows[0] as Row);
   }
   async claimNext() {
-    const result = await this.pool.query<Row>(`WITH candidate AS (SELECT id FROM ingestion_jobs WHERE status = 'queued' OR (status = 'processing' AND updated_at < NOW() - INTERVAL '10 minutes') ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE ingestion_jobs j SET status='processing', progress=20, error=NULL, updated_at=NOW() FROM candidate WHERE j.id=candidate.id RETURNING ${columns}`);
+    const result = await this.pool.query<Row>(`WITH candidate AS (SELECT id FROM ingestion_jobs WHERE status = 'queued' OR (status = 'processing' AND updated_at < NOW() - INTERVAL '10 minutes') ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE ingestion_jobs j SET status='processing', progress=20, error=NULL, updated_at=NOW() FROM candidate WHERE j.id=candidate.id RETURNING j.id, j.source, j.title, j.filename, j.mime_type, j.payload, j.status, j.progress, j.error, j.chunk_count, j.high_risk_chunks, j.created_at, j.updated_at`);
     return result.rows[0] ? map(result.rows[0]) : null;
   }
   async complete(id: string, result: { chunkCount: number; highRiskChunks: number }) { await this.pool.query("UPDATE ingestion_jobs SET status='completed', progress=100, chunk_count=$2, high_risk_chunks=$3, payload=NULL, updated_at=NOW() WHERE id=$1", [id, result.chunkCount, result.highRiskChunks]); }
