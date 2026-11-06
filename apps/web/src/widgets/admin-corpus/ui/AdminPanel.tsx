@@ -168,6 +168,9 @@ export function AdminPanel({ selectedWorkspaceId, onWorkspaceChange }: { selecte
     if (window.confirm(`Remove “${document.title ?? document.source}”? This deletes its chunks and original file.`)) remove.mutate(document.id);
   }
 
+  const filteredDocuments = useMemo(() => (documents.data?.documents ?? []).filter((document) => `${document.title ?? ""} ${document.source}`.toLowerCase().includes(documentFilter.trim().toLowerCase())), [documents.data?.documents, documentFilter]);
+  const filteredJobs = useMemo(() => (jobs.data?.jobs ?? []).filter((job) => jobFilter === "all" || job.status === jobFilter), [jobs.data?.jobs, jobFilter]);
+
   if (!supabase) {
     return <section className="space-y-4"><h2 className="text-2xl font-semibold">Administration unavailable</h2><p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in the frontend, plus ADMIN_EMAILS in the API.</p></section>;
   }
@@ -180,8 +183,6 @@ export function AdminPanel({ selectedWorkspaceId, onWorkspaceChange }: { selecte
   }
 
   const actionError = upload.error ?? retry.error ?? reindex.error ?? remove.error ?? inviteMember.error ?? changeMemberRole.error ?? removeMember.error;
-  const filteredDocuments = useMemo(() => (documents.data?.documents ?? []).filter((document) => `${document.title ?? ""} ${document.source}`.toLowerCase().includes(documentFilter.trim().toLowerCase())), [documents.data?.documents, documentFilter]);
-  const filteredJobs = useMemo(() => (jobs.data?.jobs ?? []).filter((job) => jobFilter === "all" || job.status === jobFilter), [jobs.data?.jobs, jobFilter]);
   return (
     <section className="space-y-8">
       <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold tracking-[.18em] uppercase text-cyan-300">Protected area</p><h2 className="mt-2 text-2xl font-semibold">Manage the corpus</h2><p className="mt-2 text-sm text-slate-400">Uploads, reindexing, and deletion happen on the server; original files are never public.</p></div><button className="text-sm text-slate-400 hover:text-white" onClick={() => void logout()}>Sign out</button></div>

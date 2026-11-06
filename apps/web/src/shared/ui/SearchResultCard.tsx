@@ -2,7 +2,7 @@ import type { SearchResult } from "../api/rag-api";
 
 function Score({ value }: { value: number }) {
   const score = Math.max(0, Math.min(1, value));
-  return <div className="flex min-w-28 flex-col items-end gap-1"><span className="font-mono text-sm font-semibold text-cyan-300">{score.toFixed(3)}</span><div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${score * 100}%` }} /></div></div>;
+  return <div className="flex min-w-28 flex-col items-end gap-1" title="Similarity score, not factual certainty"><span className="font-mono text-sm font-semibold text-cyan-300">{score.toFixed(3)}</span><div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${score * 100}%` }} /></div><span className="text-[10px] uppercase tracking-[0.12em] text-slate-500">similarity</span></div>;
 }
 
 export function SearchResultCard({ result, index }: { result: SearchResult; index: number }) {
