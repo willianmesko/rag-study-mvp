@@ -72,3 +72,24 @@ product decision, credentials, or additional operational cost.
      workload justifies its cost.
    - Add backups, retention policy, domain, identity limits, and incident runbook
      before onboarding real users.
+
+7. **Professional UX/UI redesign**
+   - Audit the current information architecture and simplify the primary flows:
+     ask a question, inspect sources, upload a document, and manage a workspace.
+   - Create a coherent design system with tokens for typography, spacing, color,
+     borders, elevation, responsive breakpoints, and semantic status colors.
+   - Refine the visual language for a professional AI product while preserving
+     the educational explanation of chunks, similarity scores, citations, and
+     the RAG pipeline.
+   - Add robust loading, skeleton, empty, success, error, retry, disabled, and
+     permission-denied states to every feature slice.
+   - Improve the ingestion timeline with progressive motion, step transitions,
+     duration/count summaries, failure recovery, and reduced-motion support.
+   - Add purposeful micro-interactions for source expansion, citation focus,
+     workspace switching, feedback, uploads, reindexing, and destructive actions.
+   - Make the admin area feel like a real product: clearer hierarchy, document
+     search/filtering, usage cards, member management, and responsive layouts.
+   - Validate keyboard navigation, focus visibility, contrast, screen-reader
+     labels, touch targets, and WCAG-oriented accessibility requirements.
+   - Run visual QA on mobile, tablet, and desktop; check bundle size, animation
+     performance, and layout stability before publishing the redesign.
