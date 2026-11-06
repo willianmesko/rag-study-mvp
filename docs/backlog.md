@@ -259,13 +259,17 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      runbooks for failed or partially delivered events.
 
 15. **Project-owned MCP server**
-   - Expose read-only tools first: `search_workspace`, `get_document`,
-     `list_sources`, `get_ingestion_status`, `run_evaluation`, and
-     `get_quality_report`.
+   - Start with read-only `list_sources`, `get_ingestion_status`, and
+     owner-only `get_quality_report`. Return allowlisted fields from existing
+     records and require an explicit workspace with verified membership.
+   - Add bounded `get_document` and `search_workspace` after defining safe
+     passage previews, provider budgets, and cancellation.
    - Require tenant scope, RBAC, audit events, timeout and rate-limit guards,
      Zod schemas, and an explicit allowlist on every tool call.
-   - Add approval-gated write tools only after isolated execution, idempotency,
-     retries, dead-letter handling, and replayable audit records exist.
+   - Treat `run_evaluation` as an owner-authorized action with its own budget.
+     It can call providers and persists results. Add approval-gated actions
+     after isolated execution, idempotency, retries, dead-letter handling,
+     and replayable audit records exist.
 
 16. **Guided onboarding for non-technical teams**
    - Implemented a dedicated sign-in page, an explicitly separate public demo,
