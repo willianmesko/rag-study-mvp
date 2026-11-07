@@ -27,10 +27,28 @@ export function DemoLibraryDialog({ token, workspaceId, role, initialId = "knowl
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [stopped, setStopped] = useState(false);
   const controller = useRef<AbortController | null>(null);
+  const terminalSources = useRef({ scope: JSON.stringify([userId, workspaceId, locale]), states: new Map<string, string>() });
   const catalog = useQuery({
     queryKey: key, queryFn: ({ signal }) => api.demoLibraries(token, workspaceId, locale, signal), retry: false,
-    refetchInterval: (query) => query.state.data?.states.some(({ state }) => state === "queued" || state === "processing") ? 3_000 : false
+    refetchInterval: (query) => query.state.status !== "error" && query.state.data?.states.some(({ state }) => state === "queued" || state === "processing") ? 3_000 : false
   });
+  useEffect(() => {
+    if (!catalog.data || catalog.isError) return;
+    const scope = JSON.stringify([userId, workspaceId, locale]);
+    if (terminalSources.current.scope !== scope) terminalSources.current = { scope, states: new Map() };
+    const states = new Map<string, string>();
+    let changed = false;
+    for (const source of catalog.data.states) {
+      if (source.state !== "ready" && source.state !== "failed") continue;
+      const revision = JSON.stringify([source.state, source.documentId]);
+      if (terminalSources.current.states.get(source.source) !== revision) changed = true;
+      states.set(source.source, revision);
+    }
+    terminalSources.current.states = states;
+    // Admission and indexing finish at different times. Notify the owning view
+    // when the catalog observes readiness, even if its jobs page is not loaded.
+    if (changed) onImported();
+  }, [catalog.data, catalog.isError, userId, workspaceId, locale, onImported]);
   const selected = catalog.data?.libraries.find(({ id }) => id === selectedId) ?? catalog.data?.libraries[0];
   const states = new Map(catalog.data?.states.map((state) => [state.source, state]));
   const canAdd = role !== "viewer";

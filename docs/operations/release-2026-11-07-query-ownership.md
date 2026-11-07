@@ -24,6 +24,10 @@ FE-06 nor BE-08/FE-08 is marked fully complete.
 - Evaluations poll only while a reference/job is active; waiting for approval
   alone has no rapid timer. An explicit approval invalidates the read and resumes
   active reconciliation. Completion stops it again.
+- Demonstration-library readiness also emits a completion notification to its
+  owning view. Source admission and indexed readiness occur at different times;
+  neither the library nor the document list depends on a perpetual document
+  interval to discover the completed import. Catalog errors stop its interval.
 - Visible owner usage still refreshes every 30 seconds and stops on section
   unmount/error. Settled/empty Ask readiness reconciles every 30 seconds; active
   processing retains the three-second cadence, plus mount/focus/reconnect checks.
@@ -58,6 +62,15 @@ checks passed, including builds, unit tests, golden set, injection, replays and
 local Promptfoo with telemetry/updates disabled. Both architecture graphs have
 zero violations (437 structural/436 runtime modules); all 78 guard fixtures
 passed. Exact-source CI and production evidence are pending final record.
+
+The first full CI run (`42404854787`, source `9e381a8`) passed backend, cutover and
+verify gates, with 271 UX passes/44 deliberate skips and three failures in the
+same demo-readiness flow across viewports. No deployment was triggered. That gate
+exposed the missing completion notification previously masked by document polling.
+The application was corrected; original tests and baselines were retained. The
+combined discovery/query suite then passed 41 cases with four deliberate profile
+skips locally, plus a fresh strict web typecheck. A fresh exact-source CI run is
+required for the fix.
 
 ## Remaining acceptance criteria
 

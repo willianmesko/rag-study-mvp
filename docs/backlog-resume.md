@@ -59,6 +59,24 @@ durable capability separate from whether a view is currently observed. Verify
 explicit cancellation without resubmitting work. FE-07 then addresses explicit
 chat lifecycle transitions. FE-06 remains partially complete until these pass.
 
+The next read-only inspection has identified concrete starting points:
+
+- `pages/rag-lab/ui/RagLabPage.tsx` keeps `useConversation` mounted while the
+  selected tab changes. Pass explicit observation state; do not reuse durable
+  capability as a visibility flag or route work through a stateless fallback.
+- `features/question-answering/model/use-saved-conversations.ts` currently polls
+  an infinite message query every two/fifteen seconds. Its refetch revisits loaded
+  older pages. Preserve cursor/order and already loaded turns while refreshing
+  only the newest window; handle window overlap and newly arrived messages.
+- The same model can overlap the SSE reader in `use-live-answer.ts` or the saved
+  comparison reader in `use-model-comparison.ts` / `api.waitForSavedTurn`. Pick one
+  active execution reader, including disconnected/recovery states. Metadata
+  reconciliation and explicit execution cancellation are different operations.
+- Add request counters for 75 loaded messages, tab changes, scope disposal,
+  offline recovery, completion and one explicit Stop. Preserve message feedback,
+  idempotent IDs, reconnect cursors and older-page scroll position. Do not broaden
+  this into the separate FE-07 state-machine increment without its acceptance tests.
+
 ## Implemented backend slice: BE-08 native TypeScript checks
 
 The read-only check at the previous source found exactly six diagnostics with
