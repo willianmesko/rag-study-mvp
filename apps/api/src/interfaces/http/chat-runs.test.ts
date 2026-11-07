@@ -248,3 +248,26 @@ test("a provider error is replayable without exposing raw error details", async 
   const replay = await fetchHttp(eventsUrl(base, runId, 1), { headers, signal: AbortSignal.timeout(6_000) });
   assert.deepEqual(parseFrames((await replay.text()).split("\n\n")), events.slice(1));
 });
+
+test("a durable follow-up runs with its workspace and ephemeral prior questions", async (t) => {
+  const previousQuestions = ["What is the policy for retained records?"];
+  const { base, answerQuestion, consumeQuestionQuota } = await fixture(t, async (input) => {
+    assert.equal(input.tenantId, workspaceId);
+    assert.equal(input.actorKey, `user:${actorId}`);
+    assert.deepEqual(input.previousQuestions, previousQuestions);
+    return answer;
+  });
+  const runId = randomUUID();
+  const response = await fetchHttp(`${base}/v1/qa/stream`, {
+    method: "POST", headers: { ...headers, "content-type": "application/json" }, signal: AbortSignal.timeout(6_000),
+    body: JSON.stringify({ runId, question: "And for how long?", previousQuestions })
+  });
+  assert.equal(response.status, 200);
+  const events = await response.text();
+  assert.match(events, /event: completed/);
+  assert.doesNotMatch(events, /What is the policy for retained records/);
+  const replay = await start(base, runId);
+  assert.equal(await replay.text(), events);
+  assert.equal(answerQuestion.mock.callCount(), 1);
+  assert.equal(consumeQuestionQuota.mock.callCount(), 1);
+});

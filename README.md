@@ -161,6 +161,19 @@ Milo saves your selected goal and the furthest setup step for each workspace.
 Sign in with the same account on another device to continue. If this browser
 already had progress from an earlier release, Lumora syncs it when you return.
 
+### Chat with Milo
+
+In **Ask**, send a message and continue the conversation with a follow-up such
+as “Does that apply to contractors too?” Milo uses up to three recent answered
+questions from the active chat to resolve references, then searches the selected
+workspace for fresh evidence. Expand the sources under each reply to review
+the passages it cites. Press Enter to send or Shift+Enter to add a line.
+
+The active thread stays open when you visit another section of the same
+workspace. **New chat** clears the thread and its follow-up context. The
+separate **History** view still keeps recent answered questions in this browser.
+The public demo and side-by-side model comparisons handle each request on its own.
+
 ### Resume or stop a live answer
 
 Signed-in chat resumes an interrupted connection in the same tab. The browser

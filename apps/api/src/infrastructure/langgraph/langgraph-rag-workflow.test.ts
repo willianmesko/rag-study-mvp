@@ -92,6 +92,26 @@ test("LangGraph can require structured output for production providers", async (
   assert.match(result.answer, /structured response/i);
 });
 
+test("a follow-up requires a structured answer even when single turns accept plain text", async () => {
+  const workflow = new LangGraphRagWorkflow(
+    {
+      execute: async () => [{
+        chunkId: "chunk-1", documentId: "document-1", ordinal: 0, content: "Embeddings map text to vectors.",
+        source: "golden/rag", title: "RAG", score: 0.91, security: { promptInjectionRisk: "low", signals: [] }
+      }]
+    },
+    { generate: async () => "Plain text without a validated source." },
+    { maxContextChars: 1_000, minimumScore: 0.3 }
+  );
+
+  const input = { question: "What do they do?", previousQuestions: ["What are embeddings?"] };
+  assert.equal((await workflow.answer(input)).refusalReason, "unstructured_model_output");
+  const events: string[] = [];
+  const response = await workflow.answerStream(input, (event) => { events.push(event.type); });
+  assert.equal(response.refusalReason, "unstructured_model_output");
+  assert.deepEqual(events, ["retrieving", "generating", "validating"]);
+});
+
 test("LangGraph awaits citation validation before emitting bounded, redacted answer text", async () => {
   const events: string[] = [];
   const rawAnswer = `${"a".repeat(255)}😊\n\nContact user@example.com`;

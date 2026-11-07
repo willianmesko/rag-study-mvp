@@ -214,6 +214,16 @@ They do not hold raw questions or raw provider drafts. Anonymous demo streams
 are transient. The JSON endpoint is available as a fallback before a streaming
 run is admitted.
 
+The Ask transcript is in memory and keyed by the signed-in user and workspace.
+For a follow-up, the browser can send up to three recent answered questions
+from that thread. The server bounds their size, redacts personal data, and
+screens for prompt injection. Earlier questions can clarify references in
+retrieval and generation. The workflow retrieves fresh passages in the
+authorized workspace and validates citations against those passages. Contextual
+requests bypass the semantic answer cache and count the extra prompt text
+toward the generation budget. Public demo requests and model comparisons
+remain standalone.
+
 ## LangGraph workflow
 
 The Q&A workflow has three main nodes:

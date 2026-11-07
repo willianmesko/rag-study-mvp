@@ -4,17 +4,19 @@ import type { AnswerQuestionResult, AnswerWorkflowEvent, AnswerWorkflowInput, Pr
 import { estimateGroundedPromptTokens, formatUntrustedContext, reserveGroundedPromptTokens, type GroundedContext } from "../../application/policies/grounded-answer-policy.js";
 import { assertStepBudget, withExecutionTimeout } from "../../application/policies/agent-execution-policy.js";
 import { ChatBudgetExceededError } from "../../application/policies/chat-cost.js";
+import { createConversationQuery } from "../../application/policies/conversation-context.js";
 import { parseGroundedAnswer, validateGroundedAnswer } from "../../application/policies/structured-answer.js";
 import type { RetrievedChunk } from "../../domain/document.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 import { isSafeForAnswer } from "../../domain/security/prompt-injection.js";
 
 type Retriever = {
-  execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[]; embeddingIndexVersion?: string; signal?: AbortSignal }): Promise<RetrievedChunk[]>;
+  execute(input: { query: string; lexicalQuestion?: string; topK?: number; tenantId?: string; queryEmbedding?: number[]; embeddingIndexVersion?: string; signal?: AbortSignal }): Promise<RetrievedChunk[]>;
 };
 
 const RagState = Annotation.Root({
   question: Annotation<string>,
+  previousQuestions: Annotation<readonly string[] | undefined>,
   topK: Annotation<number | undefined>,
   tenantId: Annotation<string | undefined>,
   queryEmbedding: Annotation<number[] | undefined>,
@@ -60,17 +62,14 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, Prepared
 
   async prepare(input: AnswerWorkflowInput): Promise<PreparedAnswerContext | null> {
     assertStepBudget(1, this.options);
-    const matches = await this.retriever.execute({
-      query: input.question, topK: input.topK, tenantId: input.tenantId, queryEmbedding: input.queryEmbedding,
-      embeddingIndexVersion: input.embeddingIndexVersion, signal: input.signal
-    });
+    const matches = await this.retrieve(input, input.signal);
     input.signal?.throwIfAborted();
     const safeMatches = matches.filter((match) => isSafeForAnswer(match.security));
     if (!this.hasRelevantSource(safeMatches)) return null;
     assertStepBudget(2, this.options);
     const context = formatUntrustedContext(safeMatches, this.options.maxContextChars);
     if (!this.hasRelevantSource(context.sourcesByReference.values())) return null;
-    return this.prepared(input.question, context, input.maxEstimatedInputTokens);
+    return this.prepared(input, context);
   }
 
   async answerPrepared(prepared: PreparedAnswerContext | null, generator: AnswerGenerator, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<AnswerQuestionResult> {
@@ -80,7 +79,7 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, Prepared
     const rawAnswer = await generator.generate(prepared.question, prepared.context.text, signal, (usage) => {
       providerUsage = usage;
       onUsage?.(usage);
-    });
+    }, prepared.previousQuestions);
     signal?.throwIfAborted();
     return this.resolveAnswer(rawAnswer, prepared, providerUsage);
   }
@@ -103,8 +102,8 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, Prepared
       let providerUsage: ProviderTokenUsage | undefined;
       const observeUsage: ProviderUsageObserver = (usage) => { providerUsage = usage; };
       const rawAnswer = this.answerGenerator.stream
-        ? await this.answerGenerator.stream(prepared.question, prepared.context.text, () => undefined, signal, observeUsage)
-        : await this.answerGenerator.generate(prepared.question, prepared.context.text, signal, observeUsage);
+        ? await this.answerGenerator.stream(prepared.question, prepared.context.text, () => undefined, signal, observeUsage, prepared.previousQuestions)
+        : await this.answerGenerator.generate(prepared.question, prepared.context.text, signal, observeUsage, prepared.previousQuestions);
       await emit({ type: "validating" });
       const result = this.resolveAnswer(rawAnswer, prepared, providerUsage);
       // Only publish deltas after the structured answer and its source references are checked.
@@ -122,10 +121,10 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, Prepared
         "retrieve",
         async (state, runtime) => {
           const stepCount = assertStepBudget(state.stepCount + 1, this.options);
-          const matches = await this.retriever.execute({
-            query: state.question, topK: state.topK, tenantId: state.tenantId, queryEmbedding: state.queryEmbedding,
-            embeddingIndexVersion: state.embeddingIndexVersion, signal: runtime.signal
-          });
+          const matches = await this.retrieve({
+            question: state.question, previousQuestions: state.previousQuestions, topK: state.topK, tenantId: state.tenantId,
+            queryEmbedding: state.queryEmbedding, embeddingIndexVersion: state.embeddingIndexVersion
+          }, runtime.signal);
           return { matches: matches.filter((match) => isSafeForAnswer(match.security)), stepCount };
         },
         { retryPolicy: { maxAttempts: 3, initialInterval: 0.25, maxInterval: 1, backoffFactor: 2 } }
@@ -136,7 +135,7 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, Prepared
       }))
       .addNode("generate_answer", async (state, runtime) => {
         const stepCount = assertStepBudget(state.stepCount + 1, this.options);
-        const prepared = this.prepared(state.question, state.context, state.maxEstimatedInputTokens);
+        const prepared = this.prepared(state, state.context);
         return { result: await this.answerPrepared(prepared, this.answerGenerator, runtime.signal), stepCount };
       })
       .addNode("no_context", () => ({ result: insufficientContext }))
@@ -159,18 +158,27 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, Prepared
     return false;
   }
 
-  private prepared(question: string, context: GroundedContext, maxEstimatedInputTokens?: number): PreparedAnswerContext {
-    const estimatedInputTokens = estimateGroundedPromptTokens(question, context.text);
-    if (maxEstimatedInputTokens !== undefined && reserveGroundedPromptTokens(question, context.text) > maxEstimatedInputTokens) {
-      throw new ChatBudgetExceededError();
-    }
-    return { question, context, estimatedInputTokens };
+  private retrieve(input: AnswerWorkflowInput, signal?: AbortSignal) {
+    return this.retriever.execute({
+      query: createConversationQuery(input.question, input.previousQuestions),
+      ...(input.previousQuestions?.length ? { lexicalQuestion: input.question } : {}),
+      topK: input.topK, tenantId: input.tenantId, queryEmbedding: input.queryEmbedding,
+      embeddingIndexVersion: input.embeddingIndexVersion, signal
+    });
   }
 
-  private resolveAnswer(rawAnswer: string, { context, estimatedInputTokens }: PreparedAnswerContext, providerUsage?: ProviderTokenUsage): AnswerQuestionResult {
+  private prepared({ question, previousQuestions, maxEstimatedInputTokens }: AnswerWorkflowInput, context: GroundedContext): PreparedAnswerContext {
+    const estimatedInputTokens = estimateGroundedPromptTokens(question, context.text, previousQuestions);
+    if (maxEstimatedInputTokens !== undefined && reserveGroundedPromptTokens(question, context.text, previousQuestions) > maxEstimatedInputTokens) {
+      throw new ChatBudgetExceededError();
+    }
+    return { question, ...(previousQuestions?.length ? { previousQuestions } : {}), context, estimatedInputTokens };
+  }
+
+  private resolveAnswer(rawAnswer: string, { context, estimatedInputTokens, previousQuestions }: PreparedAnswerContext, providerUsage?: ProviderTokenUsage): AnswerQuestionResult {
     const usage = { estimatedInputTokens, estimatedOutputTokens: Math.ceil(rawAnswer.length / 4), ...(providerUsage ? { providerUsage } : {}) };
     const parsed = validateGroundedAnswer(parseGroundedAnswer(rawAnswer), new Set(context.sourcesByReference.keys()));
-    if (this.options.requireStructuredOutput && !parsed.structured) {
+    if ((this.options.requireStructuredOutput || previousQuestions?.length) && !parsed.structured) {
       return { answer: "I could not validate the model's structured response, so I am declining to answer.", sources: [], citedChunkIds: [], structuredOutput: false, refusalReason: "unstructured_model_output", ...usage };
     }
     if (parsed.refusalReason) {

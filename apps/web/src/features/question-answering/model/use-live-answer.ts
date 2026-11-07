@@ -8,6 +8,8 @@ type AnswerState = {
   phase: AnswerPhase | null;
   draft: string;
   citations: QuestionSource[];
+};
+export type AnswerOutcome = {
   answer?: QuestionResponse;
   failure?: Extract<ChatRunEvent, { type: "error" }>["code"];
   error?: unknown;
@@ -62,27 +64,29 @@ function isRetryable(error: unknown) {
     (error instanceof ApiError && (error.status === 408 || error.status >= 500));
 }
 
-export function useLiveAnswer({ accessToken, workspaceId, scope, onAnswered }: {
+export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, onFinished }: {
   accessToken?: string | null;
   workspaceId?: string;
   scope: string;
-  onAnswered: (input: { question: string; response: QuestionResponse }) => void;
+  onRecovered: (runId: string) => void;
+  onFinished: (result: AnswerOutcome) => void;
 }) {
   const [state, setState] = useState(emptyAnswer);
   const [stopping, setStopping] = useState(false);
   const [stopError, setStopError] = useState(false);
   const active = useRef<Run | null>(null);
   const session = accessToken && workspaceId ? { accessToken, workspaceId } : undefined;
-  const latest = useRef({ session, onAnswered });
+  const latest = useRef({ session, onRecovered, onFinished });
   const storageKey = session ? `lumora-chat-run:${scope}` : null;
 
-  useEffect(() => { latest.current = { session, onAnswered }; }, [accessToken, workspaceId, onAnswered]);
+  useEffect(() => { latest.current = { session, onRecovered, onFinished }; }, [accessToken, workspaceId, onRecovered, onFinished]);
 
   useEffect(() => {
     const id = storageKey && readRun(storageKey);
     if (storageKey && id) {
       const run = { controller: new AbortController(), durable: { id, cursor: 0, storageKey }, connecting: false, stopping: false };
       active.current = run;
+      latest.current.onRecovered(id);
       setState({ ...emptyAnswer, phase: "reconnecting" });
       void connect(run, "resume");
     }
@@ -94,17 +98,15 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onAnswered }: {
     };
   }, [storageKey]);
 
-  function finish(run: Run, result: Omit<AnswerState, "phase" | "draft" | "citations">) {
+  function finish(run: Run, result: AnswerOutcome) {
     if (active.current !== run) return;
     if (run.durable) clearRun(run.durable);
     active.current = null;
     run.controller.abort();
     setStopping(false);
     setStopError(false);
-    setState({ ...emptyAnswer, ...result });
-    if (run.input && result.answer && !result.answer.refusalReason) {
-      latest.current.onAnswered({ question: run.input.question, response: result.answer });
-    }
+    setState(emptyAnswer);
+    latest.current.onFinished(result);
   }
 
   async function connect(run: Run, mode: Connection) {
@@ -183,7 +185,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onAnswered }: {
   }
 
   function start(input: QuestionInput) {
-    if (active.current) return;
+    if (active.current) return false;
     const supportsStream = typeof ReadableStream !== "undefined";
     const durable = storageKey && supportsStream ? { id: crypto.randomUUID(), cursor: 0, storageKey } : undefined;
     if (durable) saveRun(durable.storageKey, durable.id);
@@ -191,6 +193,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onAnswered }: {
     active.current = run;
     setState({ ...emptyAnswer, phase: "accepted" });
     void connect(run, supportsStream ? "start" : "regular");
+    return true;
   }
 
   function resume() {

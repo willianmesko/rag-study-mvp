@@ -8,7 +8,8 @@ export function describeAnswerUsage(
   pricing: ChatPricing,
   latencyMs: number,
   estimatedInputTokens: number,
-  providerUsage = result?.providerUsage
+  providerUsage = result?.providerUsage,
+  promptVersion = groundedPromptVersion
 ): ChatAnswerUsage {
   const cacheHit = result?.cacheHit === true;
   const skipped = result?.refusalReason === "insufficient_context" && result.estimatedInputTokens === undefined;
@@ -20,6 +21,6 @@ export function describeAnswerUsage(
     source, inputTokens, outputTokens, latencyMs: Math.max(0, Math.round(latencyMs)),
     estimatedCostUsd: estimateChatCost(pricing, inputTokens, outputTokens),
     ...(providerUsage?.costUsd !== undefined ? { observedCostUsd: providerUsage.costUsd } : {}),
-    promptVersion: groundedPromptVersion, citationCount: result?.citedChunkIds?.length ?? 0, safetyOutcome
+    promptVersion, citationCount: result?.citedChunkIds?.length ?? 0, safetyOutcome
   };
 }

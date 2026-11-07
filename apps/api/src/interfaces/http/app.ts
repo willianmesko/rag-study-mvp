@@ -639,8 +639,8 @@ export async function buildApp(dependencies: HttpDependencies) {
     });
   });
   app.post("/v1/qa", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
-    const { question, topK, modelId } = questionInputSchema.parse(request.body);
-    const scope = await resolveQueryScope(request, modelId !== undefined);
+    const { question, topK, modelId, previousQuestions } = questionInputSchema.parse(request.body);
+    const scope = await resolveQueryScope(request, modelId !== undefined || previousQuestions !== undefined);
     if (!scope.ok) return rejectScope(reply, scope);
     const answer = await chooseAnswer(scope.authenticated ? scope.tenantId : undefined, modelId);
     if (!answer) return reply.code(modelId ? 400 : 503).send(modelUnavailable);
@@ -648,10 +648,11 @@ export async function buildApp(dependencies: HttpDependencies) {
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
     return withReplySignal(reply, streamShutdown.signal, async (signal) =>
-      serializeQuestionAnswer(await answer({ question, topK, tenantId, actorKey, signal })));
+      serializeQuestionAnswer(await answer({ question, ...(previousQuestions ? { previousQuestions } : {}), topK, tenantId, actorKey, signal })));
   });
   app.post("/v1/qa/stream", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
-    const { question, topK, runId, modelId } = questionStreamInputSchema.parse(request.body);
+    const { question, topK, runId, modelId, previousQuestions } = questionStreamInputSchema.parse(request.body);
+    const turn = { question, ...(previousQuestions ? { previousQuestions } : {}), topK };
     if (runId) {
       const membership = await authorizeMember(request, true);
       if (!membership.ok) return rejectScope(reply, membership);
@@ -663,7 +664,7 @@ export async function buildApp(dependencies: HttpDependencies) {
       await answerRuns.start(scope, {
         reserveQuota: async () => (await dependencies.consumeQuestionQuota(tenantId, actorKey)).allowed,
         answer: async ({ signal, publish }) => serializeQuestionAnswer(await answer({
-          question, topK, tenantId, actorKey, signal,
+          ...turn, tenantId, actorKey, signal,
           onEvent: (event) => publish(serializeWorkflowEvent(event))
         })),
         reportFailure: (error) => request.log.warn({ errorType: error instanceof Error ? error.name : typeof error, runId }, "Answer run execution failed")
@@ -671,7 +672,7 @@ export async function buildApp(dependencies: HttpDependencies) {
       return replayAnswerStream(request, reply, dependencies.chatRuns, scope, 0, streamShutdown.signal);
     }
 
-    const scope = await resolveQueryScope(request, modelId !== undefined);
+    const scope = await resolveQueryScope(request, modelId !== undefined || previousQuestions !== undefined);
     if (!scope.ok) return rejectScope(reply, scope);
     const answer = await chooseAnswer(scope.authenticated ? scope.tenantId : undefined, modelId);
     if (!answer) return reply.code(modelId ? 400 : 503).send(modelUnavailable);
@@ -683,7 +684,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     try {
       await stream.event("accepted", { status: "accepted" });
       const result = await answer({
-        question, topK, tenantId, actorKey, signal: stream.signal,
+        ...turn, tenantId, actorKey, signal: stream.signal,
         onEvent: (event) => {
           const serialized = serializeWorkflowEvent(event);
           return stream.event(serialized.type, "sources" in serialized || "delta" in serialized ? serialized : { status: serialized.type });

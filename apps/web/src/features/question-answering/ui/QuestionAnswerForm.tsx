@@ -1,52 +1,39 @@
-import { useId, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { questionComparisonInputSchema, questionInputSchema, type QuestionResponse } from "@rag-study/contracts";
+import { questionComparisonInputSchema, questionInputSchema } from "@rag-study/contracts";
 import { ApiError, api } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
-import { getRequestErrorMessage } from "../../../shared/lib/request-error";
-import { InputLabel } from "../../../shared/ui/InputLabel";
-import { SectionTitle } from "../../../shared/ui/SectionTitle";
-import { RagEvidencePanel, ValidatedCitations } from "../../../shared/ui/RagEvidencePanel";
+import { Mascot } from "../../../shared/ui/Mascot";
 import { SelectField } from "../../../shared/ui/SelectField";
-import { getRefusalCopy } from "../model/refusal-copy";
-import { useLiveAnswer, type AnswerPhase } from "../model/use-live-answer";
-import { useModelComparison } from "../model/use-model-comparison";
-import { ModelComparisonResult } from "./ModelComparisonResult";
+import type { useConversation } from "../model/use-conversation";
+import { ConversationThread } from "./ConversationThread";
 
-const statusCopy: Record<AnswerPhase, [string, string]> = {
-  accepted: ["Request accepted", "Pergunta recebida"],
-  retrieving: ["Looking through your documents", "Buscando nos seus documentos"],
-  generating: ["Drafting your answer", "Preparando a resposta"],
-  validating: ["Checking the sources", "Conferindo as fontes"],
-  cached: ["Opening a recent answer", "Abrindo uma resposta recente"],
-  delivering: ["Showing your answer and its sources", "Mostrando a resposta e as fontes"],
-  reconnecting: ["Reconnecting to the same answer…", "Reconectando à mesma resposta…"],
-  disconnected: ["Connection lost. Reconnect to pick up where you left off.", "A conexão caiu. Reconecte para retomar de onde parou."]
-};
-
-export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, workspaceName, scope }: {
-  onAnswered: (input: { question: string; response: QuestionResponse }) => void;
+export function QuestionAnswerForm({ conversation, accessToken, workspaceId, workspaceName, scope }: {
+  conversation: ReturnType<typeof useConversation>;
   accessToken?: string | null;
   workspaceId?: string;
   workspaceName?: string;
   scope: string;
 }) {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const [question, setQuestion] = useState("");
   const [topK, setTopK] = useState(5);
   const [invalidInput, setInvalidInput] = useState(false);
   const [preferredModelId, setPreferredModelId] = useState<string>();
   const [alternateModelId, setAlternateModelId] = useState<string>();
   const [compareMode, setCompareMode] = useState(false);
-  const comparisonName = useId();
+  const composer = useRef<HTMLTextAreaElement>(null);
+  const composerId = useId();
+  const hintId = useId();
+  const errorId = useId();
+  const titleId = useId();
   const comparisonHint = useId();
   const catalog = useQuery({
     queryKey: ["chat-models", scope],
     queryFn: ({ signal }) => api.chatModels(accessToken!, workspaceId!, signal),
     enabled: Boolean(accessToken && workspaceId), retry: false, staleTime: 60_000
   });
-  const live = useLiveAnswer({ accessToken, workspaceId, scope, onAnswered });
-  const comparison = useModelComparison();
+  const { turns, live, comparison } = conversation;
   const models = catalog.isError ? [] : catalog.data?.models ?? [];
   const selectedModel = models.find(({ id }) => id === preferredModelId) ?? models.find(({ isDefault }) => isDefault) ?? models[0];
   const alternates = models.filter(({ id }) => id !== selectedModel?.id);
@@ -55,161 +42,135 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
   const autoAvailable = Boolean(catalog.data?.autoAvailable && !catalog.isError);
   const comparing = compareMode && comparisonAvailable;
   const autoSelected = autoAvailable && !comparing && preferredModelId === "auto";
-  const { phase } = live;
-  const answer = comparing ? undefined : live.answer;
-  const isStreaming = phase !== null;
-  const busy = isStreaming || comparison.isPending;
+  const isStreaming = live.phase !== null;
+  const busy = isStreaming || comparison.isPending || turns.some((turn) => turn.status === "pending");
   const modelOptions = (available: typeof models) => available.map(({ id, label, isDefault }) => ({
     value: id, label, description: isDefault ? t("Workspace default", "Padrão do espaço") : undefined
   }));
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (busy) return;
-    if (comparing && selectedModel && alternateModel && accessToken && workspaceId) {
-      const input = questionComparisonInputSchema.safeParse({ question: question.trim(), topK, modelIds: [selectedModel.id, alternateModel.id] });
-      setInvalidInput(!input.success);
-      if (input.success) comparison.start(input.data, accessToken, workspaceId);
-      return;
-    }
-    const parsed = questionInputSchema.safeParse({ question: question.trim(), topK, modelId: autoSelected ? "auto" : selectedModel?.id });
-    setInvalidInput(!parsed.success);
-    if (parsed.success) live.start(parsed.data);
+  function updateQuestion(value: string) {
+    setQuestion(value);
+    setInvalidInput(false);
   }
 
-  const failureCopy = {
-    quota_exceeded: t("Daily question limit reached. Try again tomorrow.", "O limite diário de perguntas foi atingido. Tente novamente amanhã."),
-    execution_failed: t("Lumora could not finish the answer. Try asking again.", "O Lumora não conseguiu concluir a resposta. Tente perguntar novamente."),
-    execution_interrupted: t("This answer stopped before it finished. Ask again to start a new one.", "A resposta foi interrompida. Faça a pergunta novamente para iniciar outra.")
-  };
-  const requestError = comparing ? comparison.error : live.error;
-  const error = invalidInput ? t("Enter a question of up to 5,000 characters.", "Digite uma pergunta de até 5.000 caracteres.")
-    : requestError instanceof ApiError && requestError.status === 422 ? t("This request exceeds the model budget. Try a shorter question or fewer passages.", "Esta solicitação excede o orçamento do modelo. Tente uma pergunta menor ou consulte menos trechos.")
-    : !comparing && live.failure ? failureCopy[live.failure] : requestError ? getRequestErrorMessage(requestError, locale) : null;
-  const refusalCopy = getRefusalCopy(answer?.refusalReason);
-  const citations = answer && !answer.cacheHit ? answer.sources.filter((source) => answer.citedChunkIds?.includes(source.chunkId)) : [];
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || !question.trim()) return;
+    if (comparing && selectedModel && alternateModel && accessToken && workspaceId) {
+      const parsed = questionComparisonInputSchema.safeParse({ question: question.trim(), topK, modelIds: [selectedModel.id, alternateModel.id] });
+      if (!parsed.success) { setInvalidInput(true); return; }
+      conversation.startComparison(parsed.data);
+      setCompareMode(false);
+    } else {
+      const parsed = questionInputSchema.safeParse({ question: question.trim(), topK, modelId: autoSelected ? "auto" : selectedModel?.id });
+      if (!parsed.success) { setInvalidInput(true); return; }
+      conversation.startAnswer(parsed.data);
+    }
+    updateQuestion("");
+    composer.current?.focus({ preventScroll: true });
+  }
 
-  return (
-    <form className="space-y-7" onSubmit={submit}>
-      <SectionTitle eyebrow={t("Ask Lumora", "Pergunte ao Lumora")} title={t("Get an answer with sources", "Receba uma resposta com fontes")}>
-        {t("Ask in your own words. Lumora looks for relevant passages and shows the sources it can cite.",
-           "Pergunte com suas palavras. O Lumora busca trechos relevantes e mostra as fontes que pode citar.")}
-      </SectionTitle>
-      <div className="panel space-y-5">
-        <div className="workspace-context flex-wrap">
-          <span className="workspace-context__dot" aria-hidden="true" />
-          <div>
-            <p className="eyebrow">{t("Answering from", "Respondendo com base em")}</p>
-            <p className="mt-1 text-sm font-medium text-slate-100">{workspaceName ?? t("Demo workspace", "Espaço de demonstração")}</p>
-          </div>
-          <span className="ml-auto text-xs text-slate-400">{accessToken ? t("Private documents", "Documentos privados") : t("Public demo", "Demonstração pública")}</span>
+  function handleComposerKey(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey ||
+      event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+    event.preventDefault();
+    if (!busy && question.trim()) event.currentTarget.form?.requestSubmit();
+  }
+
+  function newChat() {
+    conversation.newConversation();
+    updateQuestion("");
+    setCompareMode(false);
+    composer.current?.focus({ preventScroll: true });
+  }
+
+  return <section aria-labelledby={titleId} className="mx-auto flex h-[clamp(31rem,76svh,49rem)] w-full max-w-5xl min-w-0 flex-col rounded-2xl border border-slate-700/80 bg-slate-950/65 shadow-2xl shadow-slate-950/40 sm:rounded-3xl">
+    <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-3 py-3 sm:px-5 sm:py-4">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+        <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 sm:size-12">
+          <Mascot decorative size="sm" className="size-9 sm:size-10" />
         </div>
-        <InputLabel label={t("What would you like to know?", "O que você gostaria de saber?")}>
-          <textarea aria-describedby="question-hint" value={question} maxLength={5000} readOnly={busy}
-            onChange={(event) => { setQuestion(event.target.value); setInvalidInput(false); }}
-            className="field min-h-32 resize-y" placeholder={t("For example, what does our policy say about access requests?", "Por exemplo, o que a nossa política diz sobre pedidos de acesso?")} />
-          <span id="question-hint" className="text-xs font-normal text-slate-400">
-            {t("A focused question usually leads to a clearer answer.", "Uma pergunta específica costuma gerar uma resposta mais clara.")}
-          </span>
-        </InputLabel>
-        {selectedModel && (models.length === 1 && !autoAvailable ? <div className="rounded-xl border border-slate-700 px-3 py-2.5">
-          <p className="text-xs text-slate-300">{t("Workspace answer model", "Modelo de resposta do espaço")}</p>
-          <p className="mt-1 text-sm font-semibold text-slate-100 [overflow-wrap:anywhere]">{selectedModel.label}</p>
-        </div> : <fieldset className="grid min-w-0 gap-3">
-          <legend className="sr-only">{t("Answer models", "Modelos de resposta")}</legend>
-          {comparisonAvailable && <label className={`flex min-h-11 items-start gap-3 rounded-xl border border-slate-700 px-3 py-2.5 text-sm ${busy ? "cursor-not-allowed" : "cursor-pointer hover:bg-slate-800"}`}>
-            <input type="checkbox" className="mt-1 size-4 shrink-0 accent-cyan-300" checked={comparing} disabled={busy}
-              aria-labelledby={comparisonName} aria-describedby={comparisonHint} onChange={(event) => setCompareMode(event.target.checked)} />
-            <span>
-              <span id={comparisonName} className="block font-semibold text-slate-100">{t("Compare two models", "Comparar dois modelos")}</span>
-              <span id={comparisonHint} className="mt-1 block text-xs leading-5 text-slate-300">
-                {t("Use the same question and passages for both models. Each comparison uses two questions from your daily limit.",
-                  "Os dois modelos recebem a mesma pergunta e os mesmos trechos. Cada comparação usa duas perguntas do seu limite diário.")}
-              </span>
-            </span>
-          </label>}
-          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-            <SelectField label={comparing ? t("First model", "Primeiro modelo") : t("Answer model", "Modelo de resposta")}
-              value={autoSelected ? "auto" : selectedModel.id} onValueChange={setPreferredModelId} disabled={busy}
-              options={autoAvailable && !comparing ? [{ value: "auto", label: t("Automatic", "Automático"),
-                description: t("Selects an allowed model by question complexity.", "Escolhe um modelo permitido pela complexidade da pergunta.") }, ...modelOptions(models)] : modelOptions(models)} />
-            {comparing && alternateModel && <SelectField label={t("Second model", "Segundo modelo")}
-              value={alternateModel.id} onValueChange={setAlternateModelId} disabled={busy} options={modelOptions(alternates)} />}
-          </div>
-        </fieldset>)}
-        {catalog.isError && !(catalog.error instanceof ApiError && catalog.error.status === 404) && <p className="text-xs text-slate-300" role="status">
-          {t("Model options are unavailable. Ask will use the workspace default.", "As opções de modelo estão indisponíveis. As perguntas usam o modelo padrão do espaço.")}
-        </p>}
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <SelectField className="w-44" label={t("Passages to consider", "Trechos para consultar")}
-            value={String(topK)} onValueChange={(value) => setTopK(Number(value))} disabled={busy}
-            options={["3", "5", "8"].map((value) => ({ value, label: value }))} />
-          <div className="flex flex-wrap gap-2">
-            {isStreaming && <button className="secondary-button" type="button" onClick={() => void live.stop()} disabled={live.stopping} aria-busy={live.stopping}>
-              {live.stopping ? t("Stopping…", "Interrompendo…") : t("Stop answer", "Parar resposta")}
-            </button>}
-            {comparison.isPending && <button className="secondary-button" type="button" onClick={comparison.stop}>{t("Stop comparison", "Parar comparação")}</button>}
-            {phase === "disconnected"
-              ? <button className="primary-button" type="button" onClick={live.resume} disabled={live.stopping}>{t("Reconnect", "Reconectar")}</button>
-              : <button className="primary-button" disabled={busy || question.trim().length === 0} type="submit" aria-busy={busy}>
-                {busy && <span className="spinner" aria-hidden="true" />}
-                {comparing ? comparison.isPending ? t("Comparing…", "Comparando…") : t("Compare answers", "Comparar respostas")
-                  : isStreaming ? t("Working…", "Preparando…") : t("Ask Lumora", "Perguntar ao Lumora")}
-              </button>}
-          </div>
+        <div className="min-w-0">
+          <h1 id={titleId} className="text-base font-semibold tracking-tight text-white sm:text-lg">{t("Chat with Milo", "Converse com o Milo")}</h1>
+          <p className="flex min-w-0 items-center gap-1.5 text-xs leading-5 text-slate-300">
+            <span className="size-1.5 shrink-0 rounded-full bg-cyan-300" aria-hidden="true" />
+            <span className="truncate" title={workspaceName}>{workspaceName ?? t("Demo workspace", "Espaço de demonstração")}</span>
+          </p>
         </div>
       </div>
-      {phase && <section className="stream-status-card">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="eyebrow">{t("Live answer", "Resposta em andamento")}</p>
-          <p role="status" className="text-sm text-slate-200">{t(...statusCopy[phase])}</p>
-        </div>
-        {phase !== "disconnected" && <div aria-hidden="true" className="mt-4 h-1 overflow-hidden rounded-full bg-slate-800"><div className="h-full w-1/2 rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 motion-safe:animate-pulse" /></div>}
-        {live.draft && <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-200">{live.draft}</p>}
-        {live.citations.length > 0 && <div className="mt-5"><ValidatedCitations citations={live.citations} /></div>}
-      </section>}
-      {!comparing && live.stopError && <p role="alert" className="error-message">
-        {t("We could not confirm that the answer stopped. Check your connection and try again.", "Não foi possível confirmar a interrupção. Confira sua conexão e tente novamente.")}
+      <button className="secondary-button min-w-11 shrink-0 px-2.5 sm:px-3" type="button" disabled={busy} onClick={newChat} title={t("New chat", "Nova conversa")}>
+        <svg aria-hidden="true" className="size-4 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 4.5H5a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 5 16.5h9a1.5 1.5 0 0 0 1.5-1.5v-4m-7 1 .5-3.5L14.2 3.3a1.4 1.4 0 0 1 2 2L11 10.5 8.5 12Z" />
+        </svg>
+        <span className="sr-only min-[375px]:not-sr-only">{t("New chat", "Nova conversa")}</span>
+      </button>
+    </header>
+    <ConversationThread turns={turns} live={live} demo={!accessToken} onSuggestion={(message) => {
+      updateQuestion(message);
+      composer.current?.focus();
+    }} />
+    <form className="shrink-0 space-y-2 rounded-b-2xl border-t border-slate-800 bg-slate-900/70 p-3 sm:space-y-3 sm:rounded-b-3xl sm:p-4" onSubmit={submit}>
+      {selectedModel && (models.length === 1 && !autoAvailable
+        ? <p className="text-xs text-slate-300 [overflow-wrap:anywhere]">{t("Workspace answer model", "Modelo de resposta do espaço")} · {selectedModel.label}</p>
+        : <fieldset className={`grid min-w-0 items-end gap-2.5 sm:flex sm:flex-wrap sm:gap-3 ${comparisonAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
+          <legend className="sr-only">{t("Answer models", "Modelos de resposta")}</legend>
+          <SelectField className="sm:min-w-28 sm:max-w-56 sm:flex-1" label={comparing ? t("First model", "Primeiro modelo") : t("Answer model", "Modelo de resposta")}
+            value={autoSelected ? "auto" : selectedModel.id} onValueChange={setPreferredModelId} disabled={busy}
+            options={autoAvailable && !comparing ? [{ value: "auto", label: t("Automatic", "Automático"),
+              description: t("Selects an allowed model by question complexity.", "Escolhe um modelo permitido pela complexidade da pergunta.") }, ...modelOptions(models)] : modelOptions(models)} />
+          {comparing && alternateModel && <SelectField className="sm:min-w-28 sm:max-w-56 sm:flex-1" label={t("Second model", "Segundo modelo")}
+            value={alternateModel.id} onValueChange={setAlternateModelId} disabled={busy} options={modelOptions(alternates)} />}
+          {comparisonAvailable && <label className={`flex min-h-11 min-w-0 items-center gap-2 rounded-xl px-2 py-2 text-xs text-slate-200 sm:text-sm ${comparing ? "col-span-2" : ""} ${busy ? "cursor-not-allowed" : "cursor-pointer transition-colors hover:bg-slate-800"}`}>
+            <input type="checkbox" className="size-4 shrink-0 accent-cyan-300" checked={comparing} disabled={busy}
+              aria-describedby={comparisonHint} onChange={(event) => setCompareMode(event.target.checked)} />
+            {t("Compare two models", "Comparar dois modelos")}
+          </label>}
+        </fieldset>)}
+      {comparisonAvailable && <p id={comparisonHint} className={comparing ? "text-xs leading-5 text-slate-300" : "sr-only"}>
+        {t("Both models use the same passages. This counts as two questions toward your daily limit.",
+          "Os dois modelos usam os mesmos trechos. A comparação conta como duas perguntas no limite diário.")}
       </p>}
-      {!comparing && live.cancelled && <p role="status" className="panel text-sm text-slate-200">{t("Answer stopped.", "Resposta interrompida.")}</p>}
-      {comparing && comparison.isPending && <p role="status" className="stream-status-card text-sm text-slate-200">{t("Preparing both answers from the same passages…", "Preparando as duas respostas com os mesmos trechos…")}</p>}
-      {comparing && comparison.stopped && <p role="status" className="panel text-sm text-slate-200">{t("Comparison stopped.", "Comparação interrompida.")}</p>}
-      {comparing && comparison.data && <ModelComparisonResult comparison={comparison.data} />}
-      {answer && <>
-        <div className="panel animate-fade-up border-cyan-500/20 bg-cyan-500/5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <p className="eyebrow">{t("Your answer", "Sua resposta")}</p>
-            {refusalCopy ? <span className="status-pill status-pill--warning">{t("Answer unavailable", "Resposta indisponível")}</span>
-              : answer.cacheHit ? <span className="status-pill">{t("Saved answer reused", "Resposta salva reutilizada")}</span>
-              : citations.length > 0 && <span className="status-pill status-pill--success">{t("Citations checked", "Citações conferidas")}</span>}
-          </div>
-          {answer.model && <p className="mt-2 text-xs text-slate-300 [overflow-wrap:anywhere]">{t("Answer model", "Modelo de resposta")} · {answer.model.label}</p>}
-          {answer.routing && <p className="mt-2 text-xs text-slate-300">{answer.routing.reason === "simple"
-            ? t("Automatic routing chose the simple-question profile.", "A seleção automática usou o perfil de perguntas simples.")
-            : t("Automatic routing chose the complex-question profile.", "A seleção automática usou o perfil de perguntas complexas.")}
-            {answer.routing.usedFallback && ` ${t("An approved fallback produced this answer.", "Um modelo alternativo aprovado produziu esta resposta.")}`}
-          </p>}
-          <p role={refusalCopy ? "status" : undefined} className="mt-5 whitespace-pre-wrap text-sm leading-7 text-slate-200">
-            {refusalCopy ? t(...refusalCopy) : answer.answer}
-          </p>
-          {answer.usage && <details className="mt-4 text-xs text-slate-300">
-            <summary className="w-fit rounded-md py-1 hover:text-slate-100">{t("Run details", "Detalhes da execução")}</summary>
-            <p className="mt-1 leading-5">
-              {t("Prompt", "Prompt")} {answer.usage.promptVersion} · {answer.usage.latencyMs.toLocaleString(locale)} ms · {answer.usage.citationCount.toLocaleString(locale)} {t("citations", "citações")}
-              {answer.usage.source === "observed" || answer.usage.source === "estimated" ? ` · ${answer.usage.inputTokens.toLocaleString(locale)} / ${answer.usage.outputTokens.toLocaleString(locale)} ${answer.usage.source === "observed"
-                ? t("reported input/output tokens", "tokens de entrada/saída informados pelo provedor")
-                : t("estimated input/output tokens", "tokens estimados de entrada/saída")}` : ""}
-            </p>
-            <p className="mt-1 leading-5">
-              {answer.usage.observedCostUsd === undefined ? t("Estimated cost", "Custo estimado") : t("Reported cost", "Custo informado")} {new Intl.NumberFormat(locale, {
-                style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 6
-              }).format(answer.usage.observedCostUsd ?? answer.usage.estimatedCostUsd)}
-            </p>
-          </details>}
+      {catalog.isError && !(catalog.error instanceof ApiError && catalog.error.status === 404) && <p className="text-xs text-slate-300" role="status">
+        {t("Model options are unavailable. Milo will use the workspace default.", "As opções de modelo estão indisponíveis. O Milo vai usar o padrão do espaço.")}
+      </p>}
+      <div className="flex items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <label htmlFor={composerId} className="sr-only">{t("What would you like to know?", "O que você gostaria de saber?")}</label>
+          <textarea id={composerId} ref={composer} value={question} maxLength={5000} rows={1}
+            aria-invalid={invalidInput || undefined} aria-describedby={invalidInput ? `${hintId} ${errorId}` : hintId}
+            onChange={(event) => updateQuestion(event.target.value)} onKeyDown={handleComposerKey}
+            className="field block min-h-11 max-h-24 resize-none rounded-2xl py-3 [field-sizing:content]"
+            placeholder={accessToken && turns.length ? t("Write a follow-up…", "Continue a conversa…") : t("Message Milo…", "Escreva para o Milo…")} />
         </div>
-        {!refusalCopy && <RagEvidencePanel response={answer} citations={citations} />}
-      </>}
-      {error && !busy && <p role="alert" className="error-message">{error}</p>}
+        {live.phase === "disconnected" ? <button className="primary-button shrink-0 px-2.5 sm:px-4" type="button" onClick={live.resume} disabled={live.stopping}>
+          {t("Reconnect", "Reconectar")}
+        </button> : isStreaming ? <button className="secondary-button shrink-0 px-2.5 sm:px-4" type="button" onClick={() => void live.stop()} disabled={live.stopping} aria-busy={live.stopping}>
+          {live.stopping ? t("Stopping…", "Interrompendo…") : t("Stop answer", "Parar resposta")}
+        </button> : comparison.isPending ? <button className="secondary-button shrink-0 px-2.5 sm:px-4" type="button" onClick={comparison.stop}>
+          {t("Stop comparison", "Parar comparação")}
+        </button> : <button className="primary-button shrink-0 rounded-2xl px-3" disabled={busy || !question.trim()} type="submit"
+          aria-label={comparing ? t("Compare answers", "Comparar respostas") : t("Send message", "Enviar mensagem")}>
+          <svg aria-hidden="true" className="size-4 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m10 15 0-10m-4 4 4-4 4 4" /></svg>
+          <span className="hidden sm:inline">{comparing ? t("Compare", "Comparar") : t("Send", "Enviar")}</span>
+        </button>}
+      </div>
+      {live.phase === "disconnected" && <button className="text-action" type="button" onClick={() => void live.stop()} disabled={live.stopping}>
+        {t("Stop answer", "Parar resposta")}
+      </button>}
+      {invalidInput && <p id={errorId} role="alert" className="text-xs text-rose-200">
+        {t("Enter a message of up to 5,000 characters.", "Digite uma mensagem de até 5.000 caracteres.")}
+      </p>}
+      <div className="flex flex-wrap items-center justify-between gap-x-3">
+        <p id={hintId} className="sr-only text-xs text-slate-400 sm:not-sr-only">
+          {t("Enter to send · Shift + Enter for a new line", "Enter para enviar · Shift + Enter para quebrar a linha")}
+        </p>
+        <details className="group text-xs text-slate-300">
+          <summary className="min-h-8 rounded-md px-1 py-2 text-slate-300 hover:text-white">{t("Search options", "Opções de busca")}</summary>
+          <SelectField className="mb-1 w-44" label={t("Passages to consider", "Trechos para consultar")}
+            value={String(topK)} onValueChange={(value) => setTopK(Number(value))} disabled={busy}
+            options={["3", "5", "8"].map((value) => ({ value, label: value }))} />
+        </details>
+      </div>
     </form>
-  );
+  </section>;
 }

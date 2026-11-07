@@ -18,8 +18,8 @@ function publishUsage(raw: unknown, onUsage?: ProviderUsageObserver) {
 export class OllamaAnswerGenerator implements AnswerGenerator {
   constructor(private readonly baseUrl: string, private readonly model: string, private readonly maxOutputTokens = 500) {}
 
-  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<string> {
-    const prompt = createGroundedAnswerPrompt(question, context);
+  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[]): Promise<string> {
+    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions);
     const json = await requestProviderJson(`${this.baseUrl}/api/chat`, {
       method: "POST",
       signal,
@@ -41,8 +41,8 @@ export class OllamaAnswerGenerator implements AnswerGenerator {
     return answer;
   }
 
-  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<string> {
-    const prompt = createGroundedAnswerPrompt(question, context);
+  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[]): Promise<string> {
+    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions);
     const response = await fetch(`${this.baseUrl}/api/chat`, {
       method: "POST",
       headers: { "content-type": "application/json" },

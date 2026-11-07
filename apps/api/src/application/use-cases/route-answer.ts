@@ -5,12 +5,14 @@ import type { UsageMetricsRepository } from "../ports/usage-metrics-repository.j
 import { withExecutionTimeout } from "../policies/agent-execution-policy.js";
 import { describeAnswerUsage } from "../policies/answer-usage.js";
 import { ChatBudgetExceededError, estimateChatCost } from "../policies/chat-cost.js";
-import { reserveGroundedPromptTokens } from "../policies/grounded-answer-policy.js";
+import { conversationPromptVersion, groundedPromptVersion, reserveGroundedPromptTokens } from "../policies/grounded-answer-policy.js";
+import { preparePreviousQuestions } from "../policies/conversation-context.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 import type { ComparisonModel } from "./compare-answers.js";
 
 type AutoInput = {
   question: string;
+  previousQuestions?: readonly string[];
   topK?: number;
   tenantId: string;
   actorKey: string;
@@ -57,6 +59,8 @@ export class RouteAnswerUseCase {
   private async run(input: AutoInput, signal: AbortSignal): Promise<AnswerQuestionResult> {
     const deadline = performance.now() + this.options.timeoutMs;
     const question = redactPii(input.question).text;
+    const previousQuestions = preparePreviousQuestions(input.previousQuestions);
+    const promptVersion = previousQuestions.length ? conversationPromptVersion : groundedPromptVersion;
     const reason = classifyQuestion(question);
     const primary = reason === "simple" ? input.simple : input.complex;
     const attemptedModelIds: string[] = [];
@@ -66,16 +70,18 @@ export class RouteAnswerUseCase {
       signal.throwIfAborted();
     };
     await emit({ type: "retrieving" });
-    const prepared = await this.workflow.prepare({ question, topK: input.topK, tenantId: input.tenantId, signal });
+    const prepared = await this.workflow.prepare({
+      question, ...(previousQuestions.length ? { previousQuestions } : {}), topK: input.topK, tenantId: input.tenantId, signal
+    });
     signal.throwIfAborted();
     if (!prepared) {
       const result = await this.workflow.answerPrepared(null, primary.generator, signal);
       await emit({ type: "validating" });
-      return { ...result, model: primary.descriptor, usage: describeAnswerUsage(result, primary, 0, 0),
+      return { ...result, model: primary.descriptor, usage: describeAnswerUsage(result, primary, 0, 0, undefined, promptVersion),
         routing: { mode: "auto", reason, attemptedModelIds, usedFallback: false } };
     }
 
-    const inputUpperBound = reserveGroundedPromptTokens(prepared.question, prepared.context.text);
+    const inputUpperBound = reserveGroundedPromptTokens(prepared.question, prepared.context.text, prepared.previousQuestions);
     const planned = this.plan([primary, ...input.fallbacks], inputUpperBound);
     await emit({ type: "generating" });
 
@@ -95,7 +101,7 @@ export class RouteAnswerUseCase {
       } catch {
         signal.throwIfAborted();
       }
-      const usage = describeAnswerUsage(result, model, performance.now() - startedAt, prepared.estimatedInputTokens, providerUsage);
+      const usage = describeAnswerUsage(result, model, performance.now() - startedAt, prepared.estimatedInputTokens, providerUsage, promptVersion);
       await this.usage.record({
         tenantId: input.tenantId, actorKey: input.actorKey, operation: "question_auto_routing",
         provider: model.descriptor.provider, model: model.model, cacheHit: false, failed: !result, ...usage

@@ -20,7 +20,7 @@ export class SearchDocumentsUseCase {
     }
   ) {}
 
-  async execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[]; embeddingIndexVersion?: string; signal?: AbortSignal }): Promise<RetrievedChunk[]> {
+  async execute(input: { query: string; lexicalQuestion?: string; topK?: number; tenantId?: string; queryEmbedding?: number[]; embeddingIndexVersion?: string; signal?: AbortSignal }): Promise<RetrievedChunk[]> {
     input.signal?.throwIfAborted();
     const tenantId = input.tenantId ?? this.options.defaultTenantId;
     let queryEmbedding = input.queryEmbedding;
@@ -42,7 +42,7 @@ export class SearchDocumentsUseCase {
       embedding: queryEmbedding,
       ...(version ? { embeddingIndexVersion: version } : {}),
       query: input.query,
-      lexicalQuery: toLexicalQuery(input.query),
+      lexicalQuery: toLexicalQuery(input.lexicalQuestion ?? input.query),
       limit: rerankCandidateLimit,
       vectorCandidateLimit: rerankCandidateLimit * this.options.vectorCandidateMultiplier,
       keywordCandidateLimit: rerankCandidateLimit * this.options.keywordCandidateMultiplier,

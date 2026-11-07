@@ -50,7 +50,8 @@ test("a selected model follows a streamed question across reconnection", async (
   await page.goto("/ask");
   await selectModel(page, /^Answer model$/, "Balanced Model");
   await page.getByRole("textbox", { name: /What would you like to know/ }).fill(question);
-  await page.getByRole("button", { name: "Ask Lumora" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText(question, { exact: true })).toHaveCount(1);
   await expect(page.getByText("Answer model · Balanced Model", { exact: true })).toBeVisible();
   await expect(page.getByText(answer.answer, { exact: true })).toBeVisible();
   expect(startCount).toBe(1);
@@ -110,7 +111,7 @@ test("the public demo keeps its default model and existing stream", async ({ pag
   await expect(page.getByRole("combobox", { name: "Answer model" })).toHaveCount(0);
   await expect(page.getByRole("checkbox", { name: "Compare two models" })).toHaveCount(0);
   await page.getByRole("textbox", { name: /What would you like to know/ }).fill(question);
-  await page.getByRole("button", { name: "Ask Lumora" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
   await expect(page.getByText(answer.answer, { exact: true })).toBeVisible();
   expect(catalogRequests).toBe(0);
 });
@@ -152,7 +153,7 @@ test("owners set a workspace model policy and Ask reports automatic fallback", a
   await page.goto("/ask");
   await selectModel(page, /^Answer model$/, "Automatic");
   await page.getByRole("textbox", { name: /What would you like to know/ }).fill(question);
-  await page.getByRole("button", { name: "Ask Lumora" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
   await expect(page.getByText("Answer model · Balanced Model", { exact: true })).toBeVisible();
   await expect(page.getByText(/approved fallback produced this answer/)).toBeVisible();
   await page.getByText("Run details", { exact: true }).click();

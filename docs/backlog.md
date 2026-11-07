@@ -88,6 +88,9 @@ product decision, credentials, or additional operational cost.
 - Offline replay tooling validates reviewed anonymized fixtures and gates
   ranking and screening regressions. The bundled synthetic suite can compare
   candidate ranking with Jina through an explicit, credentialed command.
+- Ask opens as a conversation with Milo. Signed-in follow-ups use recent
+  answered questions to clarify the current request, with new retrieval and
+  checked citations on every reply.
 
 ## Delivery sequence
 
@@ -334,6 +337,10 @@ and update this backlog after validating each shipped capability.
      reading technical documentation.
 
 17. **Real-time chat and streaming answers — complete**
+   - Ask shows message bubbles in order, supports follow-up questions, keeps
+     sources with their reply, and offers a New chat action. The active
+     transcript stays in the browser tab while navigating the same workspace.
+     Named conversations and cross-device history remain in product expansion.
    - Signed-in requests use an idempotent run ID and receive numbered SSE
      events. Reconnecting in the same tab resumes from the last received event.
      Reloading a tab with an active run replays its events from the beginning.

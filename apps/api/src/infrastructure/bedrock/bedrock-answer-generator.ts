@@ -12,8 +12,8 @@ function publishUsage(usage: { inputTokens?: number; outputTokens?: number } | u
 export class BedrockAnswerGenerator implements AnswerGenerator {
   constructor(private readonly client: BedrockRuntimeClient, private readonly modelId: string, private readonly maxOutputTokens = 500) {}
 
-  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<string> {
-    const prompt = createGroundedAnswerPrompt(question, context);
+  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[]): Promise<string> {
+    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions);
     const response = await this.client.send(
       new ConverseCommand({
         modelId: this.modelId,
@@ -29,8 +29,8 @@ export class BedrockAnswerGenerator implements AnswerGenerator {
     return text;
   }
 
-  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<string> {
-    const prompt = createGroundedAnswerPrompt(question, context);
+  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[]): Promise<string> {
+    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions);
     const requestSignal = providerRequestSignal(signal);
     const response = await this.client.send(new ConverseStreamCommand({
       modelId: this.modelId,

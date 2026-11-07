@@ -65,10 +65,14 @@ const chatAnswerUsageSchema = z.object({
   safetyOutcome: z.enum(["validated", "refused", "unstructured", "cached", "provider_failed"])
 });
 
+export const MAX_PREVIOUS_CHAT_QUESTIONS = 3;
+export const MAX_PREVIOUS_CHAT_QUESTION_LENGTH = 500;
+
 export const questionInputSchema = z.object({
   question: z.string().min(1).max(5_000),
   topK: z.coerce.number().int().min(1).max(20).optional(),
-  modelId: chatModelIdSchema.optional()
+  modelId: chatModelIdSchema.optional(),
+  previousQuestions: z.array(z.string().trim().min(1).max(MAX_PREVIOUS_CHAT_QUESTION_LENGTH)).min(1).max(MAX_PREVIOUS_CHAT_QUESTIONS).optional()
 });
 
 export const questionComparisonInputSchema = z.strictObject({

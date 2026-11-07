@@ -66,7 +66,7 @@ test("enabled buttons have hover and keyboard focus, disabled buttons stay inact
 
   await workspaceFixture().attach(context);
   await page.goto("/ask");
-  const ask = page.locator('button.primary-button[type="submit"]');
+  const ask = page.getByRole("button", { name: "Send message", exact: true });
   await expect(ask).toBeDisabled();
   await expect(ask).toHaveCSS("cursor", "not-allowed");
   const disabledBackground = await ask.evaluate((element) => getComputedStyle(element).backgroundColor);

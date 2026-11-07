@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Session } from "@supabase/supabase-js";
 import type { QuestionHistoryEntry } from "../../../entities/question/model/history";
 import { DocumentIngestionForm } from "../../../features/document-ingestion/ui/DocumentIngestionForm";
+import { useConversation } from "../../../features/question-answering/model/use-conversation";
 import { QuestionAnswerForm } from "../../../features/question-answering/ui/QuestionAnswerForm";
 import { QuestionHistoryPanel } from "../../../features/question-history/ui/QuestionHistoryPanel";
 import { SemanticSearchForm } from "../../../features/semantic-search/ui/SemanticSearchForm";
@@ -245,6 +246,9 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
   const activeTab = lab.tab;
   const workspaceId = privateArea?.workspace.tenantId;
   const workspaceName = privateArea?.workspace.tenantName;
+  const conversation = useConversation({ accessToken: privateArea?.token, workspaceId, scope, onAnswered: addAnswer });
+  const isChat = activeTab === "answer";
+  const showLearningAside = activeTab !== "admin" && !isChat;
 
   useEffect(() => {
     const clearPreview = () => setSelectedSource(null);
@@ -272,8 +276,8 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
       <div className="relative mx-auto grid min-h-screen max-w-[1500px] grid-cols-[minmax(0,1fr)] lg:grid-cols-[17rem_minmax(0,1fr)]">
         <LabNavigation activeTab={activeTab} onTabChange={(tab) => navigateTo(pathForTab(tab, lab.workspaceSection, demo))}
           publicDemo={demo} canIndex={demo && canIndexDemo} />
-        <section className="min-w-0 p-5 sm:p-8 lg:p-10">
-          <LabHeader online={health.data?.status === "ok"} loading={health.isLoading} publicDemo={demo}
+        <section className={`min-w-0 ${isChat ? "p-3 sm:p-5 lg:px-8 lg:py-6" : "p-5 sm:p-8 lg:p-10"}`}>
+          <LabHeader online={health.data?.status === "ok"} loading={health.isLoading} publicDemo={demo} compact={isChat}
             workspaces={privateArea?.workspaces ?? []} workspaceId={workspaceId ?? ""}
             onWorkspaceChange={(id) => privateArea?.onWorkspaceChange(id)}
             workspaceCreation={privateArea ? { accessToken: privateArea.token, onWorkspaceCreated: privateArea.onWorkspaceCreated } : undefined}
@@ -283,12 +287,12 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
             {t("Saving your progress with Milo…", "Salvando seu progresso com o Milo…")}
           </p>}
           {onRetryOnboardingSync && <div className="mt-5"><OnboardingSyncNotice onRetry={onRetryOnboardingSync} /></div>}
-          <div className={`mt-8 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-8 ${activeTab === "admin" ? "" : "xl:grid-cols-[minmax(0,1fr)_18rem]"}`}>
+          <div className={`grid min-w-0 grid-cols-[minmax(0,1fr)] gap-8 ${isChat ? "mt-3 sm:mt-5" : "mt-8"} ${showLearningAside ? "xl:grid-cols-[minmax(0,1fr)_18rem]" : ""}`}>
             <div className="min-w-0">
               {activeTab === "ingest" && <DocumentIngestionForm />}
               {activeTab === "search" && <SemanticSearchForm accessToken={privateArea?.token} workspaceId={workspaceId} workspaceName={workspaceName} />}
               {activeTab === "answer" && <QuestionAnswerForm scope={scope} accessToken={privateArea?.token} workspaceId={workspaceId}
-                workspaceName={workspaceName} onAnswered={addAnswer} />}
+                workspaceName={workspaceName} conversation={conversation} />}
               {activeTab === "history" && <QuestionHistoryPanel history={history} onClear={() => setHistory([])} onFeedback={setFeedback} onInspectSource={setSelectedSource} />}
               {lab.tab === "admin" && privateArea && <Suspense fallback={<p role="status" className="empty-state">{t("Opening workspace…", "Abrindo o espaço…")}</p>}>
                 <WorkspaceControlCenter section={lab.workspaceSection} workspace={privateArea.workspace} token={privateArea.token}
@@ -296,7 +300,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
               </Suspense>}
               {selectedSource && <SourcePreview source={selectedSource} onClose={() => setSelectedSource(null)} />}
             </div>
-            {activeTab !== "admin" && <RagLearningAside />}
+            {showLearningAside && <RagLearningAside />}
           </div>
         </section>
       </div>

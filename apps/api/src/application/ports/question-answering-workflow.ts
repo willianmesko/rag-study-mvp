@@ -29,6 +29,7 @@ export type AnswerWorkflowEvent =
 
 export type AnswerWorkflowInput = {
   question: string;
+  previousQuestions?: readonly string[];
   topK?: number;
   tenantId?: string;
   queryEmbedding?: number[];
@@ -44,6 +45,7 @@ export interface QuestionAnsweringWorkflow {
 
 export type PreparedAnswerContext = {
   question: string;
+  previousQuestions?: readonly string[];
   context: GroundedContext;
   estimatedInputTokens: number;
 };

@@ -8,6 +8,10 @@ export class LangSmithTracingWorkflow implements QuestionAnsweringWorkflow {
   ) {}
 
   answer(input: AnswerWorkflowInput): Promise<AnswerQuestionResult> {
+    if (input.previousQuestions?.length) {
+      // Suppress nested LangGraph traces as well as the outer trace for history.
+      return traceable(() => this.workflow.answer(input), { tracingEnabled: false })();
+    }
     if (!this.options.enabled) return this.workflow.answer(input);
 
     const { signal, ...payload } = input;
@@ -25,7 +29,7 @@ export class LangSmithTracingWorkflow implements QuestionAnsweringWorkflow {
   }
 
   answerStream(input: AnswerWorkflowInput, onEvent: (event: AnswerWorkflowEvent) => void | Promise<void>): Promise<AnswerQuestionResult> {
-    if (!this.workflow.answerStream) return this.workflow.answer(input);
+    if (!this.workflow.answerStream) return input.previousQuestions?.length ? this.answer(input) : this.workflow.answer(input);
     return this.workflow.answerStream(input, onEvent);
   }
 }

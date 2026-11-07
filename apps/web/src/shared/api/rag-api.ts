@@ -153,7 +153,8 @@ export const api = {
   search: (input: SearchInput & { accessToken?: string; workspaceId?: string }) =>
     request<SearchResponse>(`/v1/search?${new URLSearchParams({ q: input.query, topK: String(input.topK ?? 5) })}`, { headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) } }),
   answer: (input: QuestionInput & { accessToken?: string; workspaceId?: string; signal?: AbortSignal }) => request<QuestionResponse>("/v1/qa", {
-    method: "POST", signal: input.signal, body: JSON.stringify({ question: input.question, topK: input.topK ?? 5, modelId: input.modelId }),
+    method: "POST", signal: input.signal,
+    body: JSON.stringify({ question: input.question, topK: input.topK ?? 5, modelId: input.modelId, previousQuestions: input.previousQuestions }),
     headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) }
   }),
   chatModels: async (accessToken: string, workspaceId: string, signal: AbortSignal) => chatModelCatalogSchema.parse(await request<unknown>("/v1/qa/models", {
