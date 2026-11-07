@@ -23,18 +23,32 @@ import type { UsageSummary } from "../../application/ports/usage-metrics-reposit
 import type { EvaluationRun } from "../../application/ports/evaluation-repository.js";
 import type { RunEvaluationUseCase } from "../../application/use-cases/run-evaluation.js";
 import type { TenantMembership, TenantRole, WorkspaceMember } from "../../application/ports/tenant-membership-repository.js";
+import { PublicHtmlFetchError, type PublicHtmlFetchErrorCode, type PublicHtmlFetcher } from "../../application/ports/public-html-fetcher.js";
 import { config } from "../../config.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 
 const searchSchema = z.object({ q: z.string().min(1).max(5_000), topK: z.coerce.number().int().min(1).max(20).optional() });
 const invitationSchema = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: workspaceMemberRoleSchema });
 const memberRoleSchema = z.object({ role: workspaceMemberRoleSchema });
+const urlImportSchema = z.object({ url: z.string().trim().min(1).max(1_000).url(), title: z.string().trim().min(1).max(500).optional() });
+const urlImportStatus: Record<PublicHtmlFetchErrorCode, number> = {
+  invalid_url: 400,
+  unsafe_destination: 400,
+  dns_failed: 502,
+  redirect_limit: 502,
+  fetch_failed: 502,
+  unsupported_content_type: 415,
+  response_too_large: 413,
+  invalid_encoding: 415,
+  fetch_timeout: 504
+};
 
 type HttpDependencies = {
   ingestDocument: IngestDocumentUseCase;
   searchDocuments: SearchDocumentsUseCase;
   answerQuestion: AnswerQuestionUseCase;
   queueDocumentUpload: QueueDocumentUploadUseCase;
+  publicHtmlFetcher: PublicHtmlFetcher;
   processNextIngestionJob: ProcessNextIngestionJobUseCase;
   retryIngestionJob: RetryIngestionJobUseCase;
   listIngestionJobs: (tenantId: string, limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
@@ -151,8 +165,8 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (!membership) return { ok: false as const, status: 403, error: "Workspace membership required." };
     return { ok: true as const, userId: data.user.id, tenantId: membership.tenantId, role: membership.role };
   };
-  const authorizeAdmin = async (request: { headers: Record<string, string | string[] | undefined> }) => {
-    const authorization = await authorizeMember(request);
+  const authorizeAdmin = async (request: { headers: Record<string, string | string[] | undefined> }, requireExplicitWorkspace = false) => {
+    const authorization = await authorizeMember(request, requireExplicitWorkspace);
     if (!authorization.ok) return authorization;
     if (authorization.role === "viewer") return { ok: false as const, status: 403, error: "Editor or owner access required." };
     return authorization;
@@ -243,6 +257,26 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (!removed) return reply.code(409).send({ error: "Owners cannot be removed." });
     return reply.code(204).send();
   });
+  async function queueWorkspaceUpload(
+    actor: { tenantId: string; userId: string }, requestId: string,
+    upload: Omit<Parameters<QueueDocumentUploadUseCase["execute"]>[0], "tenantId">,
+    sourceType: "file" | "url"
+  ) {
+    const quota = await dependencies.consumeAdminUploadQuota(actor.tenantId, actor.userId, upload.payload.byteLength);
+    if (!quota.allowed) return null;
+    const job = await dependencies.queueDocumentUpload.execute({ ...upload, tenantId: actor.tenantId });
+    await dependencies.recordAuditEvent({
+      tenantId: actor.tenantId,
+      actorUserId: actor.userId,
+      action: "document.upload_queued",
+      resourceType: "ingestion_job",
+      resourceId: job.id,
+      requestId,
+      metadata: { bytes: upload.payload.byteLength, mimeType: upload.mimeType, sourceType }
+    });
+    return job;
+  }
+
   app.post("/v1/admin/uploads", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
@@ -251,19 +285,27 @@ export async function buildApp(dependencies: HttpDependencies) {
     const sourceHeader = request.headers["x-document-source"];
     const titleHeader = request.headers["x-document-title"];
     const input = z.object({ source: z.string().min(3).max(1_000), title: z.string().min(1).max(500).optional() }).parse({ source: sourceHeader ?? `upload/${file.filename}`, title: titleHeader || undefined });
-    const payload = await file.toBuffer();
-    const quota = await dependencies.consumeAdminUploadQuota(authorization.tenantId, authorization.userId, payload.byteLength);
-    if (!quota.allowed) return reply.code(429).send({ error: "Daily upload quota reached. Try again tomorrow." });
-    const job = await dependencies.queueDocumentUpload.execute({ tenantId: authorization.tenantId, source: input.source, title: input.title, filename: file.filename, mimeType: file.mimetype || "application/octet-stream", payload });
-    await dependencies.recordAuditEvent({
-      tenantId: authorization.tenantId,
-      actorUserId: authorization.userId,
-      action: "document.upload_queued",
-      resourceType: "ingestion_job",
-      resourceId: job.id,
-      requestId: request.id,
-      metadata: { bytes: payload.byteLength, mimeType: file.mimetype || "application/octet-stream" }
-    });
+    const job = await queueWorkspaceUpload(authorization, request.id, {
+      ...input, filename: file.filename, mimeType: file.mimetype || "application/octet-stream", payload: await file.toBuffer()
+    }, "file");
+    if (!job) return reply.code(429).send({ error: "Daily upload quota reached. Try again tomorrow." });
+    return reply.code(202).send({ job: serializeJob(job) });
+  });
+  app.post("/v1/admin/uploads/url", { bodyLimit: 8_000, config: { rateLimit: { max: 6 } } }, async (request, reply) => {
+    const authorization = await authorizeAdmin(request, true);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { url, title } = urlImportSchema.parse(request.body);
+    let page: Awaited<ReturnType<PublicHtmlFetcher["fetch"]>>;
+    try {
+      page = await dependencies.publicHtmlFetcher.fetch(url);
+    } catch (error) {
+      if (!(error instanceof PublicHtmlFetchError)) throw error;
+      return reply.code(urlImportStatus[error.code]).send({ error: error.message, code: error.code });
+    }
+    const job = await queueWorkspaceUpload(authorization, request.id, {
+      source: page.url, title, filename: page.filename, mimeType: "text/html", payload: page.payload
+    }, "url");
+    if (!job) return reply.code(429).send({ error: "Daily upload quota reached. Try again tomorrow." });
     return reply.code(202).send({ job: serializeJob(job) });
   });
   app.get("/v1/admin/uploads", async (request, reply) => {
@@ -495,7 +537,11 @@ function serializeIngestionEvent(event: IngestionJobEvent) {
 }
 
 function serializeDocument(document: ManagedDocument) {
-  return { id: document.id, source: document.source, title: document.title, chunkCount: document.chunkCount, hasOriginal: document.hasOriginal, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() };
+  return {
+    id: document.id, source: document.source, title: document.title, chunkCount: document.chunkCount, hasOriginal: document.hasOriginal,
+    format: document.format, language: document.language, sectionCount: document.sectionCount,
+    createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString()
+  };
 }
 
 function serializeEvaluationRun(run: EvaluationRun) {

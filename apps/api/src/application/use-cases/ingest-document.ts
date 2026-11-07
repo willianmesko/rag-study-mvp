@@ -1,4 +1,4 @@
-import { chunkText } from "../../domain/chunk.js";
+import { chunkSections, chunkText, type DocumentSection } from "../../domain/chunk.js";
 import type { DocumentInput, EmbeddedChunk } from "../../domain/document.js";
 import { assessPromptInjection } from "../../domain/security/prompt-injection.js";
 import type { EmbeddingProvider } from "../ports/embedding-provider.js";
@@ -42,10 +42,13 @@ export class IngestDocumentUseCase {
     private readonly options: IngestOptions
   ) {}
 
-  async execute(input: DocumentInput, report?: IngestionStageReporter): Promise<{ id: string; chunkCount: number; highRiskChunks: number }> {
+  async execute(input: DocumentInput & { sections?: readonly DocumentSection[] }, report?: IngestionStageReporter): Promise<{ id: string; chunkCount: number; highRiskChunks: number }> {
     const chunkStartedAt = Date.now();
     await report?.({ stage: "chunking", status: "started" });
-    const chunks = chunkText(input.text, this.options.chunkSize, this.options.chunkOverlap);
+    const { chunkSize, chunkOverlap } = this.options;
+    const chunks = input.sections?.length
+      ? chunkSections(input.sections, chunkSize, chunkOverlap)
+      : chunkText(input.text, chunkSize, chunkOverlap);
     await report?.({ stage: "chunking", status: "completed", durationMs: Date.now() - chunkStartedAt, details: { chunkCount: chunks.length } });
     const securityStartedAt = Date.now();
     await report?.({ stage: "security_scan", status: "started" });

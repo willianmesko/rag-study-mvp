@@ -33,6 +33,7 @@ import { RedactingAnswerGenerator } from "./infrastructure/security/redacting-an
 import { RedactingEmbeddingProvider } from "./infrastructure/security/redacting-embedding-provider.js";
 import { MultiFormatDocumentTextExtractor } from "./infrastructure/ingestion/document-text-extractor.js";
 import { PopplerTesseractOcr } from "./infrastructure/ingestion/pdf-ocr.js";
+import { HttpsPublicHtmlFetcher } from "./infrastructure/ingestion/public-html-fetcher.js";
 import { createPostgresPool } from "./infrastructure/postgres/pool.js";
 import { PassThroughReranker } from "./infrastructure/reranking/pass-through-reranker.js";
 import { SupabaseOriginalFileStore } from "./infrastructure/storage/supabase-original-file-store.js";
@@ -92,6 +93,7 @@ export function createApplication() {
     useCases: {
       ingestDocument,
       queueDocumentUpload: new QueueDocumentUploadUseCase(jobs, originals),
+      publicHtmlFetcher: new HttpsPublicHtmlFetcher({ maxBytes: Math.min(config.UPLOAD_MAX_BYTES, 1_000_000), timeoutMs: 10_000 }),
       processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, extractor, ingestDocument, originals, semanticCache),
       retryIngestionJob: new RetryIngestionJobUseCase(jobs),
       listIngestionJobs: (tenantId: string, limit: number) => jobs.list(tenantId, limit),

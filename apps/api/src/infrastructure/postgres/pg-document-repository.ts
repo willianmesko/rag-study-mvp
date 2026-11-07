@@ -25,6 +25,9 @@ type ManagedDocumentRow = {
   title: string | null;
   chunk_count: number;
   has_original: boolean;
+  format: string | null;
+  language: string | null;
+  section_count: unknown;
   created_at: Date;
   updated_at: Date;
 };
@@ -170,6 +173,8 @@ export class PgDocumentRepository implements DocumentRepository {
   async list(tenantId: string, limit: number): Promise<ManagedDocument[]> {
     const result = await this.pool.query<ManagedDocumentRow>(
       `SELECT d.id, d.source, d.title, COUNT(c.id)::int AS chunk_count, d.created_at, d.updated_at,
+              d.metadata ->> 'format' AS format, d.metadata ->> 'language' AS language,
+              d.metadata -> 'sectionCount' AS section_count,
               EXISTS (SELECT 1 FROM ingestion_jobs j WHERE ${indexedOriginalPredicate}) AS has_original
        FROM documents d
        LEFT JOIN chunks c ON c.document_id = d.id
@@ -185,6 +190,9 @@ export class PgDocumentRepository implements DocumentRepository {
       title: row.title,
       chunkCount: Number(row.chunk_count),
       hasOriginal: row.has_original,
+      format: row.format && ["pdf", "docx", "html", "markdown", "text"].includes(row.format) ? row.format : undefined,
+      language: row.language && ["pt", "en", "mixed", "und"].includes(row.language) ? row.language : undefined,
+      sectionCount: typeof row.section_count === "number" && Number.isSafeInteger(row.section_count) && row.section_count >= 0 ? row.section_count : undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));

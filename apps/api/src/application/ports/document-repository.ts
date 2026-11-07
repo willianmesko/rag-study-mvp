@@ -17,6 +17,9 @@ export type ManagedDocument = {
   title: string | null;
   chunkCount: number;
   hasOriginal: boolean;
+  format?: string;
+  language?: string;
+  sectionCount?: number;
   createdAt: Date;
   updatedAt: Date;
 };

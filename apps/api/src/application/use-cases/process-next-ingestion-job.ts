@@ -28,9 +28,17 @@ export class ProcessNextIngestionJobUseCase {
         });
         throw error;
       });
-      await this.jobs.recordEvent({ jobId: job.id, tenantId: job.tenantId, stage: "text_extraction", status: "completed", durationMs: Date.now() - extractionStartedAt, details: { characters: extracted.text.length } });
+      const { format, language, sectionCount } = extracted.metadata;
+      await this.jobs.recordEvent({
+        jobId: job.id, tenantId: job.tenantId, stage: "text_extraction", status: "completed",
+        durationMs: Date.now() - extractionStartedAt,
+        details: { characters: extracted.text.length, format, language, sectionCount }
+      });
       const result = await this.ingest.execute(
-        { tenantId: job.tenantId, source: job.source, title: job.title ?? undefined, text: extracted.text, metadata: { filename: job.filename, mimeType: job.mimeType, ingestionJobId: job.id, ...extracted.metadata } },
+        {
+          tenantId: job.tenantId, source: job.source, title: job.title ?? extracted.title, text: extracted.text, sections: extracted.sections,
+          metadata: { ...extracted.metadata, filename: job.filename, mimeType: job.mimeType, ingestionJobId: job.id }
+        },
         (event) => this.jobs.recordEvent({ jobId: job.id, tenantId: job.tenantId, ...event })
       );
       await this.jobs.complete(job.id, { documentId: result.id, ...result });

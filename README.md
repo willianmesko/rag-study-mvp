@@ -53,6 +53,8 @@ Zod schemas in both applications.
 - Prompt-injection scanning before external reranking or answer generation.
 - Private administrative ingestion for PDF, DOCX, TXT, and Markdown, with OCR
   for scanned PDFs.
+- Import public HTTPS pages and HTML files, detect Portuguese and English, and
+  index passages using document headings or PDF page boundaries.
 - Workspaces with `owner`, `editor`, and read-only `viewer` roles.
 - Workspace control center with routed Overview, Knowledge, Processing, Team,
   Evaluations, and Settings sections plus a guided first-run onboarding path.
@@ -116,6 +118,19 @@ Members can open files in their own workspace, including viewers. The API
 checks membership, serves the original bytes with caching disabled, and records
 the access in the audit trail. The action appears when the indexed revision is
 linked to a retained upload.
+
+### Import a public page or HTML file
+
+In **Workspace → Knowledge**, an owner or editor can upload an `.html` or
+`.htm` file or use **Import a web page**. A page import reads the HTML returned
+by the site over HTTPS using a public IPv4 address. It accepts UTF-8 pages up
+to 1 MB and limits the full download to 10 seconds and three redirects.
+
+The worker extracts the main text, headings, title and description when
+available, and identifies Portuguese, English, mixed, or undetermined text.
+An explicit title takes precedence. HTML, Markdown, and Word headings guide
+passage boundaries, while PDF extraction preserves page boundaries. The original
+is available as a private download and processing appears in **Processing**.
 
 ## Common commands
 

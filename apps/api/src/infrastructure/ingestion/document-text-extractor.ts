@@ -1,16 +1,18 @@
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import type {
-  DocumentExtractionEvent, DocumentTextExtractor, ExtractionStageReporter
+  DocumentExtractionEvent, DocumentTextExtractor, ExtractedDocument, ExtractionStageReporter
 } from "../../application/ports/document-text-extractor.js";
+import { detectDocumentLanguage } from "./document-language.js";
+import { extractMarkdownSections, sectionText, validateSectionCount } from "./document-sections.js";
+import { extractHtml } from "./extract-html.js";
 import { PdfOcrError, type PdfOcrEngine } from "./pdf-ocr.js";
 
-const textTypes = new Set(["text/plain", "text/markdown", "text/html", "application/octet-stream"]);
+const textTypes = new Set(["text/plain", "application/octet-stream"]);
 const MIN_TEXT_LENGTH = 20;
 const MAX_TEXT_LENGTH = 500_000;
 const pageNumberOnly = /^(?:(?:page|p[aá]gina)\s+)?[-–—\s]*\d+(?:\s*(?:of|de|\/)\s*\d+)?[-–—\s]*$/iu;
 
-type Extracted = Awaited<ReturnType<DocumentTextExtractor["extract"]>>;
 type OcrSummary = Extract<DocumentExtractionEvent, { status: "completed" }>["details"];
 type OcrPage = Awaited<ReturnType<PdfOcrEngine["recognize"]>>["pages"][number];
 type OcrFailureCode = PdfOcrError["code"] | "ocr_disabled" | "ocr_page_limit" | "ocr_no_text";
@@ -35,49 +37,57 @@ class ExtractionOcrError extends Error {
 export class MultiFormatDocumentTextExtractor implements DocumentTextExtractor {
   constructor(private readonly options: { ocr?: PdfOcrEngine; maxOcrPages: number } = { maxOcrPages: 8 }) {}
 
-  async extract(input: { filename: string; mimeType: string; payload: Buffer }, report?: ExtractionStageReporter): Promise<Extracted> {
+  async extract(input: { filename: string; mimeType: string; payload: Buffer }, report?: ExtractionStageReporter): Promise<ExtractedDocument> {
     const extension = input.filename.toLowerCase().split(".").pop();
-    if (extension === "pdf" || input.mimeType === "application/pdf") {
+    const mimeType = input.mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+    if (extension === "pdf" || mimeType === "application/pdf") {
       return this.extractPdf(input.payload, report);
     }
-
-    let text: string;
-    let format: "docx" | "html" | "markdown" | "text";
-    if (extension === "docx" || input.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") { text = (await mammoth.extractRawText({ buffer: input.payload })).value; format = "docx"; }
-    else if (extension === "html" || extension === "htm" || input.mimeType === "text/html") { text = htmlToText(input.payload.toString("utf8")); format = "html"; }
-    else if (extension === "md" || extension === "markdown" || input.mimeType === "text/markdown") { text = input.payload.toString("utf8"); format = "markdown"; }
-    else if (extension === "txt" || textTypes.has(input.mimeType)) { text = input.payload.toString("utf8"); format = "text"; }
-    else throw new Error("Unsupported file type. Use PDF, DOCX, HTML, TXT or Markdown.");
-    const normalized = normalize(text);
-    validateTextLength(normalized);
-    return { text: normalized, metadata: { format, language: detectLanguage(normalized), requiresOcr: false } };
+    if (extension === "docx" || mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+      return extractDocx(input.payload);
+    }
+    if (extension === "html" || extension === "htm" || mimeType === "text/html") {
+      const { sections, ...metadata } = extractHtml(input.payload.toString("utf8"));
+      return textResult("html", sectionText(sections), { sections, ...metadata });
+    }
+    if (extension === "md" || extension === "markdown" || mimeType === "text/markdown") {
+      const text = input.payload.toString("utf8").replace(/[\u0000\uFEFF]/g, "");
+      validateTextLength(text.trim());
+      const structure = extractMarkdownSections(text);
+      return structure.sections.some(({ heading }) => heading)
+        ? textResult("markdown", sectionText(structure.sections), structure)
+        : textResult("markdown", text.trim());
+    }
+    if (extension === "txt" || textTypes.has(mimeType)) return textResult("text", normalize(input.payload.toString("utf8")));
+    throw new Error("Unsupported file type. Use PDF, DOCX, HTML, TXT or Markdown.");
   }
 
-  private async extractPdf(payload: Buffer, report?: ExtractionStageReporter): Promise<Extracted> {
+  private async extractPdf(payload: Buffer, report?: ExtractionStageReporter): Promise<ExtractedDocument> {
     const pages = await readNativePages(payload);
+    validateSectionCount(pages.length);
     const nativeText = joinPages(pages);
     if (nativeText.length > MAX_TEXT_LENGTH) validateTextLength(nativeText);
 
     const pageNumbers = pages.flatMap((text, index) => hasReadableContent(text) ? [] : [index + 1]);
     if (pageNumbers.length === 0) {
       validateTextLength(nativeText);
-      return pdfResult(nativeText, pages.length);
+      return pdfResult(pages, pages.length);
     }
 
     const pageCounts = { totalPages: pages.length, requestedPages: pageNumbers.length };
     if (!this.options.ocr) {
       // A blank separator is indistinguishable from a scan at this stage. Keep
       // usable native text in OCR-disabled environments and mark omitted pages.
-      const readableText = joinPages(pages.filter(hasReadableContent));
-      if (readableText.length >= MIN_TEXT_LENGTH) {
+      const readablePages = pages.filter(hasReadableContent);
+      if (joinPages(readablePages).length >= MIN_TEXT_LENGTH) {
         await report?.({ stage: "ocr", status: "info", details: { code: "ocr_disabled", ...pageCounts } });
-        return pdfResult(readableText, pages.length, { requiresOcr: true });
+        return pdfResult(readablePages, pages.length, { requiresOcr: true });
       }
     }
 
     const startedAt = Date.now();
     await report?.({ stage: "ocr", status: "started", details: pageCounts });
-    let text: string;
+    let indexedPages: string[];
     let summary: OcrSummary;
     try {
       if (!this.options.ocr) throw new ExtractionOcrError("ocr_disabled");
@@ -86,7 +96,8 @@ export class MultiFormatDocumentTextExtractor implements DocumentTextExtractor {
       const recognized = await this.options.ocr.recognize({ pdf: payload, pageNumbers });
       const byPage = indexOcrPages(pageNumbers, recognized.pages);
       // Empty OCR output cannot turn a page number or a blank scan into indexable text.
-      text = joinPages(pages.map((native, index) => byPage.get(index + 1)?.text ?? native));
+      indexedPages = pages.map((native, index) => byPage.get(index + 1)?.text ?? native);
+      const text = joinPages(indexedPages);
       if (text.length < MIN_TEXT_LENGTH) throw new ExtractionOcrError("ocr_no_text");
       if (text.length > MAX_TEXT_LENGTH) throw new ExtractionOcrError("ocr_output_limit");
       summary = summarizeOcr(pages.length, byPage);
@@ -99,7 +110,7 @@ export class MultiFormatDocumentTextExtractor implements DocumentTextExtractor {
     }
 
     await report?.({ stage: "ocr", status: "completed", durationMs: Date.now() - startedAt, details: summary });
-    return pdfResult(text, pages.length, { ocr: summary, requiresOcr: true });
+    return pdfResult(indexedPages, pages.length, { ocr: summary, requiresOcr: true });
   }
 }
 
@@ -170,15 +181,19 @@ function summarizeOcr(totalPages: number, pages: Map<number, OcrPage>): OcrSumma
 }
 
 function pdfResult(
-  text: string,
+  pages: string[],
   totalPages: number,
   { ocr, requiresOcr = false }: { ocr?: OcrSummary; requiresOcr?: boolean } = {}
-): Extracted {
+): ExtractedDocument {
+  const text = joinPages(pages);
+  const sections = pages.filter(Boolean).map((page) => ({ text: page }));
   return {
     text,
+    sections,
     metadata: {
       format: "pdf",
-      language: detectLanguage(text),
+      language: detectDocumentLanguage(text),
+      sectionCount: sections.length,
       requiresOcr,
       ocrUsed: Boolean(ocr),
       pageCount: totalPages,
@@ -192,22 +207,49 @@ function pdfResult(
   };
 }
 
-function htmlToText(html: string): string {
-  return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<(?:br|\/p|\/div|\/li|\/h[1-6]|\/tr)>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
-    .replace(/&#39;|&apos;/gi, "'").replace(/&quot;/gi, "\"");
+function textResult(
+  format: "docx" | "html" | "markdown" | "text",
+  text: string,
+  { title, sections, description, languageHint }: Pick<ExtractedDocument, "title" | "sections"> & { description?: string; languageHint?: string } = {}
+): ExtractedDocument {
+  validateTextLength(text);
+  return {
+    text,
+    ...(title && { title }),
+    ...(sections && { sections }),
+    metadata: {
+      format,
+      language: detectDocumentLanguage(text, languageHint),
+      sectionCount: sections?.length ?? 1,
+      requiresOcr: false,
+      ...(description && { description }),
+      ...(languageHint && { languageHint })
+    }
+  };
 }
 
-function detectLanguage(text: string): string {
-  const words = text.toLowerCase().match(/[a-zà-ÿ]+/g) ?? [];
-  const portuguese = new Set(["a", "o", "de", "da", "do", "para", "com", "não", "uma", "que", "em", "por"]);
-  const english = new Set(["the", "and", "of", "to", "in", "for", "with", "is", "that", "from"]);
-  const score = (dictionary: Set<string>) => words.reduce((total, word) => total + Number(dictionary.has(word)), 0);
-  const pt = score(portuguese);
-  const en = score(english);
-  return pt === en ? "und" : pt > en ? "pt" : "en";
+async function extractDocx(payload: Buffer): Promise<ExtractedDocument> {
+  let html: string;
+  try {
+    ({ value: html } = await mammoth.convertToHtml({ buffer: payload }, {
+      externalFileAccess: false,
+      includeEmbeddedStyleMap: false,
+      convertImage: mammoth.images.imgElement(async () => ({ src: "" })),
+      styleMap: ["p.Title => h1:fresh", "p[style-name='Title'] => h1:fresh"]
+    }));
+  } catch {
+    return extractRawDocx(payload);
+  }
+  const { sections, title } = extractHtml(html);
+  return sections.length > 0 ? textResult("docx", sectionText(sections), { sections, title }) : extractRawDocx(payload);
+}
+
+async function extractRawDocx(payload: Buffer): Promise<ExtractedDocument> {
+  let text: string;
+  try {
+    ({ value: text } = await mammoth.extractRawText({ buffer: payload }));
+  } catch {
+    throw new Error("The DOCX could not be read. Check that the file is valid and unlocked.");
+  }
+  return textResult("docx", normalize(text));
 }

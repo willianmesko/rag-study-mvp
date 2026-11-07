@@ -40,7 +40,18 @@ export type AnswerStreamEvent =
   | { type: "error"; error: string };
 export type UploadJob = { id: string; source: string; title: string | null; filename: string; mimeType: string; status: "queued" | "processing" | "completed" | "failed"; progress: number; error: string | null; chunkCount: number | null; highRiskChunks: number | null; createdAt: string; updatedAt: string };
 export type IngestionEvent = { id: string; stage: string; status: "started" | "completed" | "failed" | "info"; durationMs: number | null; details: Record<string, unknown>; createdAt: string };
-export type ManagedDocument = { id: string; source: string; title: string | null; chunkCount: number; createdAt: string; updatedAt: string; hasOriginal?: boolean };
+export type ManagedDocument = {
+  id: string;
+  source: string;
+  title: string | null;
+  chunkCount: number;
+  createdAt: string;
+  updatedAt: string;
+  hasOriginal?: boolean;
+  format?: string;
+  language?: "pt" | "en" | "mixed" | "unknown" | "und";
+  sectionCount?: number;
+};
 type OriginalDocumentFile = { blob: Blob; filename: string; isPdf: boolean };
 export type StoredChunk = { id: string; ordinal: number; content: string; security: SearchResult["security"]; createdAt: string };
 export type Workspace = { tenantId: string; tenantName: string; tenantSlug: string; role: "owner" | "editor" | "viewer" };
@@ -201,6 +212,12 @@ export const api = {
   listDocumentChunks: (documentId: string, accessToken: string, workspaceId?: string) => request<{ chunks: StoredChunk[] }>(`/v1/admin/documents/${documentId}/chunks`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   reindexDocument: (documentId: string, accessToken: string, workspaceId?: string) => request<{ job: UploadJob }>(`/v1/admin/documents/${documentId}/reindex`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   deleteDocument: (documentId: string, accessToken: string, workspaceId?: string) => requestVoid(`/v1/admin/documents/${documentId}`, { method: "DELETE", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  importDocumentUrl: (input: { url: string; title?: string; accessToken: string; workspaceId: string }) =>
+    request<{ job: UploadJob }>("/v1/admin/uploads/url", {
+      method: "POST",
+      headers: { authorization: `Bearer ${input.accessToken}`, "x-workspace-id": input.workspaceId },
+      body: JSON.stringify({ url: input.url, title: input.title })
+    }),
   uploadDocument: async (input: { file: File; source: string; title?: string; accessToken: string; workspaceId?: string }) => {
     const body = new FormData(); body.append("file", input.file);
     const response = await fetch(`${apiBaseUrl}/v1/admin/uploads`, { method: "POST", body, headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId), "x-document-source": input.source, ...(input.title ? { "x-document-title": input.title } : {}) } });

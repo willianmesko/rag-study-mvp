@@ -8,6 +8,7 @@ import type { WorkspaceSection } from "../../../shared/lib/app-route";
 import { WorkspaceOverview } from "../../workspace-control-center/ui/WorkspaceOverview";
 import { OcrEventDetails } from "./OcrEventDetails";
 import { OriginalDocumentAction } from "./OriginalDocumentAction";
+import { UrlImportForm } from "./UrlImportForm";
 
 type Translate = ReturnType<typeof useLocale>["t"];
 
@@ -22,6 +23,23 @@ function statusLabel(status: UploadJob["status"], t: Translate) {
     completed: t("Completed", "Concluído"),
     failed: t("Failed", "Falhou")
   }[status];
+}
+
+function DocumentMetadata({ document }: { document: ManagedDocument }) {
+  const { locale, t } = useLocale();
+  const undetermined = t("Language undetermined", "Idioma não identificado");
+  const languages = {
+    pt: t("Portuguese", "Português"), en: t("English", "Inglês"), mixed: t("Mixed languages", "Idiomas mistos"),
+    unknown: undetermined, und: undetermined
+  };
+  const format = document.format === "text" ? t("Plain text", "Texto simples")
+    : document.format === "markdown" ? "Markdown" : document.format?.toUpperCase();
+  const language = document.language ? languages[document.language] : undefined;
+  const sections = document.sectionCount === undefined ? undefined
+    : `${document.sectionCount.toLocaleString(locale)} ${document.sectionCount === 1 ? t("section", "seção") : t("sections", "seções")}`;
+  const metadata = [format, language, sections].filter(Boolean).join(" · ");
+
+  return metadata && <p className="mt-1 break-words text-xs text-slate-400">{metadata}</p>;
 }
 
 function requestError(error: unknown, t: Translate, fallback: string) {
@@ -402,26 +420,29 @@ export function AdminPanel({ section, workspace, token, onSectionChange }: {
       {section === "knowledge" && (
         <div className="space-y-6">
           {workspace && !readOnly && (
-            <form className="panel grid gap-4" onSubmit={submitUpload}>
-              <div>
-                <p className="eyebrow">{t("Add knowledge", "Adicionar documentos")}</p>
-                <h3 className="mt-2 text-lg font-semibold text-white">{t("Upload a source your team trusts", "Envie uma fonte em que sua equipe confia")}</h3>
-                <p className="mt-2 text-sm text-slate-400">{t("Lumora stores the original privately and prepares its text for search.", "O Lumora guarda o arquivo original em privado e prepara seu texto para a busca.")}</p>
-              </div>
-              <label className="grid gap-2 text-sm text-slate-300">
-                {t("Source ID (optional)", "Identificador da fonte (opcional)")}
-                <input className="field" value={source} onChange={(event) => setSource(event.target.value)} placeholder={t("For example, legal/playbook", "Por exemplo, juridico/manual")} />
-              </label>
-              <label className="grid gap-2 text-sm text-slate-300">
-                {t("Title (optional)", "Título (opcional)")}
-                <input className="field" value={title} onChange={(event) => setTitle(event.target.value)} />
-              </label>
-              <label className="grid gap-2 text-sm text-slate-300">
-                {t("Document file", "Arquivo do documento")}
-                <input className="field" type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} required />
-              </label>
-              <button className="primary-button w-fit" disabled={upload.isPending}>{upload.isPending ? t("Uploading…", "Enviando…") : t("Send for processing", "Enviar para processamento")}</button>
-            </form>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <form className="panel grid min-w-0 content-start gap-4" onSubmit={submitUpload}>
+                <div>
+                  <p className="eyebrow">{t("Add knowledge", "Adicionar documentos")}</p>
+                  <h3 className="mt-2 text-lg font-semibold text-white">{t("Upload a source your team trusts", "Envie uma fonte em que sua equipe confia")}</h3>
+                  <p className="mt-2 text-sm text-slate-400">{t("Lumora stores the original privately and prepares its text for search.", "O Lumora guarda o arquivo original em privado e prepara seu texto para a busca.")}</p>
+                </div>
+                <label className="grid gap-2 text-sm text-slate-300">
+                  {t("Source ID (optional)", "Identificador da fonte (opcional)")}
+                  <input className="field" value={source} onChange={(event) => setSource(event.target.value)} placeholder={t("For example, legal/playbook", "Por exemplo, juridico/manual")} />
+                </label>
+                <label className="grid gap-2 text-sm text-slate-300">
+                  {t("Title (optional)", "Título (opcional)")}
+                  <input className="field" value={title} onChange={(event) => setTitle(event.target.value)} />
+                </label>
+                <label className="grid gap-2 text-sm text-slate-300">
+                  {t("Document file", "Arquivo do documento")}
+                  <input className="field" type="file" accept=".pdf,.docx,.txt,.md,.markdown,.html,.htm" onChange={(event) => setFile(event.target.files?.[0] ?? null)} required />
+                </label>
+                <button className="primary-button w-fit" disabled={upload.isPending}>{upload.isPending ? t("Uploading…", "Enviando…") : t("Send for processing", "Enviar para processamento")}</button>
+              </form>
+              <UrlImportForm accessToken={token} workspaceId={workspaceId} onImported={() => { void jobs.refetch(); void refreshDocuments(); }} />
+            </div>
           )}
           <div className="space-y-3">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -447,6 +468,7 @@ export function AdminPanel({ section, workspace, token, onSectionChange }: {
                       <p className="truncate text-sm font-medium text-slate-100">{document.title ?? document.source}</p>
                       <p className="mt-1 truncate font-mono text-xs text-slate-500">{document.source}</p>
                       <p className="mt-2 text-xs text-slate-400">{number.format(document.chunkCount)} {document.chunkCount === 1 ? t("passage", "trecho") : t("passages", "trechos")} · {t("updated", "atualizado em")} {date.format(new Date(document.updatedAt))}</p>
+                      <DocumentMetadata document={document} />
                     </button>
                     <div className="flex shrink-0 flex-wrap items-start gap-3 text-xs font-medium">
                       <button type="button" className="text-cyan-300 hover:text-cyan-100" onClick={() => setSelectedDocument(document)}>{t("View passages", "Ver trechos")}</button>

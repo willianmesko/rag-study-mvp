@@ -28,6 +28,11 @@ product decision, credentials, or additional operational cost.
 - Original uploads in Knowledge: workspace members can open retained PDFs or
   download the original bytes for the indexed revision. The API checks access
   and audits reads.
+- Advanced ingestion: owners and editors can import public HTTPS pages or
+  HTML uploads. Ingestion extracts available title and description, labels the
+  detected language, and chunks HTML, Markdown, and DOCX using headings. PDFs
+  keep page boundaries. URL downloads enforce public network destinations,
+  content type, redirect limits, and byte and time budgets.
 - Ingestion pipeline visualization: file received, extraction, chunking,
   security scan, embeddings, and vector persistence.
 - Persisted ingestion timeline: stage start/end events, durations, safe counts,
@@ -63,8 +68,8 @@ product decision, credentials, or additional operational cost.
 
 ## Delivery sequence
 
-1. Advanced ingestion — URL/HTML, metadata, language detection, and
-   structure-aware chunking. Scanned PDF OCR is complete.
+1. Advanced ingestion — complete for scanned PDF OCR, static public HTTPS
+   pages, HTML uploads, metadata, language detection, and structured chunking.
 2. RAG visualization — controlled passage previews and score interpretation.
 3. UX quality — responsive visual tests, contrast, accessibility, and team flows.
 4. Workspace Control Center — finish extracting independent section widgets
@@ -93,8 +98,8 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      beyond the owner-only dashboard.
 
 2. **Improve ingestion**
-   - Support URL/HTML import, metadata extraction, language detection, and
-     structure-aware chunking.
+   - The first advanced ingestion milestone is complete. Checkpointed ingestion
+     and selective retries remain part of the LangGraph workflow expansion.
 
 3. **RAG pipeline visualization**
    - Add a limited, explicitly approved chunk preview to the existing timeline.
