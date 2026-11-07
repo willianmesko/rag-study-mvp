@@ -2,7 +2,7 @@
 
 ## Status
 
-The candidate is locally validated and awaiting exact-source CI/publication.
+Validated and published at `5e63333c1a188be34953e690c1e4214b9a9960d6`.
 It hardens the three existing embedding adapters using the installed Zod and
 native guards. No provider/model/dimension, index, cache version, price,
 credential, migration or library version is changed. Bedrock activation remains
@@ -53,7 +53,7 @@ production build, injection screening, golden retrieval, replay regression and
 Promptfoo. Architecture checks found zero violations across 450 structural
 modules / 1,773 edges and 449 runtime modules / 1,279 edges. Fresh CI must still
 pass PostgreSQL/cutover, UX, native artifact/payload and actual MCP-image gates
-before publication. The local Docker
+before publication; those required gates subsequently passed as recorded below. The local Docker
 capacity limit is already documented; it does not waive CI. No paid provider,
 real AWS service, user content or notification is used in these checks.
 
@@ -64,3 +64,25 @@ families and old configuration fixtures keep BE-12 partial.
 
 Rollback restores the preceding source; existing valid vectors and indexes do
 not need a migration or reindex for this validation-only change.
+
+## Publication evidence
+
+All four [exact-source CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42426024057)
+passed: 410 UX cases / 46 deliberate skips, 85 PostgreSQL cases / zero skips,
+the isolated cutover, 78 architecture fixtures, seven harness checks, four native
+route-state, three artifact and three payload checks. The actual restricted MCP
+image again passed its five-tool/network-disabled/write-rejection check.
+
+| Service | Deployment | Observed live on 2026-11-07 UTC |
+| --- | --- | --- |
+| API | `dep-dbnrfbe417fc73ei0hq0` | 23:47:38.795163 |
+| Web | `dep-dbnrfcm7bikc73dbchj0` | 23:44:35.774001 |
+
+The Render API build at 23:44:22 UTC passed both actual native OCR tests with
+zero skips; its clean runtime receipt counted 490 files, 1,533,403 bytes,
+14 entries and zero project test artifacts. Public checks at 23:48:14 UTC
+verified served assets/icon, health capabilities, server correlation IDs,
+private-route rejection and OAuth input handling. The error/fatal API window
+23:47:38–23:48:55 UTC was empty. A health request during the transition timed out
+before the new deployment became live; the subsequent matched-source checks
+passed. No private real-provider question or third-party OAuth consent is claimed.
