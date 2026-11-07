@@ -9,6 +9,8 @@ import { conversationPromptVersion, groundedPromptVersion } from "../policies/gr
 import { createConversationQuery, preparePreviousQuestions } from "../policies/conversation-context.js";
 import { describeAnswerUsage } from "../policies/answer-usage.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
+import { withTransientBudget } from '../workflows/transient-budget.js';
+import { workflowEffect } from '../workflows/execution-context.js';
 
 export class AnswerQuestionUseCase {
   constructor(
@@ -19,7 +21,10 @@ export class AnswerQuestionUseCase {
     private readonly options: ChatPricing & { cacheTtlSeconds: number; cacheMinimumSimilarity: number; cacheVariant?: string; provider: string; model: string; maxOutputTokens: number; maxEstimatedCostUsd: number }
   ) {}
 
-  async execute(input: { question: string; previousQuestions?: readonly string[]; topK?: number; tenantId: string; actorKey: string; signal?: AbortSignal; onEvent?: (event: AnswerWorkflowEvent) => void | Promise<void> }): Promise<AnswerQuestionResult> {
+  execute(input: { question: string; previousQuestions?: readonly string[]; topK?: number; tenantId: string; actorKey: string; signal?: AbortSignal; onEvent?: (event: AnswerWorkflowEvent) => void | Promise<void> }): Promise<AnswerQuestionResult> {
+    return withTransientBudget({maxSteps:50,maxCalls:12,maxInputTokens:160_000,maxOutputTokens:Math.min(64_000,this.options.maxOutputTokens*2+1_800),maxCostMicros:Math.ceil(this.options.maxEstimatedCostUsd*1_000_000),timeoutMs:120_000},()=>this.run(input));
+  }
+  private async run(input: { question: string; previousQuestions?: readonly string[]; topK?: number; tenantId: string; actorKey: string; signal?: AbortSignal; onEvent?: (event: AnswerWorkflowEvent) => void | Promise<void> }): Promise<AnswerQuestionResult> {
     const { signal } = input;
     signal?.throwIfAborted();
     const startedAt = Date.now();
@@ -33,7 +38,7 @@ export class AnswerQuestionUseCase {
     const embedding = await embeddingIndex.provider.embed(query, "query", signal);
     signal?.throwIfAborted();
     // Similar wording can refer to different entities in different conversations.
-    const cached = hasContext ? null : await this.cache.findSimilar({ tenantId: input.tenantId, modelKey, embedding, embeddingIndexVersion: embeddingIndex.version, minimumSimilarity: this.options.cacheMinimumSimilarity });
+    const cached = hasContext ? null : await workflowEffect('cache_lookup',{tenantId:input.tenantId,modelKey,query}, {},()=>this.cache.findSimilar({ tenantId: input.tenantId, modelKey, embedding, embeddingIndexVersion: embeddingIndex.version, minimumSimilarity: this.options.cacheMinimumSimilarity }));
     signal?.throwIfAborted();
     if (cached && cached.sources.length > 0 && cached.answer !== invalidCitationsAnswer) {
       const answer = redactPii(cached.answer).text;

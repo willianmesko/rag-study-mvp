@@ -6,6 +6,9 @@ import { indexedOriginalPredicate } from "./indexed-original.js";
 import { toVectorLiteral } from "./pgvector.js";
 import { readStoredChunkSecurity } from "./stored-chunk-security.js";
 import { requireActiveEmbeddingRevision, withWorkspaceLock } from "./workspace-embedding-lock.js";
+import { lockWorkflowFence } from "./workflow-fence.js";
+import { currentExecution } from "../../application/workflows/execution-context.js";
+import { WorkflowGuardError } from "../../application/workflows/types.js";
 
 type SearchRow = {
   chunk_id: string;
@@ -50,6 +53,12 @@ export class PgDocumentRepository implements DocumentRepository {
     chunks: EmbeddedChunk[]
   ): Promise<{ id: string; chunkCount: number }> {
     return withWorkspaceLock(this.pool, input.tenantId, "shared", async (client) => {
+      await lockWorkflowFence(client,input.tenantId);
+      const execution=currentExecution();
+      if(execution?.lease.kind==='ingestion') {
+        const active=await client.query("SELECT 1 FROM ingestion_jobs WHERE tenant_id=$1 AND id=$2 AND status='processing' FOR SHARE",[input.tenantId,execution.lease.runId]);
+        if(!active.rowCount)throw new WorkflowGuardError('authorization_revoked');
+      }
       await requireActiveEmbeddingRevision(client, input.tenantId, input.embeddingIndexVersion);
       const document = await client.query<{ id: string }>(
         `INSERT INTO documents (tenant_id, source, title, metadata)

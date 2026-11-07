@@ -5,6 +5,6 @@ export type QuotaResult = {
 };
 
 export interface QuotaRepository {
-  consumeQuestion(input: { tenantId: string; actorKey: string; tenantLimit: number; actorLimit: number; units?: 1 | 2 }): Promise<QuotaResult>;
+  consumeQuestion(input: { tenantId: string; actorKey: string; tenantLimit: number; actorLimit: number; units?: 1 | 2;receiptKey?:string }): Promise<QuotaResult>;
   consumeUpload(input: { tenantId: string; actorKey: string; bytes: number; limit: number }): Promise<QuotaResult>;
 }

@@ -28,6 +28,8 @@ Fastify API (Clean Architecture + LangGraph)
 
 The detailed design is available in
 [System Architecture](docs/system-architecture.md).
+See [Durable workflows](docs/durable-workflows.md) for graphs, security boundaries,
+local setup, budget semantics, recovery limits, and failure runbooks.
 
 ## Monorepo layout
 
@@ -51,7 +53,10 @@ Zod schemas in both applications.
 - Hybrid retrieval: pgvector cosine similarity + PostgreSQL full-text search,
   fused with Reciprocal Rank Fusion (RRF).
 - Optional second-stage reranking.
-- Grounded Q&A using a LangGraph workflow with source citations.
+- Adaptive retrieval with one bounded rewrite/retry, source-grounded claim
+  verification, and one citation/claim repair before a safe refusal.
+- Encrypted native LangGraph checkpoints for private chat, ingestion, and
+  evaluations, with owner approval, persistent budgets, and restart recovery.
 - Structured grounded answers validated with Zod, citation allowlisting, and
   configurable agent step, timeout, token, and cost budgets.
 - Prompt-injection scanning before external reranking or answer generation.
@@ -79,7 +84,7 @@ setup, a worked example, budgets, and the execution boundaries.
 
 ## Prerequisites
 
-- Node.js 22+ and Docker Desktop.
+- Node.js 24 and Docker Desktop.
 - PostgreSQL with pgvector, started through Docker Compose for local work.
 - Ollama for the fully local path, or an OpenRouter key for the public demo.
 

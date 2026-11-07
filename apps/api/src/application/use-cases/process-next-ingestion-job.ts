@@ -5,11 +5,16 @@ import type { IngestDocumentUseCase } from "./ingest-document.js";
 import type { SemanticAnswerCache } from "../ports/semantic-answer-cache.js";
 
 export class ProcessNextIngestionJobUseCase {
-  constructor(private readonly jobs: IngestionJobRepository, private readonly extractor: DocumentTextExtractor, private readonly ingest: IngestDocumentUseCase, private readonly originals: OriginalFileStore, private readonly cache?: SemanticAnswerCache) {}
+  constructor(private readonly jobs: IngestionJobRepository, private readonly extractor: DocumentTextExtractor, private readonly ingest: IngestDocumentUseCase, private readonly originals: OriginalFileStore, private readonly cache?: SemanticAnswerCache,private readonly enqueueWorkflow?:(job:import('../ports/ingestion-job-repository.js').IngestionJob)=>Promise<void>) {}
 
   async execute(): Promise<boolean> {
     const job = await this.jobs.claimNext();
     if (!job) return false;
+    if (this.enqueueWorkflow) {
+      try { await this.enqueueWorkflow(job); }
+      catch { await this.jobs.fail(job.id, 'workflow_admission_failed'); }
+      return true;
+    }
     try {
       await this.jobs.recordEvent({ jobId: job.id, tenantId: job.tenantId, stage: "processing", status: "started" });
       const sourceReadStartedAt = Date.now();

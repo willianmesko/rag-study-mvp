@@ -1,5 +1,7 @@
 import type { Pool } from "pg";
 import type { QuotaRepository, QuotaResult } from "../../application/ports/quota-repository.js";
+import { currentExecution } from "../../application/workflows/execution-context.js";
+import { lockWorkflowFence } from "./workflow-fence.js";
 
 type UsageRow = { qa_requests: number; uploaded_bytes: string | number };
 
@@ -11,6 +13,14 @@ export class PgQuotaRepository implements QuotaRepository {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+      const execution=currentExecution();
+      const receipt=execution?.lease.kind==='chat'?{...execution.lease,key:input.receiptKey??'base'}:null;
+      if(receipt) {
+        await lockWorkflowFence(client,input.tenantId);
+        if(input.actorKey!==`user:${receipt.actorId}`)throw new Error('Quota actor mismatch.');
+        const existing=await client.query("SELECT 1 FROM workflow_quota_receipts WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3 AND receipt_key=$4",[input.tenantId,receipt.actorId,receipt.runId,receipt.key]);
+        if(existing.rowCount){await client.query('COMMIT');return{allowed:true,used:null,limit:input.actorLimit};}
+      }
       const tenant = await client.query<UsageRow>(
         `INSERT INTO tenant_daily_usage (tenant_id, actor_key, qa_requests)
          SELECT $1, '__tenant__', $2::INTEGER WHERE $2::INTEGER <= $3
@@ -29,6 +39,7 @@ export class PgQuotaRepository implements QuotaRepository {
         [input.tenantId, input.actorKey, units, input.actorLimit]
       );
       if (actor.rowCount !== 1) { await client.query("ROLLBACK"); return { allowed: false, used: null, limit: input.actorLimit }; }
+      if(receipt)await client.query("INSERT INTO workflow_quota_receipts(tenant_id,actor_id,run_id,receipt_key) VALUES($1,$2,$3,$4)",[input.tenantId,receipt.actorId,receipt.runId,receipt.key]);
       await client.query("COMMIT");
       return { allowed: true, used: actor.rows[0]?.qa_requests ?? null, limit: input.actorLimit };
     } catch (error) {

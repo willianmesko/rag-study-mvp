@@ -1,6 +1,6 @@
 import type { ChatPromptVariantId } from "@rag-study/contracts";
 import { ConverseCommand, ConverseStreamCommand, type BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
-import type { AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
+import type { AnswerControls, AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
 import { providerRequestSignal } from "../http/provider-client.js";
 
@@ -13,8 +13,8 @@ function publishUsage(usage: { inputTokens?: number; outputTokens?: number } | u
 export class BedrockAnswerGenerator implements AnswerGenerator {
   constructor(private readonly client: BedrockRuntimeClient, private readonly modelId: string, private readonly maxOutputTokens = 500) {}
 
-  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], promptVariant?: ChatPromptVariantId): Promise<string> {
-    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, promptVariant);
+  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], promptVariant?: ChatPromptVariantId, controls?:AnswerControls): Promise<string> {
+    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, promptVariant, controls);
     const response = await this.client.send(
       new ConverseCommand({
         modelId: this.modelId,
@@ -30,8 +30,8 @@ export class BedrockAnswerGenerator implements AnswerGenerator {
     return text;
   }
 
-  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[]): Promise<string> {
-    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions);
+  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], controls?:AnswerControls): Promise<string> {
+    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, undefined, controls);
     const requestSignal = providerRequestSignal(signal);
     const response = await this.client.send(new ConverseStreamCommand({
       modelId: this.modelId,

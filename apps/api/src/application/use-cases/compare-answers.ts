@@ -7,6 +7,7 @@ import { ChatBudgetExceededError, estimateChatCost, type ChatPricing } from "../
 import { describeAnswerUsage } from "../policies/answer-usage.js";
 import { chatPromptDescriptors, estimateGroundedPromptTokens, reserveGroundedPromptTokens } from "../policies/grounded-answer-policy.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
+import { withTransientBudget } from '../workflows/transient-budget.js';
 
 export type ComparisonModel = ChatPricing & {
   descriptor: ChatModelDescriptor;
@@ -41,7 +42,10 @@ export class CompareAnswersUseCase {
     private readonly options: { timeoutMs: number; maxOutputTokens: number; maxEstimatedCostUsd: number }
   ) {}
 
-  async execute(input: CompareInput): Promise<[ComparisonResult, ComparisonResult]> {
+  execute(input: CompareInput): Promise<[ComparisonResult, ComparisonResult]> {
+    return withTransientBudget({maxSteps:50,maxCalls:16,maxInputTokens:320_000,maxOutputTokens:Math.min(64_000,this.options.maxOutputTokens*4+3_600),maxCostMicros:Math.ceil(this.options.maxEstimatedCostUsd*1_000_000),timeoutMs:this.options.timeoutMs},()=>this.run(input));
+  }
+  private async run(input: CompareInput): Promise<[ComparisonResult, ComparisonResult]> {
     const startedAt = performance.now();
     const question = redactPii(input.question).text;
     const variants = input.promptVariantIds ?? ["balanced", "balanced"];
@@ -67,8 +71,8 @@ export class CompareAnswersUseCase {
     let providerUsage: ProviderTokenUsage | undefined;
     const prompt = chatPromptDescriptors.find(({ id }) => id === variant)!;
     const estimatedInputTokens = prepared ? estimateGroundedPromptTokens(prepared.question, prepared.context.text, prepared.previousQuestions, variant) : 0;
-    const generator: AnswerGenerator = { generate: (question, context, signal, onUsage, previousQuestions) =>
-      model.generator.generate(question, context, signal, onUsage, previousQuestions, variant) };
+    const generator: AnswerGenerator = {checkpointKey:`${model.descriptor.id}:${variant}`,generate: (question, context, signal, onUsage, previousQuestions,_variant,controls) =>
+      model.generator.generate(question, context, signal, onUsage, previousQuestions, variant,controls) };
     try {
       response = await withExecutionTimeout((signal) =>
         this.workflow.answerPrepared(prepared, generator, signal, (usage) => { providerUsage = usage; }), timeoutMs, input.signal);

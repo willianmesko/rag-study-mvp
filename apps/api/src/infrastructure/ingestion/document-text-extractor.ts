@@ -1,7 +1,7 @@
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import type {
-  DocumentExtractionEvent, DocumentTextExtractor, ExtractedDocument, ExtractionStageReporter
+  DocumentExtractionEvent, DocumentTextExtractor, ExtractedDocument, ExtractionStageReporter, NativeDocumentExtraction
 } from "../../application/ports/document-text-extractor.js";
 import { detectDocumentLanguage } from "./document-language.js";
 import { extractMarkdownSections, sectionText, validateSectionCount } from "./document-sections.js";
@@ -37,11 +37,26 @@ class ExtractionOcrError extends Error {
 export class MultiFormatDocumentTextExtractor implements DocumentTextExtractor {
   constructor(private readonly options: { ocr?: PdfOcrEngine; maxOcrPages: number } = { maxOcrPages: 8 }) {}
 
-  async extract(input: { filename: string; mimeType: string; payload: Buffer }, report?: ExtractionStageReporter): Promise<ExtractedDocument> {
+  async extractNative(input:{filename:string;mimeType:string;payload:Buffer},signal?:AbortSignal):Promise<NativeDocumentExtraction> {
+    signal?.throwIfAborted();
+    if(input.filename.toLowerCase().endsWith('.pdf')||input.mimeType.split(';')[0]?.trim()==='application/pdf') {
+      const nativePages=await readNativePages(input.payload,signal);
+      validateSectionCount(nativePages.length);
+      const text=joinPages(nativePages);
+      if(text.length>MAX_TEXT_LENGTH)validateTextLength(text);
+      return{text,nativePages,metadata:{format:'pdf'}};
+    }
+    const result=await this.extract(input,undefined,signal);signal?.throwIfAborted();return result;
+  }
+  completeNative(native:NativeDocumentExtraction,input:{payload:Buffer},report?:ExtractionStageReporter,signal?:AbortSignal):Promise<ExtractedDocument> {
+    return native.nativePages?this.extractPdf(input.payload,report,native.nativePages,signal):Promise.resolve(native);
+  }
+  async extract(input: { filename: string; mimeType: string; payload: Buffer }, report?: ExtractionStageReporter,signal?:AbortSignal): Promise<ExtractedDocument> {
+    signal?.throwIfAborted();
     const extension = input.filename.toLowerCase().split(".").pop();
     const mimeType = input.mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
     if (extension === "pdf" || mimeType === "application/pdf") {
-      return this.extractPdf(input.payload, report);
+      return this.extractPdf(input.payload, report,undefined,signal);
     }
     if (extension === "docx" || mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
       return extractDocx(input.payload);
@@ -62,8 +77,9 @@ export class MultiFormatDocumentTextExtractor implements DocumentTextExtractor {
     throw new Error("Unsupported file type. Use PDF, DOCX, HTML, TXT or Markdown.");
   }
 
-  private async extractPdf(payload: Buffer, report?: ExtractionStageReporter): Promise<ExtractedDocument> {
-    const pages = await readNativePages(payload);
+  private async extractPdf(payload: Buffer, report?: ExtractionStageReporter,nativePages?:string[],signal?:AbortSignal): Promise<ExtractedDocument> {
+    signal?.throwIfAborted();
+    const pages = nativePages??await readNativePages(payload,signal);
     validateSectionCount(pages.length);
     const nativeText = joinPages(pages);
     if (nativeText.length > MAX_TEXT_LENGTH) validateTextLength(nativeText);
@@ -93,7 +109,8 @@ export class MultiFormatDocumentTextExtractor implements DocumentTextExtractor {
       if (!this.options.ocr) throw new ExtractionOcrError("ocr_disabled");
       if (pageNumbers.length > this.options.maxOcrPages) throw new ExtractionOcrError("ocr_page_limit");
 
-      const recognized = await this.options.ocr.recognize({ pdf: payload, pageNumbers });
+      const recognized = await this.options.ocr.recognize({ pdf: payload, pageNumbers },signal);
+      signal?.throwIfAborted();
       const byPage = indexOcrPages(pageNumbers, recognized.pages);
       // Empty OCR output cannot turn a page number or a blank scan into indexable text.
       indexedPages = pages.map((native, index) => byPage.get(index + 1)?.text ?? native);
@@ -102,6 +119,7 @@ export class MultiFormatDocumentTextExtractor implements DocumentTextExtractor {
       if (text.length > MAX_TEXT_LENGTH) throw new ExtractionOcrError("ocr_output_limit");
       summary = summarizeOcr(pages.length, byPage);
     } catch (error) {
+      signal?.throwIfAborted();
       const code = error instanceof ExtractionOcrError || error instanceof PdfOcrError
         ? error.code
         : "ocr_recognition_failed";
@@ -114,20 +132,25 @@ export class MultiFormatDocumentTextExtractor implements DocumentTextExtractor {
   }
 }
 
-async function readNativePages(payload: Buffer): Promise<string[]> {
+async function readNativePages(payload: Buffer,signal?:AbortSignal): Promise<string[]> {
   try {
     const parser = new PDFParse({ data: payload, isEvalSupported: false });
+    const abort=()=>{void parser.destroy().catch(()=>undefined);};
+    signal?.addEventListener('abort',abort,{once:true});
     try {
       const result = await parser.getText();
+      signal?.throwIfAborted();
       if (result.total < 1 || result.pages.length !== result.total ||
         !result.pages.every((page, index) => page.num === index + 1)) {
         throw new Error("Incomplete PDF page list.");
       }
       return result.pages.map(({ text }) => normalize(text));
     } finally {
+      signal?.removeEventListener('abort',abort);
       await parser.destroy();
     }
   } catch {
+    signal?.throwIfAborted();
     throw new Error("The PDF could not be read. Check that the file is valid and unlocked.");
   }
 }
@@ -141,7 +164,7 @@ function validateTextLength(text: string): void {
   if (text.length > MAX_TEXT_LENGTH) throw new Error("The extracted document exceeds the 500,000 character limit.");
 }
 
-function hasReadableContent(text: string): boolean {
+export function hasReadableContent(text: string): boolean {
   return text.split(/\r?\n/).some((line) => /[\p{L}\p{N}]/u.test(line) && !pageNumberOnly.test(line.trim()));
 }
 

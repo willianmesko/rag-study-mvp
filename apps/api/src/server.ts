@@ -5,19 +5,19 @@ import { buildApp } from "./interfaces/http/app.js";
 async function main(): Promise<void> {
   const application = createApplication();
   const app = await buildApp(application.useCases);
-  let processing = false;
+  let processing: Promise<void> | undefined;
   const worker = setInterval(() => {
     if (processing) return;
-    processing = true;
-    void application.useCases.processNextIngestionJob.execute()
+    processing = application.useCases.processNextIngestionJob.execute()
+      .then(() => undefined)
       .catch((error: unknown) => app.log.error(error, "Ingestion worker failed."))
-      .finally(() => { processing = false; });
+      .finally(() => { processing = undefined; });
   }, config.INGESTION_WORKER_INTERVAL_MS);
   let pruning: Promise<void> | undefined;
   const cleanup = setInterval(() => {
     if (pruning) return;
     pruning = application.useCases.chatRuns.pruneExpired()
-      .then(() => undefined)
+      .then(async () => { await application.useCases.workflows?.repository.prune(); })
       .catch((error: unknown) => app.log.error(error, "Chat replay cleanup failed."))
       .finally(() => { pruning = undefined; });
   }, 60_000);
@@ -25,6 +25,7 @@ async function main(): Promise<void> {
     app.log.info(`Received ${signal}; shutting down.`);
     clearInterval(worker);
     clearInterval(cleanup);
+    await processing;
     await app.close();
     await pruning;
     await application.close();
@@ -38,6 +39,7 @@ async function main(): Promise<void> {
     app.log.error(error);
     clearInterval(worker);
     clearInterval(cleanup);
+    await processing;
     await app.close();
     await pruning;
     await application.close();

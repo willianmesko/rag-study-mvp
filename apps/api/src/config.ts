@@ -36,6 +36,8 @@ const environment = z.object({
   CHAT_DEFAULT_MODEL_LABEL: z.string().trim().min(1).max(80).optional(),
   CHAT_ADDITIONAL_MODELS: additionalChatModels,
   EVAL_FAITHFULNESS_JUDGE_MODEL: modelName.optional(),
+  EVAL_JUDGE_INPUT_COST_PER_1K_USD:z.coerce.number().min(0).max(10).default(0.001),
+  EVAL_JUDGE_OUTPUT_COST_PER_1K_USD:z.coerce.number().min(0).max(10).default(0.005),
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1024),
   BEDROCK_EMBEDDING_MODEL_ID: z.string().min(1).default("amazon.titan-embed-text-v2:0"),
   BEDROCK_CHAT_MODEL_ID: z.string().min(1).default("global.anthropic.claude-haiku-4-5-20251001-v1:0"),
@@ -65,6 +67,12 @@ const environment = z.object({
   RAG_MINIMUM_SCORE: z.coerce.number().min(-1).max(1).default(0.3),
   AGENT_MAX_STEPS: z.coerce.number().int().min(1).max(50).default(8),
   AGENT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
+  WORKFLOWS_ENABLED:booleanEnvironment.default(false),
+  WORKFLOW_STATE_KEY:z.string().regex(/^[A-Za-z0-9+/]{43}=$/).optional(),
+  WORKFLOW_INGEST_MAX_COST_USD:z.coerce.number().min(0).max(10).default(0.1),
+  WORKFLOW_EVAL_MAX_COST_USD:z.coerce.number().min(0).max(10).default(0.2),
+  EMBEDDING_INPUT_COST_PER_1K_USD:z.coerce.number().min(0).max(10).default(0.001),
+  RAG_CLAIM_MODE:z.enum(['model','extractive']).default('model'),
   MCP_ENABLED: booleanEnvironment.default(false),
   MCP_READ_DATABASE_URL: z.string().url().optional(),
   AGENT_ACTIONS_ENABLED: booleanEnvironment.default(false),
@@ -115,6 +123,7 @@ const environment = z.object({
 });
 
 export const config = environment.parse(process.env);
+if (config.WORKFLOWS_ENABLED && !config.WORKFLOW_STATE_KEY) throw new Error("WORKFLOW_STATE_KEY is required when WORKFLOWS_ENABLED=true.");
 
 if (config.CHUNK_OVERLAP >= config.CHUNK_SIZE) {
   throw new Error("CHUNK_OVERLAP must be smaller than CHUNK_SIZE.");

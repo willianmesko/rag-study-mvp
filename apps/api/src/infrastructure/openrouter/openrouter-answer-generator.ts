@@ -1,6 +1,6 @@
 import type { ChatPromptVariantId } from "@rag-study/contracts";
 import { z } from "zod";
-import type { AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
+import type { AnswerControls, AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
 import { providerRequestSignal, requestProviderJson } from "../http/provider-client.js";
 
@@ -23,8 +23,8 @@ function publishUsage(raw: unknown, onUsage?: ProviderUsageObserver) {
 export class OpenRouterAnswerGenerator implements AnswerGenerator {
   constructor(private readonly baseUrl: string, private readonly apiKey: string, private readonly model: string, private readonly maxOutputTokens = 500) {}
 
-  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], promptVariant?: ChatPromptVariantId): Promise<string> {
-    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, promptVariant);
+  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], promptVariant?: ChatPromptVariantId, controls?:AnswerControls): Promise<string> {
+    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, promptVariant, controls);
     const json = await requestProviderJson(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       signal,
@@ -47,8 +47,8 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
     return answer;
   }
 
-  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[]): Promise<string> {
-    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions);
+  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], controls?:AnswerControls): Promise<string> {
+    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, undefined, controls);
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json", accept: "text/event-stream" },

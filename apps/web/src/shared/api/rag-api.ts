@@ -1,3 +1,4 @@
+import { workflowSnapshotSchema, type WorkflowSnapshot } from "@rag-study/contracts";
 import { chatModelCatalogSchema, demoLibraryCatalogSchema, demoSeedResponseSchema, questionComparisonResponseSchema, workspaceChatModelPolicyResponseSchema, workspaceOnboardingResponseSchema,
   mcpAccessIssuedSchema, mcpAccessStatusSchema,
   type DemoSourceState, type DocumentFilters, type QuestionComparisonInput, type WorkspaceChatModelPolicy, type WorkspaceOnboardingProgress } from "@rag-study/contracts";
@@ -211,11 +212,20 @@ export const api = {
       headers: { authorization: `Bearer ${accessToken}`, "x-workspace-id": workspaceId }, signal, cache: "no-store"
     }),
   getUsageSummary: (accessToken: string, workspaceId: string, days = 30) => request<{ days: number; summary: UsageSummary; alert: UsageAlert }>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
-  listEvaluationRuns: (accessToken: string, workspaceId: string) => request<{ runs: EvaluationRun[]; faithfulnessEnabled?: boolean; reference?: DemoSourceState & { ready: boolean } }>("/v1/admin/evaluations?limit=20", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listEvaluationRuns: (accessToken: string, workspaceId: string) => request<{ runs: EvaluationRun[]; workflowAvailable?: boolean; workflows?: WorkflowSnapshot[]; faithfulnessEnabled?: boolean; reference?: DemoSourceState & { ready: boolean } }>("/v1/admin/evaluations?limit=20", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   runEvaluation: (accessToken: string, workspaceId: string, options: { includeFaithfulness?: boolean; modelId?: string; effort?: "compact" | "standard" | "extended" } = {}) =>
     request<{ run: EvaluationRun }>("/v1/admin/evaluations/run", {
       method: "POST", body: JSON.stringify(options), headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
     }),
+  startEvaluationWorkflow: async (token:string,workspaceId:string,options: {includeFaithfulness?:boolean;modelId?:string;effort?:"compact"|"standard"|"extended"}) => {
+    const result=await request<{workflow:unknown}>("/v1/admin/evaluation-workflows",{method:"POST",body:JSON.stringify(options),headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}});
+    return workflowSnapshotSchema.parse(result.workflow);
+  },
+  actOnEvaluationWorkflow: async (token:string,workspaceId:string,runId:string,action:"approve"|"cancel") => {
+    const result=await request<{workflow:unknown}>(`/v1/admin/evaluation-workflows/${encodeURIComponent(runId)}/${action}`,{method:"POST",headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}});
+    return workflowSnapshotSchema.parse(result.workflow);
+  },
+  cancelUpload: (jobId:string,token:string,workspaceId:string) => request<{jobId:string;status:string}>(`/v1/admin/uploads/${encodeURIComponent(jobId)}/cancel`,{method:"POST",headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}}),
   retryUpload: (jobId: string, accessToken: string, workspaceId?: string) => request<{ jobId: string; status: string }>(`/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listDocuments: (accessToken: string, workspaceId?: string, signal?: AbortSignal, filters: DocumentFilters = {}) => {
     const query = new URLSearchParams(Object.entries(filters).flatMap(([key, value]) => value === undefined ? [] : [[key, value]]));

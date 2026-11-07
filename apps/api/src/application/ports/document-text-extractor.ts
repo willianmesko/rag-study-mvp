@@ -20,7 +20,10 @@ export type ExtractedDocument = {
   sections?: readonly DocumentSection[];
   metadata: Record<string, string | boolean | number>;
 };
+export type NativeDocumentExtraction = ExtractedDocument & { nativePages?:string[] };
 
 export interface DocumentTextExtractor {
-  extract(input: { filename: string; mimeType: string; payload: Buffer }, report?: ExtractionStageReporter): Promise<ExtractedDocument>;
+  extract(input: { filename: string; mimeType: string; payload: Buffer }, report?: ExtractionStageReporter,signal?:AbortSignal): Promise<ExtractedDocument>;
+  extractNative?(input: {filename:string;mimeType:string;payload:Buffer},signal?:AbortSignal):Promise<NativeDocumentExtraction>;
+  completeNative?(native:NativeDocumentExtraction,input:{payload:Buffer},report?:ExtractionStageReporter,signal?:AbortSignal):Promise<ExtractedDocument>;
 }

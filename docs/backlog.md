@@ -21,36 +21,20 @@ status section where they appear.
 
 ## In progress
 
-No milestone is currently recorded as in progress. The demonstration and
-discovery delivery was validated and published on 2026-11-07.
+The seven LangGraph capabilities are implemented and locally validated. The
+release is awaiting its remote CI checks, environment activation, and API/web
+publication. Local harness checks, 22 real PostgreSQL checks, and the three new
+responsive approval journeys passed. Full browser regression is running.
 
 **Approved delivery order**
 
 1. **Completed:** [Demonstration libraries and document discovery](#1-demonstration-libraries-and-document-discovery).
-2. **Next:** [LangGraph workflow expansion](#2-langgraph-workflow-expansion): adaptive
+2. **Implementation validated; release in progress:** [LangGraph workflow expansion](#2-langgraph-workflow-expansion): adaptive
    retrieval, claim verification and citation repair, checkpointed ingestion,
    unified evaluations, durable approvals, execution budgets/cancellation, and
    restart recovery.
 
 ## Pending implementation
-
-### 2. LangGraph workflow expansion
-
-- [ ] Add adaptive retrieval with a relevance gate, one bounded query rewrite
-  and retrieval retry, and a refusal when evidence remains insufficient.
-- [ ] Verify answer claims against source passages and add a bounded repair
-  path for invalid citations. Citation-ID validation already exists.
-- [ ] Run ingestion as a checkpointed graph covering extraction, text quality,
-  OCR fallback, metadata, language, structure-aware chunking, security scanning,
-  embeddings, and persistence. Retry the failed node and retain safe metrics.
-- [ ] Add a unified evaluation graph for retrieval metrics, answer generation,
-  faithfulness, context precision, security checks, and a versioned report.
-- [ ] Add durable human-approval checkpoints for sensitive graph actions, with
-  authorized approval before execution resumes.
-- [ ] Extend durable state, cancellation, step/token limits, timeouts, and
-  per-run budgets to the expanded workflows and their tools.
-- [ ] Recover graph work across server restarts. Current in-flight chat runs
-  become interrupted when their worker exits.
 
 ### 3. Durable conversations and product history
 
@@ -87,6 +71,7 @@ implemented.
 
 ### 5. Observability, security, and cost controls
 
+- [ ] Add versioned workflow encryption keys and a tested staged rotation procedure.
 - [ ] Add OpenTelemetry spans by workflow stage, request correlation IDs,
   reason-coded logs/metrics, and tool-call telemetry.
 - [ ] Add operational dashboards, alarms, and failure runbooks. Evaluate Splunk
@@ -246,6 +231,35 @@ Browser journeys use isolated API fixtures. Backend and frontend commit
 authentication boundaries, page routes, and deployed feature assets verified.
 No production workspace was automatically seeded and no new provider was
 activated. See [Demonstration and discovery](demonstration-discovery.md).
+
+### 2. LangGraph workflow expansion
+
+- [x] Add adaptive retrieval with a relevance gate, one bounded query rewrite
+  and retrieval retry, and a refusal when evidence remains insufficient.
+- [x] Verify answer claims against source passages and add a bounded repair
+  path for invalid citations. Citation-ID validation already exists.
+- [x] Run ingestion as a checkpointed graph covering extraction, text quality,
+  OCR fallback, metadata, language, structure-aware chunking, security scanning,
+  embeddings, and persistence. Retry the failed node and retain safe metrics.
+- [x] Add a unified evaluation graph for retrieval metrics, answer generation,
+  faithfulness, context precision, security checks, and a versioned report.
+- [x] Add durable human-approval checkpoints for sensitive graph actions, with
+  authorized approval before execution resumes.
+- [x] Extend durable state, cancellation, step/token limits, timeouts, and
+  per-run budgets to the expanded workflows and their tools.
+- [x] Recover authenticated chat, ingestion, and evaluations across worker
+  changes within the original deadline and remaining resource budget.
+
+Native LangGraph checkpoints and completed provider effects are encrypted,
+workspace/user scoped, fenced by renewable leases, and retained for 24 hours.
+The real PostgreSQL suite covers node recovery, quota/event deduplication,
+cancellation, deleted sources, durable owner approval, and a single persisted
+report. The evaluation center exposes safe progress and approval controls;
+Processing offers cancellation. Direct CLI imports, JSON/anonymous chat, and
+comparisons remain bounded synchronous paths. A lexical rewrite is deterministic;
+claim judging is evidence assessment, not proof. Private corpus datasets,
+provider-complete actual billing, key rotation, and capacity testing remain open.
+Production activation is pending. See [Durable workflows](durable-workflows.md).
 
 ### RAG and ingestion
 

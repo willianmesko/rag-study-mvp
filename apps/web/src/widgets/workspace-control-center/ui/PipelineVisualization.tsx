@@ -33,6 +33,12 @@ export function PipelineVisualization({ job, events }: { job: UploadJob; events:
     ["source_read", t("Source read", "Fonte lida")],
     ["text_extraction", ocrEvent ? t("Text extraction", "Extração de texto") : t("Text extracted", "Texto extraído")],
     ...(ocrEvent ? [["ocr", t("Text recognition (OCR)", "Reconhecimento de texto (OCR)")]] : []),
+    ...(events.some((event)=>event.stage==='quality_gate') ? [
+      ["quality_gate",t("Text quality checked","Qualidade do texto verificada")],
+      ["metadata",t("File details prepared","Detalhes do arquivo preparados")],
+      ["language",t("Language identified","Idioma identificado")],
+      ["structure",t("Sections organized","Seções organizadas")]
+    ] : []),
     ["chunking", t("Passages prepared", "Trechos preparados")],
     ["security_scan", t("Safety checked", "Segurança verificada")],
     ["embedding", t("Embeddings generated", "Representações vetoriais geradas")],
@@ -93,7 +99,7 @@ export function PipelineVisualization({ job, events }: { job: UploadJob; events:
           );
         })}
       </ol>
-      {job.error && ocrEvent?.status !== "failed" && <p role="alert" className="mt-4 text-xs text-rose-300">{t("This file could not be processed. Check the file and try again.", "Não foi possível processar este arquivo. Verifique o arquivo e tente novamente.")}</p>}
+      {job.error && ocrEvent?.status !== "failed" && <p role="alert" className="mt-4 text-xs text-rose-300">{job.error === "execution_cancelled" ? t("You stopped this file. Its original is kept so you can try again later.","Você interrompeu este arquivo. O original foi mantido para uma nova tentativa depois.") : t("This file could not be processed. Check the file and try again.", "Não foi possível processar este arquivo. Verifique o arquivo e tente novamente.")}</p>}
     </section>
   );
 }

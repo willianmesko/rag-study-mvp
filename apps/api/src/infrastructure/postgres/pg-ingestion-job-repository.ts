@@ -1,3 +1,6 @@
+import { currentExecution } from "../../application/workflows/execution-context.js";
+import { WorkflowGuardError } from "../../application/workflows/types.js";
+import { lockWorkflowFence } from "./workflow-fence.js";
 import type { Pool, PoolClient } from "pg";
 import { ExistingIngestionSourceError } from "../../application/ports/ingestion-job-repository.js";
 import { withWorkspaceLock } from "./workspace-embedding-lock.js";
@@ -17,6 +20,10 @@ type PassagePreviewRow = { total_chunks: number } & (
 
 export class PgIngestionJobRepository implements IngestionJobRepository {
   constructor(private readonly pool: Pool) {}
+  async readForProcessing(jobId:string,tenantId:string) {
+    const r=await this.pool.query<Row>(`SELECT ${columns} FROM ingestion_jobs WHERE id=$1 AND tenant_id=$2`,[jobId,tenantId]);
+    return r.rows[0]?map(r.rows[0]):null;
+  }
   async enqueue(input: Parameters<IngestionJobRepository["enqueue"]>[0], options?: { onlyIfMissing: true }) {
     const insert = async (connection: Pool | PoolClient) => {
       const result = await connection.query<Row>(`INSERT INTO ingestion_jobs (tenant_id, source, title, filename, mime_type, payload, storage_path) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING ${columns}`, [input.tenantId, input.source, input.title, input.filename, input.mimeType, input.payload, input.storagePath]);
@@ -36,16 +43,25 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
     const result = await this.pool.query<Row>(`WITH candidate AS (SELECT id FROM ingestion_jobs WHERE status = 'queued' OR (status = 'processing' AND updated_at < NOW() - INTERVAL '10 minutes') ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE ingestion_jobs j SET status='processing', progress=20, error=NULL, updated_at=NOW() FROM candidate WHERE j.id=candidate.id RETURNING j.id, j.tenant_id, j.document_id, j.source, j.title, j.filename, j.mime_type, j.payload, j.storage_path, j.status, j.progress, j.error, j.chunk_count, j.high_risk_chunks, j.created_at, j.updated_at`);
     return result.rows[0] ? map(result.rows[0]) : null;
   }
+  private async guarded<T>(tenantId: string, work: (client: Pool | PoolClient) => Promise<T>) {
+    if (!currentExecution()) return work(this.pool);
+    const client = await this.pool.connect();
+    try { await client.query("BEGIN"); await lockWorkflowFence(client, tenantId); const value = await work(client); await client.query("COMMIT"); return value; }
+    catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
+  }
   async complete(id: string, result: { documentId: string; chunkCount: number; highRiskChunks: number }) {
-    // Keep payload only when no object store is configured; otherwise Storage is
-    // the durable original used for future reindexing.
-    await this.pool.query(
-      "UPDATE ingestion_jobs SET document_id=$2, status='completed', progress=100, chunk_count=$3, high_risk_chunks=$4, payload=CASE WHEN storage_path IS NULL THEN payload ELSE NULL END, updated_at=NOW() WHERE id=$1",
-      [id, result.documentId, result.chunkCount, result.highRiskChunks]
-    );
+    const execution = currentExecution();
+    await this.guarded(execution?.lease.tenantId ?? "", async (client) => {
+      const updated = await client.query("UPDATE ingestion_jobs SET document_id=$2, status='completed', progress=100, chunk_count=$3, high_risk_chunks=$4, payload=CASE WHEN storage_path IS NULL THEN payload ELSE NULL END, updated_at=NOW() WHERE id=$1 AND status IN ('processing','completed')", [id, result.documentId, result.chunkCount, result.highRiskChunks]);
+      if (execution && !updated.rowCount) throw new WorkflowGuardError("cancelled");
+    });
+  }
+  async cancel(id: string, tenantId: string) {
+    const result = await this.pool.query("UPDATE ingestion_jobs SET status='failed', progress=100, error='execution_cancelled', updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND status IN ('queued','processing')", [id, tenantId]);
+    return result.rowCount === 1;
   }
   // Keep a failed payload/object reference so the job can safely be retried.
-  async fail(id: string, error: string) { await this.pool.query("UPDATE ingestion_jobs SET status='failed', progress=100, error=$2, updated_at=NOW() WHERE id=$1", [id, error]); }
+  async fail(id: string, error: string) { await this.pool.query("UPDATE ingestion_jobs SET status='failed', progress=100, error=$2, updated_at=NOW() WHERE id=$1 AND status IN ('queued','processing')", [id, error]); }
   async retry(id: string, tenantId: string) {
     const result = await this.pool.query("UPDATE ingestion_jobs SET status='queued', progress=0, error=NULL, updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND status='failed'", [id, tenantId]);
     return result.rowCount === 1;
@@ -96,13 +112,11 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
 
   async requeueDocument(documentId: string, tenantId: string): Promise<IngestionJob | null> {
     const result = await this.pool.query<Row>(
-      `UPDATE ingestion_jobs j
-       SET status = 'queued', progress = 0, error = NULL, chunk_count = NULL, high_risk_chunks = NULL, updated_at = NOW()
-       FROM documents d
-       WHERE d.tenant_id = $1 AND d.id = $2 AND j.status = 'completed' AND ${indexedOriginalPredicate}
-       RETURNING ${columns.split(", ").map((column) => `j.${column}`).join(", ")}`,
-      [tenantId, documentId]
-    );
+      `INSERT INTO ingestion_jobs (tenant_id,document_id,source,title,filename,mime_type,payload,storage_path)
+       SELECT j.tenant_id,d.id,j.source,j.title,j.filename,j.mime_type,j.payload,j.storage_path
+       FROM documents d JOIN ingestion_jobs j ON ${indexedOriginalPredicate}
+       WHERE d.tenant_id=$1 AND d.id=$2 AND j.status='completed'
+       RETURNING ${columns}`, [tenantId, documentId]);
     return result.rows[0] ? map(result.rows[0]) : null;
   }
   async listStoragePathsForDocument(documentId: string, tenantId: string): Promise<string[]> {
@@ -116,11 +130,15 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
     await this.pool.query("DELETE FROM ingestion_jobs WHERE tenant_id = $1 AND document_id = $2", [tenantId, documentId]);
   }
   async recordEvent(input: { jobId: string; tenantId: string; stage: string; status: IngestionJobEvent["status"]; durationMs?: number | null; details?: Record<string, unknown> }): Promise<void> {
-    await this.pool.query(
-      "INSERT INTO ingestion_job_events (job_id, tenant_id, stage, status, duration_ms, details) VALUES ($1, $2, $3, $4, $5, $6::jsonb)",
-      [input.jobId, input.tenantId, input.stage, input.status, input.durationMs ?? null, JSON.stringify(input.details ?? {})]
-    );
+    await this.guarded(input.tenantId, async (client) => {
+      if (currentExecution()) {
+        const job = await client.query("SELECT 1 FROM ingestion_jobs WHERE tenant_id=$1 AND id=$2 AND status IN ('processing','completed') FOR SHARE", [input.tenantId, input.jobId]);
+        if (!job.rowCount) throw new WorkflowGuardError("cancelled");
+      }
+      await client.query("INSERT INTO ingestion_job_events (job_id, tenant_id, stage, status, duration_ms, details) VALUES ($1,$2,$3,$4,$5,$6::jsonb)", [input.jobId,input.tenantId,input.stage,input.status,input.durationMs ?? null,JSON.stringify(input.details ?? {})]);
+    });
   }
+
   async listEvents(jobId: string, tenantId: string, limit: number): Promise<IngestionJobEvent[]> {
     const result = await this.pool.query<EventRow>(
       "SELECT id, job_id, stage, status, duration_ms, details, created_at FROM ingestion_job_events WHERE job_id = $1 AND tenant_id = $2 ORDER BY created_at ASC LIMIT $3",

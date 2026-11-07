@@ -1,4 +1,8 @@
 import type { ChatRunEvent } from "@rag-study/contracts";
+import { isDeepStrictEqual } from "node:util";
+import { currentExecution } from "../../application/workflows/execution-context.js";
+import { WorkflowGuardError } from "../../application/workflows/types.js";
+import { lockWorkflowFence } from "./workflow-fence.js";
 import type { Pool } from "pg";
 import type { ChatRunRepository, ChatRunScope, ChatRunSnapshot, ChatRunStatus } from "../../application/ports/chat-run-repository.js";
 
@@ -50,6 +54,7 @@ export class PgChatRunRepository implements ChatRunRepository {
       && (index !== events.length - 1 || event.type !== terminalType))) {
       throw new Error("Terminal chat events can only be appended with their state transition.");
     }
+    if(currentExecution()?.lease.kind==='chat')return this.appendDurable(scope,events,status);
     // The run row serializes event numbering and the running-state predicate
     // ensures a worker cannot publish anything after cancellation or expiry.
     const result = await this.pool.query(
@@ -68,6 +73,43 @@ export class PgChatRunRepository implements ChatRunRepository {
       [...scopeParams(scope), events.length, status ?? null, status ? maxEvents : maxEvents - 1, JSON.stringify(events)]
     );
     return result.rowCount === events.length;
+  }
+
+  private async appendDurable(scope:ChatRunScope,events:ChatRunEvent[],status?:'completed'|'failed') {
+    const execution=currentExecution()!;
+    if(scope.actorId!==execution.lease.actorId||scope.runId!==execution.lease.runId)throw new WorkflowGuardError('authorization_revoked');
+    const items=events.map((event)=>({key:String(execution.publications.next++),event}));
+    const client=await this.pool.connect();
+    try {
+      await client.query('BEGIN');await lockWorkflowFence(client,scope.tenantId);
+      const {rows:[run]}=await client.query<{status:string;last_event_id:number}>(`SELECT status,last_event_id FROM chat_runs
+        WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3 AND status='running' AND deadline_at>clock_timestamp() AND expires_at>clock_timestamp() FOR UPDATE`,scopeParams(scope));
+      if(!run){await client.query('ROLLBACK');return false;}
+      const {rows:existing}=await client.query<{event_key:string;event:ChatRunEvent}>(`SELECT event_key,event FROM chat_run_events
+        WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3 AND event_key=ANY($4::text[])`,[...scopeParams(scope),items.map(({key})=>key)]);
+      const byKey=new Map(existing.map((row)=>[row.event_key,row.event]));
+      const fresh=items.filter(({key,event})=>{
+        const old=byKey.get(key);if(old&&!isDeepStrictEqual(old,event))throw new WorkflowGuardError('definition_changed');return !old;
+      });
+      const final=events.find((event)=>event.type==='completed');
+      if(final?.type==='completed') {
+        const sources=[...final.response.sources,...(final.response.contextSources??[])];
+        const ids=[...new Set(sources.map(({chunkId})=>chunkId))];
+        if(ids.length){
+          const valid=await client.query(`SELECT c.id FROM chunks c JOIN documents d ON d.id=c.document_id
+            WHERE d.tenant_id=$1 AND c.id=ANY($2::uuid[]) FOR SHARE OF c,d`,[scope.tenantId,ids]);
+          if(valid.rowCount!==ids.length)throw new WorkflowGuardError('definition_changed');
+        }
+      }
+      if(run.last_event_id+fresh.length>(status?maxEvents:maxEvents-1))throw new WorkflowGuardError('budget_exceeded');
+      if(fresh.length){
+        await client.query(`INSERT INTO chat_run_events(tenant_id,actor_id,run_id,event_id,event,event_key)
+          SELECT $1,$2,$3,($4::integer+x.position)::integer,x.value->'event',x.value->>'key'
+          FROM jsonb_array_elements($5::jsonb) WITH ORDINALITY AS x(value,position)`,[...scopeParams(scope),run.last_event_id,JSON.stringify(fresh)]);
+        await client.query("UPDATE chat_runs SET last_event_id=last_event_id+$4,status=COALESCE($5,status) WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3",[...scopeParams(scope),fresh.length,status??null]);
+      }
+      await client.query('COMMIT');return true;
+    }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
   }
 
   async cancel(scope: ChatRunScope): Promise<ChatRunStatus | null> {

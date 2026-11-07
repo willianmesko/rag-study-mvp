@@ -2,6 +2,7 @@ import type { Citation } from "../../domain/document.js";
 import type { GroundedContext } from "../policies/grounded-answer-policy.js";
 import type { AnswerGenerator, ProviderTokenUsage, ProviderUsageObserver } from "./answer-generator.js";
 import type { ChatAnswerRouting, ChatAnswerUsage, ChatModelDescriptor } from "@rag-study/contracts";
+import type { ClaimVerification } from "./claim-verifier.js";
 
 export type AnswerQuestionResult = {
   answer: string;
@@ -17,6 +18,9 @@ export type AnswerQuestionResult = {
   usage?: ChatAnswerUsage;
   model?: ChatModelDescriptor;
   routing?: ChatAnswerRouting;
+  claimVerification?:ClaimVerification;
+  repaired?:boolean;
+  retrievalAttempts?:number;
 };
 
 export type AnswerWorkflowEvent =
@@ -48,6 +52,8 @@ export type PreparedAnswerContext = {
   previousQuestions?: readonly string[];
   context: GroundedContext;
   estimatedInputTokens: number;
+  maxEstimatedInputTokens?:number;
+  retrievalAttempts?:number;
 };
 
 export interface PreparedAnswerWorkflow {

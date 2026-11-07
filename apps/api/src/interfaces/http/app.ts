@@ -1,3 +1,6 @@
+import type { WorkspaceWorkflows } from "../../application/workflows/workspace-workflows.js";
+import { WorkflowGuardError, WorkflowApprovalPending, type WorkflowSnapshot } from "../../application/workflows/types.js";
+import { publicAnswerResponse, publicWorkflowEvent } from "../../application/policies/answer-response.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
@@ -103,11 +106,13 @@ type HttpDependencies = {
   getDocumentOriginal: Pick<GetDocumentOriginalUseCase, "execute">;
   reindexDocument: ReindexDocumentUseCase;
   deleteDocument: DeleteDocumentUseCase;
-  consumeQuestionQuota: (tenantId: string, actorKey: string, units?: 1 | 2) => Promise<QuotaResult>;
+  consumeQuestionQuota: (tenantId: string, actorKey: string, units?: 1 | 2, receiptKey?: string) => Promise<QuotaResult>;
   consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => Promise<QuotaResult>;
   getUsageSummary: (tenantId: string, days: number) => Promise<UsageSummary>;
   listEvaluationRuns: (tenantId: string, limit: number) => Promise<EvaluationRun[]>;
   runEvaluation: RunEvaluationUseCase;
+  workflows?: WorkspaceWorkflows;
+  cancelIngestion?: (tenantId: string, jobId: string) => Promise<boolean>;
   invalidateSemanticCache: (tenantId: string) => Promise<void>;
   recordAuditEvent: AuditEventRepository["record"];
 };
@@ -163,7 +168,8 @@ export async function buildApp(dependencies: HttpDependencies) {
   const streamShutdown = new AbortController();
   const answerRuns = new StreamAnswerRuns(dependencies.chatRuns, config.AGENT_TIMEOUT_MS);
   app.addHook("preClose", async () => { streamShutdown.abort(); });
-  app.addHook("onClose", () => answerRuns.close());
+  app.addHook("onClose", async () => { await dependencies.workflows?.close(); await answerRuns.close(); });
+  app.addHook("onReady", async () => { dependencies.workflows?.start(); });
   await app.register(multipart, { limits: { files: 1, fileSize: config.UPLOAD_MAX_BYTES, fields: 0 } });
   await app.register(rateLimit, {
     max: config.RATE_LIMIT_MAX,
@@ -192,6 +198,11 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (config.API_KEY && !matchesApiKey(apiKey, config.API_KEY)) return reply.code(401).send({ error: "Unauthorized" });
   });
   app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof WorkflowApprovalPending) return reply.code(409).send({code:'approval_required',error:error.message});
+    if (error instanceof WorkflowGuardError) {
+      const status = { budget_exceeded:422,lease_lost:409,cancelled:409,deadline_exceeded:504,authorization_revoked:403,definition_changed:409,state_limit:422,queue_full:429 }[error.code];
+      return reply.code(status).send({code:error.code,error:error.message});
+    }
     if (error instanceof ZodError) return reply.code(400).send({ error: "Invalid request", details: error.flatten() });
     if (error instanceof ChatBudgetExceededError) return reply.code(422).send({ code: "chat_budget_exceeded", error: error.message });
     if (error instanceof AutoAnswerFailedError) return reply.code(503).send({ code: "auto_generation_failed", error: error.message });
@@ -206,7 +217,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     app.log.error({ code: "request_failed", err: error }, "Request failed");
     return reply.code(500).send({ error: "Internal server error" });
   });
-  app.get("/health", async () => ({ status: "ok", capabilities: { pdfOcr: config.PDF_OCR_ENABLED } }));
+  app.get("/health", async () => ({ status: "ok", capabilities: { pdfOcr: config.PDF_OCR_ENABLED, durableWorkflows: Boolean(dependencies.workflows) } }));
   const authorizeMember = async (request: { headers: Record<string, string | string[] | undefined> }, requireExplicitWorkspace = false) => {
     if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return { ok: false as const, status: 503, error: "Admin upload is not configured." };
     const authorization = request.headers.authorization;
@@ -242,7 +253,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   const authorizeOwner = async (request: { headers: Record<string, string | string[] | undefined> }, requireExplicitWorkspace = false) => {
     const authorization = await authorizeMember(request, requireExplicitWorkspace);
     if (!authorization.ok) return authorization;
-    if (authorization.role !== "owner") return { ok: false as const, status: 403, error: "Only the workspace owner can manage members." };
+    if (authorization.role !== "owner") return { ok: false as const, status: 403, error: "Workspace owner access required." };
     return authorization;
   };
   if (dependencies.workspaceMcp) {
@@ -288,7 +299,7 @@ export async function buildApp(dependencies: HttpDependencies) {
       });
       return (input: Parameters<AnswerQuestionUseCase["execute"]>[0]) =>
         dependencies.routeAnswer.execute({ ...input, simple, complex, fallbacks,
-          reserveFallbackQuota: async () => (await dependencies.consumeQuestionQuota(input.tenantId, input.actorKey)).allowed });
+          reserveFallbackQuota: async (id) => (await dependencies.consumeQuestionQuota(input.tenantId, input.actorKey, undefined, `fallback:${id}`)).allowed });
     }
     const model = profile.models.get(modelId ?? profile.defaultModelId ?? "");
     if (!model) return null;
@@ -531,15 +542,43 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (!authorization.ok) return rejectScope(reply, authorization);
     const { limit } = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20) }).parse(request.query);
     const reference = (await dependencies.demoLibraryRepository?.sourceStates(authorization.tenantId, ["golden/rag-fundamentals"]))?.[0];
-    return { runs: (await dependencies.listEvaluationRuns(authorization.tenantId, limit)).map(serializeEvaluationRun), faithfulnessEnabled: dependencies.runEvaluation.supportsFaithfulness,
+    return { workflowAvailable: Boolean(dependencies.workflows), workflows: dependencies.workflows ? (await dependencies.workflows.repository.list(authorization.tenantId, "evaluation", limit)).map(serializeWorkflow) : [], runs: (await dependencies.listEvaluationRuns(authorization.tenantId, limit)).map(serializeEvaluationRun), faithfulnessEnabled: dependencies.runEvaluation.supportsFaithfulness,
       ...(reference ? { reference: { ...reference, ready: reference.state === "ready" } } : {}) };
   });
   app.post("/v1/admin/evaluations/run", { config: { rateLimit: { max: 2 } } }, async (request, reply) => {
     const authorization = await authorizeOwner(request);
     if (!authorization.ok) return rejectScope(reply, authorization);
     const input = evaluationInput.parse(request.body ?? {});
+    if (dependencies.workflows) return reply.code(409).send({code:"durable_evaluation_required",error:"Start a durable evaluation from the evaluation center."});
     if (input.modelId && !(await workspaceChatModels(authorization.tenantId)).models.has(input.modelId)) return reply.code(400).send(modelUnavailable);
     return reply.code(201).send({ run: serializeEvaluationRun(await dependencies.runEvaluation.execute({ tenantId: authorization.tenantId, ...input })) });
+  });
+  app.post("/v1/admin/evaluation-workflows", { config: { rateLimit: { max: 2 } } }, async (request,reply) => {
+    const owner = await authorizeOwner(request,true); if (!owner.ok) return rejectScope(reply,owner);
+    if (!request.headers['x-workspace-id']) return reply.code(400).send({code:'workspace_required',error:'Select a workspace.'});
+    if (!dependencies.workflows) return reply.code(503).send({error:'Durable evaluations are not enabled.'});
+    return reply.code(202).send({workflow:serializeWorkflow(await dependencies.workflows.startEvaluation(owner.tenantId,owner.userId,evaluationInput.parse(request.body ?? {})))});
+  });
+  app.post("/v1/admin/evaluation-workflows/:runId/:action", async (request,reply) => {
+    const owner = await authorizeOwner(request,true); if (!owner.ok) return rejectScope(reply,owner);
+    if (!request.headers['x-workspace-id']) return reply.code(400).send({code:'workspace_required',error:'Select a workspace.'});
+    const {runId,action} = z.strictObject({runId:z.string().uuid(),action:z.enum(['approve','cancel'])}).parse(request.params);
+    if (!dependencies.workflows) return reply.code(503).send({error:'Durable evaluations are not enabled.'});
+    const runs = await dependencies.workflows.repository.list(owner.tenantId,'evaluation',50);
+    const run = runs.find((item)=>item.runId===runId); if (!run) return reply.code(404).send({error:'Evaluation not found.'});
+    const scope = {tenantId:owner.tenantId,actorId:run.actorId,runId};
+    const changed = action === 'approve' ? await dependencies.workflows.approve(scope,owner.userId) : await dependencies.workflows.cancel(scope);
+    if (!changed) return reply.code(409).send({error:'This evaluation has already changed. Refresh to see its status.'});
+    await dependencies.recordAuditEvent({tenantId:owner.tenantId,actorUserId:owner.userId,action:`workflow.${action}`,resourceType:'evaluation',resourceId:runId,requestId:request.id,metadata:{}});
+    return {workflow:serializeWorkflow((await dependencies.workflows.repository.get(scope))!)};
+  });
+  app.post("/v1/admin/uploads/:jobId/cancel", async (request,reply) => {
+    const admin = await authorizeAdmin(request); if (!admin.ok) return rejectScope(reply,admin);
+    const {jobId}=z.strictObject({jobId:z.string().uuid()}).parse(request.params);
+    if (!dependencies.cancelIngestion) return reply.code(503).send({error:'Cancellation is unavailable.'});
+    if (!await dependencies.cancelIngestion(admin.tenantId,jobId)) return reply.code(409).send({error:'This document is no longer processing.'});
+    await dependencies.recordAuditEvent({tenantId:admin.tenantId,actorUserId:admin.userId,action:'ingestion.cancelled',resourceType:'ingestion_job',resourceId:jobId,requestId:request.id,metadata:{}});
+    return {jobId,status:'cancelled'};
   });
   app.post("/v1/admin/uploads/:jobId/retry", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
@@ -719,6 +758,10 @@ export async function buildApp(dependencies: HttpDependencies) {
       const { tenantId, userId } = membership;
       const actorKey = `user:${userId}`;
       const scope = { runId, tenantId, actorId: userId };
+      if (dependencies.workflows) {
+        await dependencies.workflows.startChat(scope,{...turn,modelId});
+        return replayAnswerStream(request,reply,dependencies.chatRuns,scope,0,streamShutdown.signal);
+      }
       await answerRuns.start(scope, {
         reserveQuota: async () => (await dependencies.consumeQuestionQuota(tenantId, actorKey)).allowed,
         answer: async ({ signal, publish }) => serializeQuestionAnswer(await answer({
@@ -770,7 +813,9 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { runId } = chatRunParams.parse(request.params);
     const membership = await authorizeMember(request, true);
     if (!membership.ok) return rejectScope(reply, membership);
-    const status = await answerRuns.cancel({ runId, tenantId: membership.tenantId, actorId: membership.userId });
+    const scope = {runId,tenantId:membership.tenantId,actorId:membership.userId};
+    await dependencies.workflows?.cancel(scope);
+    const status = await answerRuns.cancel(scope);
     if (!status) return reply.code(404).send({ error: "This answer session is no longer available." });
     return { status };
   });
@@ -818,22 +863,11 @@ function serializeAnswerSource({ chunkId, documentId, source, title, ordinal, sc
 }
 
 function serializeQuestionAnswer(result: AnswerQuestionResult, model = result.model) {
-  return {
-    answer: result.answer,
-    citedChunkIds: result.citedChunkIds ?? [],
-    structuredOutput: result.structuredOutput ?? false,
-    refusalReason: result.refusalReason ?? null,
-    sources: result.sources.map(serializeAnswerSource),
-    contextSources: result.contextSources?.map(serializeAnswerSource) ?? [],
-    cacheHit: result.cacheHit ?? false,
-    ...(model ? { model } : {}),
-    ...(result.routing ? { routing: result.routing } : {}),
-    ...(result.usage ? { usage: result.usage } : {})
-  };
+  return publicAnswerResponse(result,model);
 }
 
-function serializeWorkflowEvent(event: AnswerWorkflowEvent): ChatRunEvent {
-  if (event.type === "citations") return { type: "citations", sources: event.sources.map(serializeAnswerSource) };
-  return event;
-}
+function serializeWorkflowEvent(event: AnswerWorkflowEvent): ChatRunEvent { return publicWorkflowEvent(event); }
 
+function serializeWorkflow(run:WorkflowSnapshot) {
+  return {runId:run.runId,kind:run.kind,version:run.version,status:run.status,stage:run.stage,steps:run.steps,calls:run.calls,inputTokens:run.inputTokens,outputTokens:run.outputTokens,costMicros:run.costMicros,budget:run.budget,attempts:run.attempts,errorCode:run.errorCode,resultId:run.resultId,createdAt:run.createdAt.toISOString(),updatedAt:run.updatedAt.toISOString(),expiresAt:run.expiresAt.toISOString()};
+}

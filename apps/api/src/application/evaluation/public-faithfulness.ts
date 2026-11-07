@@ -25,7 +25,7 @@ export type EvaluationModel = ChatPricing & { provider: string; model: string; g
 type FaithfulnessStatus = "not_requested" | "unavailable" | "calibration_failed" | "incomplete" | "completed";
 type MeasurementSource = "observed" | "estimated";
 
-type CalibrationReport = {
+export type CalibrationReport = {
   version: string;
   totalExamples: number;
   scoredExamples: number;
@@ -38,7 +38,7 @@ type CalibrationReport = {
   falseNegativeRate: number | null;
 };
 
-type GenerationMeasurement = {
+export type GenerationMeasurement = {
   caseId: string;
   score: number | null;
   latencyMs: number;
@@ -89,7 +89,7 @@ async function assessAnswer(judge: FaithfulnessJudge, answer: string, passages: 
   return claims;
 }
 
-async function calibrate(judge: FaithfulnessJudge, signal: AbortSignal): Promise<CalibrationReport> {
+export async function calibrate(judge: FaithfulnessJudge, signal: AbortSignal): Promise<CalibrationReport> {
   const assessed = await Promise.allSettled(judgeCalibrationCases.map(({ answer, passages }) => assessAnswer(judge, answer, passages, signal)));
   let scoredExamples = 0;
   let matchedClaims = 0;
@@ -127,59 +127,57 @@ async function calibrate(judge: FaithfulnessJudge, signal: AbortSignal): Promise
   };
 }
 
-async function scorePublicCase(item: typeof dashboardGoldenSet.cases[number], model: EvaluationModel, judge: FaithfulnessJudge, signal: AbortSignal) {
+export type PublicGeneratedCase = {caseId:string;rawAnswer:string|null;measurement:GenerationMeasurement};
+
+export async function generatePublicCase(item:typeof dashboardGoldenSet.cases[number],model:EvaluationModel,signal:AbortSignal):Promise<PublicGeneratedCase> {
   signal.throwIfAborted();
-  const reference = reviewedPassages[item.id as keyof typeof reviewedPassages];
-  if (!reference) throw new Error("Missing public benchmark passage.");
-  const fixture: RetrievedChunk = {
-    chunkId: item.id, documentId: "public-reference", ordinal: 0, content: reference.content,
-    source: "public-reference", title: null, score: 1, security: { promptInjectionRisk: "low", signals: [] }
-  };
-  const context = formatUntrustedContext([fixture], 2_000);
-  const started = performance.now();
-  let observed: ProviderTokenUsage | undefined;
-  const rawAnswer = await model.generator.generate(item.question, context.text, signal, (usage) => { observed = usage; }).catch(() => null);
-  const latencyMs = Math.round(performance.now() - started);
-  const prompt = createGroundedAnswerPrompt(item.question, context.text);
-  const inputTokens = observed?.inputTokens ?? (rawAnswer === null ? null : Math.ceil((prompt.system.length + prompt.user.length) / 4));
-  const outputTokens = observed?.outputTokens ?? (rawAnswer === null ? null : Math.ceil(rawAnswer.length / 4));
-  const costUsd = observed?.costUsd ?? (inputTokens === null || outputTokens === null ? null : estimateChatCost(model, inputTokens, outputTokens));
-  const result: GenerationMeasurement = {
-    caseId: item.id, latencyMs, inputTokens, outputTokens, costUsd, score: null,
-    tokenSource: observed ? "observed" : inputTokens === null ? null : "estimated",
-    costSource: observed?.costUsd !== undefined ? "observed" : costUsd === null ? null : "estimated"
-  };
-  if (rawAnswer === null || signal.aborted) return result;
-  try {
-    const answer = validateGroundedAnswer(parseGroundedAnswer(rawAnswer), new Set(context.sourcesByReference.keys()));
-    if (!answer.structured || answer.refusalReason || answer.answer.length > maxAnswerChars) return result;
-    const claims = await assessAnswer(judge, redactPii(answer.answer).text, [reference.content], signal);
-    return { ...result, score: claims.filter(({ evidence }) => evidence !== null).length / claims.length };
-  } catch { return result; }
+  const reference=reviewedPassages[item.id as keyof typeof reviewedPassages];
+  if(!reference)throw new Error("Missing public benchmark passage.");
+  const fixture:RetrievedChunk={chunkId:item.id,documentId:"public-reference",ordinal:0,content:reference.content,source:"public-reference",title:null,score:1,security:{promptInjectionRisk:"low",signals:[]}};
+  const context=formatUntrustedContext([fixture],2_000);
+  const started=performance.now();let observed:ProviderTokenUsage|undefined;
+  const rawAnswer=await model.generator.generate(item.question,context.text,signal,(usage)=>{observed=usage;}).catch(()=>null);
+  signal.throwIfAborted();
+  const latencyMs=Math.round(performance.now()-started),prompt=createGroundedAnswerPrompt(item.question,context.text);
+  const inputTokens=observed?.inputTokens??(rawAnswer===null?null:Math.ceil((prompt.system.length+prompt.user.length)/4));
+  const outputTokens=observed?.outputTokens??(rawAnswer===null?null:Math.ceil(rawAnswer.length/4));
+  const costUsd=observed?.costUsd??(inputTokens===null||outputTokens===null?null:estimateChatCost(model,inputTokens,outputTokens));
+  return{caseId:item.id,rawAnswer,measurement:{caseId:item.id,latencyMs,inputTokens,outputTokens,costUsd,score:null,
+    tokenSource:observed?"observed":inputTokens===null?null:"estimated",costSource:observed?.costUsd!==undefined?"observed":costUsd===null?null:"estimated"}};
 }
 
-/** Only bundled public cases enter either generation or the judge. */
-export async function evaluatePublicFaithfulness(model: EvaluationModel, judge: FaithfulnessJudge, effort: EvaluationEffort): Promise<FaithfulnessResult> {
-  const signal = AbortSignal.timeout(evaluationTimeoutMs);
-  const cases = dashboardGoldenSet.cases;
-  const result: FaithfulnessResult = {
-    status: "calibration_failed", value: null, scoredCases: 0, totalCases: cases.length, judgeModel: judge.model,
-    effort, maxOutputTokens: model.maxOutputTokens, promptVersion: groundedPromptVersion, datasetDigest,
-    calibration: await calibrate(judge, signal), generationCases: []
-  };
-  if (result.calibration?.scoredExamples !== judgeCalibrationCases.length || result.calibration.agreement !== 1) return result;
+export async function scoreGeneratedPublicCase(generated:PublicGeneratedCase,judge:FaithfulnessJudge,signal:AbortSignal):Promise<GenerationMeasurement> {
+  signal.throwIfAborted();const {measurement,rawAnswer,caseId}=generated;
+  if(rawAnswer===null)return measurement;
+  const reference=reviewedPassages[caseId as keyof typeof reviewedPassages];
+  if(!reference)return measurement;
+  try{
+    const answer=validateGroundedAnswer(parseGroundedAnswer(rawAnswer),new Set(['S1']));
+    if(!answer.structured||answer.refusalReason||answer.answer.length>maxAnswerChars)return measurement;
+    const claims=await assessAnswer(judge,redactPii(answer.answer).text,[reference.content],signal);
+    return{...measurement,score:claims.filter(({evidence})=>evidence!==null).length/claims.length};
+  }catch{signal.throwIfAborted();return measurement;}
+}
 
-  let total = 0;
-  for (let index = 0; index < cases.length && !signal.aborted; index += parallelCases) {
-    const scores = await Promise.allSettled(cases.slice(index, index + parallelCases).map((item) => scorePublicCase(item, model, judge, signal)));
-    for (const score of scores) {
-      if (score.status !== "fulfilled") continue;
-      result.generationCases.push(score.value);
-      if (score.value.score === null) continue;
-      result.scoredCases += 1;
-      total += score.value.score;
-    }
+export function publicFaithfulnessReport(model:EvaluationModel,judge:FaithfulnessJudge,effort:EvaluationEffort,calibration:CalibrationReport,measurements:GenerationMeasurement[]):FaithfulnessResult {
+  const result:FaithfulnessResult={status:'calibration_failed',value:null,scoredCases:0,totalCases:dashboardGoldenSet.cases.length,judgeModel:judge.model,
+    effort,maxOutputTokens:model.maxOutputTokens,promptVersion:groundedPromptVersion,datasetDigest,calibration,generationCases:measurements};
+  if(calibration.scoredExamples!==judgeCalibrationCases.length||calibration.agreement!==1)return result;
+  const scored=measurements.filter((item)=>item.score!==null);
+  if(scored.length!==result.totalCases)return{...result,status:'incomplete',scoredCases:scored.length};
+  return{...result,status:'completed',scoredCases:scored.length,value:scored.reduce((sum,item)=>sum+item.score!,0)/result.totalCases};
+}
+
+/** Only bundled public cases enter generation or the judge; callers may provide a cancellation signal. */
+export async function evaluatePublicFaithfulness(model:EvaluationModel,judge:FaithfulnessJudge,effort:EvaluationEffort,parent?:AbortSignal):Promise<FaithfulnessResult> {
+  const signal=parent?AbortSignal.any([parent,AbortSignal.timeout(evaluationTimeoutMs)]):AbortSignal.timeout(evaluationTimeoutMs);
+  const calibration=await calibrate(judge,signal);
+  if(calibration.scoredExamples!==judgeCalibrationCases.length||calibration.agreement!==1)return publicFaithfulnessReport(model,judge,effort,calibration,[]);
+  const measurements:GenerationMeasurement[]=[];
+  for(let index=0;index<dashboardGoldenSet.cases.length;index+=parallelCases){
+    signal.throwIfAborted();
+    const outcomes=await Promise.allSettled(dashboardGoldenSet.cases.slice(index,index+parallelCases).map(async(item)=>scoreGeneratedPublicCase(await generatePublicCase(item,model,signal),judge,signal)));
+    for(const outcome of outcomes)if(outcome.status==='fulfilled')measurements.push(outcome.value);
   }
-  if (result.scoredCases !== result.totalCases) return { ...result, status: "incomplete" };
-  return { ...result, status: "completed", value: total / result.totalCases };
+  return publicFaithfulnessReport(model,judge,effort,calibration,measurements);
 }

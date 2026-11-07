@@ -23,7 +23,7 @@ export const usageQuery = (token: string, workspaceId: string) => queryOptions({
 export const evaluationsQuery = (token: string, workspaceId: string) => queryOptions({
   queryKey: ["evaluation-runs", token, workspaceId],
   queryFn: () => api.listEvaluationRuns(token, workspaceId),
-  refetchInterval: (query) => ["queued", "processing"].includes(query.state.data?.reference?.state ?? "") ? 3_000 : false
+  refetchInterval: (query) => ["queued", "processing"].includes(query.state.data?.reference?.state ?? "") || query.state.data?.workflows?.some((run) => ["queued","running","waiting_approval"].includes(run.status)) ? 3_000 : false
 });
 
 export { membersQuery } from "../../../entities/workspace/model/members";

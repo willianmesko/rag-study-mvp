@@ -1,5 +1,7 @@
 import type { Pool } from "pg";
 import type { UsageMetricsRepository, UsageSummary } from "../../application/ports/usage-metrics-repository.js";
+import { createHash } from 'node:crypto';
+import { currentExecution } from '../../application/workflows/execution-context.js';
 
 type SummaryRow = { requests: string; cache_hits: string; input_tokens: string; output_tokens: string; estimated_cost_usd: string; average_latency_ms: string; provider_failures: string; observed_requests: string; observed_cost_usd: string; effective_cost_usd: string };
 
@@ -7,12 +9,15 @@ export class PgUsageMetricsRepository implements UsageMetricsRepository {
   constructor(private readonly pool: Pool) {}
 
   async record(input: Parameters<UsageMetricsRepository["record"]>[0]): Promise<void> {
+    const execution=currentExecution();
+    const recordKey=execution?createHash('sha256').update(JSON.stringify([execution.node,input.operation,input.provider,input.model,input.promptVersion])).digest('hex'):null;
     await this.pool.query(
       `INSERT INTO ai_usage_events (tenant_id, actor_key, operation, provider, model, cache_hit, input_tokens, output_tokens, latency_ms, estimated_cost_usd, failed,
-                                    usage_source, observed_cost_usd, prompt_version, citation_count, safety_outcome)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+                                    usage_source, observed_cost_usd, prompt_version, citation_count, safety_outcome,workflow_run_id,workflow_record_key)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+       ON CONFLICT(tenant_id,workflow_run_id,workflow_record_key) WHERE workflow_run_id IS NOT NULL DO NOTHING`,
       [input.tenantId, input.actorKey, input.operation, input.provider, input.model, input.cacheHit, input.inputTokens, input.outputTokens, input.latencyMs, input.estimatedCostUsd, input.failed,
-        input.source ?? "estimated", input.observedCostUsd ?? null, input.promptVersion ?? null, input.citationCount ?? 0, input.safetyOutcome ?? null]
+        input.source ?? "estimated", input.observedCostUsd ?? null, input.promptVersion ?? null, input.citationCount ?? 0, input.safetyOutcome ?? null,execution?.lease.runId??null,recordKey]
     );
   }
 

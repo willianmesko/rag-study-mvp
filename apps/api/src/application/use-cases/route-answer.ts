@@ -9,6 +9,8 @@ import { conversationPromptVersion, groundedPromptVersion, reserveGroundedPrompt
 import { preparePreviousQuestions } from "../policies/conversation-context.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 import type { ComparisonModel } from "./compare-answers.js";
+import { withTransientBudget } from '../workflows/transient-budget.js';
+import { WorkflowGuardError } from '../workflows/types.js';
 
 type AutoInput = {
   question: string;
@@ -19,7 +21,7 @@ type AutoInput = {
   simple: ComparisonModel;
   complex: ComparisonModel;
   fallbacks: ComparisonModel[];
-  reserveFallbackQuota: () => Promise<boolean>;
+  reserveFallbackQuota: (modelId?:string) => Promise<boolean>;
   signal?: AbortSignal;
   onEvent?: (event: AnswerWorkflowEvent) => void | Promise<void>;
 };
@@ -53,7 +55,7 @@ export class RouteAnswerUseCase {
   ) {}
 
   execute(input: AutoInput): Promise<AnswerQuestionResult> {
-    return withExecutionTimeout((signal) => this.run(input, signal), this.options.timeoutMs, input.signal);
+    return withTransientBudget({maxSteps:50,maxCalls:16,maxInputTokens:this.options.maxTotalInputTokens,maxOutputTokens:Math.min(64_000,this.options.maxTotalOutputTokens+3_600),maxCostMicros:Math.ceil(this.options.maxEstimatedCostUsd*1_000_000),timeoutMs:this.options.timeoutMs},()=>withExecutionTimeout((signal) => this.run(input, signal), this.options.timeoutMs, input.signal));
   }
 
   private async run(input: AutoInput, signal: AbortSignal): Promise<AnswerQuestionResult> {
@@ -87,7 +89,7 @@ export class RouteAnswerUseCase {
 
     for (const [index, model] of planned.entries()) {
       signal.throwIfAborted();
-      if (index > 0 && !await input.reserveFallbackQuota()) break;
+      if (index > 0 && !await input.reserveFallbackQuota(model.descriptor.id)) break;
       const remainingMs = Math.floor(deadline - performance.now());
       if (remainingMs <= 0) break;
       const attemptTimeout = Math.max(1, Math.floor(remainingMs / (planned.length - index)));
@@ -98,8 +100,9 @@ export class RouteAnswerUseCase {
       try {
         result = await withExecutionTimeout((attemptSignal) =>
           this.workflow.answerPrepared(prepared, model.generator, attemptSignal, (usage) => { providerUsage = usage; }), attemptTimeout, signal);
-      } catch {
+      } catch(error) {
         signal.throwIfAborted();
+        if(error instanceof WorkflowGuardError)throw error;
       }
       const usage = describeAnswerUsage(result, model, performance.now() - startedAt, prepared.estimatedInputTokens, providerUsage, promptVersion);
       await this.usage.record({

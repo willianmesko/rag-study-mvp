@@ -15,7 +15,17 @@ API deployment and CI quality checks, but these do not establish production
 capacity. No deployment, provider quota, or load test was inspected or run.
 [Service configuration](../render.yaml#L26) · [CI quality gate](../.github/workflows/quality-gates.yml)
 
-## Findings and priorities
+## Workflow update, 2026-11-07
+
+The original findings below are a dated review, not current implementation status.
+The [LangGraph delivery](durable-workflows.md) now adds renewable fenced leases,
+native encrypted checkpoints, graceful worker release, persistent resource
+reservations, provider/OCR cancellation, and resumable authenticated chat.
+The shared database and in-process worker remain intentional low-cost choices.
+There is no throughput/load-test evidence yet; separate workers, shared burst
+limits, connection budgeting, and tenant-skewed retrieval benchmarks remain open.
+
+## Original findings and priorities
 
 | Priority | Finding | Next decision or change |
 | --- | --- | --- |

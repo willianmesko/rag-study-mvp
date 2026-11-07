@@ -55,6 +55,13 @@ Apply `020_workspace_model_policies.sql`, `021_model_usage_metadata.sql`, and
 embedding version support. These migrations add state and metadata. Embedding
 activation is a separate operator workflow after the updated API is live.
 
+Apply `20261107082623_workflow_execution.sql` before enabling durable execution.
+The migration is additive. Configure `WORKFLOWS_ENABLED=true` and a dedicated
+canonical base64 32-byte `WORKFLOW_STATE_KEY` in the API service. Merge keys;
+never replace the service's unrelated environment variables. Keep the same key
+on every replica and retain it during rollback. No frontend key is needed.
+See [Durable workflows](durable-workflows.md) for budgets and recovery limits.
+
 ## 2. Render API
 
 The API is built from the repository root using `apps/api/Dockerfile`. Set at

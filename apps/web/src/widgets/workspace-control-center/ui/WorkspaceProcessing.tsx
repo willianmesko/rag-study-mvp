@@ -31,6 +31,10 @@ export function WorkspaceProcessing({ workspace, token }: { workspace: Workspace
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: jobOptions.queryKey }); }
   });
 
+  const cancel = useMutation({
+    mutationFn:(jobId:string)=>api.cancelUpload(jobId,token,workspaceId),
+    onSuccess:()=>{void queryClient.invalidateQueries({queryKey:jobOptions.queryKey});}
+  });
   return (
     <div className="space-y-6">
       <WorkspacePageHeader title={t("Processing", "Processamento")} description={t("Follow files as they become available for search.", "Acompanhe os arquivos até ficarem disponíveis para busca.")}>
@@ -55,6 +59,8 @@ export function WorkspaceProcessing({ workspace, token }: { workspace: Workspace
           : t("No files match this filter. Choose another status to see more files.", "Nenhum arquivo corresponde a esse filtro. Escolha outro status para ver mais arquivos.")}</p>}
         {retry.isSuccess && <p className="success-message" role="status">{t("File queued for another attempt.", "Arquivo na fila para uma nova tentativa.")}</p>}
         {retry.isError && <p className="error-message" role="alert">{workspaceRequestError(retry.error, t, t("We could not retry this file.", "Não foi possível reprocessar este arquivo."))}</p>}
+        {cancel.isSuccess && <p className="success-message" role="status">{t("Processing stopped. You can retry this file later.","Processamento interrompido. Você pode tentar novamente depois.")}</p>}
+        {cancel.isError && <p className="error-message" role="alert">{workspaceRequestError(cancel.error,t,t("Could not stop processing.","Não foi possível interromper o processamento."))}</p>}
         <ul className="divide-y divide-slate-800 border-y border-slate-800">
           {filteredJobs.map((job) => <li className="flex min-w-0 items-center gap-3 py-4" key={job.id}>
             <button className="min-w-0 flex-1 rounded-lg text-left hover:bg-slate-800/40" type="button" aria-haspopup="dialog" onClick={() => setSelectedId(job.id)}>
@@ -64,6 +70,7 @@ export function WorkspaceProcessing({ workspace, token }: { workspace: Workspace
             <span className={`shrink-0 text-xs ${job.status === "failed" ? "text-rose-200" : "text-slate-400"}`}>{statusLabel(job.status, t)} · {number.format(job.progress)}%</span>
             <ActionMenu label={t(`Actions for ${job.title ?? job.filename}`, `Ações para ${job.title ?? job.filename}`)} actions={[
               { label: t("View timeline", "Ver etapas"), onSelect: () => setSelectedId(job.id) },
+              ...(canManage && ["queued","processing"].includes(job.status) ? [{label:t("Stop processing","Interromper processamento"),onSelect:()=>cancel.mutate(job.id),disabled:cancel.isPending}] : []),
               ...(canManage && job.status === "failed" ? [{ label: t("Try again", "Tentar novamente"), onSelect: () => retry.mutate(job.id), disabled: retry.isPending }] : [])
             ]} />
           </li>)}

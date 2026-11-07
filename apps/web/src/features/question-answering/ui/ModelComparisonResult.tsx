@@ -7,7 +7,7 @@ import { answerSafetyLabel, promptVariantLabel } from "../model/prompt-variants"
 
 function refusalCode(reason: string | null | undefined) {
   if (!reason) return null;
-  return ["insufficient_context", "invalid_citations", "unstructured_model_output"].includes(reason) ? reason : "model_refused";
+  return ["insufficient_context", "invalid_citations", "unstructured_model_output", "unverified_claims"].includes(reason) ? reason : "model_refused";
 }
 
 function exportComparison(comparison: QuestionComparisonResponse) {

@@ -5,6 +5,8 @@ export function getRefusalCopy(reason: QuestionResponse["refusalReason"]): [stri
     case "insufficient_context":
       return ["I could not find enough information in the workspace documents to answer. Try a more specific question or check that the relevant document is indexed.",
         "Não encontrei informações suficientes nos documentos deste espaço para responder. Faça uma pergunta mais específica ou verifique se o documento relevante foi indexado."];
+    case "unverified_claims":
+      return ["I could not verify every part of the answer against the source passages. Try a more specific question or inspect the documents directly.", "Não consegui conferir todas as partes da resposta nos trechos das fontes. Faça uma pergunta mais específica ou consulte os documentos diretamente."];
     case "invalid_citations":
       return ["I could not match the answer’s citations to the passages I found. Try again or make your question more specific.",
         "Não consegui vincular as citações da resposta aos trechos encontrados. Tente novamente ou faça uma pergunta mais específica."];

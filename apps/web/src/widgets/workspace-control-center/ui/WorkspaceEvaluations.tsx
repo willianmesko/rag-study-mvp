@@ -7,6 +7,7 @@ import { workspaceRequestError } from "../../../shared/lib/request-error";
 import { SelectField } from "../../../shared/ui/SelectField";
 import { effortLabels, evaluationEfforts, type EvaluationEffort } from "../model/evaluation-quality";
 import { evaluationsQuery } from "../model/queries";
+import { WorkflowProgress } from "./WorkflowProgress";
 import { EvaluationPanel } from "./EvaluationPanel";
 import { WorkspaceQueryFeedback } from "./WorkspaceQueryFeedback";
 import { WorkspacePageHeader } from "./WorkspacePageHeader";
@@ -30,18 +31,24 @@ export function WorkspaceEvaluations({ workspaceId, token }: { workspaceId: stri
   });
   const models = catalog.data?.models ?? [];
   const selectedModel = models.find(({ id }) => id === modelId) ?? models.find(({ isDefault }) => isDefault);
+  const activeWorkflows = evaluations.data?.workflows?.filter((run)=>["queued","running","waiting_approval"].includes(run.status)) ?? [];
   const runEvaluation = useMutation({
-    mutationFn: () => api.runEvaluation(token, workspaceId, judgingRequested ? { includeFaithfulness: true, modelId: selectedModel?.id, effort } : {}),
+    mutationFn: async () => {
+      const options = judgingRequested ? {includeFaithfulness:true,modelId:selectedModel?.id,effort} : {};
+      if (evaluations.data?.workflowAvailable) return api.startEvaluationWorkflow(token,workspaceId,options);
+      return api.runEvaluation(token,workspaceId,options);
+    },
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: evaluationOptions.queryKey }); }
   });
 
   return <div className="space-y-4">
     <WorkspacePageHeader title={t("Evaluations", "Avaliações")} description={t("Review search quality and answer safety.", "Confira a qualidade da busca e a segurança das respostas.")}>
       <button className="primary-button" type="button" onClick={() => runEvaluation.mutate()}
-        disabled={runEvaluation.isPending || referenceUnavailable || evaluations.isLoading || evaluations.isError || (judgingRequested && !selectedModel)}>
+        disabled={activeWorkflows.length > 0 || runEvaluation.isPending || referenceUnavailable || evaluations.isLoading || evaluations.isError || (judgingRequested && !selectedModel)}>
         {runEvaluation.isPending ? t("Running…", "Avaliando…") : t("Run evaluation", "Executar avaliação")}
       </button>
     </WorkspacePageHeader>
+    {evaluations.data?.workflowAvailable && <WorkflowProgress runs={evaluations.data.workflows ?? []} token={token} workspaceId={workspaceId} onChanged={() => { void queryClient.invalidateQueries({queryKey:evaluationOptions.queryKey}); }} />}
     {referenceUnavailable && <section className="space-y-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4" aria-label={t("Reference benchmark setup", "Preparação do benchmark de referência")}>
       <p className="text-sm leading-6 text-amber-100" role="status">{["queued", "processing"].includes(evaluations.data?.reference?.state ?? "")
         ? t("The reference document is being prepared. The evaluation becomes available when it is ready.", "O documento de referência está sendo preparado. A avaliação ficará disponível quando ele estiver pronto.")
@@ -75,7 +82,7 @@ export function WorkspaceEvaluations({ workspaceId, token }: { workspaceId: stri
         </>}
         </div>
       </details> : undefined} />}
-    {runEvaluation.isSuccess && <p className="success-message" role="status">{t("Evaluation completed and saved.", "Avaliação concluída e salva.")}</p>}
+    {runEvaluation.isSuccess && <p className="success-message" role="status">{evaluations.data?.workflowAvailable ? t("Evaluation queued. Follow its progress above.", "Avaliação na fila. Acompanhe o progresso acima.") : t("Evaluation completed and saved.", "Avaliação concluída e salva.")}</p>}
     {runEvaluation.isError && <p className="error-message" role="alert">{runEvaluation.error instanceof ApiError && runEvaluation.error.code === "evaluation_reference_missing"
       ? t("Prepare the reference benchmark document before running this evaluation.", "Prepare o documento do benchmark de referência antes de executar esta avaliação.")
       : workspaceRequestError(runEvaluation.error, t, t("We could not run the evaluation.", "Não foi possível executar a avaliação."))}</p>}

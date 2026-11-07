@@ -1,5 +1,7 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import type { CreateEvaluationRun, EvaluationRepository, EvaluationRun } from "../../application/ports/evaluation-repository.js";
+import { currentExecution } from '../../application/workflows/execution-context.js';
+import { lockWorkflowFence } from './workflow-fence.js';
 
 type Row = {
   id: string;
@@ -50,16 +52,22 @@ function map(row: Row): EvaluationRun {
 }
 
 export class PgEvaluationRepository implements EvaluationRepository {
-  constructor(private readonly pool: Pick<Pool, "query">) {}
+  constructor(private readonly pool: Pool | PoolClient) {}
 
   async create(input: CreateEvaluationRun): Promise<EvaluationRun> {
-    const result = await this.pool.query<Row>(
+    const execution=currentExecution();
+    const client=execution && !('release' in this.pool) ? await this.pool.connect() : undefined;
+    if(execution&&!client)throw new Error('Workflow reports require a transaction-capable connection pool.');
+    try {
+    if(client){await client.query('BEGIN');await lockWorkflowFence(client,input.tenantId);}
+    const result = await (client??this.pool).query<Row>(
       `INSERT INTO evaluation_runs (
         tenant_id, dataset_name, dataset_version, commit_sha, embedding_provider,
         embedding_model, chat_provider, chat_model, total_cases, hit_rate,
         mean_reciprocal_rank, faithfulness, context_precision, injection_pass_rate,
-        passed, duration_ms, failure_details
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb)
+        passed, duration_ms, failure_details${execution ? ",workflow_run_id" : ""}
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb${execution ? ",$18" : ""})
+      ${execution ? "ON CONFLICT(tenant_id,workflow_run_id) WHERE workflow_run_id IS NOT NULL DO UPDATE SET workflow_run_id=EXCLUDED.workflow_run_id" : ""}
       RETURNING ${columns}`,
       [
         input.tenantId,
@@ -78,10 +86,12 @@ export class PgEvaluationRepository implements EvaluationRepository {
         input.injectionPassRate,
         input.passed,
         input.durationMs,
-        JSON.stringify(input.failureDetails)
+        JSON.stringify(input.failureDetails),...(execution?[execution.lease.kind==='evaluation'?execution.lease.runId:null]:[])
       ]
     );
+    if(client)await client.query('COMMIT');
     return map(result.rows[0] as Row);
+    }catch(error){if(client)await client.query('ROLLBACK');throw error;}finally{client?.release();}
   }
 
   async list(tenantId: string, limit: number): Promise<EvaluationRun[]> {

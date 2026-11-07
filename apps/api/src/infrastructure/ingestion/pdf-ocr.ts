@@ -9,7 +9,7 @@ export type PdfOcrPage = {
 };
 
 export interface PdfOcrEngine {
-  recognize(input: { pdf: Buffer; pageNumbers: readonly number[] }): Promise<{ pages: PdfOcrPage[] }>;
+  recognize(input: { pdf: Buffer; pageNumbers: readonly number[] },signal?:AbortSignal): Promise<{ pages: PdfOcrPage[] }>;
 }
 
 const errorMessages = {
@@ -45,21 +45,23 @@ export class PopplerTesseractOcr implements PdfOcrEngine {
     }
   }
 
-  async recognize({ pdf, pageNumbers }: { pdf: Buffer; pageNumbers: readonly number[] }): Promise<{ pages: PdfOcrPage[] }> {
+  async recognize({ pdf, pageNumbers }: { pdf: Buffer; pageNumbers: readonly number[] },signal?:AbortSignal): Promise<{ pages: PdfOcrPage[] }> {
+    signal?.throwIfAborted();
     const deadline = performance.now() + this.options.timeoutMs;
     const pages: PdfOcrPage[] = [];
     let recognizedCharacters = 0;
 
     for (const pageNumber of pageNumbers) {
+      signal?.throwIfAborted();
       if (!Number.isSafeInteger(pageNumber) || pageNumber < 1) throw new PdfOcrError("ocr_render_failed");
       const page = String(pageNumber);
       const png = await runOcrCommand(
         "pdftoppm", ["-f", page, "-l", page, "-scale-to", String(maxPagePixels), "-gray", "-singlefile", "-png", "-"],
-        pdf, maxPngBytes, deadline, "ocr_render_failed"
+        pdf, maxPngBytes, deadline, "ocr_render_failed",signal
       );
       const tsv = await runOcrCommand(
         "tesseract", ["stdin", "stdout", "-l", this.options.languages, "--psm", "3", "-c", "tessedit_create_tsv=1"],
-        png, maxTsvBytes, deadline, "ocr_recognition_failed"
+        png, maxTsvBytes, deadline, "ocr_recognition_failed",signal
       );
       const result = parseTesseractTsv(tsv.toString("utf8"));
       if (performance.now() >= deadline) throw new PdfOcrError("ocr_timeout");
@@ -121,8 +123,10 @@ function runOcrCommand(
   input: Buffer,
   maxBytes: number,
   deadline: number,
-  commandFailure: "ocr_render_failed" | "ocr_recognition_failed"
+  commandFailure: "ocr_render_failed" | "ocr_recognition_failed",
+  signal?:AbortSignal
 ): Promise<Buffer> {
+  if(signal?.aborted)return Promise.reject(signal.reason);
   const remainingMs = Math.ceil(deadline - performance.now());
   if (remainingMs <= 0) return Promise.reject(new PdfOcrError("ocr_timeout"));
 
@@ -137,6 +141,9 @@ function runOcrCommand(
         TESSDATA_PREFIX: process.env.TESSDATA_PREFIX
       }
     });
+    const abort=()=>{child.kill("SIGKILL");child.stdin.destroy();child.stdout.destroy();};
+    signal?.addEventListener("abort",abort,{once:true});
+    if(signal?.aborted)abort();
     const output: Buffer[] = [];
     let bytes = 0;
     let failure: PdfOcrError | undefined;
@@ -168,7 +175,9 @@ function runOcrCommand(
     });
     child.once("close", (code) => {
       clearTimeout(timer);
-      if (failure) reject(failure);
+      signal?.removeEventListener("abort",abort);
+      if(signal?.aborted)reject(signal.reason);
+      else if (failure) reject(failure);
       else if (performance.now() >= deadline) reject(new PdfOcrError("ocr_timeout"));
       else if (code !== 0 || bytes === 0) reject(new PdfOcrError(commandFailure));
       else resolve(Buffer.concat(output, bytes));

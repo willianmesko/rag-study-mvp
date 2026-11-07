@@ -121,7 +121,9 @@ const questionResponseSchema = z.object({
   cacheHit: z.boolean().optional(),
   model: chatModelDescriptorSchema.optional(),
   routing: chatAnswerRoutingSchema.optional(),
-  usage: chatAnswerUsageSchema.optional()
+  usage: chatAnswerUsageSchema.optional(),
+  claimVerification:z.object({method:z.enum(['judge','extractive']),supported:z.boolean(),claims:z.number().int().nonnegative(),unsupported:z.number().int().nonnegative()}).optional(),
+  repaired:z.boolean().optional(),retrievalAttempts:z.number().int().min(1).max(2).optional()
 });
 
 const questionComparisonResultSchema = z.object({
@@ -176,3 +178,13 @@ export type QuestionResponse = z.infer<typeof questionResponseSchema>;
 export type ChatRunEvent = z.infer<typeof chatRunEventSchema>;
 export type WorkspaceMemberRole = z.infer<typeof workspaceMemberRoleSchema>;
 export type WorkspaceOnboardingProgress = z.infer<typeof workspaceOnboardingProgressSchema>;
+
+/** Public progress only. Inputs, checkpoint contents, lease credentials and actor IDs stay on the server. */
+export const workflowSnapshotSchema = z.object({
+  runId: z.string().uuid(), kind: z.enum(["chat","ingestion","evaluation"]), version: z.string(),
+  status: z.enum(["queued","running","waiting_approval","completed","failed","cancelled"]), stage: z.string().nullable(),
+  steps:z.number().int().nonnegative(),calls:z.number().int().nonnegative(),inputTokens:z.number().int().nonnegative(),outputTokens:z.number().int().nonnegative(),costMicros:z.number().int().nonnegative(),
+  budget:z.object({maxSteps:z.number(),maxCalls:z.number(),maxInputTokens:z.number(),maxOutputTokens:z.number(),maxCostMicros:z.number(),timeoutMs:z.number()}),
+  attempts:z.number().int(),errorCode:z.string().nullable(),resultId:z.string().uuid().nullable(),createdAt:z.string().datetime(),updatedAt:z.string().datetime(),expiresAt:z.string().datetime()
+});
+export type WorkflowSnapshot = z.infer<typeof workflowSnapshotSchema>;

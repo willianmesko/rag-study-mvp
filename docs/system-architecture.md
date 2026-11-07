@@ -282,7 +282,8 @@ The server buffers the provider draft until it has checked the structured
 answer and the citation identifiers. Fresh checked citations precede safe text
 deltas. Reused or unstructured answers arrive in the terminal response with the
 appropriate evidence status. The private replay tables retain progress and the
-answer for up to 24 hours, and expire runs interrupted by a worker restart.
+answer for up to 24 hours. With durable workflows enabled, native checkpoints
+restore unfinished work after a worker restart within the original deadline.
 They do not hold raw questions or raw provider drafts. Anonymous demo streams
 are transient. The JSON endpoint is available as a fallback before a streaming
 run is admitted.
@@ -319,10 +320,11 @@ source availability rules belong to the conversation feature's acceptance
 criteria. Server-side context assembly selects recent messages within the
 token budget and performs fresh workspace retrieval for each question.
 
-LangGraph checkpointers can later persist graph execution state by thread for
-restart recovery and approval workflows. That execution state has a separate
+Native encrypted PostgreSQL LangGraph checkpointers now persist graph execution
+state for authenticated chat, ingestion, evaluations, and owner approval. That execution state has a separate
 lifecycle from the user-facing history. The underlying patterns are described
-in the [LangGraph persistence guide](https://docs.langchain.com/oss/javascript/langgraph/persistence)
+in the [durable-workflow guide](durable-workflows.md),
+the [LangGraph persistence guide](https://docs.langchain.com/oss/javascript/langgraph/persistence)
 and the [AI SDK message persistence guide](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-message-persistence).
 
 ## Workspace MCP boundary
@@ -343,16 +345,39 @@ configuration.
 
 ## LangGraph workflow
 
-The Q&A workflow has three main nodes:
+The workflow expansion covers seven capabilities: adaptive retrieval, claim
+verification/repair, checkpointed ingestion, unified evaluation, durable owner
+approval, shared persistent resource guards, and restart recovery.
 
-1. `retrieve`: execute tenant-scoped hybrid retrieval.
-2. `prepare_context`: remove high-risk chunks and wrap remaining material as
-   untrusted reference text.
-3. `generate_answer`: ask the selected chat provider for a grounded answer and
-   validate its structured output before returning allowed citations.
+```mermaid
+flowchart LR
+  R[Retrieve safe passages] --> G{Relevant?}
+  G -->|No| W[One bounded rewrite and fresh retrieval]
+  W --> G2{Relevant?}
+  G2 -->|No| F[Refuse]
+  G2 -->|Yes| C[Prepare untrusted context]
+  G -->|Yes| C
+  C --> A[Generate structured answer]
+  A --> V[Check IDs, claims and evidence]
+  V -->|Invalid| P[One controlled repair]
+  P --> V2[Verify again]
+  V2 -->|Invalid| F
+  V2 -->|Valid| D[Publish checked sources and text]
+  V -->|Valid| D
+```
 
-When the strongest retrieved result is below the configured minimum score, the
-workflow refuses rather than inventing an answer.
+Ingestion and evaluation are separate native graphs. The admission record,
+checkpoints, pending writes, provider effect journal, persistent reservations,
+and fenced worker leases share the existing PostgreSQL database. Automatic
+content tracing is suppressed for durable executions. Owner-approved evaluation
+pauses survive service restarts. Cancellation propagates to model calls and OCR
+processes; late mutations require a current lease and authorization.
+
+See [Durable LangGraph workflows](durable-workflows.md) for every graph, the
+model/code responsibility split, database isolation, budget accounting,
+publication semantics, recovery bounds, deployment, tests, and failure runbooks.
+The free deployment still needs capacity measurement before scaling; execution
+recovery is not evidence of throughput capacity.
 
 ## Security model
 

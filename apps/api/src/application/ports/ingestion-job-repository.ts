@@ -49,6 +49,7 @@ export type IngestionPassagePreview = {
 export interface IngestionJobRepository {
   enqueue(input: Omit<IngestionJob, "id" | "documentId" | "status" | "progress" | "error" | "chunkCount" | "highRiskChunks" | "createdAt" | "updatedAt">, options?: { onlyIfMissing: true }): Promise<IngestionJob>;
   claimNext(): Promise<IngestionJob | null>;
+  readForProcessing?(jobId:string,tenantId:string):Promise<IngestionJob|null>;
   complete(id: string, result: { documentId: string; chunkCount: number; highRiskChunks: number }): Promise<void>;
   fail(id: string, error: string): Promise<void>;
   retry(id: string, tenantId: string): Promise<boolean>;
