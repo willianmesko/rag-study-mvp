@@ -21,4 +21,4 @@ COPY --from=build /build/node_modules/zod ./node_modules/zod
 COPY --from=build /build/packages/contracts/package.json ./node_modules/@rag-study/contracts/package.json
 COPY --from=build /build/packages/contracts/dist ./node_modules/@rag-study/contracts/dist
 USER node
-CMD ["node", "--permission", "--allow-fs-read=/app/package.json", "--allow-fs-read=/app/node_modules", "/app/stdio.js"]
+CMD ["node", "--permission", "--allow-fs-read=/app/stdio.js", "--allow-fs-read=/app/package.json", "--allow-fs-read=/app/node_modules", "/app/stdio.js"]
