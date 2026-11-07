@@ -4,6 +4,7 @@ import { useLocale } from "../../../shared/i18n/locale";
 import { supabase } from "../../../shared/lib/supabase";
 import { BrandMark } from "../../../shared/ui/BrandMark";
 import { Mascot } from "../../../shared/ui/Mascot";
+import "./sign-in.css";
 
 type SignInPageProps = {
   onSuccess: (session: Session) => void;
@@ -21,6 +22,7 @@ export function SignInPage({ onSuccess, onDemo, demoAvailable = true }: SignInPa
   const heroId = useId();
   const inFlight = useRef(false);
   const [pending, setPending] = useState(false);
+  const [miloLoaded, setMiloLoaded] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<SignInError | null>(null);
 
@@ -140,7 +142,8 @@ export function SignInPage({ onSuccess, onDemo, demoAvailable = true }: SignInPa
               </p>
             </div>
             <div className="mt-5 flex items-center gap-3 sm:mt-7 sm:gap-5">
-              <Mascot size="sm" className="shrink-0 sm:!size-24" decorative />
+              <Mascot size="sm" className={`shrink-0 sm:!size-24${miloLoaded ? " sign-in-milo" : ""}`}
+                decorative onLoad={() => setMiloLoaded(true)} />
               <p className="max-w-[16rem] rounded-2xl border border-cyan-400/20 bg-slate-950/50 px-3.5 py-3 text-sm leading-6 text-cyan-50">
                 {t("Hi, I'm Milo. I'll help you get started.", "Oi, eu sou o Milo. Vou ajudar você nos primeiros passos.")}
               </p>

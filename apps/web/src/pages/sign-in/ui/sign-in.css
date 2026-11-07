@@ -1,0 +1,13 @@
+@media (prefers-reduced-motion: no-preference) {
+  .sign-in-milo {
+    transform-origin: 50% 75%;
+    animation: sign-in-milo-greeting 1.8s ease-in-out 150ms;
+  }
+}
+
+@keyframes sign-in-milo-greeting {
+  0%, 100% { transform: none; }
+  30% { transform: translateY(-8px) rotate(-5deg); }
+  55% { transform: translateY(-4px) rotate(4deg); }
+  75% { transform: translateY(-6px) rotate(-2deg); }
+}

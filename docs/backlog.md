@@ -47,6 +47,8 @@ product decision, credentials, or additional operational cost.
   layouts, keyboard-visible focus states, reduced-motion support, loading/
   empty/error/success states, animated ingestion progress, source inspection,
   and document/job filters in the administration area.
+- Milo gives a short greeting on sign-in after the image loads. The greeting
+  respects the device's reduced-motion preference.
 - CI quality gates for every push and pull request: typecheck, unit tests,
   production builds, prompt-injection regression, deterministic golden-set
   retrieval, and Promptfoo security checks.
@@ -145,8 +147,14 @@ make model availability, cost estimates, and quota behavior visible in Ask.
    - Keep workspace switching in the global header so users can move between
      workspaces such as `TI` and `Legal` without losing their current section.
    - Add **Create workspace** to the signed-in switcher and guide the user
-     through setup for the new space. Require an explicit workspace on private
-     operations for multi-workspace accounts and test roles and data isolation.
+     through setup for the new space. Reuse the membership model and shared
+     PostgreSQL/pgvector database with tenant-scoped documents, retrieval,
+     cache, and quotas.
+   - Require an explicit workspace on private operations for multi-workspace
+     accounts and verify membership and the workspace role on the server.
+   - Test the same question in TI and Legal with distinct corpora and verify
+     citations belong to the active workspace. An owner in TI who is a viewer
+     in Legal can read Legal documents and cannot upload there.
    - Move each section into a dedicated Feature-Sliced widget and keep actions
      in focused features such as upload, reindex, member management, invite,
      evaluation, and workspace settings.
