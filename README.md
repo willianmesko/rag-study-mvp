@@ -79,7 +79,8 @@ Zod schemas in both applications.
 - Owner-only recorded answer-cost analytics by provider/model, operation and UTC
   day, with reported/estimated provenance, token and latency detail, and safe export.
 - Deterministic golden-set and prompt-injection evaluation suites.
-- Workspace-scoped MCP read tools and a separate approval-gated evaluation worker.
+- Workspace-scoped MCP read tools, URL connections with OAuth/PKCE consent,
+  budgeted hybrid search, revocable assistant access, and a separate approval-gated evaluation worker.
 
 See [Workspace MCP and approved actions](docs/workspace-mcp.md) for connection
 setup, a worked example, budgets, and the execution boundaries.

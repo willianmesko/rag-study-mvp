@@ -2,7 +2,7 @@ import { usageResponseSchema } from "@rag-study/contracts";
 import { knowledgeStatusSchema } from "@rag-study/contracts";
 import { workflowSnapshotSchema, type WorkflowSnapshot } from "@rag-study/contracts";
 import { chatModelCatalogSchema, demoLibraryCatalogSchema, demoSeedResponseSchema, questionComparisonResponseSchema, workspaceChatModelPolicyResponseSchema, workspaceOnboardingResponseSchema,
-  mcpAccessIssuedSchema, mcpAccessStatusSchema,
+  mcpAccessIssuedSchema, mcpAccessStatusSchema, mcpConnectionsSchema, mcpConsentDetailsSchema, mcpConsentRedirectSchema, type McpReadToolName,
   type DemoSourceState, type DocumentFilters, type QuestionComparisonInput, type WorkspaceChatModelPolicy, type WorkspaceOnboardingProgress } from "@rag-study/contracts";
 
 export type Health = { status: string };
@@ -156,6 +156,22 @@ export const api = {
   revokeWorkspaceMcpAccess: (accessToken: string, workspaceId: string) => requestVoid("/v1/mcp/access", {
     method: "DELETE", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) },
     signal: AbortSignal.timeout(10_000)
+  }),
+  mcpConsent: async (token: string, id: string, signal: AbortSignal) => mcpConsentDetailsSchema.parse(await request<unknown>(`/v1/mcp/oauth/requests/${encodeURIComponent(id)}`, {
+    signal, headers: { authorization: `Bearer ${token}` }
+  })),
+  approveMcpConsent: async (token: string, workspaceId: string, id: string, tools: McpReadToolName[]) => mcpConsentRedirectSchema.parse(await request<unknown>(`/v1/mcp/oauth/requests/${encodeURIComponent(id)}/approve`, {
+    method: "POST", headers: { authorization: `Bearer ${token}`, ...workspaceHeaders(workspaceId) }, body: JSON.stringify({ tools })
+  })),
+  denyMcpConsent: async (token: string, id: string) => mcpConsentRedirectSchema.parse(await request<unknown>(`/v1/mcp/oauth/requests/${encodeURIComponent(id)}/deny`, {
+    method: "POST", headers: { authorization: `Bearer ${token}` }
+  })),
+  mcpConnections: async (token: string, workspaceId: string, signal: AbortSignal) => {
+    try { return mcpConnectionsSchema.parse(await request<unknown>("/v1/mcp/connections", { signal, headers: { authorization: `Bearer ${token}`, ...workspaceHeaders(workspaceId) } })); }
+    catch (error) { if (error instanceof ApiError && error.status === 404) return null; throw error; }
+  },
+  revokeMcpConnection: (token: string, workspaceId: string, id: string) => requestVoid(`/v1/mcp/connections/${encodeURIComponent(id)}`, {
+    method: "DELETE", headers: { authorization: `Bearer ${token}`, ...workspaceHeaders(workspaceId) }
   }),
   workspaces: (accessToken: string) => request<{ workspaces: Workspace[] }>("/v1/workspaces", { headers: { authorization: `Bearer ${accessToken}` } }),
   createWorkspace: (input: { name: string; slug: string; accessToken: string }) => request<{ workspace: Workspace }>("/v1/workspaces", { method: "POST", body: JSON.stringify({ name: input.name, slug: input.slug }), headers: { authorization: `Bearer ${input.accessToken}` } }),

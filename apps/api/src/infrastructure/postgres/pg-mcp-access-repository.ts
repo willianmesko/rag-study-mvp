@@ -58,4 +58,11 @@ export class PgMcpAccessRepository implements McpAccessRepository {
     const row = rows[0];
     return row ? { tenantId, userId: row.user_id, role: row.role, allowed: row.allowed } : null;
   }
+  async validate({ tenantId, digest }: Parameters<McpAccessRepository["validate"]>[0]): Promise<McpAdmission | null> {
+    const { rows } = await this.pool.query<{ user_id: string; role: TenantRole }>(`SELECT a.user_id,m.role FROM workspace_mcp_access a
+      JOIN tenant_memberships m ON m.tenant_id=a.tenant_id AND m.user_id=a.user_id
+      WHERE a.tenant_id=$1 AND a.token_digest=$2 AND a.expires_at>clock_timestamp()`, [tenantId,digest]);
+    const member = rows[0];
+    return member ? { tenantId, userId: member.user_id, role: member.role, allowed: true } : null;
+  }
 }

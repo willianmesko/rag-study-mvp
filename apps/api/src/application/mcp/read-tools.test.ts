@@ -1,3 +1,4 @@
+import { toLexicalQuery } from "../policies/lexical-query.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mcpReadToolOutputSchemas } from "@rag-study/contracts";
@@ -22,16 +23,16 @@ function fixture(reads: Partial<McpReadRepository>) {
   return new McpReadTools({
     listSources: unexpectedRead, getIngestionStatus: unexpectedRead, getQualityReport: unexpectedRead,
     getDocument: unexpectedRead, search: unexpectedRead, ...reads
-  });
+  }, { execute: (input) => (reads.search ?? unexpectedRead)(input.tenantId, toLexicalQuery(input.query), input.limit, input.signal) });
 }
 
 test("the workspace and output limits cannot be overridden by tool arguments", async () => {
   const tools = fixture({});
-  await assert.rejects(tools.execute({ tool: "list_sources", tenantId, role: "viewer",
+  await assert.rejects(tools.execute({ tool: "list_sources", tenantId, userId: tenantId, role: "viewer",
     arguments: { workspaceId: documentId }, signal }));
-  await assert.rejects(tools.execute({ tool: "list_sources", tenantId, role: "viewer",
+  await assert.rejects(tools.execute({ tool: "list_sources", tenantId, userId: tenantId, role: "viewer",
     arguments: { limit: 999 }, signal }));
-  await assert.rejects(tools.execute({ tool: "list_sources", tenantId: "", role: "viewer", arguments: {}, signal }));
+  await assert.rejects(tools.execute({ tool: "list_sources", tenantId: "", userId: tenantId, role: "viewer", arguments: {}, signal }));
 });
 
 test("the quality report requires an owner and exposes only safe metric fields", async () => {
@@ -49,12 +50,12 @@ test("the quality report requires an owner and exposes only safe metric fields",
       return [run];
     }
   });
-  await assert.rejects(tools.execute({ tool: "get_quality_report", tenantId, role: "viewer", arguments: { limit: 1 }, signal }),
+  await assert.rejects(tools.execute({ tool: "get_quality_report", tenantId, userId: tenantId, role: "viewer", arguments: { limit: 1 }, signal }),
     McpReadToolForbiddenError);
-  await assert.rejects(tools.execute({ tool: "get_quality_report", tenantId, role: "editor", arguments: { limit: 1 }, signal }),
+  await assert.rejects(tools.execute({ tool: "get_quality_report", tenantId, userId: tenantId, role: "editor", arguments: { limit: 1 }, signal }),
     McpReadToolForbiddenError);
   const result = mcpReadToolOutputSchemas.get_quality_report.parse(
-    await tools.execute({ tool: "get_quality_report", tenantId, role: "owner", arguments: { limit: 1 }, signal })
+    await tools.execute({ tool: "get_quality_report", tenantId, userId: tenantId, role: "owner", arguments: { limit: 1 }, signal })
   );
   assert.equal(result.runs[0]?.datasetName, null);
   assert.equal(result.runs[0]?.hitRate, 0.9);
@@ -75,7 +76,7 @@ test("search redacts input and output, hides unsafe passages, and bounds visible
     }
   });
   const result = mcpReadToolOutputSchemas.search_workspace.parse(
-    await tools.execute({ tool: "search_workspace", tenantId, role: "viewer",
+    await tools.execute({ tool: "search_workspace", tenantId, userId: tenantId, role: "viewer",
       arguments: { query: "the policy support@example.com" }, signal })
   );
   assert.equal(result.results.length, 1);
@@ -102,7 +103,7 @@ test("document lookup hides local paths and excludes unsafe previews", async () 
     }
   });
   const result = mcpReadToolOutputSchemas.get_document.parse(
-    await tools.execute({ tool: "get_document", tenantId, role: "viewer", arguments: { documentId }, signal })
+    await tools.execute({ tool: "get_document", tenantId, userId: tenantId, role: "viewer", arguments: { documentId }, signal })
   );
   assert.equal(result.document?.url, null);
   assert.equal(result.document?.format, "pdf");
@@ -112,7 +113,7 @@ test("document lookup hides local paths and excludes unsafe previews", async () 
 
 test("a query containing only redacted identifiers does not reach retrieval", async () => {
   const result = await fixture({}).execute({
-    tool: "search_workspace", tenantId, role: "viewer", arguments: { query: "support@example.com" }, signal
+    tool: "search_workspace", tenantId, userId: tenantId, role: "viewer", arguments: { query: "support@example.com" }, signal
   });
   assert.deepEqual(result, { results: [] });
 });

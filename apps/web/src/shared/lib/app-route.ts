@@ -2,11 +2,12 @@ import type { Workspace } from "../api/rag-api";
 
 export type WorkspaceSection = "overview" | "knowledge" | "processing" | "team" | "evaluations" | "settings";
 export type LabRoute =
-  | { tab: "ingest" | "search" | "answer" | "history"; workspaceSection?: never }
+  | { tab: "ingest" | "search" | "answer" | "history" | "connections"; workspaceSection?: never }
   | { tab: "admin"; workspaceSection: WorkspaceSection };
 
 export type AppRoute =
   | { kind: "home" | "sign-in" | "onboarding" }
+  | { kind: "mcp-consent"; requestId: string | null }
   | { kind: "demo" | "private"; lab: LabRoute };
 
 const workspaceSections = new Set<WorkspaceSection>(["overview", "knowledge", "processing", "team", "evaluations", "settings"]);
@@ -17,7 +18,13 @@ export function canAccessWorkspaceSection(section: WorkspaceSection, role: Works
 }
 
 export function readAppRoute(pathname: string): AppRoute {
-  const normalized = pathname.replace(/\/+$/, "") || "/";
+  const [path, query] = pathname.split("?");
+  const normalized = path.replace(/\/+$/, "") || "/";
+  if (normalized === "/mcp/authorize") {
+    const params = new URLSearchParams(query);
+    const id = params.get("requestId");
+    return { kind: "mcp-consent", requestId: params.getAll("requestId").length === 1 && id && /^[0-9a-f-]{36}$/i.test(id) ? id : null };
+  }
   if (normalized === "/sign-in") return { kind: "sign-in" };
   if (normalized === "/onboarding") return { kind: "onboarding" };
   if (normalized === "/demo/search") return { kind: "demo", lab: { tab: "search" } };
@@ -32,6 +39,7 @@ export function readAppRoute(pathname: string): AppRoute {
   if (normalized === "/search") return { kind: "private", lab: { tab: "search" } };
   if (normalized === "/ask") return { kind: "private", lab: { tab: "answer" } };
   if (normalized === "/history") return { kind: "private", lab: { tab: "history" } };
+  if (normalized === "/connections") return { kind: "private", lab: { tab: "connections" } };
   return { kind: "home" };
 }
 
@@ -41,11 +49,12 @@ export function pathForTab(tab: LabRoute["tab"], workspaceSection: WorkspaceSect
   if (tab === "search") return demo ? "/demo/search" : "/search";
   if (tab === "answer") return `${prefix}/ask`;
   if (tab === "history") return `${prefix}/history`;
+  if (tab === "connections") return "/connections";
   return "/demo/index";
 }
 
 export function navigateTo(pathname: string, { replace = false }: { replace?: boolean } = {}): void {
-  if (window.location.pathname === pathname) return;
+  if (window.location.pathname + window.location.search === pathname) return;
   if (replace) window.history.replaceState({}, "", pathname);
   else window.history.pushState({}, "", pathname);
   window.dispatchEvent(new PopStateEvent("popstate"));

@@ -9,11 +9,13 @@ import { assertToolAllowed, readOnlyWorkspaceTools, withExecutionTimeout } from 
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
 import type { TenantRole } from "../../application/ports/tenant-membership-repository.js";
 import { withReplySignal } from "./reply-signal.js";
+import type { McpCallControls } from "../../application/mcp/remote-types.js";
+import { McpBudgetExceededError, McpIndexUnavailableError } from "../../application/mcp/hybrid-search.js";
 
 type Member = { tenantId: string; userId: string; role: TenantRole };
 type AuthorizationFailure = { ok: false; status: number; error: string; code?: string };
 export type AuthorizeExplicitMember = (request: FastifyRequest) => Promise<({ ok: true } & Member) | AuthorizationFailure>;
-export type WorkspaceMcp = { access: Pick<McpAccess, "issue" | "status" | "revoke" | "admit">; tools: Pick<McpReadTools, "execute"> };
+export type WorkspaceMcp = { access: Pick<McpAccess, "issue" | "status" | "revoke" | "admit" | "validate">; tools: Pick<McpReadTools, "execute">; controls: Pick<McpCallControls, "admit"> };
 
 type ToolFailure = { status: number; code: string; error: string };
 const denied = { status: 403, code: "tool_forbidden", error: "This tool is not available to your workspace role." };
@@ -30,7 +32,7 @@ export function registerWorkspaceMcpRoutes(app: FastifyInstance, dependencies: W
   audit: AuditEventRepository["record"];
   shutdown: AbortSignal;
 }) {
-  const { access, tools, authorize, audit, shutdown } = dependencies;
+  const { access, tools, controls, authorize, audit, shutdown } = dependencies;
   function authorizeUser(request: FastifyRequest): ReturnType<AuthorizeExplicitMember> {
     if (request.headers.authorization?.startsWith("Bearer lumora_mcp_")) {
       return Promise.resolve({ ok: false as const, status: 401, error: "Sign in to manage MCP access." });
@@ -81,16 +83,31 @@ export function registerWorkspaceMcpRoutes(app: FastifyInstance, dependencies: W
       const signal = AbortSignal.any([callerSignal, deadline]);
       let outcome: ToolFailure | undefined;
       let result: unknown;
-      if (!scope.allowed) {
+      if (!scope.allowed || !await controls.admit(scope.tenantId, scope.userId, signal)) {
         outcome = { status: 429, code: "tool_limit_reached", error: "The workspace MCP call limit was reached." };
       } else if (!name.success || (name.data === "get_quality_report" && scope.role !== "owner")) {
         outcome = denied;
       } else {
+        const revoked = new AbortController();
+        const callSignal = AbortSignal.any([signal, revoked.signal]);
+        let checking = false;
+        const stillAllowed = async () => {
+          const current = await access.validate(scope.tenantId, token.data);
+          return Boolean(current && current.userId === scope.userId && (name.data !== "get_quality_report" || current.role === "owner"));
+        };
+        const timer = setInterval(() => {
+          if (checking || callSignal.aborted) return;
+          checking = true;
+          void stillAllowed().then((valid) => { if (!valid) revoked.abort(); }).catch(() => revoked.abort()).finally(() => { checking = false; });
+        }, 250);
+        timer.unref();
         try {
+          if (!await stillAllowed()) throw new McpReadToolForbiddenError();
           assertToolAllowed(name.data, readOnlyWorkspaceTools, { maxToolCalls: 1 }, 0);
-          const value = await tools.execute({ tool: name.data, tenantId: scope.tenantId, role: scope.role,
-            arguments: request.body === undefined ? {} : request.body, signal });
-          signal.throwIfAborted();
+          const value = await withExecutionTimeout((boundedSignal) => tools.execute({ tool: name.data, tenantId: scope.tenantId, userId: scope.userId, role: scope.role,
+            arguments: request.body === undefined ? {} : request.body, signal: boundedSignal }), 5_000, callSignal);
+          callSignal.throwIfAborted();
+          if (!await stillAllowed()) throw new McpReadToolForbiddenError();
           const parsed = mcpReadToolOutputSchemas[name.data].safeParse(value);
           if (!parsed.success || Buffer.byteLength(JSON.stringify({ result: parsed.data })) > maxMcpReadResponseBytes) {
             outcome = failed;
@@ -98,15 +115,17 @@ export function registerWorkspaceMcpRoutes(app: FastifyInstance, dependencies: W
             result = parsed.data;
           }
         } catch (error) {
-          if (callerSignal.aborted) outcome = { status: 499, code: "tool_cancelled", error: "The workspace tool was cancelled." };
+          if (callerSignal.aborted || revoked.signal.aborted) outcome = { status: 499, code: "tool_cancelled", error: "The workspace tool was cancelled." };
           else if (deadline.aborted) outcome = timedOut;
           else if (error instanceof ZodError) outcome = invalidInput;
           else if (error instanceof McpReadToolForbiddenError) outcome = denied;
+          else if (error instanceof McpBudgetExceededError) outcome = { status: 429, code: "provider_budget_exceeded", error: error.message };
+          else if (error instanceof McpIndexUnavailableError) outcome = { status: 409, code: "index_unavailable", error: error.message };
           else {
             request.log.warn({ tool: auditTool, errorType: error instanceof Error ? error.name : typeof error }, "Workspace MCP tool failed");
             outcome = failed;
           }
-        }
+        } finally { clearInterval(timer); }
       }
       await record(scope, request, "mcp.tool_called", { tool: auditTool, outcome: outcome?.code ?? "completed" });
       if (outcome) return replyFailure(reply, outcome);

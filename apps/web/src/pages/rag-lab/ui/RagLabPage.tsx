@@ -26,6 +26,8 @@ const OnboardingPage = lazy(() => import("../../onboarding/ui/OnboardingPage").t
 const WorkspaceControlCenter = lazy(() => import("../../../widgets/workspace-control-center/ui/WorkspaceControlCenter").then(({ WorkspaceControlCenter }) => ({ default: WorkspaceControlCenter })));
 const WorkspaceGuideHelp = lazy(() => import("../../../widgets/workspace-onboarding/ui/WorkspaceGuideHelp").then(({ WorkspaceGuideHelp }) => ({ default: WorkspaceGuideHelp })));
 const WorkspaceSourceDialog = lazy(() => import("../../../features/workspace-source-upload/ui/WorkspaceSourceDialog").then(({ WorkspaceSourceDialog }) => ({ default: WorkspaceSourceDialog })));
+const McpConsentPage = lazy(() => import("../../mcp-consent/ui/McpConsentPage").then(({ McpConsentPage }) => ({ default: McpConsentPage })));
+const WorkspaceMcpConnection = lazy(() => import("../../../features/workspace-mcp/ui/WorkspaceMcpConnection").then(({ WorkspaceMcpConnection }) => ({ default: WorkspaceMcpConnection })));
 const overviewPath = "/workspace/overview";
 const askPath = "/ask";
 const publicDemo = import.meta.env.VITE_DEMO_MODE === "true";
@@ -72,7 +74,7 @@ function StatusScreen({ message, onRetry, onSignOut }: { message: string; onRetr
 export function RagLabPage() {
   const { t } = useLocale();
   const queryClient = useQueryClient();
-  const [pathname, setPathname] = useState(() => window.location.pathname);
+  const [pathname, setPathname] = useState(() => window.location.pathname + window.location.search);
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!supabase);
   const [selected, setSelected] = useState<{ userId: string; workspaceId: string } | null>(null);
@@ -103,7 +105,7 @@ export function RagLabPage() {
 
   useEffect(() => {
     const update = () => {
-      setPathname(window.location.pathname);
+      setPathname(window.location.pathname + window.location.search);
       window.scrollTo(0, 0);
     };
     window.addEventListener("popstate", update);
@@ -119,12 +121,12 @@ export function RagLabPage() {
   }, []);
 
   useEffect(() => {
-    if (demoRoute || !authReady) return;
+    if (demoRoute || !authReady || route.kind === "mcp-consent") return;
     if (!session) {
       if (route.kind === "private") returnPath.current = pathname;
       navigateTo("/sign-in", { replace: true });
     } else if (workspaceQuery.isSuccess && !workspaceQuery.isError && !setupLoading) {
-      if (!setupComplete) {
+      if (!setupComplete && !(route.kind === "private" && route.lab.tab === "connections")) {
         if (route.kind === "private") returnPath.current = pathname;
         navigateTo("/onboarding", { replace: true });
       } else if (activeRole) {
@@ -198,9 +200,12 @@ export function RagLabPage() {
       onRetry={() => void workspaceQuery.refetch()} onSignOut={() => void signOut()} />;
   }
   if (workspaceQuery.isPending) return <StatusScreen message={t("Loading your workspaces…", "Carregando seus espaços de trabalho…")} />;
+  if (route.kind === "mcp-consent") return <Suspense fallback={<StatusScreen message={loadingText} />}>
+    <McpConsentPage key={route.requestId} requestId={route.requestId} token={token} workspaces={workspaces} />
+  </Suspense>;
   if (setupLoading) return <StatusScreen message={t("Checking your progress with Milo…", "Consultando seu progresso com o Milo…")} />;
 
-  if (!activeWorkspace || !setupComplete) {
+  if (!activeWorkspace || (!setupComplete && !(route.kind === "private" && route.lab.tab === "connections"))) {
     return <Suspense fallback={<StatusScreen message={loadingText} />}>
       <OnboardingPage key={userId} workspace={activeWorkspace} workspaces={workspaces} accessToken={token} userId={userId}
         progress={onboarding.progress} syncing={onboarding.syncing} syncFailed={onboarding.syncFailed}
@@ -252,7 +257,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
   const workspaceName = privateArea?.workspace.tenantName;
   const conversation = useConversation({ accessToken: privateArea?.token, workspaceId, scope, onAnswered: addAnswer });
   const isChat = activeTab === "answer";
-  const showLearningAside = activeTab !== "admin" && !isChat;
+  const showLearningAside = activeTab !== "admin" && activeTab !== "connections" && !isChat;
 
   useEffect(() => {
     const clearPreview = () => setSelectedSource(null);
@@ -278,7 +283,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
         <LabNavigation activeTab={activeTab} onTabChange={(tab) => navigateTo(pathForTab(tab, lab.workspaceSection, demo))}
           publicDemo={demo} canIndex={demo && canIndexDemo} onHelp={privateArea ? () => setGuideOpen(true) : undefined}
           workspaceControl={privateArea ? <WorkspaceSwitcher workspaces={privateArea.workspaces} selectedId={privateArea.workspace.tenantId}
-            onChange={privateArea.onWorkspaceChange} compact={isChat}
+            onChange={privateArea.onWorkspaceChange} compact={isChat} onManageAssistants={() => navigateTo("/connections")}
             creation={{ accessToken: privateArea.token, onWorkspaceCreated: privateArea.onWorkspaceCreated }} /> : undefined} />
         <section className={`min-w-0 ${isChat ? "p-3 sm:p-5 lg:px-8 lg:py-6" : "p-5 sm:p-8 lg:p-10"}`}>
           <LabHeader online={health.data?.status === "ok"} loading={health.isLoading} publicDemo={demo} compact={isChat || activeTab === "admin"}
@@ -297,6 +302,9 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
                 onAddDocuments={privateArea && privateArea.workspace.role !== "viewer" ? () => setAddingDocuments(true) : undefined}
                 conversation={conversation} suggestion={suggestion} onSuggestionUsed={() => setSuggestion(null)} />}
               {activeTab === "history" && <QuestionHistoryPanel history={history} onClear={() => setHistory([])} onFeedback={setFeedback} onInspectSource={setSelectedSource} />}
+              {activeTab === "connections" && privateArea && <Suspense fallback={<p role="status">{t("Loading connections…", "Carregando conexões…")}</p>}>
+                <WorkspaceMcpConnection token={privateArea.token} workspaceId={privateArea.workspace.tenantId} expanded />
+              </Suspense>}
               {lab.tab === "admin" && privateArea && <Suspense fallback={<p role="status" className="empty-state">{t("Opening workspace…", "Abrindo o espaço…")}</p>}>
                 <WorkspaceControlCenter section={lab.workspaceSection} workspace={privateArea.workspace} token={privateArea.token}
                   onSectionChange={(section) => navigateTo(pathForTab("admin", section))}

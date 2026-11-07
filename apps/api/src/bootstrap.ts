@@ -42,6 +42,10 @@ import { DeleteDocumentUseCase } from "./application/use-cases/delete-document.j
 import { GetDocumentOriginalUseCase } from "./application/use-cases/get-document-original.js";
 import { McpAccess } from "./application/mcp/access.js";
 import { McpReadTools } from "./application/mcp/read-tools.js";
+import { McpHybridSearch } from "./application/mcp/hybrid-search.js";
+import { McpOAuth } from "./application/mcp/oauth.js";
+import { PgMcpControls } from "./infrastructure/postgres/pg-mcp-controls.js";
+import { PgMcpOAuthRepository } from "./infrastructure/postgres/pg-mcp-oauth-repository.js";
 import { AgentActionService } from "./application/agent-actions/agent-action-service.js";
 import { config } from "./config.js";
 import type { AnswerGenerator } from "./application/ports/answer-generator.js";
@@ -49,7 +53,7 @@ import { resolveWorkspaceEmbeddingIndex } from "./application/ports/embedding-pr
 import type { Reranker } from "./application/ports/reranker.js";
 import { BedrockAnswerGenerator } from "./infrastructure/bedrock/bedrock-answer-generator.js";
 import { createBedrockClient } from "./infrastructure/bedrock/client.js";
-import { createWorkspaceEmbeddingProvider } from "./infrastructure/embedding/workspace-embedding-provider.js";
+import { createWorkspaceEmbeddingAdapter, createWorkspaceEmbeddingProvider, defaultWorkspaceEmbeddingModel } from "./infrastructure/embedding/workspace-embedding-provider.js";
 import { LangGraphRagWorkflow } from "./infrastructure/langgraph/langgraph-rag-workflow.js";
 import { LangSmithTracingWorkflow } from "./infrastructure/langsmith/langsmith-tracing-workflow.js";
 import { JinaReranker } from "./infrastructure/jina/jina-reranker.js";
@@ -87,6 +91,16 @@ export function createApplication() {
   const mcpReadPool = config.MCP_ENABLED
     ? createPostgresPool(config.MCP_READ_DATABASE_URL ?? config.DATABASE_URL, 2)
     : null;
+  const mcpControls = new PgMcpControls(pool, {
+    callsPerMinute: config.MCP_CALLS_PER_MINUTE, callsPerDay: config.MCP_CALLS_PER_DAY,
+    providerCallsPerDay: config.MCP_PROVIDER_CALLS_PER_DAY, inputTokensPerDay: config.MCP_INPUT_TOKENS_PER_DAY,
+    userCostNanoUsdPerDay: Math.floor(config.MCP_USER_COST_USD_PER_DAY * 1e9),
+    tenantCostNanoUsdPerDay: Math.floor(config.MCP_WORKSPACE_COST_USD_PER_DAY * 1e9), concurrentProviders: config.MCP_CONCURRENT_PROVIDERS
+  });
+  const mcpReads = mcpReadPool ? new PgMcpReadRepository(mcpReadPool) : null;
+  const mcpTools = mcpReads ? new McpReadTools(mcpReads, new McpHybridSearch(mcpReads, mcpControls,
+    createWorkspaceEmbeddingAdapter, [{ ...defaultWorkspaceEmbeddingModel(), inputCostPer1kUsd: config.EMBEDDING_INPUT_COST_PER_1K_USD }],
+    { maxInputTokens: 2048, maxCostNanoUsd: Math.floor(config.MCP_COST_USD_PER_CALL * 1e9) })) : null;
   const embeddings = new WorkflowEmbeddingProvider(
     createWorkspaceEmbeddingProvider(pool),
     "default",
@@ -701,12 +715,17 @@ export function createApplication() {
       workspaceOnboarding: new PgWorkspaceOnboardingRepository(pool),
       chatModels,
       workspaceModelPolicies,
-      workspaceMcp: mcpReadPool
+      workspaceMcp: mcpTools
         ? {
             access: new McpAccess(new PgMcpAccessRepository(pool)),
-            tools: new McpReadTools(new PgMcpReadRepository(mcpReadPool)),
+            tools: mcpTools,
+            controls: mcpControls,
           }
         : undefined,
+      remoteMcp: config.MCP_REMOTE_ENABLED && mcpTools ? {
+        oauth: new McpOAuth(new PgMcpOAuthRepository(pool), config.MCP_PUBLIC_URL!, config.APP_BASE_URL!),
+        tools: mcpTools, controls: mcpControls
+      } : undefined,
       agentActions: config.AGENT_ACTIONS_ENABLED
         ? new AgentActionService(new PgAgentActionRepository(pool))
         : undefined,

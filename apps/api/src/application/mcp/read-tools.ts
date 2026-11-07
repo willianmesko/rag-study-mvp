@@ -4,10 +4,10 @@ import { z } from "zod";
 import type { RetrievedChunk } from "../../domain/document.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 import { assessPromptInjection } from "../../domain/security/prompt-injection.js";
-import { toLexicalQuery } from "../policies/lexical-query.js";
 import type { EvaluationRun } from "../ports/evaluation-repository.js";
 import type { IngestionJob } from "../ports/ingestion-job-repository.js";
 import type { TenantRole } from "../ports/tenant-membership-repository.js";
+import type { McpSearch } from "./hybrid-search.js";
 
 export type McpSourceRecord = {
   id: string;
@@ -47,17 +47,19 @@ export class McpReadToolForbiddenError extends Error {
 }
 
 export class McpReadTools {
-  constructor(private readonly reads: McpReadRepository) {}
+  constructor(private readonly reads: McpReadRepository, private readonly search: McpSearch) {}
 
-  async execute({ tool, tenantId, role, arguments: args, signal }: {
+  async execute({ tool, tenantId, userId, role, arguments: args, signal }: {
     tool: McpReadToolName;
     tenantId: string;
+    userId: string;
     role: TenantRole;
     arguments: unknown;
     signal: AbortSignal;
   }): Promise<Record<string, unknown>> {
     signal.throwIfAborted();
     tenantIdSchema.parse(tenantId);
+    tenantIdSchema.parse(userId);
     roles.parse(role);
 
     switch (tool) {
@@ -97,13 +99,13 @@ export class McpReadTools {
       case "search_workspace": {
         const { query, limit = 5 } = mcpReadToolInputSchemas.search_workspace.parse(args);
         const masked = redactPii(query).text.replace(/\[REDACTED_[A-Z_]+\]/g, " ");
-        const lexicalQuery = toLexicalQuery(masked);
-        const rows = lexicalQuery ? await this.reads.search(tenantId, lexicalQuery, limit, signal) : [];
+        const rows = masked.trim() ? await this.search.execute({ tenantId, userId, query: masked, limit, signal }) : [];
         const results = rows.flatMap((row, index) => {
           const preview = passageView(row);
           return preview ? [{
             ...preview, documentId: row.documentId, title: safeLabel(row.title, 160),
-            url: publicCitationUrl(row.source), rank: index + 1
+            url: publicCitationUrl(row.source), rank: index + 1,
+            ...(Number.isFinite(row.score) && row.score >= -1 && row.score <= 1 ? { similarity: row.score } : {})
           }] : [];
         });
         return { results };

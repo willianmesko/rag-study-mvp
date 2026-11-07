@@ -33,8 +33,10 @@ async function fixture(t: TestContext, options: { role?: "owner" | "viewer"; all
   });
   const app = await buildApp({
     workspaceMcp: {
+      controls: { admit: async () => true },
       access: {
         issue, revoke, status: async () => ({ expiresAt: null }),
+        validate: async () => ({ tenantId, userId, role: options.role ?? "viewer", allowed: true }),
         admit: async (requested: string) => requested === tenantId ? {
           tenantId, userId, role: options.role ?? "viewer", allowed: options.allowed ?? true
         } : null

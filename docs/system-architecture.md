@@ -402,12 +402,36 @@ and the [AI SDK message persistence guide](https://ai-sdk.dev/docs/ai-sdk-ui/cha
 
 ## Workspace MCP boundary
 
-The local stdio connector exposes five read tools with shared Zod schemas.
-It connects to the API with a dedicated short-lived credential and an explicit
-workspace. Current membership, role, and persistent call allowances are checked
-on each call. A separate two-connection pool runs fixed read-only PostgreSQL
-transactions. Screened excerpts and allowlisted metadata leave this boundary.
-Tool queries and excerpts stay outside audit records.
+Five read tools share Zod schemas across local stdio and remote HTTP clients.
+The local bridge uses a temporary credential and explicit workspace. Remote
+clients connect to `/mcp`, discover the protected resource and authorization
+server, register a public client, and use authorization code + S256 PKCE.
+Supabase login stays inside Lumora's first-party consent screen. The member
+explicitly chooses one workspace and a subset of tools; the assistant receives
+separate, audience-bound opaque access and rotating refresh tokens. Only their
+SHA-256 digests are stored. Members manage their own grants at `/connections`,
+including viewers and accounts that have not completed onboarding.
+
+Every call checks current membership, the consented allowlist and role ceiling.
+PostgreSQL coordinates rates, provider reservations, daily user/workspace spend
+bounds and concurrent searches across API instances and credential rotations.
+Search makes exactly one PII-redacted query embedding against the pinned,
+explicitly priced active index, then combines bounded pgvector and full-text
+candidates with Reciprocal Rank Fusion. Missing/unpriced indices fail closed;
+MCP never pins, migrates, reindexes, generates answers or invokes a reranker.
+The configured price and UTF-8 token upper bound provide conservative budget
+accounting, not a claim of measured provider billing.
+
+A separate two-connection pool runs fixed read-only PostgreSQL transactions
+with two-second statement limits. Remote exchanges have an eight-second
+deadline; local tool calls have five seconds. Disconnects, protocol
+cancellation, grant revocation and membership changes propagate abort signals
+to embeddings and reads; durable cancellation guards are polled every 250 ms.
+Screened, capped excerpts remain untrusted data. Source text, queries, codes,
+verifiers and tokens stay outside audits. Authorization and accounting writes
+use the control connection, rather than weakening the business-data read-only
+boundary. Host and Origin allowlists, no-store responses, iframe denial and
+mandatory audit completion protect the remote transport and consent flow.
 
 Approved evaluation actions use a separate owner-authenticated proposal and
 approval API. A dedicated worker claims fenced leases, performs a fixed

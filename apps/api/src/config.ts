@@ -75,6 +75,17 @@ const environment = z.object({
   RAG_CLAIM_MODE:z.enum(['model','extractive']).default('model'),
   MCP_ENABLED: booleanEnvironment.default(false),
   MCP_READ_DATABASE_URL: z.string().url().optional(),
+  MCP_REMOTE_ENABLED: booleanEnvironment.default(false),
+  MCP_PUBLIC_URL: z.string().url().optional(),
+  MCP_REMOTE_ALLOWED_ORIGINS: z.string().optional().transform((value) => (value ?? "").split(",").map((item) => item.trim()).filter(Boolean)),
+  MCP_CALLS_PER_MINUTE: z.coerce.number().int().min(1).max(1000).default(10),
+  MCP_CALLS_PER_DAY: z.coerce.number().int().min(1).max(10000).default(400),
+  MCP_PROVIDER_CALLS_PER_DAY: z.coerce.number().int().min(1).max(10000).default(100),
+  MCP_INPUT_TOKENS_PER_DAY: z.coerce.number().int().min(1).max(1_000_000).default(100_000),
+  MCP_USER_COST_USD_PER_DAY: z.coerce.number().min(0).max(10).default(0.01),
+  MCP_WORKSPACE_COST_USD_PER_DAY: z.coerce.number().min(0).max(100).default(0.05),
+  MCP_COST_USD_PER_CALL: z.coerce.number().min(0).max(1).default(0.005),
+  MCP_CONCURRENT_PROVIDERS: z.coerce.number().int().min(1).max(4).default(2),
   AGENT_ACTIONS_ENABLED: booleanEnvironment.default(false),
   CHAT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(16_000).default(500),
   CHAT_AUTO_MAX_TOTAL_INPUT_TOKENS: z.coerce.number().int().min(1).max(500_000).default(120_000),
@@ -123,6 +134,8 @@ const environment = z.object({
 });
 
 export const config = environment.parse(process.env);
+if (config.MCP_REMOTE_ENABLED && (!config.MCP_ENABLED || !config.MCP_PUBLIC_URL || !config.APP_BASE_URL || !config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY))
+  throw new Error("Remote MCP requires MCP_ENABLED, MCP_PUBLIC_URL, APP_BASE_URL and Supabase authentication.");
 if (config.WORKFLOWS_ENABLED && !config.WORKFLOW_STATE_KEY) throw new Error("WORKFLOW_STATE_KEY is required when WORKFLOWS_ENABLED=true.");
 
 if (config.CHUNK_OVERLAP >= config.CHUNK_SIZE) {

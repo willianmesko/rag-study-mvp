@@ -21,9 +21,18 @@ status section where they appear.
 
 ## In progress
 
-No implementation is currently active. Visible invitation access choices were
-published and verified on 2026-11-07. The pending sections below contain the
-remaining work.
+### 8. MCP expansion — validated, preparing publication
+
+- [x] Remote MCP HTTP connections with OAuth authorization-code + S256 PKCE,
+  explicit workspace/tool consent, rotating refresh tokens and revocable grants.
+- [x] Hybrid workspace retrieval with a pinned/priced embedding identity,
+  PostgreSQL text search, pgvector and RRF; atomic user/workspace provider
+  budgets and cancellation propagated to embedding and SQL operations.
+- [x] Shared allowlists, strict Zod contracts, workspace scope, current RBAC,
+  durable rate/call budgets, deadlines, output caps, safe previews and audits.
+- [x] Connected-assistant management for every member role, plus responsive
+  PT/EN consent, sign-in return, expiry, decline and revocation states.
+- [ ] Publish the API and frontend and verify public OAuth discovery and UI.
 
 **Approved delivery order**
 
@@ -115,14 +124,6 @@ implemented.
   idempotency, retries, replayable audits, and network egress policy before
   adding write-capable external tools.
 
-### 8. MCP expansion
-
-- [ ] Add remote MCP connections with OAuth for clients that connect by URL.
-- [ ] Add hybrid workspace search with provider budgets and cancellation to
-  MCP. The current MCP search is bounded PostgreSQL keyword search.
-- [ ] Apply explicit allowlists, schemas, workspace scope, RBAC, rate limits,
-  deadlines, budgets, and audit requirements to every new tool.
-
 ### 9. Workspace-owned evaluation datasets
 
 - [ ] Add reviewed workspace-specific evaluation datasets and expected-source
@@ -130,6 +131,11 @@ implemented.
   public faithfulness examples do not certify a team's own documents.
 
 ## Implemented, pending activation or live validation
+
+- [ ] Complete a real connection in the user's chosen remote assistant after
+  interactive consent. The SDK authorization/discovery/PKCE/refresh and MCP
+  transports are integration-tested; third-party account consent is not
+  automatically performed by deployment.
 
 - [ ] Run the existing Jina benchmark with credentials and review measured
   quality and latency against the golden set before enabling reranking.
@@ -432,11 +438,11 @@ See [Durable workflows](durable-workflows.md).
 - [x] Dedicated temporary credentials, revocation, current membership checks,
   explicit workspace binding, Zod schemas, allowlisted fields, safe excerpts,
   audits, call allowances, rate limits, deadlines, result caps, and cancellation.
-- [x] PostgreSQL keyword search through a separate read-only pool, with no
-  Lumora provider calls.
+- [x] Hybrid semantic/keyword search through a separate read-only pool, with one
+  budgeted, redacted query embedding and no chat generation or reranker calls.
 - [x] Scoped Node module reads and an optional nonroot, read-only container with
   operating-system resource limits for the fixed connector.
-- [x] Owner credential UI in Settings and a
+- [x] Connection management for all member roles, optional temporary keys and a
   [connection guide](workspace-mcp.md) with a worked example and runtime limits.
 
 ## Maintenance rule

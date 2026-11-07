@@ -9,6 +9,7 @@ export interface McpAccessRepository {
   expiresAt(input: Membership): Promise<Date | null>;
   revoke(input: Membership): Promise<void>;
   admit(input: { tenantId: string; digest: Buffer }): Promise<McpAdmission | null>;
+  validate(input: { tenantId: string; digest: Buffer }): Promise<McpAdmission | null>;
 }
 
 export class McpAccess {
@@ -30,6 +31,7 @@ export class McpAccess {
   admit(tenantId: string, token: string) {
     return this.repository.admit({ tenantId, digest: tokenDigest(token) });
   }
+  validate(tenantId: string, token: string) { return this.repository.validate({ tenantId, digest: tokenDigest(token) }); }
 }
 
 function tokenDigest(token: string): Buffer {

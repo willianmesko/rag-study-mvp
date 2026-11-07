@@ -6,12 +6,13 @@ import { useLocale } from "../../../shared/i18n/locale";
 
 export type WorkspaceCreation = { accessToken: string; onWorkspaceCreated: (workspace: Workspace) => void };
 
-export function WorkspaceSwitcher({ workspaces, selectedId, onChange, creation, compact = false }: {
+export function WorkspaceSwitcher({ workspaces, selectedId, onChange, creation, compact = false, onManageAssistants }: {
   workspaces: Workspace[];
   selectedId: string;
   onChange: (workspaceId: string) => void;
   creation?: WorkspaceCreation;
   compact?: boolean;
+  onManageAssistants?: () => void;
 }) {
   const { t } = useLocale();
   const [creating, setCreating] = useState(false);
@@ -70,6 +71,11 @@ export function WorkspaceSwitcher({ workspaces, selectedId, onChange, creation, 
                 </DropdownMenu.RadioItem>
               ))}
             </DropdownMenu.RadioGroup>
+            {onManageAssistants && <>
+              <DropdownMenu.Separator className="mx-2 my-1.5 h-px bg-slate-800" />
+              <DropdownMenu.Item className="flex min-h-11 cursor-pointer select-none items-center rounded-xl px-3 py-2.5 text-sm outline-none data-[highlighted]:bg-slate-800"
+                onSelect={onManageAssistants}>{t("Connected assistants", "Assistentes conectados")}</DropdownMenu.Item>
+            </>}
             {creation && <>
               <DropdownMenu.Separator className="mx-2 my-1.5 h-px bg-slate-800" />
               <DropdownMenu.Item className="flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-cyan-100 outline-none data-[highlighted]:bg-slate-800"

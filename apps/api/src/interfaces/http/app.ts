@@ -50,6 +50,8 @@ import { withReplySignal } from "./reply-signal.js";
 import { registerWorkspaceMcpRoutes, type WorkspaceMcp } from "./workspace-mcp.js";
 import { registerAgentActionRoutes, type AgentActions } from "./agent-actions.js";
 import { safeHttpLogSerializers } from "./safe-logging.js";
+import { isRemoteMcpPath, registerMcpOAuthRoutes } from "./mcp-oauth.js";
+import { registerRemoteMcp, type RemoteMcp } from "../mcp/remote.js";
 
 const searchSchema = z.object({ q: z.string().min(1).max(5_000), topK: z.coerce.number().int().min(1).max(20).optional() });
 const invitationSchema = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: workspaceMemberRoleSchema });
@@ -81,6 +83,7 @@ type HttpDependencies = {
   chatModels: ReadonlyMap<string, ComparisonModel & { answerQuestion: AnswerQuestionUseCase }>;
   workspaceModelPolicies: WorkspaceModelPolicyRepository;
   workspaceMcp?: WorkspaceMcp;
+  remoteMcp?: RemoteMcp;
   agentActions?: AgentActions;
   compareAnswers: CompareAnswersUseCase;
   routeAnswer: RouteAnswerUseCase;
@@ -145,12 +148,14 @@ function originalFileDisposition(value: string): string {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
 
-function applyCorsHeaders(origin: string | undefined, reply: { header: (name: string, value: string) => unknown }): boolean {
+function applyCorsHeaders(origin: string | undefined, reply: { header: (name: string, value: string) => unknown }, remote = false): boolean {
   if (!origin) return true;
-  if (!config.ALLOWED_ORIGINS.includes(origin)) return false;
+  const allowed = remote ? [...config.ALLOWED_ORIGINS, ...config.MCP_REMOTE_ALLOWED_ORIGINS, ...(config.APP_BASE_URL ? [new URL(config.APP_BASE_URL).origin] : [])] : config.ALLOWED_ORIGINS;
+  if (!allowed.includes(origin)) return false;
   reply.header("access-control-allow-origin", origin);
   reply.header("access-control-allow-methods", "GET, POST, PATCH, DELETE, OPTIONS");
-  reply.header("access-control-allow-headers", "authorization, content-type, idempotency-key, x-document-source, x-document-title, x-workspace-id");
+  reply.header("access-control-allow-headers", "authorization, content-type, idempotency-key, x-document-source, x-document-title, x-workspace-id, mcp-protocol-version, mcp-session-id, last-event-id");
+  reply.header("access-control-expose-headers", "www-authenticate, mcp-protocol-version, mcp-session-id, x-request-id");
   reply.header("access-control-max-age", "600");
   reply.header("vary", "Origin");
   return true;
@@ -189,15 +194,19 @@ export async function buildApp(dependencies: HttpDependencies) {
     return payload;
   });
   app.addHook("onRequest", async (request, reply) => {
+    const path = request.raw.url?.split("?")[0] ?? "";
+    const remote = Boolean(dependencies.remoteMcp && isRemoteMcpPath(path));
+    if (remote && request.headers.host !== new URL(dependencies.remoteMcp!.oauth.resource).host)
+      return reply.code(403).send({ error: "Untrusted MCP host." });
     const origin = typeof request.headers.origin === "string" ? request.headers.origin : undefined;
-    const originAllowed = applyCorsHeaders(origin, reply);
+    const originAllowed = applyCorsHeaders(origin, reply, remote);
     if (!originAllowed) return reply.code(403).send({ error: "Origin not allowed" });
     if (request.method === "OPTIONS") {
       return reply.code(204).send();
     }
     const providedApiKey = request.headers["x-api-key"];
     const apiKey = typeof providedApiKey === "string" ? providedApiKey : undefined;
-    if (config.API_KEY && !matchesApiKey(apiKey, config.API_KEY)) return reply.code(401).send({ error: "Unauthorized" });
+    if (!remote && config.API_KEY && !matchesApiKey(apiKey, config.API_KEY)) return reply.code(401).send({ error: "Unauthorized" });
   });
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof WorkflowApprovalPending) return reply.code(409).send({code:'approval_required',error:error.message});
@@ -263,6 +272,23 @@ export async function buildApp(dependencies: HttpDependencies) {
       ...dependencies.workspaceMcp, authorize: (request) => authorizeMember(request, true),
       audit: dependencies.recordAuditEvent, shutdown: streamShutdown.signal
     });
+  }
+  if (dependencies.remoteMcp) {
+    const authorizeUser = async (request: FastifyRequest) => {
+      const authorization = request.headers.authorization;
+      if (!authorization?.startsWith("Bearer ") || authorization.startsWith("Bearer lumora_") || !config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY)
+        return { ok: false as const, status: 401, error: "Sign in to manage assistant connections." };
+      const client = createClient(config.SUPABASE_URL, config.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data, error } = await client.auth.getUser(authorization.slice(7));
+      if (error || !data.user) return { ok: false as const, status: 401, error: "Sign in to manage assistant connections." };
+      return { ok: true as const, userId: data.user.id };
+    };
+    const authorize = async (request: FastifyRequest) => {
+      if (request.headers.authorization?.startsWith("Bearer lumora_")) return { ok: false as const, status: 401, error: "Sign in to manage assistant connections." };
+      return authorizeMember(request, true);
+    };
+    registerMcpOAuthRoutes(app, { ...dependencies.remoteMcp, authorize, authorizeUser, audit: dependencies.recordAuditEvent });
+    registerRemoteMcp(app, { ...dependencies.remoteMcp, audit: dependencies.recordAuditEvent, shutdown: streamShutdown.signal });
   }
   if (dependencies.agentActions) {
     registerAgentActionRoutes(app, dependencies.agentActions, (request) => authorizeMember(request, true));

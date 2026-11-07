@@ -14,6 +14,7 @@ import { registerWorkspaceMcpRoutes } from "../../interfaces/http/workspace-mcp.
 import { PgAuditEventRepository } from "./pg-audit-event-repository.js";
 import { PgMcpAccessRepository } from "./pg-mcp-access-repository.js";
 import { PgMcpReadRepository } from "./pg-mcp-read-repository.js";
+import { PgMcpControls } from "./pg-mcp-controls.js";
 
 const databaseUrl = process.env.MCP_TEST_DATABASE_URL;
 const root = fileURLToPath(new URL("../../../../../", import.meta.url));
@@ -157,7 +158,9 @@ test("PostgreSQL enforces MCP scope, credentials and the complete tool transport
     const credential = await access.issue(scope);
     const audit = new PgAuditEventRepository(pool);
     registerWorkspaceMcpRoutes(api, {
-      access, tools: new McpReadTools(reads), audit: audit.record.bind(audit), shutdown: shutdown.signal,
+      controls: new PgMcpControls(pool, { callsPerMinute: 10, callsPerDay: 400, providerCallsPerDay: 100, inputTokensPerDay: 100000,
+        userCostNanoUsdPerDay: 10000000, tenantCostNanoUsdPerDay: 50000000, concurrentProviders: 2 }),
+      access, tools: new McpReadTools(reads, { execute: (input) => reads.search(input.tenantId, input.query, input.limit, input.signal) }), audit: audit.record.bind(audit), shutdown: shutdown.signal,
       authorize: async () => ({ ok: false, status: 401, error: "The fixture exercises tool credentials." })
     });
     await api.listen({ host: "127.0.0.1", port: 0 });

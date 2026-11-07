@@ -4,6 +4,9 @@ import {
   type McpReadRepository, type McpSearchRecord, type McpSourceRecord
 } from "../../application/mcp/read-tools.js";
 import { readStoredChunkSecurity } from "./stored-chunk-security.js";
+import type { McpHybridReadRepository } from "../../application/mcp/hybrid-search.js";
+import type { EmbeddingModelIdentity } from "../../application/ports/workspace-embedding-index.js";
+import { toVectorLiteral } from "./pgvector.js";
 
 type SourceRow = {
   id: string;
@@ -46,7 +49,7 @@ const passageColumns = `c.id AS chunk_id, c.ordinal, c.content,
 const passagePredicate = `c.metadata #>> '{security,promptInjectionRisk}' = 'low'
   AND char_length(c.content) <= ${maxMcpPassageChars}`;
 
-export class PgMcpReadRepository implements McpReadRepository {
+export class PgMcpReadRepository implements McpReadRepository, McpHybridReadRepository {
   constructor(private readonly pool: Pool, private readonly statementTimeoutMs = 2_000) {
     if (!Number.isSafeInteger(statementTimeoutMs) || statementTimeoutMs < 1 || statementTimeoutMs > 5_000) {
       throw new Error("Workspace read statements require a timeout between 1 and 5,000 ms.");
@@ -134,6 +137,49 @@ export class PgMcpReadRepository implements McpReadRepository {
       return rows.map((row) => ({
         ...mapPassage(row), documentId: row.document_id, source: row.source, title: row.title, score: row.score
       }));
+    });
+  }
+
+  activeIndex(tenantId: string, signal: AbortSignal) {
+    return this.read(signal, async (client) => {
+      const { rows } = await client.query<EmbeddingModelIdentity & { revision: string }>(
+        "SELECT provider, model, dimensions, revision FROM public.workspace_embedding_versions WHERE tenant_id=$1 AND state='active'", [tenantId]);
+      return rows[0] ?? null;
+    });
+  }
+
+  hybrid(input: Parameters<McpHybridReadRepository["hybrid"]>[0]): Promise<McpSearchRecord[]> {
+    const vector = toVectorLiteral(input.embedding, 1024);
+    if (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 5) throw new Error("Invalid MCP result limit.");
+    return this.read(input.signal, async (client) => {
+      const version = await client.query("SELECT 1 FROM public.workspace_embedding_versions WHERE tenant_id=$1 AND revision=$2 AND state='active'", [input.tenantId, input.revision]);
+      if (!version.rowCount) throw new Error("The MCP embedding index changed; retry with the active index.");
+      const { rows } = await client.query<PassageRow & { document_id: string; source: string; title: string | null; score: number }>(
+        `WITH active AS (
+           SELECT 1 FROM public.workspace_embedding_versions WHERE tenant_id=$1 AND revision=$5 AND state='active'
+         ), lexical AS (SELECT plainto_tsquery('portuguese'::regconfig,$3) AS query),
+         nearest AS (
+           SELECT c.id, row_number() OVER (ORDER BY c.embedding <=> $2::vector, c.id) AS position
+           FROM public.chunks c JOIN public.documents d ON d.id=c.document_id CROSS JOIN active
+           WHERE d.tenant_id=$1 AND ${passagePredicate}
+           ORDER BY c.embedding <=> $2::vector, c.id LIMIT $6
+         ), textual AS (
+           SELECT c.id, row_number() OVER (ORDER BY ts_rank_cd(c.search_vector,lexical.query) DESC,c.id) AS position
+           FROM public.chunks c JOIN public.documents d ON d.id=c.document_id CROSS JOIN active CROSS JOIN lexical
+           WHERE d.tenant_id=$1 AND c.search_vector @@ lexical.query AND ${passagePredicate}
+           ORDER BY ts_rank_cd(c.search_vector,lexical.query) DESC,c.id LIMIT $6
+         ), fusion AS (
+           SELECT id, sum(1.0/(60+position)) AS rrf FROM (
+             SELECT * FROM nearest UNION ALL SELECT * FROM textual
+           ) candidates GROUP BY id
+         )
+         SELECT ${passageColumns},c.document_id,left(d.source,1001) AS source,left(d.title,1001) AS title,
+           (1-(c.embedding <=> $2::vector))::float8 AS score
+         FROM fusion f JOIN public.chunks c ON c.id=f.id
+         JOIN public.documents d ON d.id=c.document_id AND d.tenant_id=$1
+         ORDER BY f.rrf DESC,c.id LIMIT $4`,
+        [input.tenantId, vector, input.lexicalQuery, input.limit, input.revision, input.limit * 4]);
+      return rows.map((row) => ({ ...mapPassage(row), documentId: row.document_id, source: row.source, title: row.title, score: row.score }));
     });
   }
 
