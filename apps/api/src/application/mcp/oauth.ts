@@ -45,17 +45,34 @@ const clientMetadata = z.strictObject({
   software_id: cleanString(128).optional(), software_version: cleanString(80).optional(),
   contacts: z.array(z.string().email().max(320)).max(3).optional()
 });
-const authorizeInput = z.strictObject({
+// OAuth requires unknown extension parameters to be ignored, not rejected.
+// Known security fields still have exact schemas; duplicates are rejected by
+// the form/query parser before reaching this boundary.
+const authorizeInput = z.object({
   response_type: z.literal("code"), client_id: z.string().regex(clientPattern),
   redirect_uri: z.string().max(2048), code_challenge: challengeSchema, code_challenge_method: z.literal("S256"),
   resource: z.string().max(2048), scope: z.literal(mcpReadScope).default(mcpReadScope), state: cleanString(1024).optional()
 });
-const tokenInput = z.strictObject({
+const tokenInput = z.object({
   grant_type: z.enum(["authorization_code", "refresh_token"]), client_id: z.string().regex(clientPattern),
   resource: z.string().max(2048), redirect_uri: z.string().max(2048).optional(),
   code: z.string().max(128).optional(), code_verifier: verifierSchema.optional(), refresh_token: z.string().max(128).optional(),
   scope: z.literal(mcpReadScope).optional()
 });
+
+function omitEmptyParameters(input: unknown): unknown {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return input;
+  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== ""));
+}
+
+function invalidAuthorization(issues: z.ZodError["issues"]): OAuthRequestError {
+  const fields = new Set(issues.map((issue) => issue.path[0]));
+  if (fields.has("scope")) return new OAuthRequestError("invalid_scope", "Only workspace:read access is supported.");
+  if (fields.has("resource")) return new OAuthRequestError("invalid_request", "Include this MCP server URL as the resource parameter.");
+  if (fields.has("code_challenge") || fields.has("code_challenge_method"))
+    return new OAuthRequestError("invalid_request", "An S256 PKCE code challenge is required.");
+  return new OAuthRequestError("invalid_request", "Use a registered public client, an exact redirect URL and the authorization code flow.");
+}
 
 export class McpOAuth {
   readonly issuer: string;
@@ -76,7 +93,8 @@ export class McpOAuth {
       code_challenge_methods_supported: ["S256"], token_endpoint_auth_methods_supported: ["none"],
       scopes_supported: [mcpReadScope], authorization_response_iss_parameter_supported: true };
   }
-  protectedMetadata() { return { resource: this.resource, authorization_servers: [this.issuer], scopes_supported: [mcpReadScope], bearer_methods_supported: ["header"], resource_name: "Lumora workspace tools" }; }
+  get logoUrl() { return new URL("/brand/lumora-icon.png", this.appUrl).href; }
+  protectedMetadata() { return { resource: this.resource, authorization_servers: [this.issuer], scopes_supported: [mcpReadScope], bearer_methods_supported: ["header"], resource_name: "Lumora" }; }
   async register(input: unknown) {
     const parsed = clientMetadata.safeParse(input);
     if (!parsed.success) throw new OAuthRequestError("invalid_client_metadata", "Register a public PKCE client with exact HTTPS or loopback redirect URLs.");
@@ -85,8 +103,8 @@ export class McpOAuth {
       redirect_uris: client.redirectUris, token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"], scope: mcpReadScope };
   }
   async start(input: unknown) {
-    const parsed = authorizeInput.safeParse(input);
-    if (!parsed.success) throw new OAuthRequestError("invalid_request", "Use authorization code flow with S256 PKCE and a resource indicator.");
+    const parsed = authorizeInput.safeParse(omitEmptyParameters(input));
+    if (!parsed.success) throw invalidAuthorization(parsed.error.issues);
     const data = parsed.data;
     if (data.resource !== this.resource) throw new OAuthRequestError("invalid_target", "The resource indicator does not match this MCP server.");
     const client = await this.repository.client(data.client_id);
@@ -115,7 +133,7 @@ export class McpOAuth {
     return this.callback(request, { error: "access_denied" });
   }
   async exchange(input: unknown) {
-    const parsed = tokenInput.safeParse(input);
+    const parsed = tokenInput.safeParse(omitEmptyParameters(input));
     if (!parsed.success) throw new OAuthRequestError("invalid_request", "Invalid OAuth token request.");
     const data = parsed.data;
     if (data.resource !== this.resource) throw new OAuthRequestError("invalid_target", "The resource indicator does not match this MCP server.");

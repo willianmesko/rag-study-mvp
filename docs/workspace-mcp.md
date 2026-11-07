@@ -45,6 +45,27 @@ is explicitly shown as unverified. Quality reports are owner-only and are
 unchecked by default. Declining returns `access_denied` to the registered
 callback without creating a grant.
 
+For ChatGPT, paste the `/mcp` server URL above into the connector configuration.
+The OAuth `/oauth/authorize` URL is an endpoint the client constructs with PKCE,
+client/redirect binding and the resource indicator; opening it directly is not
+a standalone sign-in flow. [Official OpenAI authentication guidance](https://developers.openai.com/plugins/build/auth)
+describes the discovery and client flow.
+
+OAuth authorization/token requests ignore unknown extension parameters and
+treat empty values as omitted, as required by
+[RFC 6749 sections 3.1/3.2](https://www.rfc-editor.org/rfc/rfc6749#section-3.1).
+Duplicate parameters, missing S256 challenges, mismatched resources/redirects and
+unsupported scopes still fail. Extensions never select a workspace or add a
+permission. Invalid requests identify the missing requirement without returning
+client input, tokens or a redirect to an unverified destination.
+
+The MCP implementation advertises the product title **Lumora**, a human-readable
+description, configured website origin and a **256×256 PNG icon** derived from
+the existing SVG mark through standard `serverInfo.icons` metadata. The image is
+served from the configured application origin. Display depends on the client's
+icon support; the server does not change a third-party app's branding settings.
+External client-supplied logos are still not fetched.
+
 Lumora does not send your Supabase JWT, login password or provider key to the
 assistant. It issues separate opaque access tokens (10 minutes) and rotating
 refresh tokens (up to seven days), bound to the registered client and exact

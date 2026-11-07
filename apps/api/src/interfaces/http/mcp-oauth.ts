@@ -4,6 +4,7 @@ import { mcpConsentApprovalSchema } from "@rag-study/contracts";
 import { McpOAuth, OAuthRequestError } from "../../application/mcp/oauth.js";
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
 import type { AuthorizeExplicitMember } from "./workspace-mcp.js";
+import { frameworkRequestFailure } from "./request-errors.js";
 
 export type AuthorizeMcpUser = (request: FastifyRequest) => Promise<
   { ok: true; userId: string } | { ok: false; status: number; error: string }>;
@@ -30,6 +31,8 @@ export function registerMcpOAuthRoutes(app: FastifyInstance, dependencies: {
       try { done(null, uniqueOAuthParameters(body as string)); } catch (error) { done(error as Error); }
     });
     routes.setErrorHandler((error, request, reply) => {
+      const frameworkFailure = frameworkRequestFailure(error);
+      if (frameworkFailure) return reply.code(frameworkFailure.status).send({ error: frameworkFailure.status === 429 ? "temporarily_unavailable" : "invalid_request", error_description: frameworkFailure.body.error });
       if (error instanceof OAuthRequestError) return reply.code(error.status).send({ error: error.code, error_description: error.message });
       if (error instanceof z.ZodError) return reply.code(400).send({ error: "invalid_request", error_description: "Invalid authorization request." });
       if ((error as { statusCode?: number }).statusCode === 429) return reply.code(429).send({ error: "temporarily_unavailable" });

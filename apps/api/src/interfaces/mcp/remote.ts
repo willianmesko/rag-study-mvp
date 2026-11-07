@@ -95,7 +95,11 @@ export function registerRemoteMcp(app: FastifyInstance, dependencies: RemoteMcp 
           }
         }
         const handler = createMcpHandler(() => {
-          const server = new McpServer({ name: "lumora", version: "0.2.0" });
+          const server = new McpServer({ name: "lumora", title: "Lumora", version: "0.2.1",
+            description: "Find answers and sources in your team's private knowledge workspace.",
+            websiteUrl: new URL(oauth.appUrl).origin,
+            icons: [{ src: oauth.logoUrl, mimeType: "image/png", sizes: ["256x256"] }],
+          });
           for (const name of mcpReadToolNames.filter(permitted)) {
             server.registerTool(name, { description: mcpReadToolDescriptions[name], inputSchema: mcpReadToolInputSchemas[name],
               outputSchema: mcpReadToolOutputSchemas[name], annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: name === "search_workspace" }

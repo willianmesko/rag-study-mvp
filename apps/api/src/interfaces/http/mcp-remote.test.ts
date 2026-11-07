@@ -26,11 +26,23 @@ test("remote MCP discovery works without the normal API key and rejects Host/Ori
   const { app } = await fixture(t);
   const metadata = await app.inject({ url: "/.well-known/oauth-authorization-server", headers: { host: "api.example" } });
   assert.equal(metadata.statusCode, 200); assert.equal(metadata.json().issuer, "https://api.example");
+  const protectedMetadata = await app.inject({ url: "/.well-known/oauth-protected-resource/mcp", headers: { host: "api.example" } });
+  assert.equal(protectedMetadata.json().resource_name, "Lumora");
   assert.equal((await app.inject({ url: "/v1/mcp/access", headers: { host: "api.example" } })).statusCode, 401);
   assert.equal((await app.inject({ url: "/.well-known/oauth-authorization-server", headers: { host: "attacker.example" } })).statusCode, 403);
   assert.equal((await app.inject({ url: "/mcp", headers: { ...headers, origin: "https://attacker.example" } })).statusCode, 403);
   const cors = await app.inject({ method: "OPTIONS", url: "/mcp", headers: { host: "api.example", origin: "https://trusted-assistant.example" } });
   assert.equal(cors.statusCode, 204); assert.match(String(cors.headers["access-control-expose-headers"]), /www-authenticate/);
+});
+test("MCP initialization advertises Lumora's public product identity and icon", async (t) => {
+  const { app } = await fixture(t);
+  const response = await app.inject({ method: "POST", url: "/mcp", headers,
+    payload: { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "fixture", version: "1" } } } });
+  assert.equal(response.statusCode, 200);
+  const message = response.headers["content-type"]?.includes("text/event-stream")
+    ? JSON.parse(response.payload.split("\n").find((line) => line.startsWith("data: "))!.slice(6)) : response.json();
+  assert.equal(message.result.serverInfo.title, "Lumora");
+  assert.deepEqual(message.result.serverInfo.icons, [{ src: "https://app.example/brand/lumora-icon.png", mimeType: "image/png", sizes: ["256x256"] }]);
 });
 test("remote MCP rejects normal session tokens, workspace overrides, writes and unapproved tools", async (t) => {
   const { app, execute, audit } = await fixture(t);
