@@ -15,7 +15,7 @@ export const ingestionJobsQuery = (token: string, workspaceId: string, userId: s
   refetchInterval: 3_000
 });
 
-export { usageQuery } from "../../../entities/workspace/model/usage";
+export { usageQuery } from "../../../entities/workspace/index";
 
 export const evaluationsQuery = (token: string, workspaceId: string, userId: string | null) => queryOptions({
   queryKey: privateQueryKey("evaluation-runs", userId, workspaceId),
@@ -23,4 +23,4 @@ export const evaluationsQuery = (token: string, workspaceId: string, userId: str
   refetchInterval: (query) => ["queued", "processing"].includes(query.state.data?.reference?.state ?? "") || query.state.data?.workflows?.some((run) => ["queued","running","waiting_approval"].includes(run.status)) ? 3_000 : false
 });
 
-export { membersQuery } from "../../../entities/workspace/model/members";
+export { membersQuery } from "../../../entities/workspace/index";

@@ -18,7 +18,7 @@ part of the system can be understood and measured.
 Browser (React + TanStack Query)
           │ Supabase session token
           ▼
-Fastify API (Clean Architecture + LangGraph)
+Fastify modular API (feature modules + LangGraph)
           │
           ├── PostgreSQL + pgvector: documents, chunks, tenants, audit data
           ├── Supabase Storage: private original files
@@ -28,6 +28,8 @@ Fastify API (Clean Architecture + LangGraph)
 
 The detailed design is available in
 [System Architecture](docs/system-architecture.md).
+The [backend module guide](docs/backend-modules.md) explains feature-owned
+controllers, use cases, ports, adapters and explicit provider factories.
 The [technical architecture backlog](docs/technical-backlog.md) prioritizes
 incremental changes from the [backend](docs/backend-architecture-review.md) and
 [frontend](docs/frontend-architecture-review.md) source reviews and records which
@@ -39,6 +41,10 @@ Operational guides cover [safe telemetry and cost coverage](docs/operations/obse
 [staged workflow key rotation](docs/operations/workflow-key-rotation.md), and
 [idempotency, notifications and recovery](docs/operations/integration-recovery.md).
 The optional local monitoring stack is in `ops/observability`.
+
+The planned [end-to-end learning walkthrough](docs/learning-walkthrough.md)
+starts with Node.js, TypeScript and RAG fundamentals, then follows every module
+through code, diagrams, local exercises, security, costs, evaluations and delivery.
 
 ## Monorepo layout
 
@@ -96,7 +102,8 @@ setup, a worked example, budgets, and the execution boundaries.
 
 ## Prerequisites
 
-- Node.js 24 and Docker Desktop.
+- Node.js 24.x and Docker Desktop. Run `nvm use` to select the tested development baseline; CI and container images use the same major version.
+- Module boundaries are checked locally and in CI with `npm run check:architecture`; see [architecture checks](docs/architecture-checks.md).
 - PostgreSQL with pgvector, started through Docker Compose for local work.
 - Ollama for the fully local path, or an OpenRouter key for the public demo.
 

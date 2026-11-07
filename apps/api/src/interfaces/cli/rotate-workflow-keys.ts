@@ -1,9 +1,9 @@
 import { parseArgs } from "node:util";
-import { Pool } from "pg";
 import { config } from "../../config.js";
-import { workflowCodecFromEnvironment } from "../../infrastructure/security/workflow-state-codec.js";
-import { rotateWorkflowKeys } from "../../infrastructure/postgres/rotate-workflow-keys.js";
-const pool = new Pool({ connectionString: config.DATABASE_URL, max: 1 });
+import { workflowCodecFromEnvironment } from "../../platform/workflows/workflow-state-codec.js";
+import { rotateWorkflowKeys } from "../../platform/workflows/rotate-workflow-keys.js";
+import { createPostgresPool } from "../../platform/database/pool.js";
+const pool = createPostgresPool(config.DATABASE_URL, 1, "maintenance");
 try {
   const { values } = parseArgs({
     options: {

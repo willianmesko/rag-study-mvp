@@ -1,1 +1,1 @@
-export { workspaceRoleLabel } from "../../../entities/workspace/model/members";
+export { workspaceRoleLabel } from "../../../entities/workspace/index";

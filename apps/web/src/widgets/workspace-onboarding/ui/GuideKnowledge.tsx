@@ -5,11 +5,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getStarterTemplate,
   type StarterGoal,
-} from "../../../entities/starter-template/model/starter-templates";
+} from "../../../entities/starter-template/index";
 import {
   guideDocumentsQuery,
   guideJobsQuery,
-} from "../../../features/workspace-onboarding/model/knowledge-queries";
+} from "../../../features/workspace-onboarding/index";
 import {
   api,
   type UploadJob,

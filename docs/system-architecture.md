@@ -226,47 +226,57 @@ implementation tickets with current progress, evidence and alternatives in the
 [frontend review](frontend-architecture-review.md) and
 [backend review](backend-architecture-review.md).
 
-The frontend has recognizable FSD layers and independently loaded workspace
-sections, but routing/session/workspace orchestration still lives in the RAG
-page. Slice Public APIs and an automated FSD gate are not implemented. The
-proposed direction is `app` composition → pages → widgets → features → entities
-→ narrow shared segments, with no page-to-page dependency. Not every slice needs
-every segment. Tool adoption requires a compatible development-only pilot.
+The review described the source at `e25572d`, before implementation. The first
+published batch adds credential-free user/workspace cache keys, JSON/error
+transport, UI recovery boundaries, safe native HTTP errors, idle-pool fault
+handling, stable key inventory, full-window alert repair and a cutover CI gate.
 
-The API's application/domain relative-import graph respects inward dependencies,
-but HTTP/composition files still mix responsibilities. Native Fastify plugins,
-small typed factories and bounded Auth/directory ports are the proposed next
-step. No framework, ORM, router, global store or UI toolkit migration is part of
-this audit. The first implementation batch adds credential-free user/workspace
-cache keys, consistent JSON/error transport, recoverable UI section boundaries,
-safe native HTTP errors, idle-pool fault handling, stable key inventory, full-window
-alert repair and a dedicated cutover CI gate. Shared success-response schemas,
-SQL deadlines, Public APIs and broad module extraction remain pending.
+The next source batch moves frontend routing/session composition into `app`, adds
+shared success-response decoding, explicit slice Public APIs and a development-only
+dependency gate. Backend changes add bounded identity/directory access, workload
+SQL deadlines, narrow controllers/factories and shutdown/budget safeguards.
+Publication status and verification evidence are maintained in the technical
+backlog rather than inferred from the presence of code.
+
+The backend is being organized by business modules following
+[ADR 0002](decisions/0002-business-modules.md), with a concrete
+[module guide](backend-modules.md). The frontend remains `app` → pages → widgets
+→ features → entities → narrow shared segments. Not every slice needs every
+segment. The approved graph checker is a development tool; application frameworks
+and runtime dependencies are preserved.
 
 ## API architecture
 
-The API follows Clean Architecture. Dependencies point inward.
+The API is a modular monolith with NestJS-inspired feature organization and
+native Fastify controllers/factories. Clean Architecture boundaries apply inside
+each business module. Technical resources live under `platform`; overall
+composition lives under `app`.
 
 ```mermaid
 flowchart TB
-  H[HTTP and CLI interfaces] --> UC[Application use cases]
-  UC --> D[Domain policies and entities]
-  UC --> Ports[Ports]
-  I[Infrastructure adapters] --> Ports
-  B[bootstrap.ts] --> H
-  B --> I
+  B[app / app.module.ts] --> Factory[Feature module factories]
+  Factory --> H[Feature HTTP controllers]
+  Factory --> I[Feature infrastructure adapters]
+  H --> UC[Feature application use cases]
+  UC --> D[Feature domain policies and records]
+  UC --> Ports[Feature ports]
+  I --> Ports
+  Factory --> Platform[Shared platform resources]
 ```
 
-- **Domain** contains chunk, document, and prompt-injection rules without HTTP,
-  database, or provider SDK dependencies.
-- **Application** implements use cases such as ingesting a document, searching,
+- **Modules** group Identity, Workspaces, Knowledge, Ingestion, Chat, AI,
+  Evaluations, MCP, Usage and product Workflows.
+- **Domain/policy** contains pure rules without HTTP, database or SDK dependencies.
+- **Application services** implement use cases such as ingesting a document, searching,
   answering a question, queueing uploads, and managing members.
 - **Ports** describe capabilities such as embedding, retrieval, file storage,
   quotas, audit events, and answer generation.
 - **Infrastructure** adapts PostgreSQL/pgvector, Supabase Storage, Ollama,
   OpenRouter, Bedrock, Jina, LangGraph, and LangSmith to those ports.
-- **Interfaces** translate HTTP and CLI input into application calls.
-- **Bootstrap** selects concrete adapters from environment configuration.
+- **Controllers** translate HTTP input into authorized application calls.
+- **Module factories** assemble related providers from explicit resources/config.
+- **Application composition** connects exported capabilities and owns lifecycle.
+- **Platform** contains shared SQL/transport/security/execution facilities.
 
 This separation allows a model provider to be changed without rewriting a use
 case, and enables deterministic fakes in tests.

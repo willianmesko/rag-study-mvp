@@ -1,12 +1,12 @@
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import type { EmbeddingProvider } from "../../application/ports/embedding-provider.js";
-import { workspaceEmbeddingDimensions, type EmbeddingModelIdentity } from "../../application/ports/workspace-embedding-index.js";
-import { rebuildWorkspaceEmbeddings } from "../../application/use-cases/rebuild-workspace-embeddings.js";
+import type { EmbeddingProvider } from "../../modules/ai/application/ports/embedding-provider.js";
+import { workspaceEmbeddingDimensions, type EmbeddingModelIdentity } from "../../modules/ai/application/ports/workspace-embedding-index.js";
+import { rebuildWorkspaceEmbeddings } from "../../modules/knowledge/application/use-cases/rebuild-workspace-embeddings.js";
 import { config } from "../../config.js";
-import { createWorkspaceEmbeddingAdapter, defaultWorkspaceEmbeddingModel } from "../../infrastructure/embedding/workspace-embedding-provider.js";
-import { PgWorkspaceEmbeddingIndex } from "../../infrastructure/postgres/pg-workspace-embedding-index.js";
-import { createPostgresPool } from "../../infrastructure/postgres/pool.js";
+import { createWorkspaceEmbeddingAdapter, defaultWorkspaceEmbeddingModel } from "../../modules/ai/infrastructure/embedding/workspace-embedding-provider.js";
+import { PgWorkspaceEmbeddingIndex } from "../../modules/ai/infrastructure/postgres/pg-workspace-embedding-index.js";
+import { createPostgresPool } from "../../platform/database/pool.js";
 
 const actions = z.enum(["status", "pin", "stage", "activate", "rollback", "discard"]);
 const uuid = z.uuid();
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
   if (positionals.length !== 1) throw new Error(help);
   const action = actions.parse(positionals[0]);
   const tenantId = uuid.parse(values.workspace);
-  const pool = createPostgresPool(config.DATABASE_URL);
+  const pool = createPostgresPool(config.DATABASE_URL, 10, "maintenance");
   const index = new PgWorkspaceEmbeddingIndex(pool);
   const signal = AbortSignal.timeout(10 * 60_000);
 

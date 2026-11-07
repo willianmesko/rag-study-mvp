@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent 
 import { useQuery } from "@tanstack/react-query";
 import { questionComparisonInputSchema, questionInputSchema } from "@rag-study/contracts";
 import { ApiError, api, type Workspace } from "../../../shared/api/rag-api";
-import { knowledgeStatusQuery } from "../../../entities/workspace/model/knowledge";
+import { knowledgeStatusQuery } from "../../../entities/workspace/index";
 import { useLocale } from "../../../shared/i18n/locale";
 import { Mascot } from "../../../shared/ui/Mascot";
 import { SelectField } from "../../../shared/ui/SelectField";

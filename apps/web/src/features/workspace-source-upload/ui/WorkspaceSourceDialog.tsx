@@ -2,7 +2,7 @@ import { useQueryIdentity } from "../../../shared/lib/query-identity";
 import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { knowledgeStatusQuery } from "../../../entities/workspace/model/knowledge";
+import { knowledgeStatusQuery } from "../../../entities/workspace/index";
 import { useLocale } from "../../../shared/i18n/locale";
 import { Overlay } from "../../../shared/ui/Overlay";
 import { UrlImportForm } from "./UrlImportForm";

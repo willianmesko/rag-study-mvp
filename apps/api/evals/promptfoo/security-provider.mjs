@@ -1,4 +1,4 @@
-import { assessPromptInjection } from "../../dist/domain/security/prompt-injection.js";
+import { assessPromptInjection } from "../../dist/platform/security/prompt-injection.js";
 
 export default class SecurityScannerProvider {
   id() {

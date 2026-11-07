@@ -1,0 +1,47 @@
+import { WorkflowGuardError } from "../../../../platform/workflows/types.js";
+import type { RetrievedChunk } from "../../../knowledge/index.js";
+import type { SearchDocumentsUseCase } from "../../../knowledge/index.js";
+import { dashboardGoldenSet } from "./default-evaluation-suites.js";
+export type EvaluationEmbeddingIdentity = {
+  provider: string;
+  model: string;
+  version?: string;
+};
+export type ReferenceRetrieval = {
+  resultsByCaseId: Map<string, RetrievedChunk[]>;
+  retrievalErrors: Array<{ id: string; code: string }>;
+  index?: EvaluationEmbeddingIdentity;
+};
+export async function retrieveReferenceCases(
+  search: Pick<SearchDocumentsUseCase, "execute">,
+  tenantId: string,
+  identity?: (
+    tenantId: string,
+  ) => Promise<EvaluationEmbeddingIdentity | undefined>,
+  signal?: AbortSignal,
+): Promise<ReferenceRetrieval> {
+  signal?.throwIfAborted();
+  const index = await identity?.(tenantId);
+  const outcomes = await Promise.allSettled(
+    dashboardGoldenSet.cases.map((item) =>
+      search.execute({ query: item.question, tenantId, topK: 5, signal }),
+    ),
+  );
+  signal?.throwIfAborted();
+  for (const outcome of outcomes) if (outcome.status === "rejected" && outcome.reason instanceof WorkflowGuardError) throw outcome.reason;
+  const current = await identity?.(tenantId);
+  const changed =
+    index?.version !== current?.version ||
+    index?.provider !== current?.provider ||
+    index?.model !== current?.model;
+  const resultsByCaseId = new Map<string, RetrievedChunk[]>(),
+    retrievalErrors: ReferenceRetrieval["retrievalErrors"] = [];
+  for (const [position, outcome] of outcomes.entries()) {
+    const id = dashboardGoldenSet.cases[position]!.id;
+    if (changed) retrievalErrors.push({ id, code: "embedding_index_changed" });
+    else if (outcome.status === "fulfilled")
+      resultsByCaseId.set(id, outcome.value);
+    else retrievalErrors.push({ id, code: "retrieval_failed" });
+  }
+  return { resultsByCaseId, retrievalErrors, index };
+}

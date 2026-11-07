@@ -1,7 +1,7 @@
 import { useQueryIdentity } from "../../../shared/lib/query-identity";
 import { useId, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { membersQuery, workspaceRoleLabel } from "../../../entities/workspace/model/members";
+import { membersQuery, workspaceRoleLabel } from "../../../entities/workspace/index";
 import { ApiError, api } from "../../../shared/api/rag-api";
 import { useLocale, type Translate } from "../../../shared/i18n/locale";
 import { workspaceRequestError } from "../../../shared/lib/request-error";

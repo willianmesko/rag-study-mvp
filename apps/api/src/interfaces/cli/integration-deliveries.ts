@@ -1,9 +1,9 @@
 import { parseArgs } from "node:util";
-import { Pool } from "pg";
 import { z } from "zod";
 import { config } from "../../config.js";
-import { BudgetAlerts } from "../../infrastructure/observability/budget-alerts.js";
-const pool = new Pool({ connectionString: config.DATABASE_URL, max: 1 });
+import { BudgetAlerts } from "../../modules/usage/infrastructure/observability/budget-alerts.js";
+import { createPostgresPool } from "../../platform/database/pool.js";
+const pool = createPostgresPool(config.DATABASE_URL, 1, "maintenance");
 try {
   const { values } = parseArgs({
     options: {

@@ -29,11 +29,14 @@ on 2026-11-07. See [phase 1 evidence](operations/release-2026-11-07-architecture
 The earlier [observability/resilience release](operations/release-2026-11-07.md)
 is included.
 
-The [technical backlog](technical-backlog.md) distinguishes six completed
-technical tickets, two partial tickets, two in progress and 15 pending. **Phase 2
-is in progress:** shared success-response schemas, SQL workload limits, bounded
-Auth/member lookup and frontend application composition. These new source changes
-are not yet published. Operational activation remains separate below.
+The [technical backlog](technical-backlog.md) separates the six published tickets
+from locally verified work, partial acceptance criteria and pending work.
+**The next batch is in progress:** shared success-response schemas, SQL limits,
+bounded Auth/member lookup, frontend composition/Public APIs, provider reservations
+and safe shutdown. The backend is also moving to NestJS-inspired business modules,
+with native Fastify factories/controllers and a shared technical platform. See the
+[module guide](backend-modules.md) and [ADR 0002](decisions/0002-business-modules.md).
+These source changes are not yet published. Operational activation remains separate.
 
 OAuth extension-parameter compatibility and standard MCP icon metadata are live.
 A real completed ChatGPT connection still needs client consent/verification.
@@ -106,6 +109,12 @@ migration and preserves the existing stack.
 - [ ] Extract cohesive Auth/HTTP/app responsibilities, finish shared wire
   contracts and slice Public APIs, and pilot compatible FSD/correctness gates
   with explicit exceptions (phase 2).
+- [ ] Complete feature-owned backend modules for Identity, Workspaces, Knowledge,
+  Ingestion, Chat, AI, Evaluations, MCP, Usage and product Workflows. Group each
+  capability's controllers, services/use cases, ports and adapters; keep technical
+  facilities under `platform` and global composition under `app`. Preserve the
+  current framework, public API and resource ownership, and validate module
+  exports/dependencies automatically before deployment.
 - [ ] Standardize query/stream transitions, cancellation, least-privilege MCP
   credentials, reranker reservations, shutdown and dependency/build hygiene
   (phase 3).
@@ -114,6 +123,28 @@ migration and preserves the existing stack.
 
 Keep the established stack. Library/tool adoption requires the documented pilot;
 neither the review nor a new package replaces tests or server authorization.
+
+### 11. Guided end-to-end learning walkthrough
+
+Requested after the modular-architecture delivery. Follow the
+[learning walkthrough](learning-walkthrough.md) through the actual code, module
+by module, starting with Node.js/TypeScript and RAG fundamentals.
+
+- [ ] Conduct the guided product/request walkthrough, including every current
+  feature and its frontend/API/data/provider path.
+- [ ] Explain ingestion/OCR, chunking, embeddings, hybrid retrieval/reranking,
+  grounded answers, LangGraph, conversations, streaming and MCP through examples.
+- [ ] Inspect authorization, tenant isolation, prompt-injection defenses, PII,
+  encryption, cost accounting/budgets, caching, evaluations and observability.
+- [ ] Walk through local setup, tests, CI, deployment, failure recovery and
+  architecture/cost trade-offs; identify active, inactive and pending capabilities.
+- [ ] Use diagrams, verified code links and safe local exercises in each chapter;
+  persist learning progress and questions. Complete the capstone only when the
+  learner can explain and modify the flow, rather than after a summary is written.
+
+The reference plan is in English; interactive explanations can be in Portuguese.
+No real client documents, production mutations or paid calls are required for
+routine lessons. This teaching work does not interrupt the current implementation.
 
 ## Implemented, pending activation or live validation
 

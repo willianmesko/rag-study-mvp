@@ -71,7 +71,7 @@ that new version instead. A rollback gets a fresh revision and clears the
 workspace cache again. Discard removes only an unfinished staged version.
 
 The test at
-`apps/api/src/infrastructure/postgres/pg-workspace-embedding-index.integration.test.ts`
+`apps/api/src/modules/ai/infrastructure/postgres/pg-workspace-embedding-index.integration.test.ts`
 can be run against a migrated disposable local PostgreSQL/pgvector database
 with `TEST_EMBEDDING_DATABASE_URL`. It requires a localhost database named
 `embedding_cutover_*` and simulates provider responses without network calls.

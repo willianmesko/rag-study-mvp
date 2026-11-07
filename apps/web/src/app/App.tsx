@@ -1,5 +1,5 @@
-import { RagLabPage } from "../pages/rag-lab/ui/RagLabPage";
+import { ApplicationRouter } from "./ApplicationRouter";
 
 export function App() {
-  return <RagLabPage />;
+  return <ApplicationRouter />;
 }

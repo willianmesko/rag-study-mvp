@@ -3,8 +3,8 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import type { ZodType } from "zod";
-import { replaySuiteSchema } from "../../application/evaluation/replay-benchmark.js";
-import { approveReviewedReplay, replayReviewAttestationSchema } from "../../application/evaluation/reviewed-replay.js";
+import { replaySuiteSchema } from "../../modules/evaluations/application/evaluation/replay-benchmark.js";
+import { approveReviewedReplay, replayReviewAttestationSchema } from "../../modules/evaluations/application/evaluation/reviewed-replay.js";
 
 const repository = fileURLToPath(new URL("../../../../../", import.meta.url));
 const { values } = parseArgs({ options: {

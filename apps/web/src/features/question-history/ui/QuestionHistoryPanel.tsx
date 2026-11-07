@@ -1,4 +1,4 @@
-import type { QuestionHistoryEntry } from "../../../entities/question/model/history";
+import type { QuestionHistoryEntry } from "../../../entities/question/index";
 import type { QuestionSource } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { SectionTitle } from "../../../shared/ui/SectionTitle";

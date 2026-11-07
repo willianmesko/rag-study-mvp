@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { ZodType } from "zod";
-import { comparePerformanceRuns, performanceRunsSchema, performanceThresholdsSchema } from "../../application/evaluation/performance-gate.js";
+import { comparePerformanceRuns, performanceRunsSchema, performanceThresholdsSchema } from "../../modules/evaluations/application/evaluation/performance-gate.js";
 
 const root = fileURLToPath(new URL("../../../../../", import.meta.url));
 const { values } = parseArgs({ options: { baseline: { type: "string" }, candidate: { type: "string" }, limits: { type: "string" } } });

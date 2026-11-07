@@ -1,10 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { config } from "../config.js";
-import { createPostgresPool } from "../infrastructure/postgres/pool.js";
+import { createPostgresPool } from "../platform/database/pool.js";
 
 const migrationsDirectory = fileURLToPath(new URL("../../db/migrations/", import.meta.url));
-const pool = createPostgresPool(config.DATABASE_URL);
+const pool = createPostgresPool(config.DATABASE_URL, 10, "maintenance");
 
 async function main(): Promise<void> {
   const migrations = (await readdir(migrationsDirectory))

@@ -29,7 +29,11 @@ const selectedChecks = skipPromptfoo ? checks.filter((check) => check.id !== "pr
 function run(command) {
   return new Promise((resolveResult) => {
     const startedAt = performance.now();
-    const child = spawn(command, { cwd: root, shell: true, env: process.env, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(command, { cwd: root, shell: true, env: {
+      ...process.env,
+      PROMPTFOO_DISABLE_TELEMETRY: "true",
+      PROMPTFOO_DISABLE_UPDATE: "true"
+    }, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => { stdout += chunk.toString(); });

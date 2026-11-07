@@ -129,7 +129,7 @@ test("native keyboard selection submits the chosen role once and freezes access 
       status: 201,
       json: {
         member: {
-          userId: "fixture-invited",
+          userId: "77777777-7777-4777-a777-777777777777",
           email: "teammate@example.test",
           role: "editor",
         },

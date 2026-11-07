@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
-import { chunkText } from "../../domain/chunk.js";
-import { toLexicalQuery } from "../../application/policies/lexical-query.js";
-import { evaluateRetrieval, goldenSetSchema } from "../../application/evaluation/golden-set.js";
-import type { RetrievedChunk } from "../../domain/document.js";
+import { chunkText } from "../../modules/knowledge/domain/chunk.js";
+import { toLexicalQuery } from "../../modules/knowledge/application/policies/lexical-query.js";
+import { evaluateRetrieval, goldenSetSchema } from "../../modules/evaluations/application/evaluation/golden-set.js";
+import type { RetrievedChunk } from "../../modules/knowledge/domain/document.js";
 
 const manifestSchema = z.object({
   version: z.string().min(1),

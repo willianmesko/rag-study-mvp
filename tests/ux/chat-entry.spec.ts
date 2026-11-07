@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { uploadQueuedResponseSchema } from "../../packages/contracts/src/ingestion";
 import { workspaceFixture } from "./workspace-fixture";
 
 const empty = { indexedDocuments: 0, passages: 0, processingJobs: 0, failedJobs: 0 };
@@ -27,15 +28,14 @@ test("Ask is the first unnumbered destination and the default signed-in entry", 
   await page.goto("/");
   await expect(page).toHaveURL(/\/ask$/);
   const navigation = page.getByRole("navigation", { name: /Main navigation|Navegação principal/ });
-  const names = await navigation.getByRole("button").allTextContents();
-  expect(names.map((name) => name.trim())).toEqual(
+  await expect(navigation.getByRole("button")).toHaveText(
     test.info().project.name === "mobile-pt"
       ? ["Perguntar", "Buscar", "Histórico", "Espaço de trabalho", "Ajuda"]
       : ["Ask", "Search", "History", "Workspace", "Help"]
   );
   await expect(navigation.getByRole("button").first()).toHaveAttribute("aria-current", "page");
   expect(await page.locator('link[rel="icon"]').getAttribute("href")).toBe("/brand/lumora-mark.svg?v=2");
-  expect(await page.locator('.brand-mark img').first().evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+  await expect.poll(() => page.locator('.brand-mark img').first().evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
 });
 
 test("an empty workspace offers upload in chat, follows preparation and unlocks grounded questions", async ({ page, context }, info) => {
@@ -53,7 +53,12 @@ test("an empty workspace offers upload in chat, follows preparation and unlocks 
     expect(route.request().headers()["x-workspace-id"]).toBe(workspaceId);
     uploads++;
     status = { ...empty, processingJobs: 1 };
-    return route.fulfill({ status: 202, json: { job: { id: "fixture-job", status: "queued" } } });
+    return route.fulfill({ status: 202, json: uploadQueuedResponseSchema.parse({ job: {
+      id: "88888888-8888-4888-a888-888888888888", source: "upload/team-guide.md", title: null,
+      filename: "team-guide.md", mimeType: "text/markdown", status: "queued", progress: 0,
+      error: null, chunkCount: null, highRiskChunks: null,
+      createdAt: "2026-11-07T12:00:00.000Z", updatedAt: "2026-11-07T12:00:00.000Z"
+    } }) });
   });
   await page.goto("/ask");
   await expect(page.getByRole("heading", { name: /Start with your first document|Comece pelo seu primeiro documento/ })).toBeVisible();

@@ -1,12 +1,12 @@
 import type { WorkspaceOnboardingProgress } from "@rag-study/contracts";
-import { WorkspaceCreationForm } from "../../../features/workspace-creation/ui/WorkspaceCreationForm";
-import { OnboardingSyncNotice } from "../../../features/workspace-onboarding/ui/OnboardingSyncNotice";
+import { WorkspaceCreationForm } from "../../../features/workspace-creation/index";
+import { OnboardingSyncNotice } from "../../../features/workspace-onboarding/index";
 import type { Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { BrandMark } from "../../../shared/ui/BrandMark";
 import { Mascot } from "../../../shared/ui/Mascot";
-import { WorkspaceSwitcher } from "../../../widgets/lab-layout/ui/WorkspaceSwitcher";
-import { WorkspaceOnboardingWizard } from "../../../widgets/workspace-onboarding/ui/WorkspaceOnboardingWizard";
+import { WorkspaceSwitcher } from "../../../widgets/lab-layout/index";
+import { WorkspaceOnboardingWizard } from "../../../widgets/workspace-onboarding/index";
 
 type OnboardingPageProps = {
   workspace?: Workspace;

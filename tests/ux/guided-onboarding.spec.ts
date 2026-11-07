@@ -351,7 +351,7 @@ test("Help reopens the guide, supports a real owner invitation, and preserves co
         status: 201,
         json: {
           member: {
-            userId: "new-member",
+            userId: "77777777-7777-4777-a777-777777777777",
             email: "teammate@example.test",
             role: "viewer",
           },

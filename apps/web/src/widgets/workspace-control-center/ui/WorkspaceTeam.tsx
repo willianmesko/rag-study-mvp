@@ -2,7 +2,7 @@ import { useQueryIdentity } from "../../../shared/lib/query-identity";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api, type WorkspaceMember } from "../../../shared/api/rag-api";
-import { InviteMemberDialog } from "../../../features/invite-workspace-member/ui/InviteMemberDialog";
+import { InviteMemberDialog } from "../../../features/invite-workspace-member/index";
 import { useLocale, type Translate } from "../../../shared/i18n/locale";
 import { workspaceRequestError } from "../../../shared/lib/request-error";
 import { ActionMenu } from "../../../shared/ui/ActionMenu";

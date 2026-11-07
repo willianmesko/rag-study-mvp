@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=20"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "npm run dev:api",
@@ -40,13 +40,16 @@
     "eval:promptfoo": "npm --workspace @rag-study/api run eval:promptfoo",
     "eval:harness": "node scripts/run-evaluation-harness.mjs",
     "workflow:keys": "npm --workspace @rag-study/api run workflow:keys --",
-    "integration:deliveries": "npm --workspace @rag-study/api run integration:deliveries --"
+    "integration:deliveries": "npm --workspace @rag-study/api run integration:deliveries --",
+    "check:architecture": "npm run build:contracts && node scripts/check-architecture.mjs",
+    "test:architecture": "node --test tests/architecture/architecture.test.mjs"
   },
   "overrides": {
     "light-my-request": "6.6.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
-    "@playwright/test": "1.64.1"
+    "@playwright/test": "1.64.1",
+    "dependency-cruiser": "18.7.2"
   }
 }

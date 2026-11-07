@@ -1,6 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useRef, useState } from "react";
-import { WorkspaceCreationForm } from "../../../features/workspace-creation/ui/WorkspaceCreationForm";
+import { WorkspaceCreationForm } from "../../../features/workspace-creation/index";
 import type { Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 

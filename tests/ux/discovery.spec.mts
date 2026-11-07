@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext } from "@playwright/test";
 import type { DemoSourceState } from "@rag-study/contracts";
-import { demoLibraries } from "../../apps/api/src/application/demo-libraries/catalog";
+import { demoLibraries } from "../../apps/api/src/modules/knowledge/application/demo-libraries/catalog";
 import { workspaceFixture } from "./workspace-fixture";
 
 const workspaceId = "11111111-1111-4111-a111-111111111111";

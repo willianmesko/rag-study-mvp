@@ -61,6 +61,7 @@ const environment = z.object({
   OTEL_EXPORTER_OTLP_ENDPOINT:z.string().url().optional(),
   OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:z.string().url().optional(),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  SERVER_SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(25_000).default(25_000),
   CHUNK_SIZE: z.coerce.number().int().min(200).max(10_000).default(1200),
   CHUNK_OVERLAP: z.coerce.number().int().min(0).max(5_000).default(200),
   RETRIEVAL_TOP_K: z.coerce.number().int().min(1).max(20).default(5),

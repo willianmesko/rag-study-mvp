@@ -4,6 +4,13 @@ export * from "./mcp.js";
 export * from "./discovery.js";
 export * from "./usage.js";
 export * from "./knowledge.js";
+export * from "./workspaces.js";
+export * from "./retrieval.js";
+export * from "./documents.js";
+export * from "./ingestion.js";
+export * from "./evaluations.js";
+export * from "./health.js";
+export * from "./workflows.js";
 
 export const chatPromptVariantIdSchema = z.enum(["balanced", "concise", "explanatory"]);
 export type ChatPromptVariantId = z.infer<typeof chatPromptVariantIdSchema>;
@@ -175,6 +182,7 @@ export const conversationTurnSchema = z.discriminatedUnion('mode',[
   conversationTurnBase.extend({mode:z.literal('answer'),input:questionInputSchema}),
   conversationTurnBase.extend({mode:z.literal('comparison'),input:questionComparisonInputSchema})
 ]);
+export const conversationTurnResponseSchema = z.object({ turn: conversationTurnSchema });
 export const conversationPageSchema = z.strictObject({ conversations: z.array(conversationSummarySchema).max(50), nextCursor: z.string().max(300).nullable() });
 export const conversationMessagesSchema = z.strictObject({ conversation: conversationSummarySchema, turns: z.array(conversationTurnSchema).max(50), nextBefore: z.number().int().positive().nullable() });
 export const conversationCreatedSchema = z.strictObject({ conversation: conversationSummarySchema });
@@ -211,13 +219,3 @@ export type QuestionResponse = z.infer<typeof questionResponseSchema>;
 export type ChatRunEvent = z.infer<typeof chatRunEventSchema>;
 export type WorkspaceMemberRole = z.infer<typeof workspaceMemberRoleSchema>;
 export type WorkspaceOnboardingProgress = z.infer<typeof workspaceOnboardingProgressSchema>;
-
-/** Public progress only. Inputs, checkpoint contents, lease credentials and actor IDs stay on the server. */
-export const workflowSnapshotSchema = z.object({
-  runId: z.string().uuid(), kind: z.enum(["chat","ingestion","evaluation"]), version: z.string(),
-  status: z.enum(["queued","running","waiting_approval","completed","failed","cancelled"]), stage: z.string().nullable(),
-  steps:z.number().int().nonnegative(),calls:z.number().int().nonnegative(),inputTokens:z.number().int().nonnegative(),outputTokens:z.number().int().nonnegative(),costMicros:z.number().int().nonnegative(),
-  budget:z.object({maxSteps:z.number(),maxCalls:z.number(),maxInputTokens:z.number(),maxOutputTokens:z.number(),maxCostMicros:z.number(),timeoutMs:z.number()}),
-  attempts:z.number().int(),errorCode:z.string().nullable(),resultId:z.string().uuid().nullable(),createdAt:z.string().datetime(),updatedAt:z.string().datetime(),expiresAt:z.string().datetime()
-});
-export type WorkflowSnapshot = z.infer<typeof workflowSnapshotSchema>;

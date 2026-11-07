@@ -1,5 +1,5 @@
-import { WorkspaceChatPolicy } from "../../../features/workspace-model-policy/ui/WorkspaceChatPolicy";
-import { WorkspaceMcpConnection } from "../../../features/workspace-mcp/ui/WorkspaceMcpConnection";
+import { WorkspaceChatPolicy } from "../../../features/workspace-model-policy/index";
+import { WorkspaceMcpConnection } from "../../../features/workspace-mcp/index";
 import type { Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { workspaceRoleLabel } from "../model/labels";

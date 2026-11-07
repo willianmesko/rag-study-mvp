@@ -90,6 +90,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Enforce module boundaries and validate architecture fixtures
+        run: |
+          npm run check:architecture
+          npm run test:architecture
       - run: npm run eval:harness -- --report reports/evaluation-history/harness-${{ github.sha }}.json
         env:
           EVAL_REQUIRE_PERFORMANCE_GATE: ${{ vars.EVAL_REQUIRE_PERFORMANCE_GATE }}

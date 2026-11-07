@@ -4,14 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getStarterTemplate,
   type StarterGoal,
-} from "../../../entities/starter-template/model/starter-templates";
-import { rememberQuestion } from "../../../entities/question/model/history";
-import { useConversation } from "../../../features/question-answering/model/use-conversation";
-import { QuestionAnswerForm } from "../../../features/question-answering/ui/QuestionAnswerForm";
-import { guideDocumentsQuery } from "../../../features/workspace-onboarding/model/knowledge-queries";
+} from "../../../entities/starter-template/index";
+import { rememberQuestion } from "../../../entities/question/index";
+import { useConversation } from "../../../features/question-answering/index";
+import { QuestionAnswerForm } from "../../../features/question-answering/index";
+import { guideDocumentsQuery } from "../../../features/workspace-onboarding/index";
 import type { QuestionResponse, Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
-import { InviteMemberDialog } from "../../../features/invite-workspace-member/ui/InviteMemberDialog";
+import { InviteMemberDialog } from "../../../features/invite-workspace-member/index";
 
 export type GuideAnsweredQuestion = {
   question: string;

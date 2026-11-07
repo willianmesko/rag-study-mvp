@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-import { createApplication } from "../../bootstrap.js";
+import { createApplication } from "../../app/app.module.js";
 import { config } from "../../config.js";
 
 async function main(): Promise<void> {

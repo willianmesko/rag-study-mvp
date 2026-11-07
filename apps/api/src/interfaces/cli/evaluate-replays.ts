@@ -3,11 +3,11 @@ import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import type { ZodType } from "zod";
-import { benchmarkFingerprint, evaluateReplay, replaySuiteSchema } from "../../application/evaluation/replay-benchmark.js";
-import { compareEvaluationSnapshots, evaluationSnapshotSchema, type EvaluationSnapshot } from "../../application/evaluation/evaluation-regression.js";
-import { assertReviewedReplayApproved, replayReviewApprovalSchema } from "../../application/evaluation/reviewed-replay.js";
-import { evaluatePromptInjectionSuite, promptInjectionSuiteSchema } from "../../application/evaluation/prompt-injection-suite.js";
-import type { Reranker } from "../../application/ports/reranker.js";
+import { benchmarkFingerprint, evaluateReplay, replaySuiteSchema } from "../../modules/evaluations/application/evaluation/replay-benchmark.js";
+import { compareEvaluationSnapshots, evaluationSnapshotSchema, type EvaluationSnapshot } from "../../modules/evaluations/application/evaluation/evaluation-regression.js";
+import { assertReviewedReplayApproved, replayReviewApprovalSchema } from "../../modules/evaluations/application/evaluation/reviewed-replay.js";
+import { evaluatePromptInjectionSuite, promptInjectionSuiteSchema } from "../../modules/evaluations/application/evaluation/prompt-injection-suite.js";
+import type { Reranker } from "../../modules/ai/application/ports/reranker.js";
 
 const bundledSuite = fileURLToPath(new URL("../../../evals/replays/retrieval.v1.json", import.meta.url));
 const securityFixture = fileURLToPath(new URL("../../../evals/security/prompt-injection.v1.json", import.meta.url));
@@ -48,7 +48,7 @@ let model: string | undefined;
 if (values.jina) {
   const { config } = await import("../../config.js");
   if (!config.JINA_API_KEY) throw new Error("Set JINA_API_KEY to run the live Jina benchmark.");
-  const { JinaReranker } = await import("../../infrastructure/jina/jina-reranker.js");
+  const { JinaReranker } = await import("../../modules/ai/infrastructure/jina/jina-reranker.js");
   model = config.JINA_RERANKER_MODEL;
   reranker = new JinaReranker("https://api.jina.ai/v1", config.JINA_API_KEY, model);
 }

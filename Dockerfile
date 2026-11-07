@@ -30,6 +30,6 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/packages/contracts/dist ./packages/contracts/dist
 USER node
-RUN PDF_OCR_SMOKE_LANGUAGES=eng+por node --test apps/api/dist/infrastructure/ingestion/pdf-ocr.native.test.js
+RUN PDF_OCR_SMOKE_LANGUAGES=eng+por node --test apps/api/dist/modules/ingestion/infrastructure/extraction/pdf-ocr.native.test.js
 EXPOSE 3000
 CMD ["node", "apps/api/dist/server.js"]

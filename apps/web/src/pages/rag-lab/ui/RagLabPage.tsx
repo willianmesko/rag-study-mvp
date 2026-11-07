@@ -1,244 +1,30 @@
-import { Suspense, useEffect, useRef, useState } from "react";
-import { lazyWithRecovery, SectionErrorBoundary } from "../../../shared/ui/SectionErrorBoundary";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Session } from "@supabase/supabase-js";
+import { Suspense, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { WorkspaceOnboardingProgress } from "@rag-study/contracts";
-import { createQuestionHistoryEntry, readQuestionHistory } from "../../../entities/question/model/history";
-import { DocumentIngestionForm } from "../../../features/document-ingestion/ui/DocumentIngestionForm";
-import { useConversation } from "../../../features/question-answering/model/use-conversation";
-import { QuestionAnswerForm } from "../../../features/question-answering/ui/QuestionAnswerForm";
-import { QuestionHistoryPanel } from "../../../features/question-history/ui/QuestionHistoryPanel";
-import { SemanticSearchForm } from "../../../features/semantic-search/ui/SemanticSearchForm";
-import { useWorkspaceOnboarding } from "../../../features/workspace-onboarding/model/use-workspace-onboarding";
-import { OnboardingSyncNotice } from "../../../features/workspace-onboarding/ui/OnboardingSyncNotice";
-import { SignInPage } from "../../sign-in/ui/SignInPage";
+import { createQuestionHistoryEntry, readQuestionHistory } from "../../../entities/question/index";
+import { DocumentIngestionForm } from "../../../features/document-ingestion/index";
+import { useConversation } from "../../../features/question-answering/index";
+import { QuestionAnswerForm } from "../../../features/question-answering/index";
+import { ConversationLibrary } from "../../../features/question-answering/index";
+import { QuestionHistoryPanel } from "../../../features/question-history/index";
+import { SemanticSearchForm } from "../../../features/semantic-search/index";
+import { OnboardingSyncNotice } from "../../../features/workspace-onboarding/index";
 import { api, type QuestionSource, type Workspace } from "../../../shared/api/rag-api";
+import { canIndexDemo } from "../../../shared/config/product-mode";
 import { useLocale } from "../../../shared/i18n/locale";
-import { canAccessWorkspaceSection, navigateTo, pathForTab, readAppRoute, type LabRoute } from "../../../shared/lib/app-route";
-import { supabase } from "../../../shared/lib/supabase";
-import { QueryIdentityProvider } from "../../../shared/lib/query-identity";
-import { privateQueryKey, transitionQueryIdentity } from "../../../shared/lib/query-keys";
-import { Mascot } from "../../../shared/ui/Mascot";
+import { navigateTo, pathForTab, type LabRoute } from "../../../shared/lib/app-route";
+import { writeBrowserValue } from "../../../shared/lib/browser-storage";
+import { lazyWithRecovery, SectionErrorBoundary } from "../../../shared/ui/SectionErrorBoundary";
 import { SourcePreview } from "../../../shared/ui/SourcePreview";
-import { LabHeader } from "../../../widgets/lab-layout/ui/LabHeader";
-import { LabNavigation } from "../../../widgets/lab-layout/ui/LabNavigation";
-import { RagLearningAside } from "../../../widgets/lab-layout/ui/RagLearningAside";
-import { WorkspaceSwitcher } from "../../../widgets/lab-layout/ui/WorkspaceSwitcher";
-import { ConversationLibrary } from "../../../features/question-answering/ui/ConversationLibrary";
+import { LabHeader } from "../../../widgets/lab-layout/index";
+import { LabNavigation } from "../../../widgets/lab-layout/index";
+import { RagLearningAside } from "../../../widgets/lab-layout/index";
+import { WorkspaceSwitcher } from "../../../widgets/lab-layout/index";
 
-const OnboardingPage = lazyWithRecovery(async () => ({ default: (await import("../../onboarding/ui/OnboardingPage")).OnboardingPage }), "onboarding");
-const WorkspaceControlCenter = lazyWithRecovery(async () => ({ default: (await import("../../../widgets/workspace-control-center/ui/WorkspaceControlCenter")).WorkspaceControlCenter }), "workspace");
-const WorkspaceGuideHelp = lazyWithRecovery(async () => ({ default: (await import("../../../widgets/workspace-onboarding/ui/WorkspaceGuideHelp")).WorkspaceGuideHelp }), "guide");
-const WorkspaceSourceDialog = lazyWithRecovery(async () => ({ default: (await import("../../../features/workspace-source-upload/ui/WorkspaceSourceDialog")).WorkspaceSourceDialog }), "upload");
-const McpConsentPage = lazyWithRecovery(async () => ({ default: (await import("../../mcp-consent/ui/McpConsentPage")).McpConsentPage }), "consent");
-const WorkspaceMcpConnection = lazyWithRecovery(async () => ({ default: (await import("../../../features/workspace-mcp/ui/WorkspaceMcpConnection")).WorkspaceMcpConnection }), "connections");
-const overviewPath = "/workspace/overview";
-const askPath = "/ask";
-const publicDemo = import.meta.env.VITE_DEMO_MODE === "true";
-const canIndexDemo = import.meta.env.DEV && !publicDemo;
-const demoAvailable = publicDemo || import.meta.env.DEV;
-
-function canViewRoute(lab: LabRoute, role: Workspace["role"]): boolean {
-  return lab.tab !== "admin" || canAccessWorkspaceSection(lab.workspaceSection, role);
-}
-
-function accessibleWorkspacePath(path: string | null, role: Workspace["role"]): string {
-  if (!path) return askPath;
-  const route = readAppRoute(path);
-  return route.kind === "private" && canViewRoute(route.lab, role) ? path : overviewPath;
-}
-
-function readLocal(key: string): string | null {
-  try { return window.localStorage.getItem(key); } catch { return null; }
-}
-
-function saveLocal(key: string, value: string): void {
-  try { window.localStorage.setItem(key, value); } catch { /* Storage is optional. */ }
-}
-
-function StatusScreen({ message, onRetry, onSignOut }: { message: string; onRetry?: () => void; onSignOut?: () => void }) {
-  const { t } = useLocale();
-  return (
-    <main className="app-shell grid min-h-svh place-items-center p-5">
-      <section className={`panel w-full max-w-md${onRetry ? "" : " text-center"}`}>
-        {!onRetry && <div className="mx-auto mb-5 grid size-28 place-items-center rounded-full bg-cyan-400/5 ring-1 ring-cyan-300/15" aria-hidden="true">
-          <Mascot size="sm" className="workspace-loading-milo" decorative />
-        </div>}
-        <p className="eyebrow">Lumora</p>
-        <p className="mt-2 text-slate-200" role={onRetry ? "alert" : "status"}>{message}</p>
-        {onRetry && <div className="mt-5 flex flex-wrap gap-3">
-          <button className="primary-button" type="button" onClick={onRetry}>{t("Try again", "Tentar novamente")}</button>
-          {onSignOut && <button className="secondary-button" type="button" onClick={onSignOut}>{t("Sign out", "Sair")}</button>}
-        </div>}
-      </section>
-    </main>
-  );
-}
-
-export function RagLabPage() {
-  const { t } = useLocale();
-  const queryClient = useQueryClient();
-  const [pathname, setPathname] = useState(() => window.location.pathname + window.location.search);
-  const [session, setSession] = useState<Session | null>(null);
-  const [authReady, setAuthReady] = useState(!supabase);
-  const [selected, setSelected] = useState<{ userId: string; workspaceId: string } | null>(null);
-  const [createdSetup, setCreatedSetup] = useState<string | null>(null);
-  const [signingOut, setSigningOut] = useState(false);
-  const [signOutError, setSignOutError] = useState(false);
-  const returnPath = useRef<string | null>(null);
-  const queryIdentity = useRef<string | null>(null);
-  const route = readAppRoute(pathname);
-  const demoRoute = route.kind === "demo" && demoAvailable && (route.lab.tab !== "ingest" || canIndexDemo);
-  const token = session?.access_token;
-  const userId = session?.user.id;
-  const workspaceQueryKey = privateQueryKey("workspaces", userId);
-  const workspaceQuery = useQuery({
-    queryKey: workspaceQueryKey,
-    queryFn: ({ signal }) => api.workspaces(token!, signal),
-    enabled: Boolean(token && !demoRoute)
-  });
-  const workspaces = workspaceQuery.data?.workspaces ?? [];
-  const rememberedWorkspaceId = userId && selected && selected.userId === userId
-    ? selected.workspaceId
-    : userId ? readLocal(`lumora-workspace:${userId}`) : null;
-  const activeWorkspace = workspaces.find((workspace) => workspace.tenantId === rememberedWorkspaceId) ?? workspaces[0];
-  const activeRole = activeWorkspace?.role;
-  const activeSetup = userId && activeWorkspace ? `${userId}:${activeWorkspace.tenantId}` : null;
-  const onboarding = useWorkspaceOnboarding(userId, activeWorkspace?.tenantId, demoRoute ? undefined : token);
-  const setupComplete = onboarding.progress.completed;
-  const setupLoading = onboarding.loading && !setupComplete;
-
-  useEffect(() => {
-    const update = () => {
-      setPathname(window.location.pathname + window.location.search);
-      window.scrollTo(0, 0);
-    };
-    window.addEventListener("popstate", update);
-    return () => window.removeEventListener("popstate", update);
-  }, []);
-
-  function acceptSession(nextSession: Session | null) {
-    const nextUserId = nextSession?.user.id ?? null;
-    if (transitionQueryIdentity(queryClient, queryIdentity.current, nextUserId)) {
-      setSelected(null);
-      setCreatedSetup(null);
-    }
-    queryIdentity.current = nextUserId;
-    setSession(nextSession);
-    setAuthReady(true);
-  }
-
-  useEffect(() => {
-    const listener = supabase?.auth.onAuthStateChange((_event, nextSession) => acceptSession(nextSession));
-    return () => listener?.data.subscription.unsubscribe();
-  }, [queryClient]);
-
-  useEffect(() => {
-    if (demoRoute || !authReady || route.kind === "mcp-consent") return;
-    if (!session) {
-      if (route.kind === "private") returnPath.current = pathname;
-      navigateTo("/sign-in", { replace: true });
-    } else if (workspaceQuery.isSuccess && !workspaceQuery.isError && !setupLoading) {
-      const requestedPath = route.kind === "private" ? pathname : returnPath.current;
-      const requestedRoute = readAppRoute(requestedPath ?? "/");
-      const openingConnections = requestedRoute.kind === "private" && requestedRoute.lab.tab === "connections";
-      if (!setupComplete && !openingConnections) {
-        if (route.kind === "private") returnPath.current = pathname;
-        navigateTo("/onboarding", { replace: true });
-      } else if (activeRole) {
-        const next = accessibleWorkspacePath(requestedPath, activeRole);
-        returnPath.current = null;
-        navigateTo(next, { replace: true });
-      }
-    }
-  }, [activeRole, authReady, demoRoute, pathname, route.kind, session, setupComplete, setupLoading, workspaceQuery.isSuccess, workspaceQuery.isError]);
-
-  function selectWorkspace(workspaceId: string) {
-    if (!userId) return;
-    if(new URLSearchParams(window.location.search).has("conversation"))navigateTo("/ask",{replace:true});
-    setSelected({ userId, workspaceId });
-    setCreatedSetup(null);
-    saveLocal(`lumora-workspace:${userId}`, workspaceId);
-  }
-
-  function workspaceCreated(workspace: Workspace) {
-    if (!userId || !token) return;
-    void queryClient.cancelQueries({ queryKey: workspaceQueryKey, exact: true });
-    queryClient.setQueryData<{ workspaces: Workspace[] }>(workspaceQueryKey, (current) => ({
-      workspaces: [...(current?.workspaces ?? []).filter((item) => item.tenantId !== workspace.tenantId), workspace]
-    }));
-    selectWorkspace(workspace.tenantId);
-    setCreatedSetup(`${userId}:${workspace.tenantId}`);
-  }
-
-  function finishOnboarding(conversationId?:string) {
-    if (!activeSetup) return;
-    onboarding.update({ goal:onboarding.progress.goal??"knowledge", step:"answer", completed: true });
-    setCreatedSetup(null);
-    returnPath.current = null;
-    navigateTo(conversationId?`${askPath}?conversation=${encodeURIComponent(conversationId)}`:askPath, { replace: true });
-  }
-
-  async function signOut() {
-    if (!supabase || signingOut) return;
-    setSigningOut(true);
-    setSignOutError(false);
-    try {
-      const { error } = await supabase.auth.signOut({ scope: "local" });
-      if (error) throw error;
-      acceptSession(null);
-      returnPath.current = null;
-      navigateTo("/sign-in", { replace: true });
-    } catch {
-      setSignOutError(true);
-    } finally {
-      setSigningOut(false);
-    }
-  }
-
-  const loadingText = t("Opening Lumora…", "Abrindo o Lumora…");
-  const signOutMessage = signOutError ? t("We could not sign you out. Try again.", "Não conseguimos sair da sua conta. Tente novamente.") : null;
-
-  if (demoRoute && route.kind === "demo") {
-    return <LabExperience key="demo" scope="demo" lab={route.lab} accountAction={{
-      label: session ? t("My workspace", "Meu espaço de trabalho") : t("Sign in", "Entrar"),
-      onClick: () => navigateTo(session ? overviewPath : "/sign-in")
-    }} />;
-  }
-  if (!authReady) return <StatusScreen message={loadingText} />;
-  if (!session || !token || !userId) {
-    return <SignInPage demoAvailable={demoAvailable} onSuccess={acceptSession}
-      onDemo={() => navigateTo("/demo")} />;
-  }
-  if (workspaceQuery.isError) {
-    return <StatusScreen message={signOutMessage ?? t("We could not load your workspaces.", "Não conseguimos carregar seus espaços de trabalho.")}
-      onRetry={() => void workspaceQuery.refetch()} onSignOut={() => void signOut()} />;
-  }
-  if (workspaceQuery.isPending) return <StatusScreen message={t("Loading your workspaces…", "Carregando seus espaços de trabalho…")} />;
-  if (route.kind === "mcp-consent") return <QueryIdentityProvider userId={userId}><Suspense fallback={<StatusScreen message={loadingText} />}>
-    <McpConsentPage key={route.requestId} requestId={route.requestId} token={token} workspaces={workspaces} />
-  </Suspense></QueryIdentityProvider>;
-  if (setupLoading) return <StatusScreen message={t("Checking your progress with Milo…", "Consultando seu progresso com o Milo…")} />;
-
-  if (!activeWorkspace || (!setupComplete && !(route.kind === "private" && route.lab.tab === "connections"))) {
-    return <QueryIdentityProvider userId={userId}><Suspense fallback={<StatusScreen message={loadingText} />}>
-      <OnboardingPage key={userId} workspace={activeWorkspace} workspaces={workspaces} accessToken={token} userId={userId}
-        progress={onboarding.progress} syncing={onboarding.syncing} syncFailed={onboarding.syncFailed}
-        onProgress={onboarding.update} onRetrySync={onboarding.retry}
-        justCreated={activeSetup !== null && activeSetup === createdSetup} onWorkspaceCreated={workspaceCreated}
-        onWorkspaceChange={selectWorkspace} onComplete={finishOnboarding} onSignOut={() => void signOut()} />
-      {signOutMessage && <p className="error-message fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md" role="alert">{signOutMessage}</p>}
-    </Suspense></QueryIdentityProvider>;
-  }
-
-  const lab = route.kind === "private" && canViewRoute(route.lab, activeWorkspace.role) ? route.lab : { tab: "answer" } as const;
-  const scope = `${userId}:${activeWorkspace.tenantId}`;
-  return <QueryIdentityProvider userId={userId}><LabExperience key={scope} scope={scope} lab={lab}
-    privateArea={{ token, workspace: activeWorkspace, workspaces, guideProgress: onboarding.progress, onWorkspaceChange: selectWorkspace, onWorkspaceCreated: workspaceCreated }}
-    accountAction={{ label: signingOut ? t("Signing out…", "Saindo…") : t("Sign out", "Sair"), onClick: () => void signOut(), disabled: signingOut }}
-    accountError={signOutMessage} onboardingSyncing={onboarding.syncing}
-    onRetryOnboardingSync={onboarding.syncFailed && !onboarding.syncing ? onboarding.retry : undefined} /></QueryIdentityProvider>;
-}
+const WorkspaceControlCenter = lazyWithRecovery(async () => ({ default: (await import("../../../widgets/workspace-control-center/index")).WorkspaceControlCenter }), "workspace");
+const WorkspaceGuideHelp = lazyWithRecovery(async () => ({ default: (await import("../../../widgets/workspace-onboarding/index")).WorkspaceGuideHelp }), "guide");
+const WorkspaceSourceDialog = lazyWithRecovery(async () => ({ default: (await import("../../../features/workspace-source-upload/index")).WorkspaceSourceDialog }), "upload");
+const WorkspaceMcpConnection = lazyWithRecovery(async () => ({ default: (await import("../../../features/workspace-mcp/index")).WorkspaceMcpConnection }), "connections");
 
 type PrivateArea = {
   token: string;
@@ -249,7 +35,7 @@ type PrivateArea = {
   onWorkspaceCreated: (workspace: Workspace) => void;
 };
 
-function LabExperience({ scope, lab, privateArea, accountAction, accountError, onboardingSyncing, onRetryOnboardingSync }: {
+export function RagLabPage({ scope, lab, privateArea, accountAction, accountError, onboardingSyncing, onRetryOnboardingSync }: {
   scope: string;
   lab: LabRoute;
   privateArea?: PrivateArea;
@@ -280,7 +66,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
     return () => window.removeEventListener("popstate", clearPreview);
   }, []);
 
-  useEffect(() => { if(!privateArea)saveLocal(historyKey, JSON.stringify(history)); }, [history, historyKey,privateArea]);
+  useEffect(() => { if(!privateArea)writeBrowserValue(historyKey, JSON.stringify(history)); }, [history, historyKey,privateArea]);
 
   function addAnswer({ question, response }: { question: string; response: { answer: string; sources: QuestionSource[] } }) {
     setHistory((items) => [createQuestionHistoryEntry({ question, response }), ...items].slice(0, 20));

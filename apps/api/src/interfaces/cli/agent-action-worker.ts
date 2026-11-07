@@ -1,10 +1,10 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
-import { AgentActionWorker } from "../../application/agent-actions/agent-action-worker.js";
-import { LexicalEvaluationAction } from "../../application/agent-actions/lexical-evaluation-action.js";
-import { PgAgentActionRepository } from "../../infrastructure/postgres/pg-agent-action-repository.js";
-import { PgMcpReadRepository } from "../../infrastructure/postgres/pg-mcp-read-repository.js";
-import { createPostgresPool } from "../../infrastructure/postgres/pool.js";
+import { AgentActionWorker } from "../../modules/mcp/application/agent-actions/agent-action-worker.js";
+import { LexicalEvaluationAction } from "../../modules/mcp/application/agent-actions/lexical-evaluation-action.js";
+import { PgAgentActionRepository } from "../../modules/mcp/infrastructure/postgres/pg-agent-action-repository.js";
+import { PgMcpReadRepository } from "../../modules/mcp/infrastructure/postgres/pg-mcp-read-repository.js";
+import { createPostgresPool } from "../../platform/database/pool.js";
 
 async function main() {
   const writeFlag = /(?:^|\s)--allow-fs-write(?:=|\s|$)/;

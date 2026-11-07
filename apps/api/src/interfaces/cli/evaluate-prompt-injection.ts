@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { evaluatePromptInjectionSuite, promptInjectionSuiteSchema } from "../../application/evaluation/prompt-injection-suite.js";
+import { evaluatePromptInjectionSuite, promptInjectionSuiteSchema } from "../../modules/evaluations/application/evaluation/prompt-injection-suite.js";
 
 const filePath = process.argv[2];
 if (!filePath) {

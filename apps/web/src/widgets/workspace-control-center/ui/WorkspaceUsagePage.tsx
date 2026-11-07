@@ -1,4 +1,4 @@
-import { WorkspaceUsage } from "../../../features/workspace-usage/ui/WorkspaceUsage";
+import { WorkspaceUsage } from "../../../features/workspace-usage/index";
 import { useLocale } from "../../../shared/i18n/locale";
 import { WorkspacePageHeader } from "./WorkspacePageHeader";
 

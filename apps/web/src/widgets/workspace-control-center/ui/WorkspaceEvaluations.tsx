@@ -3,7 +3,7 @@ import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api } from "../../../shared/api/rag-api";
-import { DemoLibraryDialog } from "../../../features/demo-libraries/ui/DemoLibraryDialog";
+import { DemoLibraryDialog } from "../../../features/demo-libraries/index";
 import { useLocale } from "../../../shared/i18n/locale";
 import { workspaceRequestError } from "../../../shared/lib/request-error";
 import { SelectField } from "../../../shared/ui/SelectField";

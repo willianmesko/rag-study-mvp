@@ -2,7 +2,7 @@ import { useQueryIdentity } from "../../../shared/lib/query-identity";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { UsageResponse } from "@rag-study/contracts";
-import { usageQuery } from "../../../entities/workspace/model/usage";
+import { usageQuery } from "../../../entities/workspace/index";
 import { useLocale } from "../../../shared/i18n/locale";
 import { workspaceRequestError } from "../../../shared/lib/request-error";
 import { SelectField } from "../../../shared/ui/SelectField";

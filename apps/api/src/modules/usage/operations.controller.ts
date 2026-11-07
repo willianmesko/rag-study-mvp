@@ -1,0 +1,31 @@
+import type { FastifyPluginAsync } from "fastify";
+import { z } from "zod";
+import type { BudgetAlerts } from "./infrastructure/observability/budget-alerts.js";
+import type { UsageSummary } from "./application/ports/usage-metrics-repository.js";
+import { rejectScope, type WorkspaceAuthorizer } from "../../platform/http/workspace-authorization.js";
+
+export type OperationsRoutesDependencies = {
+  authorizeOwner: WorkspaceAuthorizer;
+  budgetAlerts?: Pick<BudgetAlerts, "status" | "replay" | "configured">;
+  getUsageSummary: (tenantId: string, days: number) => Promise<UsageSummary>;
+  usageAlertThresholdUsd: () => number;
+};
+export const operationsRoutes: FastifyPluginAsync<OperationsRoutesDependencies> = async (app, dependencies) => {
+  const { authorizeOwner } = dependencies;
+  app.get('/v1/admin/alerts',async(request,reply)=>{const owner=await authorizeOwner(request,true);if(!owner.ok)return rejectScope(reply,owner);return dependencies.budgetAlerts?dependencies.budgetAlerts.status(owner.tenantId):reply.code(503).send({error:'Budget notifications are unavailable.'});});
+  app.post('/v1/admin/alerts/:id/replay',{bodyLimit:2048,config:{rateLimit:{max:6}}},async(request,reply)=>{
+    const owner=await authorizeOwner(request,true);if(!owner.ok)return rejectScope(reply,owner);
+    if(!dependencies.budgetAlerts?.configured)return reply.code(503).send({error:'Budget notifications are not configured.'});
+    const {id}=z.strictObject({id:z.uuid()}).parse(request.params);
+    const {expectedAttempts}=z.strictObject({expectedAttempts:z.number().int().min(1).max(8)}).parse(request.body);
+    const idempotencyKey=z.string().min(16).max(128).regex(/^[A-Za-z0-9_-]+$/).parse(request.headers['idempotency-key']);
+    return dependencies.budgetAlerts.replay({tenantId:owner.tenantId,actorId:owner.userId,id,expectedAttempts,idempotencyKey});
+  });
+  app.get("/v1/admin/usage", async (request, reply) => {
+    const authorization = await authorizeOwner(request, true);
+    if (!authorization.ok) return rejectScope(reply, authorization);
+    const { days } = z.strictObject({ days: z.coerce.number().int().min(1).max(90).default(30) }).parse(request.query);
+    const summary = await dependencies.getUsageSummary(authorization.tenantId, days);
+    return { days, summary, alert: { thresholdUsd: dependencies.usageAlertThresholdUsd(), triggered: (summary.effectiveCostUsd ?? summary.estimatedCostUsd) >= dependencies.usageAlertThresholdUsd() } };
+  });
+};

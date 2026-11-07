@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { evaluateRetrieval, goldenSetSchema } from "../../application/evaluation/golden-set.js";
-import { createApplication } from "../../bootstrap.js";
+import { evaluateRetrieval, goldenSetSchema } from "../../modules/evaluations/application/evaluation/golden-set.js";
+import { createApplication } from "../../app/app.module.js";
 
 const filePath = process.argv[2];
 if (!filePath) {
