@@ -30,7 +30,7 @@ test("workspace MCP keys stay masked and temporary, and owners can revoke access
   });
 
   await page.goto("/workspace/settings");
-  await expect(page.getByRole("heading", { name: /Connect your assistant|Conecte seu assistente/ })).toBeVisible();
+  await page.locator("summary").filter({ hasText: /Connect your assistant|Conecte seu assistente/ }).click();
   await page.getByRole("button", { name: /Create temporary key|Criar chave temporária/ }).click();
   const credential = page.getByLabel(/Temporary MCP key|Chave temporária do MCP/, { exact: true });
   await expect(credential).toHaveValue(accessKey);
@@ -53,6 +53,7 @@ test("workspace MCP keys stay masked and temporary, and owners can revoke access
   expect(audit.violations.map(({ id, nodes }) => ({ id, elements: nodes.map(({ target }) => target) }))).toEqual([]);
 
   await page.reload();
+  await page.locator("summary").filter({ hasText: /Connect your assistant|Conecte seu assistente/ }).click();
   await expect(page.getByText(/Current key expires at|A chave atual expira às/)).toBeVisible();
   await expect(credential).toHaveCount(0);
   await page.getByRole("button", { name: /Revoke key|Revogar chave/ }).click();

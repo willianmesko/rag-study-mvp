@@ -4,10 +4,13 @@ import { ApiError, api, type WorkspaceMember } from "../../../shared/api/rag-api
 import { useLocale, type Translate } from "../../../shared/i18n/locale";
 import { workspaceRequestError } from "../../../shared/lib/request-error";
 import { SelectField } from "../../../shared/ui/SelectField";
+import { ActionMenu } from "../../../shared/ui/ActionMenu";
+import { Overlay } from "../../../shared/ui/Overlay";
 import { workspaceRoleLabel } from "../model/labels";
 import { membersQuery } from "../model/queries";
 import { MemberAccessDialog, type MemberEdit, type MemberRole } from "./MemberAccessDialog";
 import { WorkspaceQueryFeedback } from "./WorkspaceQueryFeedback";
+import { WorkspacePageHeader } from "./WorkspacePageHeader";
 
 function memberName(member: WorkspaceMember, t: Translate) {
   return member.email ?? t("Email unavailable", "E-mail indisponível");
@@ -34,20 +37,19 @@ export function WorkspaceTeam({ workspaceId, token }: { workspaceId: string; tok
   const members = useQuery(memberOptions);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<MemberRole>("viewer");
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [selection, setSelection] = useState<{ type: MemberEdit["type"]; member: WorkspaceMember } | null>(null);
   const emailInput = useRef<HTMLInputElement>(null);
   const membersHeading = useRef<HTMLHeadingElement>(null);
-  const inviteHeadingId = useId();
   const inviteHintId = useId();
   const inviteErrorId = useId();
-  const membersHeadingId = useId();
   const refreshMembers = () => queryClient.invalidateQueries({ queryKey: memberOptions.queryKey, exact: true });
   const invite = useMutation({
     mutationFn: ({ email, role }: { email: string; role: MemberRole }) =>
       api.inviteWorkspaceMember({ workspaceId, email, role, accessToken: token }),
     onSuccess: () => {
       setInviteEmail("");
-      emailInput.current?.focus();
+      setInviteOpen(false);
       void refreshMembers();
     }
   });
@@ -95,9 +97,8 @@ export function WorkspaceTeam({ workspaceId, token }: { workspaceId: string; tok
     if (email && !invite.isPending && !existingMember) invite.mutate({ email, role: inviteRole });
   }
 
-  function openMemberDialog(type: MemberEdit["type"], member: WorkspaceMember, trigger: HTMLButtonElement) {
+  function openMemberDialog(type: MemberEdit["type"], member: WorkspaceMember) {
     editMember.reset();
-    trigger.focus();
     setSelection({ type, member });
   }
 
@@ -118,12 +119,13 @@ export function WorkspaceTeam({ workspaceId, token }: { workspaceId: string; tok
 
   return (
     <div className="space-y-6">
-      <section className="panel space-y-5" aria-labelledby={inviteHeadingId}>
-        <div>
-          <h3 id={inviteHeadingId} className="text-lg font-semibold text-white">{t("Invite a teammate", "Convidar para o espaço")}</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-300">{t("Send an email invitation and choose what the person can do in this workspace.",
-            "Envie um convite por e-mail e escolha o que a pessoa pode fazer neste espaço.")}</p>
-        </div>
+      <WorkspacePageHeader title={t("Workspace members", "Pessoas no espaço")} description={countLabel ?? undefined} headingRef={membersHeading}>
+        <button className="primary-button" type="button" aria-haspopup="dialog" onClick={() => { invite.reset(); setInviteOpen(true); }}>
+          {t("Invite a teammate", "Convidar pessoa")}
+        </button>
+      </WorkspacePageHeader>
+      {inviteOpen && <Overlay title={t("Invite a teammate", "Convidar pessoa")} pending={invite.isPending} initialFocusRef={emailInput}
+        description={t("Send an email invitation and choose their access.", "Envie um convite por e-mail e escolha o tipo de acesso.")} onClose={() => setInviteOpen(false)}>
         <form className="space-y-4" onSubmit={submitInvitation} aria-busy={invite.isPending}>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)]">
             <label className="grid min-w-0 gap-1.5 text-xs font-medium text-slate-300">
@@ -139,24 +141,16 @@ export function WorkspaceTeam({ workspaceId, token }: { workspaceId: string; tok
           </div>
           <p id={inviteHintId} className="text-sm text-slate-300">{roleDetails[inviteRole]}</p>
           {invitationProblem && <p className="error-message" id={inviteErrorId} role="alert">{invitationProblem}</p>}
-          <button type="submit" className="primary-button w-full sm:w-auto" disabled={invite.isPending || !email || existingMember}
-            aria-describedby={inviteHintId}>{invite.isPending ? t("Sending invitation…", "Enviando convite…") : t("Send invitation", "Enviar convite")}</button>
-        </form>
-        {invite.isSuccess && <p className="success-message break-words" role="status">{t(`Invitation sent to ${invite.data.member.email}.`,
-          `Convite enviado para ${invite.data.member.email}.`)}</p>}
-      </section>
-
-      <section className="panel space-y-5" aria-labelledby={membersHeadingId}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 ref={membersHeading} id={membersHeadingId} className="text-lg font-semibold text-white" tabIndex={-1}>
-              {t("Workspace members", "Pessoas no espaço")}
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-slate-300">{t("Review who has access to this workspace and what they can do.",
-              "Confira quem tem acesso a este espaço e o que cada pessoa pode fazer.")}</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" className="primary-button" disabled={invite.isPending || !email || existingMember}
+              aria-describedby={inviteHintId}>{invite.isPending ? t("Sending invitation…", "Enviando convite…") : t("Send invitation", "Enviar convite")}</button>
+            <button type="button" className="secondary-button" disabled={invite.isPending} onClick={() => setInviteOpen(false)}>{t("Cancel", "Cancelar")}</button>
           </div>
-          {countLabel && <span className="status-pill">{countLabel}</span>}
-        </div>
+        </form>
+      </Overlay>}
+      {invite.isSuccess && <p className="success-message break-words" role="status">{t(`Invitation sent to ${invite.data.member.email}.`,
+        `Convite enviado para ${invite.data.member.email}.`)}</p>}
+      <section className="space-y-4" aria-label={t("Members", "Pessoas")}>
         <WorkspaceQueryFeedback query={members} loading={t("Loading workspace members…", "Carregando pessoas do espaço…")}
           failure={t("We couldn’t load the member list.", "Não foi possível carregar a lista de pessoas.")} />
         {count === 0 && <p className="empty-state">{t("No members to show. Send an invitation to share this workspace.",
@@ -164,29 +158,22 @@ export function WorkspaceTeam({ workspaceId, token }: { workspaceId: string; tok
         {completedEdit && !selection && <p className="success-message break-words" role="status">{completedEdit.action.type === "remove"
           ? t(`Access removed for ${memberName(completedEdit.member, t)}.`, `Acesso de ${memberName(completedEdit.member, t)} removido.`)
           : t(`Role updated for ${memberName(completedEdit.member, t)}.`, `Perfil de ${memberName(completedEdit.member, t)} atualizado.`)}</p>}
-        {members.data && members.data.members.length > 0 && <ul className="divide-y divide-slate-800 rounded-xl border border-slate-700">
+        {members.data && members.data.members.length > 0 && <ul className="divide-y divide-slate-800 border-y border-slate-800">
           {members.data.members.map((member) => {
             const name = memberName(member, t);
-            return <li className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm" key={member.userId}>
-              <div className="min-w-0 flex-1 basis-52">
+            return <li className="flex items-center justify-between gap-3 py-4 text-sm" key={member.userId}>
+              <div className="min-w-0 flex-1">
                 <p className="font-medium text-slate-100 [overflow-wrap:anywhere]">{name}</p>
-                <span className="status-pill mt-2">{workspaceRoleLabel(member.role, t)}</span>
-                <p className="mt-2 text-sm text-slate-300">{roleDetails[member.role]}</p>
+                <span className="mt-1 block text-xs text-slate-400" title={roleDetails[member.role]}>{workspaceRoleLabel(member.role, t)}</span>
               </div>
               {member.role === "owner"
-                ? <span className="text-sm text-slate-300">{t("Owner access is protected", "O acesso de proprietário é protegido")}</span>
-                : <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                  <button type="button" className="secondary-button flex-1 whitespace-nowrap" aria-haspopup="dialog"
-                    aria-label={t(`Change role for ${name}`, `Alterar perfil de ${name}`)}
-                    onClick={(event) => openMemberDialog("role", member, event.currentTarget)}>
-                    {t("Change role", "Alterar perfil")}
-                  </button>
-                  <button type="button" className="secondary-button flex-1 whitespace-nowrap text-rose-200" aria-haspopup="dialog"
-                    aria-label={t(`Remove access for ${name}`, `Remover acesso de ${name}`)}
-                    onClick={(event) => openMemberDialog("remove", member, event.currentTarget)}>
-                    {t("Remove access", "Remover acesso")}
-                  </button>
-                </div>}
+                ? <span role="img" className="w-11 text-center text-slate-400" title={t("Owner access is protected", "O acesso de proprietário é protegido")} aria-label={t("Owner access is protected", "O acesso de proprietário é protegido")}>
+                  <svg aria-hidden="true" className="mx-auto size-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="3" y="7" width="10" height="7" rx="2" /><path d="M5 7V5a3 3 0 0 1 6 0v2" /></svg>
+                </span>
+                : <ActionMenu label={t(`Actions for ${name}`, `Ações para ${name}`)} actions={[
+                  { label: t("Change role", "Alterar perfil"), onSelect: () => openMemberDialog("role", member), disabled: editMember.isPending },
+                  { label: t("Remove access", "Remover acesso"), onSelect: () => openMemberDialog("remove", member), destructive: true, disabled: editMember.isPending }
+                ]} />}
             </li>;
           })}
         </ul>}

@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api, ApiError } from "../../../shared/api/rag-api";
 import { useLocale, type Translate } from "../../../shared/i18n/locale";
@@ -27,10 +27,11 @@ function urlImportError(code: number | undefined, t: Translate): string {
   }
 }
 
-export function UrlImportForm({ accessToken, workspaceId, onImported }: {
+export function UrlImportForm({ accessToken, workspaceId, onImported, onPendingChange }: {
   accessToken: string;
   workspaceId: string;
   onImported: () => void;
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const { t } = useLocale();
   const headingId = useId();
@@ -47,6 +48,7 @@ export function UrlImportForm({ accessToken, workspaceId, onImported }: {
       onImported();
     }
   });
+  useEffect(() => { onPendingChange?.(importPage.isPending); }, [onPendingChange, importPage.isPending]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,9 +64,8 @@ export function UrlImportForm({ accessToken, workspaceId, onImported }: {
   const error = invalidUrl || importPage.isError ? urlImportError(errorCode, t) : null;
 
   return (
-    <form className="panel grid min-w-0 content-start gap-4" onSubmit={submit} aria-labelledby={headingId} aria-busy={importPage.isPending} noValidate>
+    <form className="grid min-w-0 content-start gap-4" onSubmit={submit} aria-labelledby={headingId} aria-busy={importPage.isPending} noValidate>
       <div>
-        <p className="eyebrow">{t("Add from the web", "Adicionar da web")}</p>
         <h3 id={headingId} className="mt-2 text-lg font-semibold text-white">{t("Import a web page", "Importar página da web")}</h3>
         <p className="mt-2 text-sm text-slate-400">{t("Lumora saves a copy of the page and prepares its text for search.", "O Lumora salva uma cópia da página e prepara seu texto para a busca.")}</p>
       </div>

@@ -8,6 +8,7 @@ import { effortLabels, evaluationEfforts, type EvaluationEffort } from "../model
 import { evaluationsQuery } from "../model/queries";
 import { EvaluationPanel } from "./EvaluationPanel";
 import { WorkspaceQueryFeedback } from "./WorkspaceQueryFeedback";
+import { WorkspacePageHeader } from "./WorkspacePageHeader";
 
 export function WorkspaceEvaluations({ workspaceId, token }: { workspaceId: string; token: string }) {
   const { t } = useLocale();
@@ -32,11 +33,18 @@ export function WorkspaceEvaluations({ workspaceId, token }: { workspaceId: stri
   });
 
   return <div className="space-y-4">
+    <WorkspacePageHeader title={t("Evaluations", "Avaliações")} description={t("Review search quality and answer safety.", "Confira a qualidade da busca e a segurança das respostas.")}>
+      <button className="primary-button" type="button" onClick={() => runEvaluation.mutate()}
+        disabled={runEvaluation.isPending || evaluations.isLoading || evaluations.isError || (judgingRequested && !selectedModel)}>
+        {runEvaluation.isPending ? t("Running…", "Avaliando…") : t("Run evaluation", "Executar avaliação")}
+      </button>
+    </WorkspacePageHeader>
     {evaluations.isError && <WorkspaceQueryFeedback query={evaluations} loading={t("Loading evaluations…", "Carregando avaliações…")}
       failure={t("We could not load evaluations.", "Não foi possível carregar as avaliações.")} />}
     {(evaluations.data || !evaluations.isError) && <EvaluationPanel runs={evaluations.data?.runs ?? []} isLoading={evaluations.isLoading}
-      isRunning={runEvaluation.isPending} canRun={!judgingRequested || Boolean(selectedModel)} onRun={() => runEvaluation.mutate()}
-      runOptions={judgingEnabled ? <div className="mt-4 space-y-3 rounded-xl border border-slate-700 p-4 text-sm">
+      runOptions={judgingEnabled ? <details className="border-b border-slate-800 pb-4 text-sm">
+        <summary className="min-h-11 rounded-lg py-2 font-medium text-slate-200">{t("Evaluation options", "Opções de avaliação")}</summary>
+        <div className="mt-3 space-y-3">
         <label className="flex items-center gap-2 text-slate-200">
           <input type="checkbox" checked={includeFaithfulness} onChange={(event) => setIncludeFaithfulness(event.target.checked)} disabled={runEvaluation.isPending} />
           {t("Also measure faithfulness", "Medir fidelidade também")}
@@ -54,7 +62,8 @@ export function WorkspaceEvaluations({ workspaceId, token }: { workspaceId: stri
             <p className="text-xs text-slate-400 sm:col-span-2">{t("Effort sets the answer token limit. The questions, passages and prompt stay the same.", "O esforço define o limite de tokens da resposta. As perguntas, os trechos e o prompt são os mesmos.")}</p>
           </div>}
         </>}
-      </div> : undefined} />}
+        </div>
+      </details> : undefined} />}
     {runEvaluation.isSuccess && <p className="success-message" role="status">{t("Evaluation completed and saved.", "Avaliação concluída e salva.")}</p>}
     {runEvaluation.isError && <p className="error-message" role="alert">{workspaceRequestError(runEvaluation.error, t, t("We could not run the evaluation.", "Não foi possível executar a avaliação."))}</p>}
   </div>;

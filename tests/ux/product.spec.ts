@@ -113,14 +113,19 @@ test("team management guards duplicate invitations and confirms changes", async 
   await page.goto("/workspace/team");
   await expect(page.getByText(compactEmail, { exact: true })).toBeVisible();
 
+  await page.getByRole("button", { name: "Invite a teammate", exact: true }).click();
+  const invitation = page.getByRole("dialog", { name: "Invite a teammate" });
   const email = page.getByRole("textbox", { name: "Email address" });
   await email.fill(compactEmail.toUpperCase());
   await expect(page.getByRole("alert")).toContainText("This person already has access.");
   await expect(page.getByRole("button", { name: "Send invitation" })).toBeDisabled();
   await email.press("Enter");
   expect(fixture.changes.invitations).toHaveLength(0);
+  await invitation.getByRole("button", { name: "Cancel", exact: true }).click();
 
-  await page.getByRole("button", { name: `Change role for ${compactEmail}` }).click();
+  const memberActions = page.getByRole("button", { name: `Actions for ${compactEmail}`, exact: true });
+  await memberActions.click();
+  await page.getByRole("menuitem", { name: "Change role", exact: true }).click();
   const roleDialog = page.getByRole("dialog", { name: "Change role" });
   const save = roleDialog.getByRole("button", { name: "Save role" });
   await expect(save).toBeDisabled();
@@ -132,17 +137,18 @@ test("team management guards duplicate invitations and confirms changes", async 
   await expect(page.getByText(`Role updated for ${compactEmail}.`)).toBeVisible();
   expect(fixture.changes.updated).toHaveLength(1);
 
-  const remove = page.getByRole("button", { name: `Remove access for ${compactEmail}` });
-  await remove.press("Enter");
+  await memberActions.press("Enter");
+  await page.getByRole("menuitem", { name: "Remove access", exact: true }).press("Enter");
   const confirmation = page.getByRole("dialog", { name: "Remove access" });
   await expect(confirmation).toBeVisible();
   await expect(confirmation.getByRole("button", { name: "Cancel" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(confirmation).toBeHidden();
-  await expect(remove).toBeFocused();
+  await expect(memberActions).toBeFocused();
   expect(fixture.changes.deleted).toHaveLength(0);
 
-  await remove.click();
+  await memberActions.click();
+  await page.getByRole("menuitem", { name: "Remove access", exact: true }).click();
   await confirmation.getByRole("button", { name: "Remove access", exact: true }).click();
   await expect(confirmation).toBeHidden();
   await expect(page.getByText(compactEmail, { exact: true })).toHaveCount(0);

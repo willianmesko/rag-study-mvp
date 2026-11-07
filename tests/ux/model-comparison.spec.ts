@@ -139,7 +139,7 @@ test("owners set a workspace model policy and Ask reports automatic fallback", a
   });
 
   await page.goto("/workspace/settings");
-  await expect(page.getByRole("heading", { name: "Chat model policy" })).toBeVisible();
+  await page.locator("summary").filter({ hasText: "Chat model policy" }).click();
   await page.getByRole("checkbox", { name: "Careful Model" }).uncheck();
   await page.getByRole("checkbox", { name: "Allow automatic routing" }).check();
   await selectModel(page, /^Complex questions$/, "Balanced Model");

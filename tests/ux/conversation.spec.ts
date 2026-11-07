@@ -132,3 +132,23 @@ test("a reloaded chat displays a recovered reply in the conversation", async ({ 
   await expect(messages.getByText("You", { exact: true })).toHaveCount(0);
   expect(await page.evaluate((key) => sessionStorage.getItem(key), storageKey)).toBeNull();
 });
+
+test("desktop chat uses the available column and viewport height", async ({ page, context }, info) => {
+  test.skip(info.project.name !== "desktop-en", "Large viewport geometry uses the desktop profile.");
+  await workspaceFixture().attach(context);
+  await page.goto("/ask");
+  const chat = page.getByRole("region", { name: "Chat with Milo", exact: true });
+  await expect(chat).toBeVisible();
+  for (const width of [1440, 1920, 2560]) {
+    await page.setViewportSize({ width, height: 950 });
+    const bounds = await chat.evaluate((element) => ({
+      width: element.getBoundingClientRect().width,
+      available: element.parentElement!.getBoundingClientRect().width,
+      height: element.getBoundingClientRect().height,
+      bottom: element.getBoundingClientRect().bottom
+    }));
+    expect(bounds.width).toBeCloseTo(bounds.available, 0);
+    expect(bounds.height).toBeGreaterThan(950 * 0.82);
+    expect(bounds.bottom).toBeLessThanOrEqual(950);
+  }
+});

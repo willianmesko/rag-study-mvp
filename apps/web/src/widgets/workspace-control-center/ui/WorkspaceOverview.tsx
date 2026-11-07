@@ -2,110 +2,86 @@ import { useQuery } from "@tanstack/react-query";
 import type { Workspace } from "../../../shared/api/rag-api";
 import type { WorkspaceSection } from "../../../shared/lib/app-route";
 import { useLocale } from "../../../shared/i18n/locale";
-import { workspaceRoleLabel } from "../model/labels";
-import { documentsQuery, evaluationsQuery, ingestionJobsQuery, usageQuery } from "../model/queries";
+import { documentsQuery, ingestionJobsQuery, usageQuery } from "../model/queries";
+import { statusLabel } from "./PipelineVisualization";
+import { WorkspacePageHeader } from "./WorkspacePageHeader";
 import { WorkspaceQueryFeedback } from "./WorkspaceQueryFeedback";
-
-function Metric({ label, value, hint, tone = "default" }: { label: string; value: string | number; hint: string; tone?: "default" | "cyan" | "emerald" | "amber" }) {
-  return <article className={`workspace-metric workspace-metric--${tone}`}><p className="text-xs text-slate-400">{label}</p><p className="mt-2 text-2xl font-semibold tracking-tight text-slate-100">{value}</p><p className="mt-2 text-[11px] leading-5 text-slate-400">{hint}</p></article>;
-}
 
 export function WorkspaceOverview({ workspace, token, onNavigate }: { workspace: Workspace; token: string; onNavigate: (section: WorkspaceSection) => void }) {
   const { locale, t } = useLocale();
   const number = new Intl.NumberFormat(locale);
-  const role = workspace.role;
+  const date = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" });
   const documents = useQuery(documentsQuery(token, workspace.tenantId));
   const processing = useQuery(ingestionJobsQuery(token, workspace.tenantId));
-  const documentCount = documents.data?.documents.length;
   const jobs = processing.data?.jobs ?? [];
   const activeJobs = jobs.filter((job) => job.status === "queued" || job.status === "processing").length;
-  const completedJobs = jobs.filter((job) => job.status === "completed").length;
   const failedJobs = jobs.filter((job) => job.status === "failed").length;
-  const actions = [
-    ["knowledge", role === "viewer" ? t("Browse documents", "Explorar documentos") : t("Add trusted material", "Adicionar materiais confiáveis"), t("Explore the sources your team uses.", "Explore as fontes que sua equipe usa.")],
-    ["processing", t("Review processing", "Acompanhar o processamento"), t("See which files Lumora is preparing for search.", "Veja quais arquivos o Lumora está preparando para a busca.")],
-    ["team", t("Invite your team", "Convidar sua equipe"), t("Give each person the access they need.", "Dê a cada pessoa o acesso de que precisa.")],
-    ["evaluations", t("Check answer quality", "Verificar a qualidade das respostas"), t("Run the evaluation suite before sharing the workspace.", "Execute os testes de avaliação antes de compartilhar o espaço.")]
-  ] as const;
-  return (
-    <div className="space-y-6 animate-fade-up">
-      <div className="workspace-hero panel">
-        <div>
-          <p className="eyebrow">{t("Workspace summary", "Resumo do espaço")}</p>
-          <h3 className="mt-2 break-words text-2xl font-semibold text-white">{workspace.tenantName}</h3>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{t("Find your team’s documents, track processing, and review answer quality.", "Encontre os documentos da sua equipe, acompanhe o processamento e avalie a qualidade das respostas.")}</p>
-        </div>
-        <span className="status-pill status-pill--success">{workspaceRoleLabel(role, t)}</span>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label={t("Knowledge sources", "Fontes de conhecimento")} value={documentCount === undefined ? "—" : number.format(documentCount)} hint={t("Documents available for search", "Documentos disponíveis para busca")} tone="cyan" />
-        <Metric label={t("Active processing", "Processamento ativo")} value={processing.data ? number.format(activeJobs) : "—"}
-          hint={failedJobs ? t(`${number.format(failedJobs)} need attention`, `${number.format(failedJobs)} com falha`)
-            : processing.data ? t("No processing failures", "Nenhuma falha de processamento") : t("Files being prepared", "Arquivos em preparação")}
-          tone={failedJobs ? "amber" : "emerald"} />
-        <Metric label={t("Completed jobs", "Processamentos concluídos")} value={processing.data ? number.format(completedJobs) : "—"} hint={t("Files processed successfully", "Arquivos processados com sucesso")} />
-        {role === "owner" && <OwnerUsageMetric token={token} workspaceId={workspace.tenantId} />}
-      </div>
-      <WorkspaceQueryFeedback query={documents} loading={t("Loading document counts…", "Carregando contagem de documentos…")}
-        failure={t("We could not load the document count.", "Não foi possível carregar a contagem de documentos.")} />
-      <WorkspaceQueryFeedback query={processing} loading={t("Loading processing counts…", "Carregando contagem de processamentos…")}
-        failure={t("We could not load the processing counts.", "Não foi possível carregar a contagem de processamentos.")} />
-      <div className={role === "owner" ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]" : "grid gap-4"}>
-        <section className="panel">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="eyebrow">{t("Next steps", "Próximos passos")}</p>
-              <h3 className="mt-2 text-lg font-semibold text-white">{t("What would you like to do?", "O que você gostaria de fazer?")}</h3>
-            </div>
-            {documentCount !== undefined && <span className="text-xs text-slate-400">{documentCount > 0 ? t("Documents ready", "Documentos prontos") : t("Start here", "Comece aqui")}</span>}
-          </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {(role === "owner" ? actions : actions.slice(0, 2)).map(([section, title, description]) => (
-              <button key={section} type="button" className="workspace-action-card" onClick={() => onNavigate(section)}>
-                <span className="text-sm font-medium text-slate-100">{title}</span>
-                <span className="mt-1 block text-xs leading-5 text-slate-400">{description}</span>
-                <span className="mt-3 block text-xs font-semibold text-cyan-300">{t("View details", "Ver detalhes")} →</span>
-              </button>
-            ))}
-          </div>
-        </section>
-        {role === "owner" && <OwnerEvaluationSnapshot token={token} workspaceId={workspace.tenantId} onOpen={() => onNavigate("evaluations")} />}
-      </div>
-      <p className="text-xs leading-5 text-slate-400">{t("The similarity score measures how closely a passage matches the question. Check the source to verify the answer.", "A pontuação de similaridade mede o quanto um trecho se relaciona com a pergunta. Consulte a fonte para verificar a resposta.")}</p>
-    </div>
-  );
-}
+  const activity = (jobs.length ? jobs.map((job) => ({
+    id: job.id, title: job.title ?? job.filename, updatedAt: job.updatedAt,
+    status: statusLabel(job.status, t), section: "processing" as const
+  })) : (documents.data?.documents ?? []).map((document) => ({
+    id: document.id, title: document.title ?? document.source, updatedAt: document.updatedAt,
+    status: t("Ready to search", "Disponível para busca"), section: "knowledge" as const
+  }))).sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)).slice(0, 5);
+  const metrics = [
+    [t("Documents", "Documentos"), documents.data ? number.format(documents.data.documents.length) : "—"],
+    [t("Processing", "Em processamento"), processing.data ? number.format(activeJobs) : "—"],
+    [t("Needs attention", "Requer atenção"), processing.data ? number.format(failedJobs) : "—"]
+  ];
 
-function OwnerUsageMetric({ token, workspaceId }: { token: string; workspaceId: string }) {
-  const { locale, t } = useLocale();
-  const usage = useQuery(usageQuery(token, workspaceId));
-  const summary = usage.data?.summary;
-  return <div className="space-y-2">
-    <Metric label={t("Questions · 30 days", "Perguntas · 30 dias")} value={summary?.requests.toLocaleString(locale) ?? "—"}
-      hint={summary ? t(`${Math.round(summary.averageLatencyMs).toLocaleString(locale)} ms average latency`, `Latência média de ${Math.round(summary.averageLatencyMs).toLocaleString(locale)} ms`) : t("Workspace usage", "Uso do espaço")} />
-    <WorkspaceQueryFeedback query={usage} loading={t("Loading usage…", "Carregando o uso…")}
-      failure={t("We could not load usage.", "Não foi possível carregar os dados de uso.")} />
+  return <div className="space-y-6">
+    <WorkspacePageHeader title={t("Overview", "Visão geral")}>
+      <button className="primary-button" type="button" onClick={() => onNavigate("knowledge")}>{t("View documents", "Ver documentos")}</button>
+    </WorkspacePageHeader>
+    <dl className="grid grid-cols-3 divide-x divide-slate-800 border-y border-slate-800 py-5">
+      {metrics.map(([label, value]) => <div className="min-w-0 px-3 first:pl-0 sm:px-6" key={label}>
+        <dt className="text-xs leading-5 text-slate-400">{label}</dt>
+        <dd className="mt-1 text-2xl font-semibold tracking-tight text-slate-100">{value}</dd>
+      </div>)}
+    </dl>
+    <WorkspaceQueryFeedback query={documents} loading={t("Loading documents…", "Carregando documentos…")}
+      failure={t("We could not load documents.", "Não foi possível carregar os documentos.")} />
+    <WorkspaceQueryFeedback query={processing} loading={t("Loading processing status…", "Carregando o status dos arquivos…")}
+      failure={t("We could not load processing status.", "Não foi possível carregar o status dos arquivos.")} />
+    {failedJobs > 0 && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/25 bg-amber-400/5 p-4">
+      <p className="text-sm text-amber-100">{failedJobs === 1
+        ? t("One file needs another processing attempt.", "Um arquivo precisa de uma nova tentativa de processamento.")
+        : t(`${number.format(failedJobs)} files need another processing attempt.`, `${number.format(failedJobs)} arquivos precisam de uma nova tentativa de processamento.`)}</p>
+      <button className="secondary-button" type="button" onClick={() => onNavigate("processing")}>{t("Review files", "Revisar arquivos")}</button>
+    </div>}
+    {workspace.role === "owner" && <OwnerBudgetNotice workspaceId={workspace.tenantId} token={token} onOpen={() => onNavigate("settings")} />}
+    <section aria-labelledby="workspace-recent-activity" className="space-y-3">
+      <h2 id="workspace-recent-activity" className="text-base font-semibold text-slate-100">{t("Recent activity", "Atividades recentes")}</h2>
+      {activity.length > 0 && <ul className="divide-y divide-slate-800 border-y border-slate-800">
+        {activity.map((item) => <li key={item.id}>
+          <button type="button" className="flex w-full flex-wrap items-center justify-between gap-2 rounded-lg py-4 text-left hover:bg-slate-800/40" onClick={() => onNavigate(item.section)}>
+            <span className="min-w-0 flex-1 basis-48">
+              <span className="block truncate text-sm font-medium text-slate-100">{item.title}</span>
+              <span className="mt-1 block text-xs text-slate-400">{item.status}</span>
+            </span>
+            <time className="text-xs text-slate-400" dateTime={item.updatedAt}>{date.format(new Date(item.updatedAt))}</time>
+          </button>
+        </li>)}
+      </ul>}
+      {processing.isSuccess && documents.isSuccess && activity.length === 0 && <p className="empty-state">
+        {workspace.role === "viewer"
+          ? t("Your team’s documents and processing updates will appear here.", "Os documentos e as atualizações de processamento da equipe aparecerão aqui.")
+          : t("Add your first document from Documents to start building your workspace.", "Adicione o primeiro arquivo em Documentos para começar a preparar seu espaço.")}
+      </p>}
+    </section>
   </div>;
 }
 
-function OwnerEvaluationSnapshot({ token, workspaceId, onOpen }: { token: string; workspaceId: string; onOpen: () => void }) {
+function OwnerBudgetNotice({ workspaceId, token, onOpen }: { workspaceId: string; token: string; onOpen: () => void }) {
   const { locale, t } = useLocale();
-  const evaluations = useQuery(evaluationsQuery(token, workspaceId));
-  const runs = evaluations.data?.runs;
-  const latest = runs?.[0];
-  const status = latest?.passed ? t("All checks passed", "Todas as verificações passaram")
-    : latest ? t("Review latest run", "Revise a última avaliação") : t("Not evaluated yet", "Ainda sem avaliações");
-
-  return <aside className="panel">
-    <p className="eyebrow">{t("Quality snapshot", "Resumo de qualidade")}</p>
-    <div className="mt-4 space-y-4">
-      <WorkspaceQueryFeedback query={evaluations} loading={t("Loading evaluations…", "Carregando avaliações…")}
-        failure={t("We could not load evaluations.", "Não foi possível carregar as avaliações.")} />
-      {runs && <>
-        <div><p className="text-xs text-slate-400">{t("Evaluation runs", "Avaliações realizadas")}</p><p className="mt-1 text-xl font-semibold text-slate-100">{runs.length.toLocaleString(locale)}</p></div>
-        <div><p className="text-xs text-slate-400">{t("Latest status", "Último resultado")}</p><p className="mt-1 text-sm text-slate-200">{status}</p></div>
-      </>}
-      <button type="button" className="secondary-button w-full" onClick={onOpen}>{t("Open evaluations", "Abrir avaliações")}</button>
-    </div>
-  </aside>;
+  const usage = useQuery(usageQuery(token, workspaceId));
+  const currency = new Intl.NumberFormat(locale, { style: "currency", currency: "USD" });
+  return <>
+    <WorkspaceQueryFeedback query={usage} loading={t("Checking usage…", "Consultando o uso…")}
+      failure={t("We could not check the budget alert.", "Não foi possível consultar o alerta de orçamento.")} />
+    {usage.data?.alert.triggered && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/25 bg-amber-400/5 p-4">
+      <p className="text-sm text-amber-100">{t("Estimated usage reached the budget alert of", "O uso estimado atingiu o alerta de orçamento de")} {currency.format(usage.data.alert.thresholdUsd)}.</p>
+      <button type="button" className="secondary-button" onClick={onOpen}>{t("Review usage", "Ver uso")}</button>
+    </div>}
+  </>;
 }

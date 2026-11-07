@@ -86,17 +86,9 @@
   .text-action--danger { @apply text-rose-300 enabled:hover:bg-rose-400/10 enabled:hover:text-rose-100 enabled:active:bg-rose-400/20; }
   .success-message { @apply rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200; }
   .stream-status-card { @apply rounded-2xl border border-cyan-400/25 bg-cyan-400/[0.05] p-5 shadow-lg shadow-cyan-950/10; }
-  .workspace-control-center__heading { @apply flex flex-col gap-4 rounded-3xl border border-slate-800/90 bg-slate-950/35 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7; }
-  .workspace-section-nav { @apply grid gap-2 rounded-2xl border border-slate-800/90 bg-slate-950/45 p-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6; }
-  .workspace-section-nav__item { @apply flex min-h-16 min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-slate-300 transition-colors enabled:hover:bg-slate-800 enabled:hover:text-slate-100; }
-  .workspace-section-nav__item--active { @apply bg-cyan-400/10 text-cyan-100 ring-1 ring-inset ring-cyan-400/20; }
-  .workspace-section-nav__item--restricted { @apply bg-slate-950/25 text-slate-400; }
-  .workspace-section-nav__icon { @apply grid size-8 shrink-0 place-items-center rounded-lg border border-slate-700 bg-slate-900 text-sm text-cyan-300; }
-  .workspace-metric { @apply rounded-2xl border border-slate-800/90 bg-slate-950/45 p-4; }
-  .workspace-metric--cyan { @apply border-cyan-400/20 bg-cyan-400/[0.04]; }
-  .workspace-metric--emerald { @apply border-emerald-400/20 bg-emerald-400/[0.04]; }
-  .workspace-metric--amber { @apply border-amber-400/20 bg-amber-400/[0.04]; }
-  .workspace-action-card { @apply rounded-xl border border-slate-700 bg-slate-950/45 p-4 text-left transition-colors enabled:hover:border-cyan-400/70 enabled:hover:bg-cyan-400/[0.07] enabled:active:bg-cyan-400/10; }
+  .workspace-section-nav { @apply flex gap-1 overflow-x-auto border-b border-slate-800 p-1.5; }
+  .workspace-section-nav__item { @apply min-h-11 shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-colors enabled:hover:bg-slate-800/60 enabled:hover:text-slate-100; }
+  .workspace-section-nav__item--active { @apply bg-slate-800/60 text-slate-100; }
 }
 
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

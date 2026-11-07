@@ -58,6 +58,17 @@ section that owns its data, actions, and loading and error states. The
 onboarding guide explains concepts in plain language and links directly to
 the next action.
 
+Workspace sections use compact text navigation and one page heading with the
+primary action. Overview shows a single metric strip, actionable alerts, and
+recent activity. Documents and members use divided lists with action menus.
+Invitations and adding documents open in dialogs. Selecting a document opens
+a side panel with metadata, original-file controls, and passages. Processing
+loads its detailed timeline for the selected file. Settings groups use dividers
+and expandable model and assistant controls.
+
+The desktop Ask surface fills its content column and the remaining viewport
+height. The message thread keeps a readable line width inside that surface.
+
 Onboarding is organized around goals such as finding team knowledge, supporting
 others, and learning from documents. A goal selects suggested examples and
 guidance. All goals use the same workspace permissions and accept documents
@@ -235,6 +246,34 @@ authorized workspace and validates citations against those passages. Contextual
 requests bypass the semantic answer cache and count the extra prompt text
 toward the generation budget. Public demo requests and model comparisons
 remain standalone.
+
+### Planned durable conversation history
+
+Named, cross-device conversation history remains a product milestone. The
+existing PostgreSQL database can hold three related records:
+
+- `conversations` with a workspace, creator, title, and timestamps.
+- `conversation_messages` with stable IDs, ordering, role, content, execution
+  state, checked citations, model/prompt metadata, and usage.
+- `message_feedback` linked to a message, workspace, and the member who rated it.
+
+The proposed API admits a user message once with an idempotency key, saves its
+pending response state, and streams the authorized RAG execution. A final
+transaction saves the checked assistant message and terminal status. Separate
+execution events support reconnection. Older messages load with pagination.
+Each read and mutation checks membership and conversation ownership.
+
+Conversation content belongs in authorized product records. Operational logs
+continue to exclude raw prompts and document text. Retention, deletion, and
+source availability rules belong to the conversation feature's acceptance
+criteria. Server-side context assembly selects recent messages within the
+token budget and performs fresh workspace retrieval for each question.
+
+LangGraph checkpointers can later persist graph execution state by thread for
+restart recovery and approval workflows. That execution state has a separate
+lifecycle from the user-facing history. The underlying patterns are described
+in the [LangGraph persistence guide](https://docs.langchain.com/oss/javascript/langgraph/persistence)
+and the [AI SDK message persistence guide](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-message-persistence).
 
 ## Workspace MCP boundary
 

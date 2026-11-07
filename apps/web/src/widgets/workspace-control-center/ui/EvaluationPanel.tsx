@@ -5,7 +5,7 @@ import { compareRecordedEfforts, effortLabels, evaluationMeasurementExport, read
 
 function metricTone(value: number | null, threshold: number) {
   if (value === null) return "text-slate-400";
-  return value >= threshold ? "text-emerald-300" : "text-rose-300";
+  return value >= threshold ? "text-slate-100" : "text-rose-200";
 }
 
 function downloadMeasurements(data: NonNullable<ReturnType<typeof evaluationMeasurementExport>>) {
@@ -20,8 +20,8 @@ function downloadMeasurements(data: NonNullable<ReturnType<typeof evaluationMeas
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export function EvaluationPanel({ runs, isLoading, isRunning, canRun, onRun, runOptions }: {
-  runs: EvaluationRun[]; isLoading: boolean; isRunning: boolean; canRun: boolean; onRun: () => void; runOptions?: ReactNode;
+export function EvaluationPanel({ runs, isLoading, runOptions }: {
+  runs: EvaluationRun[]; isLoading: boolean; runOptions?: ReactNode;
 }) {
   const { locale, t } = useLocale();
   const number = new Intl.NumberFormat(locale);
@@ -48,22 +48,18 @@ export function EvaluationPanel({ runs, isLoading, isRunning, canRun, onRun, run
   ];
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">{t("Evaluation suite", "Suíte de avaliação")}</p>
-          <h3 className="mt-2 font-medium">{t("RAG quality dashboard", "Painel de qualidade das respostas")}</h3>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">
+    <section className="space-y-4">
+      <details className="text-sm text-slate-400">
+        <summary className="min-h-11 rounded-lg py-2">{t("How to read the results", "Como interpretar os resultados")}</summary>
+          <p className="mt-1 max-w-2xl text-xs leading-5">
             {t("Run the reference tests for this workspace. Context precision checks the rank of reviewed passages. The optional judge measures faithfulness on separate public cases.", "Execute os testes de referência deste espaço. A precisão do contexto verifica a ordem dos trechos revisados. O avaliador opcional mede a fidelidade em casos públicos separados.")}
           </p>
-        </div>
-        <button className="primary-button" type="button" onClick={onRun} disabled={isRunning || isLoading || !canRun}>{isRunning ? t("Running…", "Avaliando…") : t("Run evaluation", "Executar avaliação")}</button>
-      </div>
+      </details>
       {runOptions}
       {isLoading && <div className="mt-5 grid gap-3 sm:grid-cols-3" role="status" aria-label={t("Loading evaluations", "Carregando avaliações")}><div className="skeleton h-20" /><div className="skeleton h-20" /><div className="skeleton h-20" /></div>}
       {!isLoading && latest && (
         <>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="mt-5 grid grid-cols-2 gap-5 border-y border-slate-800 py-5 sm:grid-cols-3 lg:grid-cols-5">
             <Metric label={t("Hit rate", "Taxa de acerto")} value={percentage(latest.hitRate)} tone={metricTone(latest.hitRate, 0.8)} />
             <Metric label="MRR" value={percentage(latest.meanReciprocalRank)} tone={metricTone(latest.meanReciprocalRank, 0.7)} />
             <Metric label={t("Faithfulness", "Fidelidade")} value={percentage(latest.faithfulness)} tone="text-slate-400" />
@@ -83,7 +79,7 @@ export function EvaluationPanel({ runs, isLoading, isRunning, canRun, onRun, run
             </p>}
           </div>}
           <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-            <span className={"status-pill " + (latest.passed ? "status-pill--success" : "border-rose-400/30 bg-rose-400/10 text-rose-300")}>{result(latest.passed)}</span>
+            <span className={"status-pill " + (latest.passed ? "" : "border-rose-400/30 bg-rose-400/10 text-rose-200")}>{result(latest.passed)}</span>
             <span>{latest.datasetName} v{latest.datasetVersion}</span>
             <span>{number.format(latest.totalCases)} {latest.totalCases === 1 ? t("case", "caso") : t("cases", "casos")}</span>
             <span>{number.format(latest.durationMs)} ms</span>
@@ -150,7 +146,7 @@ export function EvaluationPanel({ runs, isLoading, isRunning, canRun, onRun, run
 
 function Metric({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+    <div className="min-w-0">
       <p className="text-[11px] text-slate-400">{label}</p>
       <p className={"mt-2 font-mono text-lg " + tone}>{value}</p>
     </div>

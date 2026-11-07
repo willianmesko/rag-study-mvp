@@ -21,9 +21,10 @@ export function WorkspaceChatPolicy({ token, workspaceId }: { token: string; wor
   });
   if (query.error instanceof ApiError && query.error.status === 404) return null;
 
-  return <section className="panel space-y-4">
+  return <details className="border-b border-slate-800 pb-6">
+    <summary className="min-h-11 rounded-lg py-2 text-base font-semibold text-slate-100">{t("Chat model policy", "Política de modelos do chat")}</summary>
+    <div className="mt-4 space-y-4">
     <div>
-      <h3 className="text-lg font-semibold text-white">{t("Chat model policy", "Política de modelos do chat")}</h3>
       <p className="mt-2 text-sm leading-6 text-slate-300">{t("Choose which models your workspace can use and how automatic routing works.",
         "Escolha quais modelos seu espaço pode usar e como funciona a seleção automática.")}</p>
     </div>
@@ -37,7 +38,8 @@ export function WorkspaceChatPolicy({ token, workspaceId }: { token: string; wor
     {save.isError && <p className="error-message" role="alert">{workspaceRequestError(save.error, t, t("Could not save the model policy. Review your selections and try again.",
       "Não foi possível salvar a política. Revise as seleções e tente novamente."))}</p>}
     {save.isSuccess && <p className="success-message" role="status">{t("Model policy saved for this workspace.", "Política de modelos salva para este espaço.")}</p>}
-  </section>;
+    </div>
+  </details>;
 }
 
 function PolicyForm({ data, pending, onEdit, onSave }: { data: WorkspaceChatModelPolicyResponse; pending: boolean;

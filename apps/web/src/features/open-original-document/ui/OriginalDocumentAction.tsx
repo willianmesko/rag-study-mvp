@@ -6,19 +6,20 @@ type OriginalDocumentProps = { documentId: string; documentName: string; accessT
 type FileState = { status: "loading" } | { status: "ready"; filename: string; isPdf: boolean; url: string }
   | { status: "error"; code?: number };
 
-export function OriginalDocumentAction(props: OriginalDocumentProps) {
+export function OriginalDocumentAction({ inline = false, ...props }: OriginalDocumentProps & { inline?: boolean }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
 
   return <>
-    <button type="button" className="text-action" aria-haspopup="dialog"
+    <button ref={trigger} type="button" className="text-action" aria-haspopup={inline ? undefined : "dialog"} aria-expanded={inline ? open : undefined}
       aria-label={t(`Original file for ${props.documentName}`, `Arquivo original de ${props.documentName}`)}
       onClick={() => setOpen(true)}>{t("Original file", "Arquivo original")}</button>
-    {open && <OriginalDocumentDialog {...props} onClose={() => setOpen(false)} />}
+    {open && <OriginalDocumentDialog {...props} inline={inline} onClose={() => { setOpen(false); trigger.current?.focus({ preventScroll: true }); }} />}
   </>;
 }
 
-function OriginalDocumentDialog({ documentId, documentName, accessToken, workspaceId, onClose }: OriginalDocumentProps & { onClose: () => void }) {
+function OriginalDocumentDialog({ documentId, documentName, accessToken, workspaceId, onClose, inline = false }: OriginalDocumentProps & { onClose: () => void; inline?: boolean }) {
   const { t } = useLocale();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -61,15 +62,13 @@ function OriginalDocumentDialog({ documentId, documentName, accessToken, workspa
     }
   }
 
-  return (
-    <dialog ref={dialogRef} onClose={onClose} aria-labelledby={titleId}
-      className="panel fixed inset-0 m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto bg-slate-950 text-slate-100 backdrop:bg-slate-950/75">
+  const content = <>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 id={titleId} className="text-lg font-semibold text-white">{t("Original file", "Arquivo original")}</h3>
           <p className="mt-1 break-words text-sm text-slate-400">{documentName}</p>
         </div>
-        <button type="button" className="secondary-button" onClick={() => dialogRef.current?.close()}>{t("Close", "Fechar")}</button>
+        <button type="button" className="secondary-button" onClick={() => { if (inline) onClose(); else dialogRef.current?.close(); }}>{inline ? t("Hide file", "Ocultar arquivo") : t("Close", "Fechar")}</button>
       </div>
       {state.status === "loading" && <p className="mt-5 text-sm text-slate-300" role="status">{t("Preparing your file…", "Preparando o arquivo…")}</p>}
       {state.status === "ready" && <div className="mt-5 space-y-3">
@@ -83,6 +82,8 @@ function OriginalDocumentDialog({ documentId, documentName, accessToken, workspa
         <p className="error-message" role="alert">{errorMessage}</p>
         {state.code !== 401 && state.code !== 403 && state.code !== 404 && <button type="button" className="secondary-button" onClick={() => setAttempt((value) => value + 1)}>{t("Try again", "Tentar novamente")}</button>}
       </div>}
-    </dialog>
-  );
+  </>;
+  if (inline) return <section aria-labelledby={titleId} className="border-y border-slate-800 py-5">{content}</section>;
+  return <dialog ref={dialogRef} onClose={onClose} aria-labelledby={titleId}
+    className="panel fixed inset-0 m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto bg-slate-950 text-slate-100 backdrop:bg-slate-950/75">{content}</dialog>;
 }

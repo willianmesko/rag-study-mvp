@@ -278,14 +278,14 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
     <main className="app-shell text-slate-100">
       <div className="ambient-glow ambient-glow--cyan" aria-hidden="true" />
       <div className="ambient-glow ambient-glow--blue" aria-hidden="true" />
-      <div className="relative grid min-h-screen w-full grid-cols-[minmax(0,1fr)] lg:grid-cols-[17rem_minmax(0,1fr)]">
+      <div className="relative grid min-h-screen w-full content-start grid-cols-[minmax(0,1fr)] lg:content-stretch lg:grid-cols-[17rem_minmax(0,1fr)]">
         <LabNavigation activeTab={activeTab} onTabChange={(tab) => navigateTo(pathForTab(tab, lab.workspaceSection, demo))}
           publicDemo={demo} canIndex={demo && canIndexDemo}
           workspaceControl={privateArea ? <WorkspaceSwitcher workspaces={privateArea.workspaces} selectedId={privateArea.workspace.tenantId}
             onChange={privateArea.onWorkspaceChange} compact={isChat}
             creation={{ accessToken: privateArea.token, onWorkspaceCreated: privateArea.onWorkspaceCreated }} /> : undefined} />
         <section className={`min-w-0 ${isChat ? "p-3 sm:p-5 lg:px-8 lg:py-6" : "p-5 sm:p-8 lg:p-10"}`}>
-          <LabHeader online={health.data?.status === "ok"} loading={health.isLoading} publicDemo={demo} compact={isChat}
+          <LabHeader online={health.data?.status === "ok"} loading={health.isLoading} publicDemo={demo} compact={isChat || activeTab === "admin"}
             accountAction={accountAction} />
           {accountError && <p className="error-message mt-5" role="alert">{accountError}</p>}
           {onboardingSyncing && <p className="mt-5 text-sm text-slate-300" role="status">

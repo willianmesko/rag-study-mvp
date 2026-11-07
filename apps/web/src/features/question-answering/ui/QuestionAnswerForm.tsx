@@ -84,7 +84,7 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
     composer.current?.focus({ preventScroll: true });
   }
 
-  return <section aria-labelledby={titleId} className="mx-auto flex h-[clamp(31rem,76svh,49rem)] w-full max-w-5xl min-w-0 flex-col rounded-2xl border border-slate-700/80 bg-slate-950/65 shadow-2xl shadow-slate-950/40 sm:rounded-3xl">
+  return <section aria-labelledby={titleId} className="flex h-[clamp(31rem,76svh,49rem)] w-full min-w-0 flex-col rounded-2xl border border-slate-700/80 bg-slate-950/65 shadow-2xl shadow-slate-950/40 sm:rounded-3xl lg:h-[calc(100svh-7rem)] lg:min-h-[31rem]">
     <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-3 py-3 sm:px-5 sm:py-4">
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 sm:size-12">

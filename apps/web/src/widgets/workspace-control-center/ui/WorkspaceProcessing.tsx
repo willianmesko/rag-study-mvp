@@ -4,10 +4,13 @@ import { api, type UploadJob, type Workspace } from "../../../shared/api/rag-api
 import { useLocale } from "../../../shared/i18n/locale";
 import { workspaceRequestError } from "../../../shared/lib/request-error";
 import { SelectField } from "../../../shared/ui/SelectField";
+import { ActionMenu } from "../../../shared/ui/ActionMenu";
+import { Overlay } from "../../../shared/ui/Overlay";
 import { ingestionJobsQuery } from "../model/queries";
 import { IngestionPassagePreview } from "./IngestionPassagePreview";
 import { PipelineVisualization, statusLabel } from "./PipelineVisualization";
 import { WorkspaceQueryFeedback } from "./WorkspaceQueryFeedback";
+import { WorkspacePageHeader } from "./WorkspacePageHeader";
 
 const jobStatuses = ["queued", "processing", "completed", "failed"] as const;
 
@@ -20,7 +23,8 @@ export function WorkspaceProcessing({ workspace, token }: { workspace: Workspace
   const jobOptions = ingestionJobsQuery(token, workspaceId);
   const jobs = useQuery(jobOptions);
   const [jobFilter, setJobFilter] = useState<"all" | UploadJob["status"]>("all");
-  const activeJob = jobs.data?.jobs.find(({ status }) => status === "processing" || status === "queued") ?? jobs.data?.jobs[0];
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedJob = jobs.data?.jobs.find((job) => job.id === selectedId);
   const filteredJobs = (jobs.data?.jobs ?? []).filter(({ status }) => jobFilter === "all" || status === jobFilter);
   const retry = useMutation({
     mutationFn: (jobId: string) => api.retryUpload(jobId, token, workspaceId),
@@ -29,14 +33,11 @@ export function WorkspaceProcessing({ workspace, token }: { workspace: Workspace
 
   return (
     <div className="space-y-6">
-      {activeJob && <ProcessingTimeline job={activeJob} token={token} workspaceId={workspaceId} />}
-      <section className="panel space-y-4">
+      <WorkspacePageHeader title={t("Processing", "Processamento")} description={t("Follow files as they become available for search.", "Acompanhe os arquivos até ficarem disponíveis para busca.")}>
+        <button type="button" className="secondary-button" disabled={jobs.isFetching} aria-busy={jobs.isFetching} onClick={() => void jobs.refetch()}>{t("Refresh", "Atualizar")}</button>
+      </WorkspacePageHeader>
+      <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="eyebrow">{t("Processing center", "Central de processamento")}</p>
-            <h3 className="mt-2 text-lg font-semibold text-white">{t("Recently processed files", "Arquivos processados recentemente")}</h3>
-            <p className="mt-2 text-sm text-slate-400">{t("Follow each file from upload to search.", "Acompanhe cada arquivo do envio à busca.")}</p>
-          </div>
           <SelectField label={t("Processing status", "Status do processamento")} className="w-full sm:w-52" value={jobFilter}
             options={[
               { value: "all", label: t("All statuses", "Todos os status") },
@@ -54,23 +55,28 @@ export function WorkspaceProcessing({ workspace, token }: { workspace: Workspace
           : t("No files match this filter. Choose another status to see more files.", "Nenhum arquivo corresponde a esse filtro. Escolha outro status para ver mais arquivos.")}</p>}
         {retry.isSuccess && <p className="success-message" role="status">{t("File queued for another attempt.", "Arquivo na fila para uma nova tentativa.")}</p>}
         {retry.isError && <p className="error-message" role="alert">{workspaceRequestError(retry.error, t, t("We could not retry this file.", "Não foi possível reprocessar este arquivo."))}</p>}
-        {filteredJobs.map((job) => (
-          <article className="animate-fade-up rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-sm" key={job.id}>
-            <div className="flex justify-between gap-4">
-              <span className="truncate text-slate-100">{job.title ?? job.filename}</span>
-              <span className="shrink-0 font-mono text-xs text-cyan-300">{statusLabel(job.status, t)} · {number.format(job.progress)}%</span>
-            </div>
-            <p className="mt-1 break-words text-xs text-slate-400">{job.source}{job.chunkCount !== null && " · " + number.format(job.chunkCount) + " " + (job.chunkCount === 1 ? t("passage", "trecho") : t("passages", "trechos"))}</p>
-            {canManage && job.status === "completed" && <IngestionPassagePreview key={job.updatedAt} jobId={job.id}
-              documentName={job.title ?? job.filename} accessToken={token} workspaceId={workspaceId} />}
-            {job.error && <p className="mt-2 text-xs text-rose-300">{t("Processing failed.", "Falha no processamento.")}</p>}
-            {canManage && job.status === "failed" && <button type="button" className="text-action mt-3"
-              onClick={() => retry.mutate(job.id)} disabled={retry.isPending}>
-              {retry.isPending && retry.variables === job.id ? t("Queueing again…", "Colocando na fila…") : t("Try again", "Tentar novamente")}
-            </button>}
-          </article>
-        ))}
+        <ul className="divide-y divide-slate-800 border-y border-slate-800">
+          {filteredJobs.map((job) => <li className="flex min-w-0 items-center gap-3 py-4" key={job.id}>
+            <button className="min-w-0 flex-1 rounded-lg text-left hover:bg-slate-800/40" type="button" aria-haspopup="dialog" onClick={() => setSelectedId(job.id)}>
+              <span className="block truncate text-sm font-medium text-slate-100">{job.title ?? job.filename}</span>{" "}
+              <span className="mt-1 block text-xs text-slate-400">{job.chunkCount !== null ? `${number.format(job.chunkCount)} ${t("passages", "trechos")}` : job.filename}</span>
+            </button>
+            <span className={`shrink-0 text-xs ${job.status === "failed" ? "text-rose-200" : "text-slate-400"}`}>{statusLabel(job.status, t)} · {number.format(job.progress)}%</span>
+            <ActionMenu label={t(`Actions for ${job.title ?? job.filename}`, `Ações para ${job.title ?? job.filename}`)} actions={[
+              { label: t("View timeline", "Ver etapas"), onSelect: () => setSelectedId(job.id) },
+              ...(canManage && job.status === "failed" ? [{ label: t("Try again", "Tentar novamente"), onSelect: () => retry.mutate(job.id), disabled: retry.isPending }] : [])
+            ]} />
+          </li>)}
+        </ul>
       </section>
+      {selectedJob && <Overlay side title={selectedJob.title ?? selectedJob.filename}
+        description={`${statusLabel(selectedJob.status, t)} · ${number.format(selectedJob.progress)}%`} onClose={() => setSelectedId(null)}>
+        <ProcessingTimeline job={selectedJob} token={token} workspaceId={workspaceId} />
+        {canManage && selectedJob.status === "completed" && <IngestionPassagePreview key={selectedJob.updatedAt} jobId={selectedJob.id}
+          documentName={selectedJob.title ?? selectedJob.filename} accessToken={token} workspaceId={workspaceId} />}
+        {canManage && selectedJob.status === "failed" && <button className="primary-button" type="button" disabled={retry.isPending} onClick={() => retry.mutate(selectedJob.id)}>{t("Try again", "Tentar novamente")}</button>}
+        {retry.isError && <p className="error-message" role="alert">{workspaceRequestError(retry.error, t, t("We could not retry this file.", "Não foi possível reprocessar este arquivo."))}</p>}
+      </Overlay>}
     </div>
   );
 }

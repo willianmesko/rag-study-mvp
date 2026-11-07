@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { OriginalDocumentAction } from "../../../features/open-original-document/ui/OriginalDocumentAction";
 import { UrlImportForm } from "../../../features/workspace-source-upload/ui/UrlImportForm";
@@ -6,8 +6,11 @@ import { WorkspaceFileUpload } from "../../../features/workspace-source-upload/u
 import { api, type ManagedDocument, type Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { workspaceRequestError } from "../../../shared/lib/request-error";
+import { ActionMenu } from "../../../shared/ui/ActionMenu";
+import { Overlay } from "../../../shared/ui/Overlay";
 import { documentsQuery, ingestionJobsQuery } from "../model/queries";
 import { WorkspaceQueryFeedback } from "./WorkspaceQueryFeedback";
+import { WorkspacePageHeader } from "./WorkspacePageHeader";
 
 type DocumentAction = { type: "reindex" | "remove"; documentId: string };
 
@@ -18,7 +21,12 @@ export function WorkspaceKnowledge({ workspace, token }: { workspace: Workspace;
   const queryClient = useQueryClient();
   const workspaceId = workspace.tenantId;
   const canManage = workspace.role !== "viewer";
+  const heading = useRef<HTMLHeadingElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [sourceType, setSourceType] = useState<"file" | "url">("file");
+  const [uploading, setUploading] = useState(false);
+  const [added, setAdded] = useState(false);
   const [documentFilter, setDocumentFilter] = useState("");
   const documentOptions = documentsQuery(token, workspaceId);
   const documents = useQuery(documentOptions);
@@ -32,13 +40,22 @@ export function WorkspaceKnowledge({ workspace, token }: { workspace: Workspace;
     void queryClient.invalidateQueries({ queryKey: ingestionJobsQuery(token, workspaceId).queryKey });
   }
 
+  function materialAdded() {
+    refreshKnowledge();
+    setAdding(false);
+    setAdded(true);
+  }
+
   const action = useMutation({
     mutationFn: async ({ type, documentId }: DocumentAction) => {
       if (type === "reindex") await api.reindexDocument(documentId, token, workspaceId);
       else await api.deleteDocument(documentId, token, workspaceId);
     },
     onSuccess: (_, { type, documentId }) => {
-      if (type === "remove") setSelectedId((current) => current === documentId ? null : current);
+      if (type === "remove") {
+        setSelectedId((current) => current === documentId ? null : current);
+        heading.current?.focus({ preventScroll: true });
+      }
       refreshKnowledge();
     }
   });
@@ -52,22 +69,26 @@ export function WorkspaceKnowledge({ workspace, token }: { workspace: Workspace;
 
   return (
     <div className="space-y-6">
-      {canManage && <div className="grid gap-4 xl:grid-cols-2">
-        <WorkspaceFileUpload token={token} workspaceId={workspaceId} onUploaded={refreshKnowledge} />
-        <UrlImportForm accessToken={token} workspaceId={workspaceId} onImported={refreshKnowledge} />
-      </div>}
+      <WorkspacePageHeader title={t("Documents", "Documentos")} description={t("Your team’s searchable source library.", "Os materiais que sua equipe pode consultar.")} headingRef={heading}>
+        {canManage && <button type="button" className="primary-button" aria-haspopup="dialog" onClick={() => { setUploading(false); setAdded(false); setAdding(true); }}>
+          {t("Add documents", "Adicionar documentos")}
+        </button>}
+      </WorkspacePageHeader>
+      {adding && canManage && <Overlay title={t("Add documents", "Adicionar documentos")} pending={uploading} onClose={() => setAdding(false)}>
+        <div className="flex gap-2" role="group" aria-label={t("Source type", "Tipo de material")}>
+          <button type="button" className={sourceType === "file" ? "primary-button" : "secondary-button"} aria-pressed={sourceType === "file"} disabled={uploading} onClick={() => setSourceType("file")}>{t("File", "Arquivo")}</button>
+          <button type="button" className={sourceType === "url" ? "primary-button" : "secondary-button"} aria-pressed={sourceType === "url"} disabled={uploading} onClick={() => setSourceType("url")}>{t("Web page", "Página da web")}</button>
+        </div>
+        {sourceType === "file"
+          ? <WorkspaceFileUpload token={token} workspaceId={workspaceId} onUploaded={materialAdded} onPendingChange={setUploading} />
+          : <UrlImportForm accessToken={token} workspaceId={workspaceId} onImported={materialAdded} onPendingChange={setUploading} />}
+      </Overlay>}
+      {added && <p className="success-message" role="status">{t("Material received. Follow its progress in Processing.", "Material recebido. Acompanhe o andamento em Processamento.")}</p>}
       <div className="space-y-3">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <p className="eyebrow">{t("Knowledge library", "Biblioteca de documentos")}</p>
-            <h3 className="mt-2 text-lg font-semibold text-white">{t("Searchable documents", "Documentos disponíveis para busca")}</h3>
-            <p className="mt-2 text-sm text-slate-400">{t("Open a document to inspect the passages used in search.", "Abra um documento para conferir os trechos usados na busca.")}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <input className="field w-full sm:w-56" aria-label={t("Filter documents", "Filtrar documentos")} value={documentFilter}
-              onChange={(event) => setDocumentFilter(event.target.value)} placeholder={t("Filter documents…", "Filtrar documentos…")} />
-            {documents.data && <span className="status-pill">{number.format(filteredDocuments.length)} {t("shown", "exibidos")}</span>}
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <input className="field w-full sm:w-72" aria-label={t("Filter documents", "Filtrar documentos")} value={documentFilter}
+            onChange={(event) => setDocumentFilter(event.target.value)} placeholder={t("Find a document…", "Encontrar um documento…")} />
+          {documents.data && <span className="text-xs text-slate-400">{number.format(filteredDocuments.length)} {t("shown", "exibidos")}</span>}
         </div>
         <WorkspaceQueryFeedback query={documents} loading={t("Loading documents…", "Carregando documentos…")}
           failure={t("We could not load documents.", "Não foi possível carregar os documentos.")} />
@@ -78,35 +99,26 @@ export function WorkspaceKnowledge({ workspace, token }: { workspace: Workspace;
         {action.isError && <p className="error-message" role="alert">{workspaceRequestError(action.error, t, removing
           ? t("We could not delete this document.", "Não foi possível excluir este documento.")
           : t("We could not update the index. Check that the original file is available.", "Não foi possível atualizar o índice. Confira se o arquivo original está disponível."))}</p>}
-        <div className="grid gap-3">
+        <ul className="divide-y divide-slate-800 border-y border-slate-800">
           {filteredDocuments.map((document) => (
-            <article className={"min-w-0 rounded-xl border p-4 " + (selectedId === document.id ? "border-cyan-400/50 bg-cyan-400/5" : "border-slate-800 bg-slate-900/30")} key={document.id}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <button className="min-w-0 flex-1 basis-48 rounded-md text-left hover:bg-slate-800/50" type="button" onClick={() => setSelectedId(document.id)}>
+            <li className="flex min-w-0 items-center gap-3 py-4" key={document.id}>
+                <button className="min-w-0 flex-1 rounded-lg text-left hover:bg-slate-800/40" type="button" aria-haspopup="dialog" onClick={() => setSelectedId(document.id)}>
                   <p className="truncate text-sm font-medium text-slate-100">{document.title ?? document.source}</p>
-                  <p className="mt-1 truncate font-mono text-xs text-slate-400">{document.source}</p>
-                  <p className="mt-2 text-xs text-slate-400">{number.format(document.chunkCount)} {document.chunkCount === 1 ? t("passage", "trecho") : t("passages", "trechos")} · {t("updated", "atualizado em")} {date.format(new Date(document.updatedAt))}</p>
-                  <DocumentMetadata document={document} />
+                  <p className="mt-1 text-xs text-slate-400">{number.format(document.chunkCount)} {document.chunkCount === 1 ? t("passage", "trecho") : t("passages", "trechos")}{document.format && ` · ${document.format.toUpperCase()}`}</p>
                 </button>
-                <div className="flex min-w-0 flex-wrap items-start gap-1 text-xs font-medium">
-                  <button type="button" className="text-action" aria-expanded={selectedId === document.id} onClick={() => setSelectedId(selectedId === document.id ? null : document.id)}>{t("View passages", "Ver trechos")}</button>
-                  {document.hasOriginal === true && <OriginalDocumentAction documentId={document.id} documentName={document.title ?? document.source}
-                    accessToken={token} workspaceId={workspaceId} />}
-                  {canManage && <>
-                    <button type="button" className="text-action" onClick={() => action.mutate({ type: "reindex", documentId: document.id })} disabled={action.isPending}>
-                      {action.isPending && !removing && action.variables?.documentId === document.id ? t("Queueing…", "Colocando na fila…") : t("Reprocess", "Reprocessar")}
-                    </button>
-                    <button type="button" className="text-action text-action--danger" onClick={() => confirmDelete(document)} disabled={action.isPending}>
-                      {action.isPending && removing && action.variables?.documentId === document.id ? t("Removing…", "Removendo…") : t("Remove", "Remover")}
-                    </button>
-                  </>}
-                </div>
-              </div>
-            </article>
+                <time className="hidden shrink-0 text-xs text-slate-400 sm:block" dateTime={document.updatedAt}>{date.format(new Date(document.updatedAt))}</time>
+                <ActionMenu label={t(`Actions for ${document.title ?? document.source}`, `Ações para ${document.title ?? document.source}`)} actions={[
+                  { label: t("View details", "Ver detalhes"), onSelect: () => setSelectedId(document.id) },
+                  ...(canManage ? [
+                    { label: t("Reprocess", "Reprocessar"), onSelect: () => action.mutate({ type: "reindex", documentId: document.id }), disabled: action.isPending },
+                    { label: t("Remove", "Remover"), onSelect: () => confirmDelete(document), destructive: true, disabled: action.isPending }
+                  ] : [])
+                ]} />
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
-      {selectedDocument && <DocumentPassages document={selectedDocument} token={token} workspaceId={workspaceId} onClose={() => setSelectedId(null)} />}
+      {selectedDocument && <DocumentDetails document={selectedDocument} token={token} workspaceId={workspaceId} onClose={() => setSelectedId(null)} />}
     </div>
   );
 }
@@ -128,32 +140,34 @@ function DocumentMetadata({ document }: { document: ManagedDocument }) {
   return metadata && <p className="mt-1 break-words text-xs text-slate-400">{metadata}</p>;
 }
 
-function DocumentPassages({ document, token, workspaceId, onClose }: { document: ManagedDocument; token: string; workspaceId: string; onClose: () => void }) {
+function DocumentDetails({ document, token, workspaceId, onClose }: { document: ManagedDocument; token: string; workspaceId: string; onClose: () => void }) {
   const { locale, t } = useLocale();
   const chunks = useQuery({
     queryKey: ["document-chunks", token, workspaceId, document.id, document.updatedAt],
     queryFn: () => api.listDocumentChunks(document.id, token, workspaceId)
   });
   const riskLabel = { high: t("High", "Alto"), medium: t("Medium", "Médio"), low: t("Low", "Baixo") };
-  const riskTone = { high: "text-rose-300", medium: "text-amber-300", low: "text-emerald-300" };
+  const riskTone = { high: "text-rose-300", medium: "text-amber-300", low: "text-slate-400" };
 
   return (
-    <section className="panel space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="eyebrow">{t("Document passages", "Trechos do documento")}</p>
-          <h3 className="mt-2 break-words text-lg font-semibold text-white">{document.title ?? document.source}</h3>
-          <p className="mt-2 text-sm text-slate-400">{t("See the original text and the result of the safety check.", "Veja o texto original e o resultado da verificação de segurança.")}</p>
-        </div>
-        <button type="button" className="text-action" onClick={onClose}>{t("Close", "Fechar")}</button>
+    <Overlay side title={document.title ?? document.source} description={t("Document details", "Detalhes do documento")} onClose={onClose}>
+      <dl className="grid gap-3 border-b border-slate-800 pb-5 text-sm">
+        <div><dt className="text-xs text-slate-400">{t("Source", "Fonte")}</dt><dd className="mt-1 break-words text-slate-200">{document.source}</dd></div>
+        <div><dt className="text-xs text-slate-400">{t("Updated", "Atualizado em")}</dt><dd className="mt-1 text-slate-200">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(document.updatedAt))}</dd></div>
+      </dl>
+      <DocumentMetadata document={document} />
+      {document.hasOriginal === true && <OriginalDocumentAction inline documentId={document.id} documentName={document.title ?? document.source} accessToken={token} workspaceId={workspaceId} />}
+      <div>
+        <h3 className="text-base font-semibold text-slate-100">{t("Document passages", "Trechos do documento")}</h3>
+        <p className="mt-1 text-sm leading-6 text-slate-400">{t("One document can produce several passages. Each passage contains part of its text.", "Um documento pode gerar vários trechos. Cada trecho contém uma parte do texto.")}</p>
       </div>
       <WorkspaceQueryFeedback query={chunks} loading={t("Loading passages…", "Carregando trechos…")}
         failure={t("We could not load these passages.", "Não foi possível carregar estes trechos.")} />
       {chunks.isSuccess && chunks.data.chunks.length === 0 && <p className="empty-state">{t("There are no passages for this document.", "Este documento não tem trechos disponíveis.")}</p>}
-      <div className="grid gap-3">
+      <div className="divide-y divide-slate-800">
         {chunks.data?.chunks.map((chunk) => {
           const risk = chunk.security.promptInjectionRisk;
-          return <article key={chunk.id} className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+          return <article key={chunk.id} className="py-4 first:pt-0">
             <div className="flex items-center justify-between gap-4">
               <p className="font-mono text-xs text-cyan-300">{t("Passage", "Trecho")} {(chunk.ordinal + 1).toLocaleString(locale)}</p>
               <p className={`text-xs ${riskTone[risk]}`}>{t("Risk", "Risco")} · {riskLabel[risk]}</p>
@@ -162,6 +176,6 @@ function DocumentPassages({ document, token, workspaceId, onClose }: { document:
           </article>;
         })}
       </div>
-    </section>
+    </Overlay>
   );
 }

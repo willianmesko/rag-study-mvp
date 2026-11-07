@@ -47,10 +47,10 @@ export function WorkspaceMcpConnection({ token, workspaceId }: { token: string; 
   }
 
   if (!status.isPending && status.data === null) return null;
-  return <section className="panel space-y-4">
+  return <details className="border-b border-slate-800 pb-6">
+    <summary className="min-h-11 rounded-lg py-2 text-base font-semibold text-slate-100">{t("Connect your assistant", "Conecte seu assistente")}</summary>
+    <div className="mt-4 space-y-4">
     <div>
-      <p className="eyebrow">MCP</p>
-      <h3 className="mt-2 text-lg font-semibold text-white">{t("Connect your assistant", "Conecte seu assistente")}</h3>
       <p className="mt-2 text-sm leading-6 text-slate-300">
         {t("Let an MCP-compatible assistant search this workspace, read screened passages, and inspect saved quality reports.",
           "Permita que um assistente compatível com MCP busque neste espaço, leia trechos verificados e consulte relatórios de qualidade salvos.")}
@@ -92,5 +92,6 @@ export function WorkspaceMcpConnection({ token, workspaceId }: { token: string; 
     {(failure || status.isError) && <p role="alert" className="error-message">
       {t("We could not update MCP access. Check your connection and try again.", "Não foi possível atualizar o acesso MCP. Confira sua conexão e tente novamente.")}
     </p>}
-  </section>;
+    </div>
+  </details>;
 }
