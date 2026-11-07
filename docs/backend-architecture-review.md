@@ -263,6 +263,8 @@ idempotency/workspace schemas without inventing a validation framework. An
 OpenAPI export should derive from the agreed source rather than become a second
 manually maintained truth.
 
+**Implementation follow-up:** the typed configuration and two stored-row families now have a validated bounded increment. The [boundary guide](backend-configuration-and-records.md) and [release record](operations/release-2026-11-07-configuration-records.md) distinguish completed local checks from remaining provider/fixture/repository work and publication status. BE-12 remains partial.
+
 ### BE-13: Prove capacity and distributed fairness before scaling
 
 **Priority P2 measurement; topology changes are conditional.** The pool cap is

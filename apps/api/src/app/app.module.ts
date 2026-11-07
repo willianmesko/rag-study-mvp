@@ -10,7 +10,7 @@ import { QueueDocumentUploadUseCase } from "../modules/ingestion/application/use
 import { ProcessNextIngestionJobUseCase } from "../modules/ingestion/application/use-cases/process-next-ingestion-job.js";
 import { RetryIngestionJobUseCase } from "../modules/ingestion/application/use-cases/retry-ingestion-job.js";
 import { ReindexDocumentUseCase } from "../modules/ingestion/application/use-cases/reindex-document.js";
-import { config } from "../config.js";
+import type { RuntimeConfiguration } from "./configuration/environment.js";
 import { resolveWorkspaceEmbeddingIndex } from "../modules/ai/application/ports/embedding-provider.js";
 import {
   createWorkspaceEmbeddingAdapter,
@@ -37,7 +37,7 @@ import { createWorkflowRuntime, workspaceWorkflowOptionsFromConfiguration } from
 import { createPostgresAccessBindings, createPostgresEvaluationRepository, createPostgresKnowledgeBindings, createPostgresMcpBindings, createPostgresUsageBindings, createPostgresWorkspaceBindings } from "./composition/postgres-persistence.js";
 import { createSupabaseInvitationGateway, createSupabaseOriginalFileStore } from "./composition/supabase-bindings.js";
 
-export function createApplication() {
+export function createApplication(config: RuntimeConfiguration) {
   const identityServices = createIdentityServices({
     url: config.SUPABASE_URL,
     publishableKey: config.SUPABASE_PUBLISHABLE_KEY,

@@ -1,6 +1,6 @@
 import type { QuestionAnsweringWorkflowFactory, QuestionAnsweringWorkflowDecorator } from "../../modules/chat/application/ports/answer-workflow-factory.js";
 import type { ChatRuntimeOptions } from "../../modules/chat/application/ports/chat-runtime-options.js";
-import type { config } from "../../config.js";
+import type { RuntimeConfiguration } from "../configuration/environment.js";
 import type { ChatExecutionWorkflow } from "../../modules/chat/application/ports/chat-execution-workflow.js";
 import type { ChatRunRepository } from "../../modules/chat/application/ports/chat-run-repository.js";
 import { LangGraphRagWorkflow } from "../../modules/chat/infrastructure/langgraph/langgraph-rag-workflow.js";
@@ -8,7 +8,7 @@ import { LangGraphChatWorkflow, chatWorkflowVersion } from "../../modules/chat/i
 import { LangSmithTracingWorkflow } from "../../modules/chat/infrastructure/langsmith/langsmith-tracing-workflow.js";
 
 /** Translate deployment-specific names into product options at the root only. */
-export function chatRuntimeOptionsFromConfiguration(configuration: typeof config): ChatRuntimeOptions {
+export function chatRuntimeOptionsFromConfiguration(configuration: RuntimeConfiguration): ChatRuntimeOptions {
   const model = {
     ollama: configuration.OLLAMA_CHAT_MODEL,
     openrouter: configuration.OPENROUTER_CHAT_MODEL,

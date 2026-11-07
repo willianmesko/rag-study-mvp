@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import type { config } from "../../config.js";
+import type { RuntimeConfiguration } from "../configuration/environment.js";
 import type { WorkflowEngine } from "../../platform/workflows/types.js";
 import type { WorkspaceWorkflowOptions } from "../../modules/workflows/application/ports/workspace-workflow-options.js";
 import { DurableWorkflowRunner } from "../../platform/workflows/durable-workflow-runner.js";
@@ -7,9 +7,9 @@ import { PgWorkflowRepository } from "../../platform/workflows/pg-workflow-repos
 import { PgWorkflowCheckpointer } from "../../platform/workflows/pg-workflow-checkpointer.js";
 import { workflowCodecFromEnvironment } from "../../platform/workflows/workflow-state-codec.js";
 
-type WorkflowRuntimeConfiguration = Pick<typeof config, "WORKFLOWS_ENABLED" | "WORKFLOW_STATE_KEY" | "WORKFLOW_STATE_KEYS" | "WORKFLOW_STATE_ACTIVE_KEY_ID">;
+type WorkflowRuntimeConfiguration = Pick<RuntimeConfiguration, "WORKFLOWS_ENABLED" | "WORKFLOW_STATE_KEY" | "WORKFLOW_STATE_KEYS" | "WORKFLOW_STATE_ACTIVE_KEY_ID">;
 
-export function workspaceWorkflowOptionsFromConfiguration(configuration: typeof config): WorkspaceWorkflowOptions {
+export function workspaceWorkflowOptionsFromConfiguration(configuration: RuntimeConfiguration): WorkspaceWorkflowOptions {
   return {
     chatMaxOutputTokens: configuration.CHAT_MAX_OUTPUT_TOKENS,
     chatMaxEstimatedCostUsd: configuration.MAX_ESTIMATED_COST_USD_PER_REQUEST,

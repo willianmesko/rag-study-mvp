@@ -28,6 +28,19 @@ Their [release record](operations/release-2026-11-07-query-ownership.md) records
 all four green CI gates, both live deployments and production checks. No conversation
 transport or pagination refactor has been bundled into the administrative slice.
 
+## Current validated candidate
+
+FE-11 navigation/draft handling and the bounded BE-12 configuration/record
+increment are locally validated and awaiting final exact-source CI/publication.
+The native route tests run outside Playwright's module transform. An old route
+fixture now distinguishes a real saved UUID from an invalid placeholder; no
+visual baseline was changed. BE-12's full local PostgreSQL suite passed 85 cases,
+the cutover passed one case, and all seven harness checks passed. Continue from
+these release records rather than treating this candidate as live:
+
+- [FE-11](operations/release-2026-11-07-url-state.md)
+- [BE-12 increment](operations/release-2026-11-07-configuration-records.md)
+
 ## Completed explicit follow-up: BE-15
 
 Feature module assembly is decoupled from PostgreSQL, LangGraph, LangSmith and

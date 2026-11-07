@@ -1,4 +1,4 @@
-import type { config } from "../../config.js";
+import type { RuntimeConfiguration } from "../configuration/environment.js";
 import type { AnswerGenerator, AnswerProviderInput, EmbeddingModelIdentity, EmbeddingProvider, ModelProviderRegistry, ModelRuntimeGuards, ModelRuntimeOptions, Reranker } from "../../modules/ai/index.js";
 import type { FaithfulnessJudge } from "../../modules/evaluations/index.js";
 import { BedrockAnswerGenerator } from "../../modules/ai/infrastructure/bedrock/bedrock-answer-generator.js";
@@ -52,7 +52,7 @@ export function createProviderRegistry(registrations: readonly ModelProviderRegi
   });
 }
 
-type ProviderConfiguration = Pick<typeof config,
+type ProviderConfiguration = Pick<RuntimeConfiguration,
   "OLLAMA_BASE_URL" | "OLLAMA_EMBEDDING_MODEL" | "OPENROUTER_BASE_URL" | "OPENROUTER_API_KEY" |
   "OPENROUTER_EMBEDDING_MODEL" | "AWS_REGION" | "BEDROCK_EMBEDDING_MODEL_ID" | "EMBEDDING_PROVIDER" |
   "EMBEDDING_DIMENSIONS" | "RERANKER_PROVIDER" | "JINA_BASE_URL" | "JINA_API_KEY" | "JINA_RERANKER_MODEL" |

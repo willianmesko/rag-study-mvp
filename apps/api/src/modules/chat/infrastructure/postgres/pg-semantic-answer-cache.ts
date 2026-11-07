@@ -1,4 +1,6 @@
 import type { Pool } from "pg";
+import { z } from "zod";
+import { decodeStoredRecord } from "../../../../platform/database/stored-record.js";
 import type { Citation } from "../../../knowledge/index.js";
 import type { SemanticAnswerCache, SemanticCacheEntry } from "../../application/ports/semantic-answer-cache.js";
 import { EmbeddingIndexChangedError } from "../../../ai/index.js";
@@ -6,13 +8,17 @@ import { toVectorLiteral } from "../../../../platform/database/pgvector.js";
 import { requireActiveEmbeddingRevision, withWorkspaceLock } from "../../../../platform/database/workspace-embedding-lock.js";
 import { withPostgresTransaction } from "../../../../platform/database/sql-boundary.js";
 
-type CacheRow = { answer: string; sources: Citation[]; similarity: number };
+const citation = z.object({
+  chunkId: z.uuid(), documentId: z.uuid(), source: z.string(), title: z.string().nullable(),
+  ordinal: z.number().int().nonnegative(), score: z.number(), content: z.string(),
+}) satisfies z.ZodType<Citation>;
+const cacheRow = z.object({ answer: z.string(), sources: z.array(citation).max(20), similarity: z.number().min(-1).max(1) });
 
 export class PgSemanticAnswerCache implements SemanticAnswerCache {
   constructor(private readonly pool: Pool, private readonly dimensions: number) {}
 
   async findSimilar(input: Parameters<SemanticAnswerCache["findSimilar"]>[0]): Promise<SemanticCacheEntry | null> {
-    const read = (db: Pick<Pool, "query">) => db.query<CacheRow>(
+    const read = (db: Pick<Pool, "query">) => db.query<Record<string, unknown>>(
       `SELECT answer, sources, (1 - (embedding <=> $2::vector))::float8 AS similarity
        FROM semantic_model_answer_cache
        WHERE tenant_id = $1 AND model_key = $3 AND expires_at > NOW()
@@ -26,9 +32,10 @@ export class PgSemanticAnswerCache implements SemanticAnswerCache {
         return read(client);
       }, { signal: input.signal, workload: "retrieval" })
       : await withPostgresTransaction(this.pool, read, { signal: input.signal, workload: "retrieval", readOnly: true });
-    const row = result.rows[0];
-    if (!row || Number(row.similarity) < input.minimumSimilarity) return null;
-    return { answer: row.answer, sources: row.sources, similarity: Number(row.similarity) };
+    if (result.rows.length === 0) return null;
+    const row = decodeStoredRecord(cacheRow, result.rows[0]);
+    if (row.similarity < input.minimumSimilarity) return null;
+    return { answer: row.answer, sources: row.sources, similarity: row.similarity };
   }
 
   async put(input: Parameters<SemanticAnswerCache["put"]>[0]): Promise<void> {

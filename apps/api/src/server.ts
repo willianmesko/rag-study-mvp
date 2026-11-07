@@ -19,8 +19,8 @@ async function main(): Promise<void> {
       process.stdout.write(JSON.stringify(event) + "\n"),
     ),
   );
-  const application = createApplication();
-  const app = await buildApp(application.useCases);
+  const application = createApplication(config);
+  const app = await buildApp(application.useCases, { configuration: config, isProduction: process.env.NODE_ENV === "production" });
   let processing: Promise<void> | undefined;
   let pruning: Promise<void> | undefined;
   const lifecycle = createShutdownCoordinator({

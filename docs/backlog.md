@@ -68,6 +68,9 @@ skips. FE-10 measurements and deterministic budgets are complete and published, 
 389 CI UX cases/46 intentional profile skips and the new payload gate passed.
 Automatic continuation proceeds with FE-11. See the [performance guide](frontend-performance.md). See the
 [lifecycle record](operations/release-2026-11-07-chat-lifecycle.md).
+The next validated candidate includes FE-11 and a bounded BE-12 configuration/
+stored-record increment. It is awaiting final CI/publication, and BE-12 retains
+explicit provider/fixture/repository work. See its [boundary guide](backend-configuration-and-records.md).
 Operational activation remains separate.
 
 OAuth extension-parameter compatibility and standard MCP icon metadata are live.

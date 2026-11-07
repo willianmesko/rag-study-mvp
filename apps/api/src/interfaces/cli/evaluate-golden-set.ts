@@ -1,3 +1,4 @@
+import { config } from "../../config.js";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { evaluateRetrieval, goldenSetSchema } from "../../modules/evaluations/application/evaluation/golden-set.js";
@@ -10,7 +11,7 @@ if (!filePath) {
 
 const file = await readFile(resolve(filePath), "utf8");
 const goldenSet = goldenSetSchema.parse(JSON.parse(file));
-const app = createApplication();
+const app = createApplication(config);
 
 try {
   const resultsByCaseId = new Map();

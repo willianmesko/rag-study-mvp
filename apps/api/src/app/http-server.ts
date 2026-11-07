@@ -33,7 +33,8 @@ import { EmbeddingIndexChangedError } from "../modules/ai/application/ports/work
 import { ChatBudgetExceededError } from "../modules/ai/application/policies/chat-cost.js";
 import { StreamAnswerRuns } from "../modules/chat/application/use-cases/stream-answer-runs.js";
 import { EvaluationRunError } from "../modules/evaluations/application/use-cases/run-evaluation.js";
-import { config } from "../config.js";
+import { config as defaultConfiguration } from "../config.js";
+import type { RuntimeConfiguration } from "./configuration/environment.js";
 import { registerWorkspaceMcpRoutes } from "../modules/mcp/workspace-mcp.controller.js";
 import { registerAgentActionRoutes } from "../modules/mcp/agent-actions.controller.js";
 import { safeHttpLogSerializers } from "../platform/http/safe-logging.js";
@@ -47,7 +48,15 @@ import { registerConversationRoutes } from "../modules/chat/conversations.contro
 
 
 
-function applyCorsHeaders(origin: string | undefined, reply: { header: (name: string, value: string) => unknown }, remote = false): boolean {
+export type HttpConfiguration = Pick<RuntimeConfiguration,
+  "ADMIN_API_KEY" | "AGENT_TIMEOUT_MS" | "ALLOWED_ORIGINS" | "API_KEY" |
+  "APP_BASE_URL" | "DEFAULT_TENANT_ID" | "DEMO_MODE" | "MCP_REMOTE_ALLOWED_ORIGINS" |
+  "PDF_OCR_ENABLED" | "PROVIDER_TIMEOUT_MS" | "QA_RATE_LIMIT_MAX" | "RATE_LIMIT_MAX" |
+  "RATE_LIMIT_WINDOW_MS" | "SUPABASE_PUBLISHABLE_KEY" | "SUPABASE_SERVICE_ROLE_KEY" | "SUPABASE_URL" |
+  "UPLOAD_MAX_BYTES" | "USAGE_ALERT_THRESHOLD_USD" | "USAGE_HASH_SECRET"
+>;
+
+function applyCorsHeaders(config: HttpConfiguration, origin: string | undefined, reply: { header: (name: string, value: string) => unknown }, remote = false): boolean {
   if (!origin) return true;
   const allowed = remote ? [...config.ALLOWED_ORIGINS, ...config.MCP_REMOTE_ALLOWED_ORIGINS, ...(config.APP_BASE_URL ? [new URL(config.APP_BASE_URL).origin] : [])] : config.ALLOWED_ORIGINS;
   if (!allowed.includes(origin)) return false;
@@ -60,7 +69,7 @@ function applyCorsHeaders(origin: string | undefined, reply: { header: (name: st
   return true;
 }
 
-function anonymousActorKey(request: { headers: Record<string, string | string[] | undefined>; ip?: string }): string {
+function anonymousActorKey(config: HttpConfiguration, request: { headers: Record<string, string | string[] | undefined>; ip?: string }): string {
   // Do not trust a client-supplied X-Forwarded-For value for quota identity.
   // Render/Fastify can be configured with a trusted proxy separately when a
   // production deployment needs the original address.
@@ -69,7 +78,12 @@ function anonymousActorKey(request: { headers: Record<string, string | string[] 
   return `anonymous:${createHmac("sha256", secret).update(source).digest("hex").slice(0, 32)}`;
 }
 
-export async function buildApp(dependencies: HttpDependencies) {
+export async function buildApp(dependencies: HttpDependencies, options: {
+  configuration?: HttpConfiguration;
+  isProduction?: boolean;
+} = {}) {
+  const config = options.configuration ?? defaultConfiguration;
+  const isProduction = options.isProduction ?? process.env.NODE_ENV === "production";
   const app = Fastify({ genReqId:()=>randomUUID(), logger: { serializers: safeHttpLogSerializers }, bodyLimit: config.UPLOAD_MAX_BYTES + 100_000 });
   const identityServices = dependencies.identityVerifier && dependencies.memberDirectory
     ? { identityVerifier: dependencies.identityVerifier, memberDirectory: dependencies.memberDirectory }
@@ -109,7 +123,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (remote && request.headers.host !== new URL(dependencies.remoteMcp!.oauth.resource).host)
       return reply.code(403).send({ error: "Untrusted MCP host." });
     const origin = typeof request.headers.origin === "string" ? request.headers.origin : undefined;
-    const originAllowed = applyCorsHeaders(origin, reply, remote);
+    const originAllowed = applyCorsHeaders(config, origin, reply, remote);
     if (!originAllowed) return reply.code(403).send({ error: "Origin not allowed" });
     if (request.method === "OPTIONS") {
       return reply.code(204).send();
@@ -179,8 +193,8 @@ export async function buildApp(dependencies: HttpDependencies) {
   }
   const resolveQueryScope = createQueryScopeResolver({
     authorizeMember,
-    requiresProductionAuth: () => process.env.NODE_ENV === "production" && !config.DEMO_MODE && !config.API_KEY,
-    anonymousScope: (request) => ({ tenantId: config.DEFAULT_TENANT_ID, actorKey: anonymousActorKey(request) }),
+    requiresProductionAuth: () => isProduction && !config.DEMO_MODE && !config.API_KEY,
+    anonymousScope: (request) => ({ tenantId: config.DEFAULT_TENANT_ID, actorKey: anonymousActorKey(config, request) }),
   });
   const modelSelection = createChatModelSelection({
     models: dependencies.chatModels ?? new Map(), policies: dependencies.workspaceModelPolicies,

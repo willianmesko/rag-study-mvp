@@ -271,8 +271,8 @@ feature-owned locations during BE-07's migration.
 - [x] FE-02b: shared schemas decode every migrated successful JSON response before
   cache insertion; fixed invalid-response diagnostics retain no received payload.
   Typechecking and malformed-data browser cases pass locally.
-- [ ] BE-12: complete typed module configuration and SQL row decoding. Wire
-  schemas do not make database rows or environment access automatically typed.
+- [x] BE-12 bounded increment, locally validated and publication pending: pure environment parsing, explicit root/HTTP configuration, independent-instance tests, checked evaluation and semantic-cache records. Nine unit cases, 85 PostgreSQL checks, the isolated cutover and seven harness checks passed. See the [boundary guide](backend-configuration-and-records.md) and [release record](operations/release-2026-11-07-configuration-records.md).
+- [ ] Remaining BE-12: remove the provider transport's singleton deadline read; migrate older shared-config fixtures incrementally; inventory/decode remaining externally influenced repository JSON and unchecked row assumptions. The two migrated families do not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
 
@@ -544,7 +544,7 @@ feature-owned locations during BE-07's migration.
   survive recoverable failures in PT/EN. Keep simple forms native; evaluate a form
   library only for demonstrated complexity.
 
-- **Validated implementation, publication pending:** one native history subscription, canonical UUID/metadata codecs, workspace scope cleanup, recoverable answer/comparison drafts and accessible filter/import errors. All 33 new profile cases passed; the release record retains local/CI limitations. No form/router dependency was added. See the [state guide](frontend-url-state.md) and [evidence](operations/release-2026-11-07-url-state.md).
+- **Validated implementation, publication pending:** one native history subscription, canonical UUID/metadata codecs, workspace scope cleanup, recoverable answer/comparison drafts and accessible filter/import errors. All 21 browser profile cases and four native state cases passed; the release record retains local/CI limitations. No form/router dependency was added. See the [state guide](frontend-url-state.md) and [evidence](operations/release-2026-11-07-url-state.md).
 
 ## Parallel execution and release rules
 

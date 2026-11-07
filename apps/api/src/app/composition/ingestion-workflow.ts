@@ -1,13 +1,13 @@
 import type { DocumentTextExtractor } from "../../modules/ingestion/application/ports/document-text-extractor.js";
 import type { IngestionJobRepository } from "../../modules/ingestion/application/ports/ingestion-job-repository.js";
 import type { IngestionWorkflow, IngestionWorkflowOptions } from "../../modules/ingestion/application/ports/ingestion-workflow.js";
-import type { config } from "../../config.js";
+import type { RuntimeConfiguration } from "../configuration/environment.js";
 import type { IngestDocumentUseCase } from "../../modules/ingestion/application/use-cases/ingest-document.js";
 import type { OriginalFileStore } from "../../modules/knowledge/index.js";
 import type { SemanticAnswerCache } from "../../modules/chat/index.js";
 import { LangGraphIngestionWorkflow, ingestionWorkflowVersion } from "../../modules/ingestion/infrastructure/langgraph/langgraph-ingestion-workflow.js";
 
-export function ingestionWorkflowOptionsFromConfiguration(configuration: typeof config): IngestionWorkflowOptions {
+export function ingestionWorkflowOptionsFromConfiguration(configuration: RuntimeConfiguration): IngestionWorkflowOptions {
   return {
     chunkSize: configuration.CHUNK_SIZE,
     chunkOverlap: configuration.CHUNK_OVERLAP,
