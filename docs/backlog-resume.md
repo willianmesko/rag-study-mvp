@@ -5,13 +5,13 @@ point. The owner subsequently requested the specific BE-15 abstraction follow-up
 that follow-up is now validated and published. General continuation has resumed
 with the FE-06 administrative slice and BE-08 native TypeScript checks below;
 both are published. The remaining FE-06 conversation slice is also validated
-and published. FE-07 is also complete and published.
+and published. FE-07 and FE-09 are also complete and published.
 
 ## Current delivery
 
-- Source: `fe9449b8da7bf9e6b1ee37133f3f27f47698ef58`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42412334616).
-- [Release evidence](operations/release-2026-11-07-chat-lifecycle.md) records
+- Source: `42a0edb62cb124b47dd4d8ef6656b8b253cf36cf`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42414978269).
+- [Release evidence](operations/release-2026-11-07-ui-primitives.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -93,8 +93,8 @@ fixtures passed. See the [lifecycle record](operations/release-2026-11-07-chat-l
 including 349 UX-suite cases/44 intentional profile skips, 83 PostgreSQL cases,
 the isolated cutover, 78 architecture fixtures and seven harness checks. Both
 Render deployments and served lifecycle assets were verified. **Next frontend
-ticket: FE-09**, semantic tokens and existing primitive consolidation, is now
-implemented and undergoing release validation.
+ticket FE-09** is now also complete and published. Continue with FE-10
+measurements, then FE-11.
 Broader promise/Hook tooling, least-privilege MCP credentials and the other
 technical tickets retain their own acceptance criteria.
 
@@ -137,14 +137,23 @@ and trace one document/question before deeper modules. Save learning progress
 separately from engineering completion, then resume these implementation tasks
 without repeating completed work.
 
-## Active automatic continuation: FE-09
+## Completed automatic continuation: FE-09
 
 The owner authorized continuing the backlog while away. FE-09 centralizes action
 state tokens, consolidates the remaining compatible native dialogs, and moves
-source/evidence presentation into its entity Public API. No dependency is added.
-The primitive guide is `frontend-primitives.md`; dated publication evidence is
-`operations/release-2026-11-07-ui-primitives.md`. Keep status distinct from the
-currently published FE-07 until full CI and both deployments are verified.
-After FE-09, continue the FE-10 measurement track and FE-11 small form/URL flows
-using existing tools. External activation, real paid-provider load and learner
-outcomes remain separately scoped; do not invent their completion.
+source/evidence presentation into its entity Public API. No dependency was added.
+The [primitive guide](frontend-primitives.md) and [release evidence](operations/release-2026-11-07-ui-primitives.md)
+record implementation, CI and publication. The source above is live on both services.
+
+Local validation passed 98 focused cases/10 intentional profile skips, plus 12
+repeated popup/focus sequences. Exact-source CI passed 374 UX-suite cases/46
+intentional skips, 83 PostgreSQL cases, the cutover, 78 architecture fixtures and
+all seven harness checks. Health/protected routes and served semantic CSS were
+verified. A PNG encoding variant required byte-specific browser proof of identical
+rendered pixels; no screenshot tolerance was changed.
+
+**Active next: FE-10 measurement track**, then FE-11 small form/URL flows, using
+existing tools. Capture build/route/long-history/streaming counts and environment,
+and add reviewed deterministic regression budgets. Do not claim a speedup or
+field LCP improvement without measurements. External activation, paid-provider
+load and learner outcomes remain separately scoped and must not be invented.

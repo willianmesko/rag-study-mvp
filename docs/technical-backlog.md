@@ -14,23 +14,23 @@ live activation remain in the [product backlog](backlog.md).
 
 | Status | Tickets | Count |
 | --- | --- | --- |
-| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-07 | 17 |
+| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-07, FE-09 | 18 |
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08, FE-10 | 5 |
-| Implementation/validation in progress | FE-09 | 1 |
 | Pending implementation | BE-09, BE-13, FE-11 | 3 |
 
-The latest batch is live on the frontend and API at `fe9449b8da7bf9e6b1ee37133f3f27f47698ef58`,
-after all four [CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42412334616).
-See the [chat lifecycle evidence](operations/release-2026-11-07-chat-lifecycle.md).
-FE-07 is complete: correlated submission/delivery/Stop transitions, creation and
-navigation guards, retained terminal results and typed invalid-state prevention.
-CI passed 349 UX-suite cases/44 deliberate profile skips, 83 PostgreSQL cases,
+The latest batch is live on the frontend and API at `42a0edb62cb124b47dd4d8ef6656b8b253cf36cf`,
+after all four [CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42414978269).
+See the [UI primitive evidence](operations/release-2026-11-07-ui-primitives.md).
+FE-09 is complete: semantic action states, one compatible native-dialog shell,
+focus return/fallbacks, bounded original-file lifetime and source-domain Public APIs.
+CI passed 374 UX-suite cases/46 deliberate profile skips, 83 PostgreSQL cases,
 the isolated cutover, 78 architecture fixtures and all seven harness checks.
-Both live SHAs, served lifecycle assets, health and protected routes were verified.
-The prior FE-06 [conversation-reader release](operations/release-2026-11-07-conversation-readers.md)
-remains documented separately. BE-08/FE-08 retain promise/Hook correctness work;
-FE-09 is now implemented and undergoing release validation. BE-09 retains its separate deployment activation
-gate for minimum database privileges.
+Both live SHAs, served CSS tokens/assets, health and protected routes were verified.
+The prior [FE-07 lifecycle release](operations/release-2026-11-07-chat-lifecycle.md)
+and [FE-06 reader release](operations/release-2026-11-07-conversation-readers.md)
+retain their separate evidence. BE-08/FE-08 retain promise/Hook correctness work.
+Automatic continuation proceeds with the FE-10 measurement track, then FE-11.
+BE-09 retains its separate deployment activation gate for minimum database privileges.
 The prior administrative/unused-check slice is recorded in the
 [query-ownership evidence](operations/release-2026-11-07-query-ownership.md).
 The prior `cbd0f67` batch is recorded in the
@@ -484,13 +484,13 @@ feature-owned locations during BE-07's migration.
 
 ### FE-09 — Semantic tokens and existing primitive consolidation
 
-- [ ] **P2 · M · Medium risk.** Scope: `styles.css`, `shared/ui`, original-file
+- [x] **P2 · M · Medium risk.** Scope: `styles.css`, `shared/ui`, original-file
   dialog and source/evidence domain presentation.
 - **Accept:** migrated actions share hover/focus/disabled/pending tokens; compatible
   dialogs share Overlay with focus restoration and safe object-URL cleanup.
   Keyboard, select-in-dialog, contrast, reduced-motion and three-viewport checks
   pass. Preserve Radix and text escaping; do not bundle a product-wide redesign.
-- **Locally validated; publication pending:** semantic action tokens preserve the current
+- **Completed and published:** semantic action tokens preserve the current
   palette/dimensions; compatible dialogs share Overlay, including compact
   creation/member/original-file dialogs. Focus restores to the opener or a stable
   fallback when it was removed. File reads are bounded/abortable and own their
@@ -499,7 +499,8 @@ feature-owned locations during BE-07's migration.
   78 architecture fixtures, zero graph violations and all seven harness checks.
   No dependency or backend contract changed. See the [primitive guide](frontend-primitives.md)
   and [release evidence](operations/release-2026-11-07-ui-primitives.md).
-  Keep this checkbox open until exact-source CI and publication are verified.
+  All four exact-source CI gates and both deployments passed; public CSS/assets,
+  health and protected routes were verified. Existing visual baselines are unchanged.
 
 ### FE-10 — Repeatable frontend performance baseline
 

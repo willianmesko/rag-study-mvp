@@ -2,10 +2,18 @@
 
 ## Status
 
-Implemented; release validation is in progress. Current live runtime remains
-`fe9449b` until exact-source CI, deployment and public checks below are completed.
+**Frontend and API are live** at `42a0edb62cb124b47dd4d8ef6656b8b253cf36cf` after all four
+[exact-source CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42414978269) passed. FE-09 is complete.
 The [primitive guide](../frontend-primitives.md) explains the implementation.
 No dependency, provider setting, schema, migration or backend contract changed.
+
+| Service | Deployment | Observed live at UTC |
+| --- | --- | --- |
+| API | `dep-dbnpdf3rjlhs739g89c0` | 2026-11-07 21:23:53 |
+| Frontend | `dep-dbnpdhou01pc73dco40g` | 2026-11-07 21:24:05 |
+
+The source push skipped automatic publication. Fresh remote-head/queue checks and
+all four CI successes preceded the manual triggers; both records match that SHA.
 
 ## Scope
 
@@ -40,11 +48,41 @@ Axe contrast, reduced-motion action transitions, no horizontal overflow and
 focus/hover box stability are included. Original bytes and account identifiers
 are synthetic. All 78 architecture fixtures passed with zero graph violations
 (445 structural modules/1,747 dependencies; 444 runtime/1,257). The seven-check
-local harness passed. Exact-source CI and publication remain pending. New browser cases build a
+local harness passed. Exact-source CI and publication passed as recorded below. New browser cases build a
 fixture using the installed Vite API and the actual components/production CSS.
 The fixture is test-only and never imported into the product build. Existing
 screenshots/thresholds, Radix and native forms are retained.
 
-CI/publication receipts and bounded public verification must be recorded before
-closing FE-09. Synthetic behavior tests do not claim real-account production
-interaction, paid-provider calls or exhaustive assistive-technology validation.
+## CI and public verification
+
+The final CI passed **374 UX-suite cases/46 deliberate profile skips**, 83 real
+PostgreSQL cases and one isolated embedding cutover with zero skips, all 78
+architecture fixtures with zero violations and all seven harness checks.
+Existing visual baselines and thresholds were retained.
+
+Public checks at **21:27:41 UTC** confirmed frontend HTTP 200, entry
+`/assets/index-BezoCY0O.js`, lifecycle chunk
+`/assets/WorkspaceSwitcher-DDnxkCLM.js` and stylesheet
+`/assets/index-CS2-Q0PU.css` with the new semantic action tokens. Prior lifecycle,
+recovery and response-decoding markers remain present.
+
+The icon initially failed a strict encoded-file hash comparison. The 256-pixel PNG
+was served in a 5,721-byte encoding instead of the source's 7,628-byte encoding.
+A fresh isolated Chromium comparison found **zero differing rendered channels**;
+both rendered pixel hashes are
+`1b60f00bd367fffbd3c72ab615db1300d90243bda17ac31803503930441d0a98`.
+The proof was bound to the exact source/served encoded hashes before accepting
+that variant. No product image, screenshot baseline or tolerance was changed.
+The evidence establishes pixel identity, without attributing the transformation
+to a specific cache/encoder implementation.
+
+API health returned 200 with OCR, durable workflows and conversations enabled,
+and server-controlled request correlation. Private conversation/MCP/alert routes
+returned 401 without credentials. OAuth resource discovery/S256 and sanitized
+malformed/unsupported request rejection remained intact. The API error/fatal
+query for **21:23:53–21:27:55 UTC** returned no records; this is a bounded window.
+
+No real-account conversation, private document, provider invocation, notification
+or third-party consent was used. Synthetic browser and isolated database tests
+cover authorized behavior; exhaustive assistive-technology and private production
+interaction testing are not claimed. Previous verified runtime: `fe9449b`.
