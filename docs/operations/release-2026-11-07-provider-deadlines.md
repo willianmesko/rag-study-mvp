@@ -2,8 +2,8 @@
 
 ## Status and scope
 
-The implementation is locally validated; exact-source CI and publication are
-pending. BE-12 remains partial because older shared-config fixtures and other
+The implementation is validated and published at
+`92e056e29733846d8d11c6ea8334faee980ae34d`. BE-12 remains partial because older shared-config fixtures and other
 repository boundaries still require their own inventory/migration. No dependency,
 provider model, price, secret, schema, request field or public response changed.
 
@@ -48,11 +48,31 @@ from importing, starting and serving health. Strict API types passed.
 
 All seven local evaluation-harness checks passed for the final lazy-config and
 provider variant. Both graphs are clean: 449 structural modules / 1,764 edges,
-448 runtime / 1,270. Exact-source CI remains required before release. Tests use synthetic bodies and
+448 runtime / 1,270. Tests use synthetic bodies and
 mock SDK sends; no AWS service, paid provider or real user data is contacted.
 The local Docker/database capacity limitation remains documented in the
 [runtime-artifact receipt](release-2026-11-07-runtime-artifacts.md); fresh CI is the
 complete database/operational proof.
+
+All four [exact-source CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42424645036)
+passed: 410 UX cases with 46 deliberate skips, 85 PostgreSQL cases with no skips,
+the isolated embedding cutover, 78 architecture fixtures, seven harness checks,
+four native route-state, three artifact and three payload cases. The same CI
+also built and exercised the actual restricted MCP image: five read-only tools,
+network disabled and an unknown write tool rejected.
+
+Both matching Render records were observed live on 2026-11-07 UTC:
+
+| Service | Deployment | Live time |
+| --- | --- | --- |
+| API | `dep-dbnr7qajnfac73d5le60` | 23:28:35.985768 |
+| Web | `dep-dbnr7rlg1s2s73dfc8cg` | 23:28:25.059466 |
+
+Public checks at 23:30:17 UTC confirmed served frontend assets, icon bytes,
+health/OCR/durable capabilities, server correlation IDs, private-route protection
+and bounded OAuth input handling. The API error/fatal window from 23:28:35 to
+23:30:33 UTC was empty. This does not claim a completed third-party OAuth consent
+or a private real-provider question.
 
 Rollback restores the preceding application source; no environment or data
 rollback is needed. The unchanged default and optional constructor arguments

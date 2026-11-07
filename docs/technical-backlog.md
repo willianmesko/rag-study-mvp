@@ -18,8 +18,8 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08 | 4 |
 | Pending implementation | BE-09, BE-13 | 2 |
 
-The latest batch is live on frontend and API at `d2882699695a02ce9c41be541832501034411db0`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42422892309) passed.
+The latest batch is live on frontend and API at `92e056e29733846d8d11c6ea8334faee980ae34d`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42424645036) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
 CI passed 410 UX cases/46 deliberate skips, 85 PostgreSQL cases, the isolated
@@ -32,8 +32,11 @@ and a bounded error-log window were verified.
 See the [artifact receipt](operations/release-2026-11-07-runtime-artifacts.md),
 [FE-11 receipt](operations/release-2026-11-07-url-state.md) and
 [BE-12 receipt](operations/release-2026-11-07-configuration-records.md).
-Automatic continuation is validating instance-scoped provider deadlines and
-lazy compatibility configuration, followed by the actual minimal MCP image gate.
+Instance-scoped provider deadlines, lazy compatibility configuration and the
+actual minimal MCP image gate are also validated and published. See the
+[deadline receipt](operations/release-2026-11-07-provider-deadlines.md) and
+[image proof](operations/mcp-image-verification.md). Automatic continuation is
+validating the bounded embedding-response increment below.
 BE-12 remains partial; BE-08/FE-08 retain promise/Hook work and BE-09 retains
 minimum-privilege activation. Earlier releases retain their dated evidence.
 The prior administrative/unused-check slice is recorded in the
@@ -276,7 +279,8 @@ feature-owned locations during BE-07's migration.
   cache insertion; fixed invalid-response diagnostics retain no received payload.
   Typechecking and malformed-data browser cases pass locally.
 - [x] BE-12 bounded increment, CI verified and published: pure environment parsing, explicit root/HTTP configuration, independent-instance tests, checked evaluation and semantic-cache records. Nine unit cases, 85 PostgreSQL checks, the isolated cutover and seven harness checks passed. See the [boundary guide](backend-configuration-and-records.md) and [release record](operations/release-2026-11-07-configuration-records.md).
-- [x] Provider-deadline/lazy-config increment is locally validated, with CI/publication pending: immutable per-instance native clients, all eleven adapter paths and explicit HTTP import isolation. See the [candidate record](operations/release-2026-11-07-provider-deadlines.md).
+- [x] Provider-deadline/lazy-config increment is CI verified and published: immutable per-instance native clients, all eleven adapter paths and explicit HTTP import isolation. See the [release record](operations/release-2026-11-07-provider-deadlines.md).
+- [x] Embedding-response candidate is locally validated; CI/publication pending. Titan/Ollama/OpenRouter use dimension-first finite-vector decoding, bounded single-result envelopes and honest usage receipts. See the [candidate record](operations/release-2026-11-07-embedding-responses.md).
 - [ ] Remaining BE-12: migrate older shared-config fixtures incrementally; inventory/decode other externally influenced repository JSON and unchecked row assumptions. Two migrated row families do not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
@@ -441,7 +445,7 @@ feature-owned locations during BE-07's migration.
   static-analysis automation with explicit scope; no uncontrolled major upgrades.
 - [x] Align manifest/`.nvmrc` with the existing Node 24 CI/container baseline.
 - [x] Production/test-artifact separation is CI verified and published. Explicit runtime roots, clean output inventory and a separate mandatory two-pass native OCR stage are implemented. The final image contains no project test/helper files. See the [release record](operations/release-2026-11-07-runtime-artifacts.md) for actual image checks and the local Docker disk limit.
-- [ ] Validate the actual minimal MCP image/permission handshake in fresh CI; the [image gate](operations/mcp-image-verification.md) is implemented and awaiting its first result.
+- [x] Actual minimal MCP image/permission handshake passed in fresh CI, including five tools, restricted runtime and rejection of the unavailable write tool. The [image gate](operations/mcp-image-verification.md) is required on every release.
 - [ ] Apply the reviewed compatible Auth fix with its complete regression/release evidence. The candidate SDK has not been installed.
 - **Review evidence:** the [dated dependency/OCR review](operations/dependency-hygiene-2026-11-07.md)
   verifies that two low audit entries represent one Auth advisory. The only

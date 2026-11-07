@@ -9,9 +9,9 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `d2882699695a02ce9c41be541832501034411db0`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42422892309).
-- [Release evidence](operations/release-2026-11-07-runtime-artifacts.md) records
+- Source: `92e056e29733846d8d11c6ea8334faee980ae34d`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42424645036).
+- [Release evidence](operations/release-2026-11-07-provider-deadlines.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -42,8 +42,10 @@ synthetic authorized flows and remaining BE-12 scope:
 
 BE-14's artifact portion is now published, including actual Render OCR/clean-tree
 receipts and all four green gates. Dependency versions are unchanged. Automatic
-continuation is validating provider-specific deadlines/lazy HTTP configuration
-and a real minimal-MCP-image CI check. Those new candidates are not yet live.
+continuation published provider-specific deadlines/lazy HTTP configuration and
+the [real minimal-MCP-image CI check](operations/mcp-image-verification.md).
+The bounded embedding-response increment is locally validated and awaiting CI;
+it has not yet been published. Native return/unused checks are the next review.
 
 ## Completed explicit follow-up: BE-15
 

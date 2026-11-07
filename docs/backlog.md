@@ -27,8 +27,8 @@ status section where they appear.
 
 ## In progress
 
-Frontend and API are live at `d2882699695a02ce9c41be541832501034411db0` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42422892309) passed. Publication, assets, icon, health, private-route protection
+Frontend and API are live at `92e056e29733846d8d11c6ea8334faee980ae34d` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42424645036) passed. Publication, assets, icon, health, private-route protection
 and a bounded error-log window were verified on 2026-11-07.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
@@ -39,8 +39,10 @@ and a bounded error-log window were verified on 2026-11-07.
 - **Published increment, ticket partial:** BE-14 clean runtime artifacts with
   two mandatory real OCR passes. See the [receipt](operations/release-2026-11-07-runtime-artifacts.md).
   The dependency upgrade remains uninstalled.
-- **In validation:** BE-12 instance-scoped provider deadlines/lazy configuration
-  and a complete minimal-MCP-image CI check.
+- **Published increment, tickets partial:** BE-12 instance-scoped provider
+  deadlines/lazy configuration and BE-14's actual minimal-MCP-image CI check.
+  See the [receipt](operations/release-2026-11-07-provider-deadlines.md).
+- **In validation:** BE-12 bounded embedding-response decoding and usage receipts.
 
 The [technical backlog](technical-backlog.md) now records **20 published tickets,
 four partial tickets and two pending tickets**. The current CI passed 410 UX

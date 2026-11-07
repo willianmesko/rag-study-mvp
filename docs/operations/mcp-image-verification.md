@@ -18,10 +18,15 @@ A 15-second deadline and transport cleanup bound the check. No image is publishe
 and no remote service or registry credential is needed.
 
 The native script syntax and existing SDK dependency closure were checked locally.
-Because the local Docker VM is full, the new image check itself awaits its first
-fresh CI result; it is not relabeled as locally passed. The previous native
-stdio/protocol tests still run. Once validated, the image step is a required part
-of the same release gate. Dependency versions and tool authorization are unchanged.
+Because the local Docker VM is full, the actual image was verified in fresh
+[CI run 42424645036](https://github.com/willianmesko/rag-study-mvp/actions/runs/42424645036),
+not relabeled as locally passed. At 23:20:23 UTC on 2026-11-07 the image receipt
+reported five read-only tools, disabled network and rejection of the unavailable
+write tool. The PostgreSQL/MCP job and all three other release jobs passed for
+`92e056e29733846d8d11c6ea8334faee980ae34d`; both application services subsequently
+went live at that source. The previous native stdio/protocol tests still run.
+This image step is now required in the same release gate. Dependency versions,
+tool authorization and image publication policy are unchanged.
 
 From the repository root, with the current workspace dependencies installed:
 
