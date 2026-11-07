@@ -1,10 +1,7 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { ApiError, api } from "../../../shared/api/rag-api";
+import { useId, useRef, useState } from "react";
+import { Overlay } from "../../../shared/ui/Overlay";
+import { useOriginalFile, type OriginalDocumentProps } from "../model/use-original-file";
 import { useLocale } from "../../../shared/i18n/locale";
-
-type OriginalDocumentProps = { documentId: string; documentName: string; accessToken: string; workspaceId: string };
-type FileState = { status: "loading" } | { status: "ready"; filename: string; isPdf: boolean; url: string }
-  | { status: "error"; code?: number };
 
 export function OriginalDocumentAction({ inline = false, ...props }: OriginalDocumentProps & { inline?: boolean }) {
   const { t } = useLocale();
@@ -15,42 +12,14 @@ export function OriginalDocumentAction({ inline = false, ...props }: OriginalDoc
     <button ref={trigger} type="button" className="text-action" aria-haspopup={inline ? undefined : "dialog"} aria-expanded={inline ? open : undefined}
       aria-label={t(`Original file for ${props.documentName}`, `Arquivo original de ${props.documentName}`)}
       onClick={() => setOpen(true)}>{t("Original file", "Arquivo original")}</button>
-    {open && <OriginalDocumentDialog {...props} inline={inline} onClose={() => { setOpen(false); trigger.current?.focus({ preventScroll: true }); }} />}
+    {open && <OriginalDocumentDialog {...props} inline={inline} onClose={() => { setOpen(false); if (inline) trigger.current?.focus({ preventScroll: true }); }} />}
   </>;
 }
 
 function OriginalDocumentDialog({ documentId, documentName, accessToken, workspaceId, onClose, inline = false }: OriginalDocumentProps & { onClose: () => void; inline?: boolean }) {
   const { t } = useLocale();
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const [state, setState] = useState<FileState>({ status: "loading" });
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let objectUrl: string | undefined;
-    setState({ status: "loading" });
-
-    void api.getOriginalDocument({ documentId, workspaceId, accessToken, signal: controller.signal })
-      .then(({ blob, filename, isPdf }) => {
-        if (controller.signal.aborted) return;
-        objectUrl = URL.createObjectURL(blob);
-        setState({ status: "ready", url: objectUrl, filename, isPdf });
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) setState({ status: "error", code: error instanceof ApiError ? error.status : undefined });
-      });
-
-    return () => {
-      controller.abort();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [documentId, workspaceId, accessToken, attempt]);
+  const { state, retry } = useOriginalFile({ documentId, documentName, accessToken, workspaceId });
 
   let errorMessage: string | undefined;
   if (state.status === "error") {
@@ -63,13 +32,13 @@ function OriginalDocumentDialog({ documentId, documentName, accessToken, workspa
   }
 
   const content = <>
-      <div className="flex items-start justify-between gap-4">
+      {inline && <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 id={titleId} className="text-lg font-semibold text-white">{t("Original file", "Arquivo original")}</h3>
           <p className="mt-1 break-words text-sm text-slate-400">{documentName}</p>
         </div>
-        <button type="button" className="secondary-button" onClick={() => { if (inline) onClose(); else dialogRef.current?.close(); }}>{inline ? t("Hide file", "Ocultar arquivo") : t("Close", "Fechar")}</button>
-      </div>
+        <button type="button" className="secondary-button" onClick={onClose}>{t("Hide file", "Ocultar arquivo")}</button>
+      </div>}
       {state.status === "loading" && <p className="mt-5 text-sm text-slate-300" role="status">{t("Preparing your file…", "Preparando o arquivo…")}</p>}
       {state.status === "ready" && <div className="mt-5 space-y-3">
         <p className="break-words text-sm text-slate-300" role="status">{state.filename}</p>
@@ -80,10 +49,9 @@ function OriginalDocumentDialog({ documentId, documentName, accessToken, workspa
       </div>}
       {state.status === "error" && <div className="mt-5 space-y-3">
         <p className="error-message" role="alert">{errorMessage}</p>
-        {state.code !== 401 && state.code !== 403 && state.code !== 404 && <button type="button" className="secondary-button" onClick={() => setAttempt((value) => value + 1)}>{t("Try again", "Tentar novamente")}</button>}
+        {state.code !== 401 && state.code !== 403 && state.code !== 404 && <button type="button" className="secondary-button" onClick={retry}>{t("Try again", "Tentar novamente")}</button>}
       </div>}
   </>;
   if (inline) return <section aria-labelledby={titleId} className="border-y border-slate-800 py-5">{content}</section>;
-  return <dialog ref={dialogRef} onClose={onClose} aria-labelledby={titleId}
-    className="panel fixed inset-0 m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto bg-slate-950 text-slate-100 backdrop:bg-slate-950/75">{content}</dialog>;
+  return <Overlay size="compact" title={t("Original file", "Arquivo original")} description={documentName} onClose={onClose}>{content}</Overlay>;
 }

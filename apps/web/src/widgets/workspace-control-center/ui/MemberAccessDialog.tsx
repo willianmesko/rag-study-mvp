@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent, type RefObject } from "react";
 import type { WorkspaceMember } from "../../../shared/api/rag-api";
+import { Overlay } from "../../../shared/ui/Overlay";
 import { useLocale } from "../../../shared/i18n/locale";
 
 export type MemberRole = Exclude<WorkspaceMember["role"], "owner">;
@@ -14,51 +15,37 @@ type MemberAccessDialogProps = {
   error: string | null;
   onSave: (action: MemberEdit) => Promise<void>;
   onClose: (saved: boolean) => void;
+  fallbackFocusRef: RefObject<HTMLElement | null>;
 };
 
-export function MemberAccessDialog({ type, member, name, roleOptions, pending, error, onSave, onClose }: MemberAccessDialogProps) {
+export function MemberAccessDialog({ type, member, name, roleOptions, pending, error, onSave, onClose, fallbackFocusRef }: MemberAccessDialogProps) {
   const { t } = useLocale();
   const [role, setRole] = useState<MemberRole>(member.role === "editor" ? "editor" : "viewer");
-  const dialog = useRef<HTMLDialogElement>(null);
   const cancelButton = useRef<HTMLButtonElement>(null);
   const headingId = useId();
   const descriptionId = useId();
   const removing = type === "remove";
   const unchangedRole = !removing && role === member.role;
 
-  useEffect(() => {
-    if (dialog.current && !dialog.current.open) {
-      dialog.current.showModal();
-      cancelButton.current?.focus();
-    }
-  }, []);
-
-  function close(saved: boolean) {
-    dialog.current?.close();
-    onClose(saved);
-  }
-
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending || unchangedRole) return;
     try {
       await onSave(removing ? { type: "remove" } : { type: "role", role });
-      close(true);
+      onClose(true);
     } catch {
       // The mutation displays the error here so the user can retry or close.
     }
   }
 
   return (
-    <dialog ref={dialog} aria-labelledby={headingId} aria-describedby={descriptionId}
-      onCancel={(event) => { event.preventDefault(); if (!pending) close(false); }}
-      className="panel fixed inset-0 m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto bg-slate-950 text-slate-100 backdrop:bg-slate-950/75">
-      <h3 id={headingId} className="text-lg font-semibold text-white">{removing ? t("Remove access", "Remover acesso") : t("Change role", "Alterar perfil")}</h3>
-      <p id={descriptionId} className="mt-2 text-sm leading-6 text-slate-300 [overflow-wrap:anywhere]">{removing
+    <Overlay size="compact" title={removing ? t("Remove access", "Remover acesso") : t("Change role", "Alterar perfil")}
+      description={removing
         ? t(`${name} will lose access to this workspace, including its documents and answers. Their Lumora account will stay active.`,
           `${name} perderá o acesso a este espaço, incluindo documentos e respostas. A conta no Lumora continuará ativa.`)
-        : t(`Choose what ${name} can do in this workspace.`, `Escolha o que ${name} pode fazer neste espaço.`)}</p>
-      <form className="mt-5 space-y-4" onSubmit={(event) => void submit(event)} aria-busy={pending}>
+        : t(`Choose what ${name} can do in this workspace.`, `Escolha o que ${name} pode fazer neste espaço.`)}
+      pending={pending} initialFocusRef={cancelButton} fallbackFocusRef={fallbackFocusRef} onClose={() => onClose(false)}>
+      <form className="space-y-4" onSubmit={(event) => void submit(event)} aria-busy={pending}>
         {!removing && <fieldset className="space-y-2" disabled={pending}>
           <legend className="mb-2 text-xs font-medium text-slate-300">{t("Access role", "Tipo de acesso")}</legend>
           {roleOptions.map(({ value, label, description }) => (
@@ -75,16 +62,16 @@ export function MemberAccessDialog({ type, member, name, roleOptions, pending, e
         </fieldset>}
         {error && <p role="alert" className="error-message">{error}</p>}
         <div className="flex flex-wrap justify-end gap-2">
-          <button ref={cancelButton} className="secondary-button" type="button" disabled={pending} onClick={() => close(false)}>
+          <button ref={cancelButton} className="secondary-button" type="button" disabled={pending} onClick={() => onClose(false)}>
             {t("Cancel", "Cancelar")}
           </button>
-          <button className={removing ? "danger-button" : "primary-button"} type="submit" disabled={pending || unchangedRole}>
+          <button className={removing ? "danger-button" : "primary-button"} type="submit" disabled={pending || unchangedRole} aria-busy={pending || undefined}>
             {removing
               ? pending ? t("Removing access…", "Removendo acesso…") : t("Remove access", "Remover acesso")
               : pending ? t("Saving role…", "Salvando perfil…") : t("Save role", "Salvar perfil")}
           </button>
         </div>
       </form>
-    </dialog>
+    </Overlay>
   );
 }

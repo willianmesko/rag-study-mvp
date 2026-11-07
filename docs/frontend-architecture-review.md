@@ -186,6 +186,12 @@ Priority meanings: **P1** protects private data boundaries or a concrete behavio
 
 **Acceptance and verification.** The migrated actions expose consistent hover, focus, disabled and pending states. Dialog close/cancel rules, focus restoration, select behavior inside dialogs and reduced-motion behavior retain their existing tests. Axe contrast and keyboard checks run at mobile/tablet/desktop sizes, including the established dark palette and native date/control surfaces. No new UI framework is introduced and no source content is rendered as untrusted HTML. A new light theme or automatic theme switching is a separate product decision rather than an assumed architecture requirement.
 
+**Implementation follow-up:** FE-09 now consolidates the compatible dialogs and
+semantic action states; source/evidence UI moved to `entities/source`. See the
+[primitive guide](frontend-primitives.md) and the [dated release record](operations/release-2026-11-07-ui-primitives.md)
+for validation/publication status. The audit locations above describe the reviewed
+baseline and are retained as historical evidence.
+
 ### FE-10 — Measure frontend performance before adding optimization libraries
 
 **Priority:** P2 for measurement; optimizations follow demonstrated bottlenecks. **Effort:** S for baseline, then bounded tasks from evidence.

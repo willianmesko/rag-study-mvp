@@ -5,7 +5,7 @@ import { api } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { getRequestErrorMessage } from "../../../shared/lib/request-error";
 import { InputLabel } from "../../../shared/ui/InputLabel";
-import { SearchResultCard } from "../../../shared/ui/SearchResultCard";
+import { SearchResultCard } from "../../../entities/source/index";
 import { SelectField } from "../../../shared/ui/SelectField";
 import { SectionTitle } from "../../../shared/ui/SectionTitle";
 

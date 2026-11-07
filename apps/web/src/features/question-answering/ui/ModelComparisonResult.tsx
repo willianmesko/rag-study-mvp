@@ -1,7 +1,7 @@
 import { useId } from "react";
 import type { QuestionComparisonResponse } from "@rag-study/contracts";
 import { useLocale } from "../../../shared/i18n/locale";
-import { ValidatedCitations } from "../../../shared/ui/RagEvidencePanel";
+import { ValidatedCitations } from "../../../entities/source/index";
 import { getRefusalCopy } from "../model/refusal-copy";
 import { answerSafetyLabel, promptVariantLabel } from "../model/prompt-variants";
 

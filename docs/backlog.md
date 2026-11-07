@@ -41,7 +41,7 @@ The earlier [observability/resilience release](operations/release-2026-11-07.md)
 is included.
 
 The [technical backlog](technical-backlog.md) records 17 published tickets,
-five partial tickets and four pending tickets. The published
+five partial tickets, FE-09 under release validation, and three pending tickets. The published
 batch includes shared success-response schemas, SQL limits, bounded Auth/member
 lookup, frontend composition/Public APIs, provider reservations, safe shutdown
 and NestJS-inspired business-module organization. See the
@@ -63,7 +63,7 @@ for exact-source CI/publication status. FE-07 now has explicit correlated
 submission/delivery/cancellation states and creation/navigation guards. Its 75
 focused checks, seven-check local harness and 78 architecture fixtures passed;
 exact-source CI passed 349 UX-suite cases/44 deliberate profile skips, and both
-services are live. FE-09 is the next frontend ticket. See the
+services are live. FE-09 is implemented and undergoing release validation. See the
 [lifecycle record](operations/release-2026-11-07-chat-lifecycle.md).
 Operational activation remains separate.
 

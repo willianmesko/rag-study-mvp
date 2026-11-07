@@ -16,7 +16,8 @@ live activation remain in the [product backlog](backlog.md).
 | --- | --- | --- |
 | Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-07 | 17 |
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08, FE-10 | 5 |
-| Pending implementation | BE-09, BE-13, FE-09, FE-11 | 4 |
+| Implementation/validation in progress | FE-09 | 1 |
+| Pending implementation | BE-09, BE-13, FE-11 | 3 |
 
 The latest batch is live on the frontend and API at `fe9449b8da7bf9e6b1ee37133f3f27f47698ef58`,
 after all four [CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42412334616).
@@ -28,7 +29,7 @@ the isolated cutover, 78 architecture fixtures and all seven harness checks.
 Both live SHAs, served lifecycle assets, health and protected routes were verified.
 The prior FE-06 [conversation-reader release](operations/release-2026-11-07-conversation-readers.md)
 remains documented separately. BE-08/FE-08 retain promise/Hook correctness work;
-FE-09 is the next frontend ticket. BE-09 retains its separate deployment activation
+FE-09 is now implemented and undergoing release validation. BE-09 retains its separate deployment activation
 gate for minimum database privileges.
 The prior administrative/unused-check slice is recorded in the
 [query-ownership evidence](operations/release-2026-11-07-query-ownership.md).
@@ -489,6 +490,16 @@ feature-owned locations during BE-07's migration.
   dialogs share Overlay with focus restoration and safe object-URL cleanup.
   Keyboard, select-in-dialog, contrast, reduced-motion and three-viewport checks
   pass. Preserve Radix and text escaping; do not bundle a product-wide redesign.
+- **Locally validated; publication pending:** semantic action tokens preserve the current
+  palette/dimensions; compatible dialogs share Overlay, including compact
+  creation/member/original-file dialogs. Focus restores to the opener or a stable
+  fallback when it was removed. File reads are bounded/abortable and own their
+  blob URLs. Source/evidence UI now belongs to `entities/source` with a Public API.
+  The local run passed 98 focused cases/10 intentional profile exclusions,
+  78 architecture fixtures, zero graph violations and all seven harness checks.
+  No dependency or backend contract changed. See the [primitive guide](frontend-primitives.md)
+  and [release evidence](operations/release-2026-11-07-ui-primitives.md).
+  Keep this checkbox open until exact-source CI and publication are verified.
 
 ### FE-10 — Repeatable frontend performance baseline
 

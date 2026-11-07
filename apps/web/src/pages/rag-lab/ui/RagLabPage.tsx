@@ -15,7 +15,7 @@ import { useLocale } from "../../../shared/i18n/locale";
 import { navigateTo, pathForTab, type LabRoute } from "../../../shared/lib/app-route";
 import { writeBrowserValue } from "../../../shared/lib/browser-storage";
 import { lazyWithRecovery, SectionErrorBoundary } from "../../../shared/ui/SectionErrorBoundary";
-import { SourcePreview } from "../../../shared/ui/SourcePreview";
+import { SourcePreview } from "../../../entities/source/index";
 import { LabHeader } from "../../../widgets/lab-layout/index";
 import { LabNavigation } from "../../../widgets/lab-layout/index";
 import { RagLearningAside } from "../../../widgets/lab-layout/index";

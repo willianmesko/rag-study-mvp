@@ -6,6 +6,7 @@ type SelectOption = {
   label: string;
   description?: string;
   lang?: string;
+  disabled?: boolean;
 };
 
 type SelectFieldProps = {
@@ -50,7 +51,7 @@ export function SelectField({ label, hideLabel, value, onValueChange, options, d
             <Select.ScrollUpButton className="select-field__scroll"><Chevron up /></Select.ScrollUpButton>
             <Select.Viewport className="select-field__viewport">
               {options.map((option, index) => (
-                <Select.Item key={option.value} value={option.value} textValue={option.label}
+                <Select.Item key={option.value} value={option.value} textValue={option.label} disabled={option.disabled}
                   aria-describedby={option.description ? `${id}-option-${index}` : undefined} className="select-field__option">
                   <span className="min-w-0">
                     <Select.ItemText><span lang={option.lang}>{option.label}</span></Select.ItemText>

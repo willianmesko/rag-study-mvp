@@ -3,7 +3,7 @@ import { ApiError } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { getRequestErrorMessage } from "../../../shared/lib/request-error";
 import { Mascot } from "../../../shared/ui/Mascot";
-import { ValidatedCitations } from "../../../shared/ui/RagEvidencePanel";
+import { ValidatedCitations } from "../../../entities/source/index";
 import type { ConversationTurn, useConversation } from "../model/use-conversation";
 import type { AnswerPhase } from "../model/use-live-answer";
 import { ChatAnswer } from "./ChatAnswer";

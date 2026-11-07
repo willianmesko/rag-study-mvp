@@ -51,6 +51,7 @@ export function WorkspaceSwitcher({ workspaces, selectedId, onChange, creation, 
               if (pendingCreation.current) {
                 event.preventDefault();
                 pendingCreation.current = false;
+                trigger.current?.focus({ preventScroll: true });
                 setCreating(true);
               }
             }}>
@@ -87,10 +88,7 @@ export function WorkspaceSwitcher({ workspaces, selectedId, onChange, creation, 
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
-      {creating && creation && <WorkspaceCreationForm {...creation} onDismiss={() => {
-        setCreating(false);
-        trigger.current?.focus();
-      }} />}
+      {creating && creation && <WorkspaceCreationForm {...creation} onDismiss={() => setCreating(false)} />}
     </div>
   );
 }

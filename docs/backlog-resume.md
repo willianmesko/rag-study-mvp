@@ -93,7 +93,8 @@ fixtures passed. See the [lifecycle record](operations/release-2026-11-07-chat-l
 including 349 UX-suite cases/44 intentional profile skips, 83 PostgreSQL cases,
 the isolated cutover, 78 architecture fixtures and seven harness checks. Both
 Render deployments and served lifecycle assets were verified. **Next frontend
-ticket: FE-09**, semantic tokens and existing primitive consolidation.
+ticket: FE-09**, semantic tokens and existing primitive consolidation, is now
+implemented and undergoing release validation.
 Broader promise/Hook tooling, least-privilege MCP credentials and the other
 technical tickets retain their own acceptance criteria.
 
@@ -135,3 +136,15 @@ When the owner starts the learning walkthrough, begin with the product journey
 and trace one document/question before deeper modules. Save learning progress
 separately from engineering completion, then resume these implementation tasks
 without repeating completed work.
+
+## Active automatic continuation: FE-09
+
+The owner authorized continuing the backlog while away. FE-09 centralizes action
+state tokens, consolidates the remaining compatible native dialogs, and moves
+source/evidence presentation into its entity Public API. No dependency is added.
+The primitive guide is `frontend-primitives.md`; dated publication evidence is
+`operations/release-2026-11-07-ui-primitives.md`. Keep status distinct from the
+currently published FE-07 until full CI and both deployments are verified.
+After FE-09, continue the FE-10 measurement track and FE-11 small form/URL flows
+using existing tools. External activation, real paid-provider load and learner
+outcomes remain separately scoped; do not invent their completion.

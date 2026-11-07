@@ -1,6 +1,6 @@
 import type { QuestionResponse } from "@rag-study/contracts";
 import { useLocale } from "../../../shared/i18n/locale";
-import { RagEvidencePanel } from "../../../shared/ui/RagEvidencePanel";
+import { RagEvidencePanel } from "../../../entities/source/index";
 import { getRefusalCopy } from "../model/refusal-copy";
 
 export function ChatAnswer({ answer }: { answer: QuestionResponse }) {

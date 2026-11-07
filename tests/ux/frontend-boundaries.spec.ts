@@ -160,3 +160,17 @@ test("a failed lazy download leaves other sections usable and reload recovers th
   await expect(page.getByText("owner@example.test", { exact: true })).toBeVisible();
   await expect(failure).toHaveCount(0);
 });
+
+
+test("FE-09 removing a member returns focus to the heading after its trigger disappears", async ({ page, context }) => {
+  await workspaceFixture().attach(context);
+  await page.goto("/workspace/team");
+  await page.getByRole("button", { name: /^(Actions for|Ações para) editor@example.test$/ }).press("Enter");
+  await page.getByRole("menuitem", { name: /^(Remove access|Remover acesso)$/ }).press("Enter");
+  const dialog = page.getByRole("dialog", { name: /^(Remove access|Remover acesso)$/ });
+  await expect(dialog.getByRole("button", { name: /^(Cancel|Cancelar)$/ })).toBeFocused();
+  await dialog.getByRole("button", { name: /^(Remove access|Remover acesso)$/ }).press("Enter");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+  await expect(page.getByText("editor@example.test", { exact: true })).toHaveCount(0);
+});

@@ -66,8 +66,7 @@ export function WorkspaceTeam({ workspaceId, token }: { workspaceId: string; tok
     setSelection({ type, member });
   }
 
-  function closeMemberDialog(saved: boolean) {
-    if (saved && selection?.type === "remove") membersHeading.current?.focus();
+  function closeMemberDialog() {
     setSelection(null);
   }
 
@@ -122,7 +121,7 @@ export function WorkspaceTeam({ workspaceId, token }: { workspaceId: string; tok
       </section>
       {selection && <MemberAccessDialog type={selection.type} member={selection.member} name={memberName(selection.member, t)}
         roleOptions={roleOptions} pending={editMember.isPending} error={editError}
-        onSave={(action) => editMember.mutateAsync({ action, member: selection.member })} onClose={closeMemberDialog} />}
+        onSave={(action) => editMember.mutateAsync({ action, member: selection.member })} onClose={closeMemberDialog} fallbackFocusRef={membersHeading} />}
     </div>
   );
 }

@@ -4,13 +4,38 @@
 
 @layer base {
   * { box-sizing: border-box; }
-  html { background: #060b16; --focus-ring: #a5f3fc; }
+  html {
+    background: #060b16;
+    --focus-ring: #a5f3fc;
+    --action-focus-ring: var(--focus-ring);
+    --action-duration: 150ms;
+    --action-target: 2.75rem;
+    --action-primary-surface: var(--color-cyan-400);
+    --action-primary-hover: var(--color-cyan-300);
+    --action-primary-active: var(--color-cyan-500);
+    --action-primary-text: var(--color-slate-950);
+    --action-secondary-surface: color-mix(in oklab, var(--color-slate-900) 70%, transparent);
+    --action-secondary-hover: var(--color-slate-800);
+    --action-secondary-active: var(--color-slate-700);
+    --action-secondary-border: var(--color-slate-500);
+    --action-secondary-text: var(--color-slate-200);
+    --action-danger-surface: color-mix(in oklab, var(--color-rose-400) 10%, transparent);
+    --action-danger-hover: color-mix(in oklab, var(--color-rose-400) 20%, transparent);
+    --action-danger-active: color-mix(in oklab, var(--color-rose-400) 25%, transparent);
+    --action-danger-border: color-mix(in oklab, var(--color-rose-400) 70%, transparent);
+    --action-danger-text: var(--color-rose-200);
+    --action-disabled-surface: var(--color-slate-800);
+    --action-disabled-border: var(--color-slate-700);
+    --action-disabled-text: var(--color-slate-400);
+    --action-link-text: var(--color-cyan-300);
+    --action-link-hover: var(--color-cyan-100);
+  }
   body { margin: 0; min-width: 320px; background: #060b16; color: #e2e8f0; font-family: var(--font-sans); text-rendering: optimizeLegibility; }
   button, input, textarea, select { font: inherit; }
   :where(button, a[href], summary), input[type="file"]::file-selector-button { cursor: pointer; }
   :where(button:disabled, button[aria-disabled="true"], input:disabled), input:disabled::file-selector-button { cursor: not-allowed; }
   ::selection { background: rgb(34 211 238 / 0.25); color: white; }
-  :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--action-focus-ring); outline-offset: 3px; }
 }
 
 @layer components {
@@ -67,23 +92,51 @@
   .field { @apply min-w-0 w-full rounded-xl border border-slate-500 bg-slate-950/80 px-3.5 py-3 text-sm text-slate-100 transition-colors placeholder:text-slate-400 enabled:hover:border-slate-400 focus:border-cyan-400; }
   .field[aria-invalid="true"] { @apply border-rose-400; }
   .primary-button, .secondary-button, .danger-button {
-    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-center text-sm font-semibold transition-colors duration-150;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-center text-sm font-semibold transition-colors;
+    min-height: var(--action-target);
+    transition-duration: var(--action-duration);
+    background-color: var(--action-surface);
+    color: var(--action-text);
+    border-color: var(--action-border);
   }
-  .primary-button { @apply border-transparent bg-cyan-400 text-slate-950; }
-  .secondary-button { @apply border-slate-500 bg-slate-900/70 text-slate-200; }
-  .danger-button { @apply border-rose-400/70 bg-rose-400/10 text-rose-200; }
-  .primary-button:not(:disabled, [aria-disabled="true"]):hover { @apply bg-cyan-300; }
-  .secondary-button:not(:disabled, [aria-disabled="true"]):hover { @apply border-cyan-400 bg-slate-800 text-white; }
-  .danger-button:not(:disabled, [aria-disabled="true"]):hover { @apply border-rose-300 bg-rose-400/20 text-rose-100; }
-  .primary-button:not(:disabled, [aria-disabled="true"]):active { @apply bg-cyan-500; }
-  .secondary-button:not(:disabled, [aria-disabled="true"]):active { @apply bg-slate-700; }
-  .danger-button:not(:disabled, [aria-disabled="true"]):active { @apply bg-rose-400/25; }
+  .primary-button {
+    --action-surface: var(--action-primary-surface); --action-text: var(--action-primary-text); --action-border: transparent;
+    --action-hover: var(--action-primary-hover); --action-active: var(--action-primary-active);
+    --action-hover-text: var(--action-primary-text); --action-hover-border: transparent;
+  }
+  .secondary-button {
+    --action-surface: var(--action-secondary-surface); --action-text: var(--action-secondary-text); --action-border: var(--action-secondary-border);
+    --action-hover: var(--action-secondary-hover); --action-active: var(--action-secondary-active);
+    --action-hover-text: var(--color-white); --action-hover-border: var(--color-cyan-400);
+  }
+  .danger-button {
+    --action-surface: var(--action-danger-surface); --action-text: var(--action-danger-text); --action-border: var(--action-danger-border);
+    --action-hover: var(--action-danger-hover); --action-active: var(--action-danger-active);
+    --action-hover-text: var(--color-rose-100); --action-hover-border: var(--color-rose-300);
+  }
+  :is(.primary-button, .secondary-button, .danger-button):not(:disabled, [aria-disabled="true"]):hover {
+    background-color: var(--action-hover); color: var(--action-hover-text); border-color: var(--action-hover-border);
+  }
+  :is(.primary-button, .secondary-button, .danger-button):not(:disabled, [aria-disabled="true"]):active { background-color: var(--action-active); }
   :is(.primary-button, .secondary-button, .danger-button, .select-field__trigger):is(:disabled, [aria-disabled="true"]) {
-    @apply cursor-not-allowed border-slate-700 bg-slate-800 text-slate-400;
+    cursor: not-allowed;
+    border-color: var(--action-disabled-border); background-color: var(--action-disabled-surface); color: var(--action-disabled-text);
   }
   :is(.primary-button, .secondary-button, .danger-button):disabled .spinner { @apply border-slate-400/35 border-t-slate-200; }
-  .text-action { @apply inline-flex min-h-9 items-center rounded-md px-2 text-xs font-semibold text-cyan-300 transition-colors enabled:hover:bg-cyan-400/10 enabled:hover:text-cyan-100 enabled:active:bg-cyan-400/20 disabled:text-slate-400; }
-  .text-action--danger { @apply text-rose-300 enabled:hover:bg-rose-400/10 enabled:hover:text-rose-100 enabled:active:bg-rose-400/20; }
+  :is(.primary-button, .secondary-button, .danger-button)[aria-busy="true"],
+  [aria-busy="true"] :is(.primary-button, .secondary-button, .danger-button):disabled { cursor: progress; }
+  .text-action { @apply inline-flex min-h-9 items-center rounded-md px-2 text-xs font-semibold transition-colors; color: var(--action-link-text); }
+  .text-action:not(:disabled, [aria-disabled="true"]):hover { @apply bg-cyan-400/10; color: var(--action-link-hover); }
+  .text-action:not(:disabled, [aria-disabled="true"]):active { @apply bg-cyan-400/20; }
+  .text-action:is(:disabled, [aria-disabled="true"]) { color: var(--action-disabled-text); }
+  .text-action--danger { @apply text-rose-300; }
+  .text-action--danger:not(:disabled, [aria-disabled="true"]):hover { @apply bg-rose-400/10 text-rose-100; }
+  .text-action--danger:not(:disabled, [aria-disabled="true"]):active { @apply bg-rose-400/20; }
+  .excerpt-action { @apply w-fit cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition-colors; color: var(--action-link-text); }
+  .excerpt-action:hover { color: var(--action-link-hover); }
+  .menu-action { @apply flex min-h-11 cursor-pointer select-none items-center rounded-lg px-3 py-2 outline-none; }
+  .menu-action[data-highlighted]:not([data-disabled]) { background-color: var(--action-secondary-hover); }
+  .menu-action[data-disabled], .select-field__option[data-disabled] { cursor: not-allowed; color: var(--action-disabled-text); }
   .success-message { @apply rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200; }
   .stream-status-card { @apply rounded-2xl border border-cyan-400/25 bg-cyan-400/[0.05] p-5 shadow-lg shadow-cyan-950/10; }
   .workspace-section-nav { @apply flex gap-1 overflow-x-auto border-b border-slate-800 p-1.5; }

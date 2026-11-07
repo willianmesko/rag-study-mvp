@@ -1,5 +1,6 @@
-import type { SearchResult } from "../api/rag-api";
-import { useLocale } from "../i18n/locale";
+import type { SearchResult } from "@rag-study/contracts";
+import { useLocale } from "../../../shared/i18n/locale";
+import { SimilarityScore } from "./SimilarityScore";
 import { ExcerptDisclosure } from "./SourcePreview";
 
 export function SearchResultCard({ result, index }: { result: SearchResult; index: number }) {
@@ -31,10 +32,7 @@ export function SearchResultCard({ result, index }: { result: SearchResult; inde
                 {t("Reranker rank", "Posição após reordenação")} {result.reranker.rank} · {t("Relevance", "Relevância")} {format(result.reranker.score)}
               </p>}
             </div>
-            <dl>
-              <dt className="text-[10px] uppercase tracking-wider text-slate-400">{t("Cosine similarity", "Similaridade cosseno")}</dt>
-              <dd className="mt-1 font-mono text-sm font-semibold text-cyan-300">{format(result.score)}</dd>
-            </dl>
+            <SimilarityScore score={result.score} stacked />
           </div>
           {blocked ? <p className="text-xs text-amber-200">
             {t("Preview withheld because this passage may contain unsafe instructions.", "Prévia ocultada porque o trecho pode conter instruções perigosas.")}

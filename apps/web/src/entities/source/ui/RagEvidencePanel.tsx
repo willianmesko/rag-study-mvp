@@ -1,10 +1,10 @@
-import type { QuestionResponse, QuestionSource } from "../api/rag-api";
-import { useLocale } from "../i18n/locale";
+import type { QuestionResponse, QuestionSource } from "@rag-study/contracts";
+import { useLocale } from "../../../shared/i18n/locale";
+import { SimilarityScore } from "./SimilarityScore";
 import { ExcerptDisclosure } from "./SourcePreview";
 
 function EvidenceList({ passages, showSimilarity }: { passages: QuestionSource[]; showSimilarity: boolean }) {
   const { t, locale } = useLocale();
-  const format = new Intl.NumberFormat(locale, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
   return <ul className="mt-3 grid gap-3">
     {passages.map((passage) => <li key={passage.chunkId} className="rounded-xl border border-slate-800 bg-slate-950/45 p-4">
@@ -13,7 +13,7 @@ function EvidenceList({ passages, showSimilarity }: { passages: QuestionSource[]
           <p className="break-words text-sm font-medium text-slate-100">{passage.title ?? passage.source}</p>
           <p className="mt-1 text-xs text-slate-400">{t("Passage", "Trecho")} {(passage.chunk + 1).toLocaleString(locale)}</p>
         </div>
-        {showSimilarity && Number.isFinite(passage.score) && <p className="font-mono text-xs text-cyan-300">{t("Cosine similarity", "Similaridade cosseno")} {format.format(passage.score)}</p>}
+        {showSimilarity && Number.isFinite(passage.score) && <SimilarityScore score={passage.score} />}
       </div>
       {passage.excerpt && <ExcerptDisclosure excerpt={passage.excerpt} truncated={passage.excerptTruncated} />}
     </li>)}

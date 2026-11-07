@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { QuestionSource } from "../api/rag-api";
-import { useLocale } from "../i18n/locale";
+import type { QuestionSource } from "@rag-study/contracts";
+import { useLocale } from "../../../shared/i18n/locale";
 
 function ExcerptText({ excerpt, truncated }: { excerpt: string; truncated?: boolean }) {
   const { t } = useLocale();
@@ -17,7 +17,7 @@ export function ExcerptDisclosure({ excerpt, truncated }: { excerpt: string; tru
   const [open, setOpen] = useState(false);
   return (
     <details className="mt-3" onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary className="w-fit cursor-pointer rounded-md px-2 py-1 text-xs font-medium text-cyan-300 hover:text-cyan-100">
+      <summary className="excerpt-action">
         {open ? t("Hide excerpt", "Ocultar trecho") : t("Read excerpt", "Ler trecho")}
       </summary>
       {open && <ExcerptText excerpt={excerpt} truncated={truncated} />}
