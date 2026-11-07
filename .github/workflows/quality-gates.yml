@@ -100,6 +100,17 @@ jobs:
           EVAL_PERFORMANCE_BASELINE: ${{ vars.EVAL_PERFORMANCE_BASELINE }}
           EVAL_PERFORMANCE_CANDIDATE: ${{ vars.EVAL_PERFORMANCE_CANDIDATE }}
           EVAL_PERFORMANCE_LIMITS: ${{ vars.EVAL_PERFORMANCE_LIMITS }}
+      - name: Verify frontend payload regression budgets
+        run: |
+          npm run test:frontend-budget
+          npm run check:frontend-budget -- --report reports/frontend-performance/runs/build-${{ github.sha }}.json
+      - name: Upload frontend build measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumora-frontend-build-${{ github.sha }}
+          path: reports/frontend-performance/runs/build-${{ github.sha }}.json
+          if-no-files-found: warn
       - name: Upload harness report
         if: always()
         uses: actions/upload-artifact@v4
@@ -123,3 +134,10 @@ jobs:
           name: lumora-ux-${{ github.sha }}
           path: playwright-report/
           if-no-files-found: ignore
+      - name: Upload frontend browser measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumora-frontend-browser-${{ github.sha }}
+          path: test-results/**/frontend-performance.json
+          if-no-files-found: warn

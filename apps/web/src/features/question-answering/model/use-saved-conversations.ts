@@ -128,9 +128,9 @@ export function useSavedConversations({
       if (mounted.current) setCreating(false);
     }
   }
-  function refresh() {
+  function refresh({ messages = true }: { messages?: boolean } = {}) {
     void client.invalidateQueries({ queryKey: key });
-    void client.invalidateQueries({
+    if (messages) void client.invalidateQueries({
       queryKey: privateQueryKey("conversation-messages", userId, workspaceId),
     });
   }

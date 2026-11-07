@@ -152,8 +152,15 @@ all seven harness checks. Health/protected routes and served semantic CSS were
 verified. A PNG encoding variant required byte-specific browser proof of identical
 rendered pixels; no screenshot tolerance was changed.
 
-**Active next: FE-10 measurement track**, then FE-11 small form/URL flows, using
-existing tools. Capture build/route/long-history/streaming counts and environment,
-and add reviewed deterministic regression budgets. Do not claim a speedup or
+**Active: FE-10 measurement track** is implemented and locally validated; CI
+and publication are pending. FE-11 small form/URL flows follow, using existing
+tools. Capture build/route/long-history/streaming counts and environment,
+with the versioned deterministic budgets in `config/frontend-performance-budget.json`. Do not claim a speedup or
 field LCP improvement without measurements. External activation, paid-provider
 load and learner outcomes remain separately scoped and must not be invented.
+
+FE-10 local evidence: 90 focused checks across three profiles; native payload
+budget tests; 15 structured browser measurements. A measured redundant admission
+history read was removed, reducing that workload from five to four message reads.
+See `frontend-performance.md`; no field/provider speed claim is made. Finish the
+harness, exact-source CI and publication before marking FE-10 complete.

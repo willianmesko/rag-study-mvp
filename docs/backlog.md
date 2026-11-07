@@ -64,7 +64,8 @@ submission/delivery/cancellation states and creation/navigation guards. Its 75
 focused checks, seven-check local harness and 78 architecture fixtures passed;
 exact-source CI passed 349 UX-suite cases/44 deliberate profile skips, and both
 services are live. FE-09 is complete and published; its CI passed 374 UX-suite cases/46 profile
-skips. Automatic continuation proceeds with FE-10 measurements, then FE-11. See the
+skips. FE-10 measurements and deterministic budgets are implemented and under release
+validation; FE-11 follows. See the [performance guide](frontend-performance.md). See the
 [lifecycle record](operations/release-2026-11-07-chat-lifecycle.md).
 Operational activation remains separate.
 

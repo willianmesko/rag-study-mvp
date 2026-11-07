@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "kind": "lumora.frontend-build-baseline",
+  "generatedAt": "2026-11-07T21:33:35.429Z",
+  "source": "39c95cdd9375b7b005ac1c0e5b88bcc4a876cd48",
+  "environment": {
+    "node": "v24.12.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "gzipLevel": 9,
+    "configuration": "Default local build; no provider credentials or network throttling."
+  },
+  "build": {
+    "entry": "assets/index-BIGhaR2_.js",
+    "assets": [
+      {
+        "file": "assets/ActionMenu-BDIeyNfm.js",
+        "rawBytes": 1288,
+        "gzipBytes": 744
+      },
+      {
+        "file": "assets/DemoLibraryDialog-CaBLIzPw.js",
+        "rawBytes": 8886,
+        "gzipBytes": 3378
+      },
+      {
+        "file": "assets/InviteMemberDialog-GimubRbu.js",
+        "rawBytes": 5823,
+        "gzipBytes": 2588
+      },
+      {
+        "file": "assets/WorkspaceEvaluations-YfI_51d5.js",
+        "rawBytes": 22956,
+        "gzipBytes": 7700
+      },
+      {
+        "file": "assets/WorkspaceKnowledge-DNGkP34j.js",
+        "rawBytes": 16252,
+        "gzipBytes": 5755
+      },
+      {
+        "file": "assets/WorkspaceOnboardingWizard-9Lr7aTQQ.css",
+        "rawBytes": 4969,
+        "gzipBytes": 1508
+      },
+      {
+        "file": "assets/WorkspaceOnboardingWizard-BIm3Jes5.js",
+        "rawBytes": 25304,
+        "gzipBytes": 9294
+      },
+      {
+        "file": "assets/WorkspaceProcessing-C4a4FgkR.js",
+        "rawBytes": 7917,
+        "gzipBytes": 3144
+      },
+      {
+        "file": "assets/WorkspaceSettings-KXrfL89h.js",
+        "rawBytes": 6925,
+        "gzipBytes": 2672
+      },
+      {
+        "file": "assets/WorkspaceSwitcher-0z-yQJD3.js",
+        "rawBytes": 196280,
+        "gzipBytes": 63637
+      },
+      {
+        "file": "assets/WorkspaceTeam-CqR8r3tx.js",
+        "rawBytes": 7543,
+        "gzipBytes": 3259
+      },
+      {
+        "file": "assets/WorkspaceUsagePage-Blr-8jdC.js",
+        "rawBytes": 16781,
+        "gzipBytes": 5705
+      },
+      {
+        "file": "assets/index-BDry1Rb7.js",
+        "rawBytes": 2700,
+        "gzipBytes": 1220
+      },
+      {
+        "file": "assets/index-BIGhaR2_.js",
+        "rawBytes": 414571,
+        "gzipBytes": 125108
+      },
+      {
+        "file": "assets/index-BRBoKfx1.js",
+        "rawBytes": 21211,
+        "gzipBytes": 7171
+      },
+      {
+        "file": "assets/index-BYLZ-_pm.js",
+        "rawBytes": 836,
+        "gzipBytes": 534
+      },
+      {
+        "file": "assets/index-BhfbgHAr.js",
+        "rawBytes": 25382,
+        "gzipBytes": 8729
+      },
+      {
+        "file": "assets/index-CS2-Q0PU.css",
+        "rawBytes": 79235,
+        "gzipBytes": 12809
+      },
+      {
+        "file": "assets/index-ClsVfC4y.js",
+        "rawBytes": 7680,
+        "gzipBytes": 2920
+      },
+      {
+        "file": "assets/index-oVc-z22d.js",
+        "rawBytes": 5718,
+        "gzipBytes": 2522
+      },
+      {
+        "file": "assets/index-wkVpGUF-.js",
+        "rawBytes": 8014,
+        "gzipBytes": 2957
+      },
+      {
+        "file": "assets/members-DRQ1c7tW.js",
+        "rawBytes": 401,
+        "gzipBytes": 299
+      }
+    ],
+    "metrics": {
+      "entryRawBytes": 414571,
+      "entryGzipBytes": 125108,
+      "totalJavaScriptRawBytes": 802468,
+      "totalJavaScriptGzipBytes": 259336,
+      "totalCssGzipBytes": 14317,
+      "largestJavaScriptGzipBytes": 125108,
+      "javascriptChunks": 20,
+      "cssChunks": 2
+    }
+  }
+}

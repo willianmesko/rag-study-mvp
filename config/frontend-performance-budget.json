@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "baseline": {
+    "source": "39c95cdd9375b7b005ac1c0e5b88bcc4a876cd48",
+    "metrics": {
+      "entryGzipBytes": 125108,
+      "totalJavaScriptGzipBytes": 259336,
+      "totalCssGzipBytes": 14317,
+      "largestJavaScriptGzipBytes": 125108
+    }
+  },
+  "limits": {
+    "entryGzipBytes": {
+      "relativeGrowth": 0.05,
+      "absoluteGrowthBytes": 2048
+    },
+    "totalJavaScriptGzipBytes": {
+      "relativeGrowth": 0.05,
+      "absoluteGrowthBytes": 2048
+    },
+    "totalCssGzipBytes": {
+      "relativeGrowth": 0.05,
+      "absoluteGrowthBytes": 2048
+    },
+    "largestJavaScriptGzipBytes": {
+      "relativeGrowth": 0.05,
+      "absoluteGrowthBytes": 2048
+    }
+  },
+  "exceptions": [],
+  "routes": {
+    "/sign-in": {},
+    "/ask": {
+      "workspaces": 1,
+      "onboarding": 1,
+      "knowledgeStatus": 1,
+      "models": 1,
+      "health": 1,
+      "conversations": 1
+    },
+    "/workspace/knowledge": {
+      "workspaces": 1,
+      "onboarding": 1,
+      "documents": 1,
+      "ingestionJobs": 1,
+      "health": 1
+    },
+    "/workspace/team": {
+      "workspaces": 1,
+      "onboarding": 1,
+      "members": 1,
+      "ingestionJobs": 1,
+      "health": 1
+    }
+  },
+  "longHistory": {
+    "initialMessageReads": 3,
+    "totalMessageReadsAfterStream": 4,
+    "admissions": 1,
+    "runStatusReads": 0,
+    "streamResumes": 0
+  }
+}

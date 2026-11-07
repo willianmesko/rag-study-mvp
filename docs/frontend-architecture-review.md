@@ -204,6 +204,12 @@ baseline and are retained as historical evidence.
 
 **Acceptance and verification.** Store the measurement environment and baseline artifact. The initial load and long-chat tests can be rerun locally/CI. A budget flags unexplained entry-size growth relative to that baseline, with a reviewed exception mechanism. Any optimization reports its actual before/after size or render/request measurements and retains streaming cancellation, keyboard access and pinned-scroll behavior. Do not claim improved LCP or responsiveness without measuring it.
 
+**Implementation follow-up:** the FE-10 baseline, request profiles and payload
+budget gate are now locally validated. See the [performance guide](frontend-performance.md)
+and [release evidence](operations/release-2026-11-07-frontend-performance.md) for
+exact-source CI/publication status and the one-read before/after result. No field
+LCP or provider-speed improvement is asserted.
+
 ### FE-11 — Normalize form and URL state only where it improves real flows
 
 **Priority:** P3. **Effort:** M across small changes. **Dependencies:** FE-02/04/07.

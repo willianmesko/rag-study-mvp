@@ -159,7 +159,9 @@ export function useConversation({
         : comparison.start(input as QuestionComparisonInput, accessToken!, workspaceId!, { conversationId, runId });
       if (started) addTurn({ id: runId, mode, question: input.question, conversationId });
       else transition({ type: "settle", id: runId });
-      saved.refresh();
+      // The execution reader already owns message progress. Avoid starting a
+      // head read against the preceding render's still-enabled observer.
+      saved.refresh({ messages: false });
     } catch {
       // Creation errors are displayed by the saved model; obsolete selections
       // are discarded there without creating a model execution.

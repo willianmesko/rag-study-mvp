@@ -8,7 +8,9 @@ coverage/
 .DS_Store
 reports/evaluation-history/*.json
 
-# Artefatos intermediários usados para gerar o guia visual; as versões finais
-# para estudo ficam em outputs/.
+# Intermediate visual-guide artifacts; final study materials live in outputs/.
 work/
 
+
+# Per-run measurements are CI artifacts; reviewed baselines remain versioned.
+reports/frontend-performance/runs/*.json

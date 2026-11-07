@@ -29,7 +29,7 @@ Both live SHAs, served CSS tokens/assets, health and protected routes were verif
 The prior [FE-07 lifecycle release](operations/release-2026-11-07-chat-lifecycle.md)
 and [FE-06 reader release](operations/release-2026-11-07-conversation-readers.md)
 retain their separate evidence. BE-08/FE-08 retain promise/Hook correctness work.
-Automatic continuation proceeds with the FE-10 measurement track, then FE-11.
+FE-10 is locally validated and undergoing release checks; FE-11 follows.
 BE-09 retains its separate deployment activation gate for minimum database privileges.
 The prior administrative/unused-check slice is recorded in the
 [query-ownership evidence](operations/release-2026-11-07-query-ownership.md).
@@ -511,9 +511,15 @@ feature-owned locations during BE-07's migration.
   optimization reports before/after results and preserves keyboard/backscroll/
   pinned-scroll behavior. No claim of better LCP without measurements; no automatic
   memoization, table or virtualization dependency.
-- **Partial:** local build size and a controlled Public API comparison are saved.
-  Route/request and streaming/long-history profiles, reviewed performance budgets
-  and field measurements remain pending.
+- **Locally validated; CI/publication pending:** native build-size inspection,
+  versioned gzip baseline, explicit expiry/review metadata for exceptions, route
+  request gates and three-profile long-history/stream profiles are implemented.
+  The measured admission-time message read is removed (5 → 4 total history reads
+  for the 75-turn workload), with 90 focused checks preserving FE-06/FE-07.
+  Native budget tests and per-commit build/browser artifacts are integrated into
+  CI. No dependency, broad memoization or virtualization was added.
+  See the [performance guide](frontend-performance.md). Field/RUM performance and
+  LCP improvement are not claimed; later optimizations require separate evidence.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
