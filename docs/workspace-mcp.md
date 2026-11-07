@@ -254,6 +254,14 @@ workspace isolation, read-only SQL, concurrent credential limits, expiry,
 revocation, current RBAC, schema rejection, safe previews, cancellation, SDK
 interoperability, and approval/lease/idempotency behaviour.
 
+The `mcp-isolation` CI job starts a disposable PostgreSQL/pgvector service,
+loads `tests/fixtures/supabase-auth.sql`, and runs `npm run test:mcp:postgres`.
+The fixture supplies the roles and `auth.uid()` used by existing Supabase RLS
+migrations. For a local equivalent, load that file into a dedicated test
+container before running the migration command. Set `DATABASE_URL`,
+`MCP_TEST_DATABASE_URL`, and `AGENT_ACTION_TEST_DATABASE_URL` to that same
+local test database. The integration tests reject nonlocal hosts.
+
 The MCP SDK transport and cancellation documentation is available in the
 [official TypeScript SDK](https://ts.sdk.modelcontextprotocol.io/v2/).
 The [Node permission documentation](https://nodejs.org/api/permissions.html)
