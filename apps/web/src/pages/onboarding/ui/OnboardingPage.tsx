@@ -1,8 +1,6 @@
-import { useState, type FormEvent } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { api, type Workspace } from "../../../shared/api/rag-api";
+import { WorkspaceCreationForm } from "../../../features/workspace-creation/ui/WorkspaceCreationForm";
+import type { Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
-import { getRequestErrorMessage } from "../../../shared/lib/request-error";
 import { BrandMark } from "../../../shared/ui/BrandMark";
 import { Mascot } from "../../../shared/ui/Mascot";
 import { WorkspaceSwitcher } from "../../../widgets/lab-layout/ui/WorkspaceSwitcher";
@@ -13,41 +11,15 @@ type OnboardingPageProps = {
   workspaces: Workspace[];
   accessToken: string;
   userId: string;
+  justCreated?: boolean;
   onWorkspaceCreated: (workspace: Workspace) => void;
   onWorkspaceChange: (workspaceId: string) => void;
   onComplete: () => void;
   onSignOut: () => void;
 };
 
-function workspaceSlug(name: string): string {
-  const prefix = name.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50)
-    .replace(/-+$/g, "");
-  return `${prefix || "workspace"}-${crypto.randomUUID().slice(0, 8)}`;
-}
-
 function CreateWorkspaceStep({ accessToken, onWorkspaceCreated }: Pick<OnboardingPageProps, "accessToken" | "onWorkspaceCreated">) {
-  const { locale, t } = useLocale();
-  const [name, setName] = useState("");
-  const create = useMutation({
-    mutationFn: (workspaceName: string) => api.createWorkspace({
-      name: workspaceName,
-      slug: workspaceSlug(workspaceName),
-      accessToken
-    })
-  });
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const workspaceName = name.trim();
-    if (workspaceName.length >= 2 && !create.isPending) {
-      create.mutate(workspaceName, { onSuccess: ({ workspace }) => onWorkspaceCreated(workspace) });
-    }
-  }
+  const { t } = useLocale();
 
   return (
     <section className="workspace-guide" aria-labelledby="create-workspace-heading">
@@ -64,22 +36,12 @@ function CreateWorkspaceStep({ accessToken, onWorkspaceCreated }: Pick<Onboardin
         </div>
         <div className="workspace-guide__mascot" aria-hidden="true"><Mascot decorative /></div>
       </header>
-      <form className="workspace-guide__stage" onSubmit={submit} aria-busy={create.isPending}>
-        <label className="grid w-full gap-2 text-sm font-medium text-slate-200">
-          {t("Workspace name", "Nome do espaço")}
-          <input className="field" value={name} onChange={(event) => setName(event.target.value)}
-            placeholder={t("e.g. Acme Legal", "Ex.: Jurídico da Acme")} minLength={2} maxLength={100} required disabled={create.isPending} />
-        </label>
-        {create.error && <p className="error-message w-full" role="alert">{getRequestErrorMessage(create.error, locale)}</p>}
-        <button className="primary-button" type="submit" disabled={name.trim().length < 2 || create.isPending}>
-          {create.isPending ? t("Creating workspace…", "Criando espaço…") : t("Create workspace and continue", "Criar espaço e continuar")}
-        </button>
-      </form>
+      <WorkspaceCreationForm accessToken={accessToken} onWorkspaceCreated={onWorkspaceCreated} />
     </section>
   );
 }
 
-export function OnboardingPage({ workspace, workspaces, accessToken, userId, onWorkspaceCreated, onWorkspaceChange, onComplete, onSignOut }: OnboardingPageProps) {
+export function OnboardingPage({ workspace, workspaces, accessToken, userId, justCreated, onWorkspaceCreated, onWorkspaceChange, onComplete, onSignOut }: OnboardingPageProps) {
   const { t } = useLocale();
 
   return (
@@ -94,6 +56,9 @@ export function OnboardingPage({ workspace, workspaces, accessToken, userId, onW
             <button type="button" className="secondary-button min-h-11" onClick={onSignOut}>{t("Sign out", "Sair")}</button>
           </div>
         </header>
+        {workspace && justCreated && <p className="success-message" role="status">
+          {t(`Workspace created. Let’s set up ${workspace.tenantName}.`, `Espaço criado. Vamos configurar ${workspace.tenantName}.`)}
+        </p>}
         {workspace
           ? <WorkspaceOnboardingWizard workspace={workspace} userId={userId} accessToken={accessToken} onComplete={onComplete} />
           : <CreateWorkspaceStep key={userId} accessToken={accessToken} onWorkspaceCreated={onWorkspaceCreated} />}

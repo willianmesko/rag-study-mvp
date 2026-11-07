@@ -9,7 +9,7 @@ import { SemanticSearchForm } from "../../../features/semantic-search/ui/Semanti
 import { SignInPage } from "../../sign-in/ui/SignInPage";
 import { api, type QuestionSource, type Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
-import { navigateTo, pathForTab, readAppRoute, type LabRoute } from "../../../shared/lib/app-route";
+import { canAccessWorkspaceSection, navigateTo, pathForTab, readAppRoute, type LabRoute } from "../../../shared/lib/app-route";
 import { supabase } from "../../../shared/lib/supabase";
 import { SourcePreview } from "../../../shared/ui/SourcePreview";
 import { LabHeader } from "../../../widgets/lab-layout/ui/LabHeader";
@@ -22,6 +22,16 @@ const overviewPath = "/workspace/overview";
 const publicDemo = import.meta.env.VITE_DEMO_MODE === "true";
 const canIndexDemo = import.meta.env.DEV && !publicDemo;
 const demoAvailable = publicDemo || import.meta.env.DEV;
+
+function canViewRoute(lab: LabRoute, role: Workspace["role"]): boolean {
+  return lab.tab !== "admin" || canAccessWorkspaceSection(lab.workspaceSection, role);
+}
+
+function accessibleWorkspacePath(path: string | null, role: Workspace["role"]): string {
+  if (!path) return overviewPath;
+  const route = readAppRoute(path);
+  return route.kind === "private" && canViewRoute(route.lab, role) ? path : overviewPath;
+}
 
 function readLocal(key: string): string | null {
   try { return window.localStorage.getItem(key); } catch { return null; }
@@ -68,6 +78,7 @@ export function RagLabPage() {
   const [authReady, setAuthReady] = useState(!supabase);
   const [selected, setSelected] = useState<{ userId: string; workspaceId: string } | null>(null);
   const [completedThisSession, setCompletedThisSession] = useState<string[]>([]);
+  const [createdSetup, setCreatedSetup] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState(false);
   const returnPath = useRef<string | null>(null);
@@ -75,8 +86,9 @@ export function RagLabPage() {
   const demoRoute = route.kind === "demo" && demoAvailable && (route.lab.tab !== "ingest" || canIndexDemo);
   const token = session?.access_token;
   const userId = session?.user.id;
+  const workspaceQueryKey = ["workspaces", token] as const;
   const workspaceQuery = useQuery({
-    queryKey: ["workspaces", token],
+    queryKey: workspaceQueryKey,
     queryFn: () => api.workspaces(token!),
     enabled: Boolean(token && !demoRoute)
   });
@@ -85,6 +97,7 @@ export function RagLabPage() {
     ? selected.workspaceId
     : userId ? readLocal(`lumora-workspace:${userId}`) : null;
   const activeWorkspace = workspaces.find((workspace) => workspace.tenantId === rememberedWorkspaceId) ?? workspaces[0];
+  const activeRole = activeWorkspace?.role;
   const activeSetup = userId && activeWorkspace ? completionKey(userId, activeWorkspace.tenantId) : null;
   const setupComplete = Boolean(activeSetup && (completedThisSession.includes(activeSetup) || readLocal(activeSetup) === "done"));
 
@@ -111,34 +124,39 @@ export function RagLabPage() {
       if (route.kind === "private") returnPath.current = pathname;
       navigateTo("/sign-in", { replace: true });
     } else if (workspaceQuery.isSuccess && !workspaceQuery.isError) {
-      if (!setupComplete) navigateTo("/onboarding", { replace: true });
-      else if (route.kind !== "private") {
-        const next = returnPath.current ?? overviewPath;
+      if (!setupComplete) {
+        if (route.kind === "private") returnPath.current = pathname;
+        navigateTo("/onboarding", { replace: true });
+      } else if (activeRole) {
+        const next = accessibleWorkspacePath(route.kind === "private" ? pathname : returnPath.current, activeRole);
         returnPath.current = null;
         navigateTo(next, { replace: true });
-      } else {
-        returnPath.current = null;
       }
     }
-  }, [authReady, demoRoute, pathname, route.kind, session, setupComplete, workspaceQuery.isSuccess, workspaceQuery.isError]);
+  }, [activeRole, authReady, demoRoute, pathname, route.kind, session, setupComplete, workspaceQuery.isSuccess, workspaceQuery.isError]);
 
   function selectWorkspace(workspaceId: string) {
     if (!userId) return;
     setSelected({ userId, workspaceId });
+    setCreatedSetup(null);
     saveLocal(`lumora-workspace:${userId}`, workspaceId);
   }
 
   function workspaceCreated(workspace: Workspace) {
-    queryClient.setQueryData<{ workspaces: Workspace[] }>(["workspaces", token], (current) => ({
+    if (!userId || !token) return;
+    void queryClient.cancelQueries({ queryKey: workspaceQueryKey, exact: true });
+    queryClient.setQueryData<{ workspaces: Workspace[] }>(workspaceQueryKey, (current) => ({
       workspaces: [...(current?.workspaces ?? []).filter((item) => item.tenantId !== workspace.tenantId), workspace]
     }));
     selectWorkspace(workspace.tenantId);
+    setCreatedSetup(completionKey(userId, workspace.tenantId));
   }
 
   function finishOnboarding() {
     if (!activeSetup) return;
     saveLocal(activeSetup, "done");
     setCompletedThisSession((keys) => [...keys, activeSetup]);
+    setCreatedSetup(null);
     returnPath.current = null;
     navigateTo(overviewPath, { replace: true });
   }
@@ -152,6 +170,7 @@ export function RagLabPage() {
       if (error) throw error;
       setSession(null);
       setSelected(null);
+      setCreatedSetup(null);
       returnPath.current = null;
       navigateTo("/sign-in", { replace: true });
     } catch {
@@ -184,15 +203,16 @@ export function RagLabPage() {
   if (!activeWorkspace || !setupComplete) {
     return <Suspense fallback={<StatusScreen message={loadingText} />}>
       <OnboardingPage key={userId} workspace={activeWorkspace} workspaces={workspaces} accessToken={token} userId={userId}
-        onWorkspaceCreated={workspaceCreated} onWorkspaceChange={selectWorkspace} onComplete={finishOnboarding} onSignOut={() => void signOut()} />
+        justCreated={activeSetup !== null && activeSetup === createdSetup} onWorkspaceCreated={workspaceCreated}
+        onWorkspaceChange={selectWorkspace} onComplete={finishOnboarding} onSignOut={() => void signOut()} />
       {signOutMessage && <p className="error-message fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md" role="alert">{signOutMessage}</p>}
     </Suspense>;
   }
 
-  const lab = route.kind === "private" ? route.lab : { tab: "admin", workspaceSection: "overview" } as const;
+  const lab = route.kind === "private" && canViewRoute(route.lab, activeWorkspace.role) ? route.lab : { tab: "admin", workspaceSection: "overview" } as const;
   const scope = `${userId}:${activeWorkspace.tenantId}`;
   return <LabExperience key={scope} scope={scope} lab={lab}
-    privateArea={{ token, workspace: activeWorkspace, workspaces, onWorkspaceChange: selectWorkspace }}
+    privateArea={{ token, workspace: activeWorkspace, workspaces, onWorkspaceChange: selectWorkspace, onWorkspaceCreated: workspaceCreated }}
     accountAction={{ label: signingOut ? t("Signing out…", "Saindo…") : t("Sign out", "Sair"), onClick: () => void signOut(), disabled: signingOut }}
     accountError={signOutMessage} />;
 }
@@ -202,6 +222,7 @@ type PrivateArea = {
   workspace: Workspace;
   workspaces: Workspace[];
   onWorkspaceChange: (workspaceId: string) => void;
+  onWorkspaceCreated: (workspace: Workspace) => void;
 };
 
 function LabExperience({ scope, lab, privateArea, accountAction, accountError }: {
@@ -250,7 +271,9 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError }:
         <section className="min-w-0 p-5 sm:p-8 lg:p-10">
           <LabHeader online={health.data?.status === "ok"} loading={health.isLoading} publicDemo={demo}
             workspaces={privateArea?.workspaces ?? []} workspaceId={workspaceId ?? ""}
-            onWorkspaceChange={(id) => privateArea?.onWorkspaceChange(id)} accountAction={accountAction} />
+            onWorkspaceChange={(id) => privateArea?.onWorkspaceChange(id)}
+            workspaceCreation={privateArea ? { accessToken: privateArea.token, onWorkspaceCreated: privateArea.onWorkspaceCreated } : undefined}
+            accountAction={accountAction} />
           {accountError && <p className="error-message mt-5" role="alert">{accountError}</p>}
           <div className={`mt-8 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-8 ${activeTab === "admin" ? "" : "xl:grid-cols-[minmax(0,1fr)_18rem]"}`}>
             <div className="min-w-0">

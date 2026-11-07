@@ -46,10 +46,11 @@ administration screen:
 /workspace/settings       → workspace identity, usage, and policies (owner)
 ```
 
-The workspace selector remains in the global header. Each section enables only
-the queries it needs so a failed members or evaluation request cannot blank the
-whole workspace. The onboarding guide is workspace-scoped, explains concepts
-in plain language, and links directly to the next action.
+The global header lets signed-in users switch workspaces or create another one.
+A newly created workspace starts its own onboarding. Each route mounts the
+section that owns its data, actions, and loading and error states. The
+onboarding guide explains concepts in plain language and links directly to
+the next action.
 
 ## Monorepo and ownership
 
@@ -215,13 +216,15 @@ separate controls.
 
 ## Identity and tenancy
 
-Supabase Auth authenticates administrators. The API validates each bearer token,
-then resolves a membership from `tenant_memberships`. The requested workspace
-header is accepted only when it is one of the caller's memberships.
+Supabase Auth identifies the signed-in user. For workspace-scoped calls, the
+API validates the bearer token and resolves the role for the `X-Workspace-Id`
+membership. An account with several memberships must select one explicitly.
+Routes that allow implicit selection use it only when exactly one membership
+exists. Creating a workspace assigns its creator the `owner` role there.
 
-- **owner**: manage members, invite users, create workspaces, and manage corpus.
+- **owner**: manage members, invitations, the corpus, and workspace settings.
 - **editor**: manage the workspace corpus.
-- **viewer**: read documents and chunks only.
+- **viewer**: browse documents and processing, search, and ask questions.
 
 All document, chunk, job, quota, and audit operations are tenant-scoped. The
 frontend stores a selected workspace only as a convenience; it never establishes

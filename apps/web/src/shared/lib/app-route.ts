@@ -1,3 +1,5 @@
+import type { Workspace } from "../api/rag-api";
+
 export type WorkspaceSection = "overview" | "knowledge" | "processing" | "team" | "evaluations" | "settings";
 export type LabRoute =
   | { tab: "ingest" | "search" | "answer" | "history"; workspaceSection?: never }
@@ -8,6 +10,11 @@ export type AppRoute =
   | { kind: "demo" | "private"; lab: LabRoute };
 
 const workspaceSections = new Set<WorkspaceSection>(["overview", "knowledge", "processing", "team", "evaluations", "settings"]);
+
+export function canAccessWorkspaceSection(section: WorkspaceSection, role: Workspace["role"]): boolean {
+  return role === "owner" || ((role === "editor" || role === "viewer") &&
+    (section === "overview" || section === "knowledge" || section === "processing"));
+}
 
 export function readAppRoute(pathname: string): AppRoute {
   const normalized = pathname.replace(/\/+$/, "") || "/";

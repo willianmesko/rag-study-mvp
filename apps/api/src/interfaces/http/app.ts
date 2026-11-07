@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
-import Fastify, { type FastifyRequest } from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createClient } from "@supabase/supabase-js";
 import { documentInputSchema, questionInputSchema, workspaceMemberRoleSchema } from "@rag-study/contracts";
 import { ZodError, z } from "zod";
@@ -31,6 +31,8 @@ import { isSafeForAnswer, type PromptInjectionAssessment } from "../../domain/se
 const searchSchema = z.object({ q: z.string().min(1).max(5_000), topK: z.coerce.number().int().min(1).max(20).optional() });
 const invitationSchema = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: workspaceMemberRoleSchema });
 const memberRoleSchema = z.object({ role: workspaceMemberRoleSchema });
+const workspaceIdSchema = z.string().uuid();
+const workspaceRequired = { ok: false, status: 400, error: "Select a workspace.", code: "workspace_required" } as const;
 const maxPassageExcerptChars = 600;
 const urlImportSchema = z.object({ url: z.string().trim().min(1).max(1_000).url(), title: z.string().trim().min(1).max(500).optional() });
 const urlImportStatus: Record<PublicHtmlFetchErrorCode, number> = {
@@ -56,8 +58,7 @@ type HttpDependencies = {
   listIngestionJobs: (tenantId: string, limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
   listIngestionEvents: (jobId: string, tenantId: string, limit: number) => Promise<IngestionJobEvent[]>;
   previewIngestionPassages: IngestionJobRepository["previewPassages"];
-  findPrimaryMembership: (userId: string) => Promise<TenantMembership | null>;
-  listMemberships: (userId: string) => Promise<TenantMembership[]>;
+  listMemberships: (userId: string, limit?: number) => Promise<TenantMembership[]>;
   findMembership: (userId: string, tenantId: string) => Promise<TenantMembership | null>;
   createWorkspace: (input: { userId: string; name: string; slug: string }) => Promise<TenantMembership>;
   listWorkspaceMembers: (tenantId: string) => Promise<WorkspaceMember[]>;
@@ -78,6 +79,17 @@ type HttpDependencies = {
   invalidateSemanticCache: (tenantId: string) => Promise<void>;
   recordAuditEvent: AuditEventRepository["record"];
 };
+
+type ScopeFailure = {
+  ok: false;
+  status: number;
+  error: string;
+  code?: "workspace_required" | "invalid_workspace";
+};
+
+function rejectScope(reply: FastifyReply, failure: ScopeFailure) {
+  return reply.code(failure.status).send({ error: failure.error, code: failure.code });
+}
 
 function matchesApiKey(candidate: string | undefined, expected: string): boolean {
   if (!candidate) return false;
@@ -157,14 +169,24 @@ export async function buildApp(dependencies: HttpDependencies) {
     const authorization = request.headers.authorization;
     const token = typeof authorization === "string" && authorization.startsWith("Bearer ") ? authorization.slice(7) : undefined;
     if (!token) return { ok: false as const, status: 401, error: "Authentication required." };
-    const requestedTenant = typeof request.headers["x-workspace-id"] === "string" ? request.headers["x-workspace-id"] : undefined;
-    if (requireExplicitWorkspace && !z.string().uuid().safeParse(requestedTenant).success) {
-      return { ok: false as const, status: 400, error: "Select a valid workspace." };
+    const workspaceHeader = request.headers["x-workspace-id"];
+    const requestedWorkspace = workspaceHeader === undefined ? undefined : workspaceIdSchema.safeParse(workspaceHeader);
+    if (requestedWorkspace && !requestedWorkspace.success) {
+      return { ok: false as const, status: 400, error: "Select a valid workspace.", code: "invalid_workspace" as const };
     }
+    if (requireExplicitWorkspace && !requestedWorkspace) return workspaceRequired;
     const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user) return { ok: false as const, status: 403, error: "Administrator access required." };
-    const membership = requestedTenant ? await dependencies.findMembership(data.user.id, requestedTenant) : await dependencies.findPrimaryMembership(data.user.id);
+
+    let membership: TenantMembership | null | undefined;
+    if (requestedWorkspace) {
+      membership = await dependencies.findMembership(data.user.id, requestedWorkspace.data);
+    } else {
+      const memberships = await dependencies.listMemberships(data.user.id, 2);
+      if (memberships.length > 1) return workspaceRequired;
+      membership = memberships[0];
+    }
     if (!membership) return { ok: false as const, status: 403, error: "Workspace membership required." };
     return { ok: true as const, userId: data.user.id, tenantId: membership.tenantId, role: membership.role };
   };
@@ -181,7 +203,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     return authorization;
   };
   async function resolveQueryScope(request: FastifyRequest) {
-    if (request.headers.authorization?.startsWith("Bearer ")) {
+    if (typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer ")) {
       const membership = await authorizeMember(request);
       if (!membership.ok) return membership;
       return { ok: true as const, tenantId: membership.tenantId, actorKey: `user:${membership.userId}` };
@@ -215,7 +237,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.get("/v1/workspaces/:workspaceId/members", async (request, reply) => {
     const authorization = await authorizeOwner(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { workspaceId } = z.object({ workspaceId: z.string().uuid() }).parse(request.params);
     if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
     if (!config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY) return reply.code(503).send({ error: "Member management is not configured." });
@@ -228,7 +250,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.post("/v1/workspaces/:workspaceId/invitations", async (request, reply) => {
     const authorization = await authorizeOwner(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { workspaceId } = z.object({ workspaceId: z.string().uuid() }).parse(request.params);
     if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
     if (!config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY || !config.APP_BASE_URL) return reply.code(503).send({ error: "Invitations are not configured." });
@@ -243,7 +265,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.patch("/v1/workspaces/:workspaceId/members/:userId", async (request, reply) => {
     const authorization = await authorizeOwner(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { workspaceId, userId } = z.object({ workspaceId: z.string().uuid(), userId: z.string().uuid() }).parse(request.params);
     if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
     const { role } = memberRoleSchema.parse(request.body);
@@ -253,7 +275,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.delete("/v1/workspaces/:workspaceId/members/:userId", async (request, reply) => {
     const authorization = await authorizeOwner(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { workspaceId, userId } = z.object({ workspaceId: z.string().uuid(), userId: z.string().uuid() }).parse(request.params);
     if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
     const removed = await dependencies.removeWorkspaceMember({ tenantId: authorization.tenantId, userId });
@@ -282,7 +304,7 @@ export async function buildApp(dependencies: HttpDependencies) {
 
   app.post("/v1/admin/uploads", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const file = await request.file();
     if (!file) return reply.code(400).send({ error: "A document file is required." });
     const sourceHeader = request.headers["x-document-source"];
@@ -296,7 +318,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.post("/v1/admin/uploads/url", { bodyLimit: 8_000, config: { rateLimit: { max: 6 } } }, async (request, reply) => {
     const authorization = await authorizeAdmin(request, true);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { url, title } = urlImportSchema.parse(request.body);
     let page: Awaited<ReturnType<PublicHtmlFetcher["fetch"]>>;
     try {
@@ -313,18 +335,18 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.get("/v1/admin/uploads", async (request, reply) => {
     const authorization = await authorizeMember(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     return { jobs: (await dependencies.listIngestionJobs(authorization.tenantId, 30)).map(serializeJob) };
   });
   app.get("/v1/admin/uploads/:jobId/events", async (request, reply) => {
     const authorization = await authorizeMember(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { jobId } = z.object({ jobId: z.string().uuid() }).parse(request.params);
     return { events: (await dependencies.listIngestionEvents(jobId, authorization.tenantId, 100)).map(serializeIngestionEvent) };
   });
   app.get("/v1/admin/uploads/:jobId/preview", { exposeHeadRoute: false }, async (request, reply) => {
     const authorization = await authorizeAdmin(request, true);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { jobId } = z.object({ jobId: z.string().uuid() }).parse(request.params);
     const preview = await dependencies.previewIngestionPassages({ jobId, tenantId: authorization.tenantId });
     if (!preview) return reply.code(404).send({ error: "The current indexed passages are not available for this job." });
@@ -346,25 +368,25 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.get("/v1/admin/usage", async (request, reply) => {
     const authorization = await authorizeOwner(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { days } = z.object({ days: z.coerce.number().int().min(1).max(90).default(30) }).parse(request.query);
     const summary = await dependencies.getUsageSummary(authorization.tenantId, days);
     return { days, summary, alert: { thresholdUsd: config.USAGE_ALERT_THRESHOLD_USD, triggered: summary.estimatedCostUsd >= config.USAGE_ALERT_THRESHOLD_USD } };
   });
   app.get("/v1/admin/evaluations", async (request, reply) => {
     const authorization = await authorizeOwner(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { limit } = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20) }).parse(request.query);
     return { runs: (await dependencies.listEvaluationRuns(authorization.tenantId, limit)).map(serializeEvaluationRun) };
   });
   app.post("/v1/admin/evaluations/run", async (request, reply) => {
     const authorization = await authorizeOwner(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     return reply.code(201).send({ run: serializeEvaluationRun(await dependencies.runEvaluation.execute({ tenantId: authorization.tenantId })) });
   });
   app.post("/v1/admin/uploads/:jobId/retry", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { jobId } = z.object({ jobId: z.string().uuid() }).parse(request.params);
     try {
       await dependencies.retryIngestionJob.execute(jobId, authorization.tenantId);
@@ -384,18 +406,18 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.get("/v1/admin/documents", async (request, reply) => {
     const authorization = await authorizeMember(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     return { documents: (await dependencies.listDocuments(authorization.tenantId, 100)).map(serializeDocument) };
   });
   app.get("/v1/admin/documents/:documentId/chunks", async (request, reply) => {
     const authorization = await authorizeMember(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
     return { chunks: (await dependencies.listDocumentChunks(authorization.tenantId, documentId, 200)).map(serializeStoredChunk) };
   });
   app.get("/v1/admin/documents/:documentId/original", { exposeHeadRoute: false }, async (request, reply) => {
     const authorization = await authorizeMember(request, true);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
     const original = await dependencies.getDocumentOriginal.execute({ tenantId: authorization.tenantId, documentId });
     if (!original) return reply.code(404).send({ error: "Original file not available." });
@@ -419,7 +441,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.post("/v1/admin/documents/:documentId/reindex", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
     const job = await dependencies.reindexDocument.execute({ documentId, tenantId: authorization.tenantId });
     if (!job) return reply.code(409).send({ error: "This document has no stored original available for reindexing." });
@@ -436,7 +458,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.delete("/v1/admin/documents/:documentId", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
-    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    if (!authorization.ok) return rejectScope(reply, authorization);
     const { documentId } = z.object({ documentId: z.string().uuid() }).parse(request.params);
     const deleted = await dependencies.deleteDocument.execute({ documentId, tenantId: authorization.tenantId });
     if (!deleted) return reply.code(404).send({ error: "Document not found." });
@@ -483,7 +505,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   app.get("/v1/search", async (request, reply) => {
     const { q, topK } = searchSchema.parse(request.query);
     const scope = await resolveQueryScope(request);
-    if (!scope.ok) return reply.code(scope.status).send({ error: scope.error });
+    if (!scope.ok) return rejectScope(reply, scope);
     const results = await dependencies.searchDocuments.execute({ query: q, topK, tenantId: scope.tenantId });
     return { results: results.map(({ content, ...result }) => {
       const { excerpt, excerptTruncated, previewBlocked } = restrictedPassagePreview(content, result.security);
@@ -493,7 +515,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   app.post("/v1/qa", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
     const { question, topK } = questionInputSchema.parse(request.body);
     const scope = await resolveQueryScope(request);
-    if (!scope.ok) return reply.code(scope.status).send({ error: scope.error });
+    if (!scope.ok) return rejectScope(reply, scope);
     const { tenantId, actorKey } = scope;
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
@@ -503,7 +525,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   app.post("/v1/qa/stream", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
     const { question, topK } = questionInputSchema.parse(request.body);
     const scope = await resolveQueryScope(request);
-    if (!scope.ok) return reply.code(scope.status).send({ error: scope.error });
+    if (!scope.ok) return rejectScope(reply, scope);
     const { tenantId, actorKey } = scope;
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });

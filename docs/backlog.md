@@ -49,6 +49,9 @@ product decision, credentials, or additional operational cost.
   remain inaccessible through the publishable Data API by design.
 - Workspace onboarding, switching, `owner`/`editor`/`viewer` roles, invitations,
   member management, and server-side authorization on every protected route.
+- Workspace Control Center: six independent, role-aware sections and a signed-in
+  workspace creation action with separate onboarding for each new space. The
+  API requires explicit selection for accounts with multiple memberships.
 - Feature-Sliced Design frontend and npm-workspaces monorepo with shared Zod
   contracts in `packages/contracts`.
 - Professional UX/UI first pass: shared design tokens and components, clearer
@@ -77,8 +80,8 @@ product decision, credentials, or additional operational cost.
 2. RAG visualization — complete for citation and context separation, controlled
    previews, and score interpretation.
 3. UX quality — responsive visual tests, contrast, accessibility, and team flows.
-4. Workspace Control Center — finish extracting independent section widgets
-   and expose additional workspace creation in the signed-in app.
+4. Workspace Control Center — complete for independent sections, additional
+   workspace creation, explicit API selection, and tenant isolation checks.
 5. Product expansion — demo datasets, backend history and feedback, invites,
    filters, and faithfulness evaluation.
 6. Real-time chat — reconnect, resume, and provider cancellation.
@@ -142,47 +145,33 @@ make model availability, cost estimates, and quota behavior visible in Ask.
 6. **Professional UX/UI hardening**
    - Implemented a shared responsive select for workspace switching, chat and
      search result limits, member roles, and processing filters.
+   - Standardize button and menu-action states across the product. Enabled
+     controls use a pointer cursor and visible hover and keyboard focus styles.
+     Disabled and pending actions are visibly distinct and block activation.
+   - Review English and Brazilian Portuguese product copy, including action
+     labels, empty states, progress, errors, and confirmations. Use familiar
+     workspace and document language, and explain how to recover from errors.
    - Run screenshot-based visual QA on mobile, tablet, and desktop in CI once a
      browser runner is available in the deployment pipeline.
    - Add a formal visual-regression baseline and automated contrast checks.
    - Continue refining member management and workspace onboarding with the same
      design tokens and state model.
 
-7. **Workspace control center refactor**
-   - Phase 1 implemented: dedicated workspace routes, section navigation,
-     overview cards, role-aware navigation, and conditional section queries.
-   - Split the current administration surface into independently routed sections:
-     `Overview`, `Knowledge`, `Processing`, `Team`, `Evaluations`, and
-     `Settings`.
-   - Keep workspace switching in the global header so users can move between
-     workspaces such as `TI` and `Legal` without losing their current section.
-   - Add **Create workspace** to the signed-in switcher and guide the user
-     through setup for the new space. Reuse the membership model and shared
-     PostgreSQL/pgvector database with tenant-scoped documents, retrieval,
-     cache, and quotas.
-   - Require an explicit workspace on private operations for multi-workspace
-     accounts and verify membership and the workspace role on the server.
-   - Test the same question in TI and Legal with distinct corpora and verify
-     citations belong to the active workspace. An owner in TI who is a viewer
-     in Legal can read Legal documents and cannot upload there.
-   - Move each section into a dedicated Feature-Sliced widget and keep actions
-     in focused features such as upload, reindex, member management, invite,
-     evaluation, and workspace settings.
-   - Make each section load independently. A failed members or evaluations
-     query must not leave the entire workspace page blank.
-   - Apply section-level authorization: viewers can access `Overview`,
-     `Knowledge`, and `Processing`; editors can manage knowledge; owners can
-     manage `Team`, `Evaluations`, and `Settings`.
-   - Add deep links such as `/workspace/knowledge` and `/workspace/team`, with
-     refresh-safe navigation and browser back/forward support.
-   - Use summary cards and `View details` links on `Overview` instead of
-     duplicating full management interfaces there.
-   - Preserve consistent loading, empty, error, success, responsive, keyboard,
-     and reduced-motion states across every section.
-   - Acceptance criteria: no monolithic `AdminPanel` responsibility remains;
-     each section has isolated queries, permissions, tests, and a stable URL.
-   - Remaining: extract the final section-specific data/mutation logic from the
-     compatibility `AdminPanel` into independent widgets and hooks.
+7. **Workspace Control Center — complete**
+   - The former `AdminPanel` is split into `Overview`, `Knowledge`,
+     `Processing`, `Team`, `Evaluations`, and `Settings`. Each section has a
+     stable route and independent data loading. Overview links to the full
+     sections from summary cards.
+   - **New workspace** in the signed-in header opens workspace creation and
+     starts a separate setup guide. Switching preserves the current section
+     when the role in the destination workspace can access it.
+   - Viewers can open Overview, Knowledge, and Processing. Editors can manage
+     documents. Owners can open Team, Evaluations, and Settings. The API
+     validates explicit workspace selection and membership on private operations
+     for accounts with multiple spaces.
+   - Verified route loading and role guards in Chrome using fixture data, and
+     verified workspace-specific citations, cache hits, quotas, and upload
+     authorization with two corpora in a disposable PostgreSQL/pgvector database.
 
 8. **Demo and product expansion**
    - Seed realistic starter corpora for separate `TI` and `Legal` workspaces so

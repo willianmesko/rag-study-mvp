@@ -14,8 +14,7 @@ export type WorkspaceMember = {
 };
 
 export interface TenantMembershipRepository {
-  findPrimaryByUserId(userId: string): Promise<TenantMembership | null>;
-  listByUserId(userId: string): Promise<TenantMembership[]>;
+  listByUserId(userId: string, limit?: number): Promise<TenantMembership[]>;
   findByUserAndTenant(userId: string, tenantId: string): Promise<TenantMembership | null>;
   createWorkspace(input: { userId: string; name: string; slug: string }): Promise<TenantMembership>;
   listMembers(tenantId: string): Promise<WorkspaceMember[]>;

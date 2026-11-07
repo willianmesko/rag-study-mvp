@@ -1,15 +1,16 @@
 import type { Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { Mascot } from "../../../shared/ui/Mascot";
-import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import { WorkspaceSwitcher, type WorkspaceCreation } from "./WorkspaceSwitcher";
 
-export function LabHeader({ online, loading, publicDemo, workspaces, workspaceId, onWorkspaceChange, accountAction }: {
+export function LabHeader({ online, loading, publicDemo, workspaces, workspaceId, onWorkspaceChange, workspaceCreation, accountAction }: {
   online: boolean;
   loading: boolean;
   publicDemo: boolean;
   workspaces: Workspace[];
   workspaceId: string;
   onWorkspaceChange: (workspaceId: string) => void;
+  workspaceCreation?: WorkspaceCreation;
   accountAction: { label: string; onClick: () => void; disabled?: boolean };
 }) {
   const { t } = useLocale();
@@ -40,7 +41,7 @@ export function LabHeader({ online, loading, publicDemo, workspaces, workspaceId
         </div>
       </div>
       <div className="flex min-w-0 flex-wrap items-end gap-3 2xl:shrink-0">
-        <WorkspaceSwitcher workspaces={workspaces} selectedId={workspaceId} onChange={onWorkspaceChange} />
+        <WorkspaceSwitcher workspaces={workspaces} selectedId={workspaceId} onChange={onWorkspaceChange} creation={workspaceCreation} />
         <div className={`status-pill mb-1.5 ${online ? "status-pill--success" : "status-pill--warning"}`}>
           <span aria-hidden="true" className={`size-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-amber-400"}`} />
           {status}

@@ -7,15 +7,16 @@ type MemberRow = { user_id: string; role: TenantRole; created_at: Date };
 export class PgTenantMembershipRepository implements TenantMembershipRepository {
   constructor(private readonly pool: Pool) {}
 
-  async findPrimaryByUserId(userId: string) {
+  async listByUserId(userId: string, limit?: number) {
     const result = await this.pool.query<Row>(
-      "SELECT m.tenant_id, t.name AS tenant_name, t.slug AS tenant_slug, m.role FROM tenant_memberships m JOIN tenants t ON t.id=m.tenant_id WHERE m.user_id = $1 ORDER BY m.created_at LIMIT 1",
-      [userId]
+      `SELECT m.tenant_id, t.name AS tenant_name, t.slug AS tenant_slug, m.role
+       FROM (SELECT tenant_id, role FROM tenant_memberships WHERE user_id = $1 LIMIT $2) m
+       JOIN tenants t ON t.id = m.tenant_id
+       ORDER BY t.name`,
+      [userId, limit ?? null]
     );
-    const row = result.rows[0];
-    return row ? { tenantId: row.tenant_id, tenantName: row.tenant_name, tenantSlug: row.tenant_slug, role: row.role } : null;
+    return result.rows.map((row) => ({ tenantId: row.tenant_id, tenantName: row.tenant_name, tenantSlug: row.tenant_slug, role: row.role }));
   }
-  async listByUserId(userId: string) { const result = await this.pool.query<Row>("SELECT m.tenant_id, t.name AS tenant_name, t.slug AS tenant_slug, m.role FROM tenant_memberships m JOIN tenants t ON t.id=m.tenant_id WHERE m.user_id=$1 ORDER BY t.name", [userId]); return result.rows.map((row) => ({ tenantId: row.tenant_id, tenantName: row.tenant_name, tenantSlug: row.tenant_slug, role: row.role })); }
   async findByUserAndTenant(userId: string, tenantId: string) { const result = await this.pool.query<Row>("SELECT m.tenant_id, t.name AS tenant_name, t.slug AS tenant_slug, m.role FROM tenant_memberships m JOIN tenants t ON t.id=m.tenant_id WHERE m.user_id=$1 AND m.tenant_id=$2", [userId, tenantId]); const row=result.rows[0]; return row ? { tenantId: row.tenant_id, tenantName: row.tenant_name, tenantSlug: row.tenant_slug, role: row.role } : null; }
   async createWorkspace(input: { userId: string; name: string; slug: string }) { const client=await this.pool.connect(); try { await client.query("BEGIN"); const tenant=await client.query<{id:string}>("INSERT INTO tenants (id, name, slug) VALUES (gen_random_uuid(),$1,$2) RETURNING id",[input.name,input.slug]); const id=tenant.rows[0]!.id; await client.query("INSERT INTO tenant_memberships (tenant_id,user_id,role) VALUES ($1,$2,'owner')",[id,input.userId]); await client.query("COMMIT"); return {tenantId:id,tenantName:input.name,tenantSlug:input.slug,role:"owner" as const}; } catch(e){await client.query("ROLLBACK");throw e;} finally{client.release();} }
   async listMembers(tenantId: string) {

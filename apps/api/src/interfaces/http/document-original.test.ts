@@ -42,7 +42,7 @@ async function fixture(t: TestContext, original = pdf) {
   });
 
   const membership = { tenantId: workspaceId, tenantName: "Legal", tenantSlug: "legal", role: "viewer" as const };
-  const findPrimaryMembership = t.mock.fn(async () => membership);
+  const listMemberships = t.mock.fn(async () => [membership]);
   const findMembership = t.mock.fn(async (userId: string, tenantId: string) =>
     userId === viewerId && tenantId === workspaceId ? membership : null
   );
@@ -51,14 +51,14 @@ async function fixture(t: TestContext, original = pdf) {
   );
   const recordAuditEvent = t.mock.fn(async (_input: Parameters<AuditEventRepository["record"]>[0]) => {});
   const dependencies = {
-    findPrimaryMembership,
+    listMemberships,
     findMembership,
     getDocumentOriginal: { execute: getDocumentOriginal },
     recordAuditEvent
   } satisfies Partial<Parameters<typeof buildApp>[0]>;
   const app = await buildApp(dependencies as unknown as Parameters<typeof buildApp>[0]);
   t.after(() => app.close());
-  return { app, findPrimaryMembership, findMembership, getDocumentOriginal, recordAuditEvent };
+  return { app, listMemberships, findMembership, getDocumentOriginal, recordAuditEvent };
 }
 
 test("originals require an authenticated user even in public demo mode", async (t) => {
@@ -75,12 +75,12 @@ test("originals require an authenticated user even in public demo mode", async (
   assert.equal(getDocumentOriginal.mock.callCount(), 0);
 });
 
-test("originals require an explicit workspace UUID and never use the primary membership", async (t) => {
-  const { app, findPrimaryMembership, findMembership, getDocumentOriginal } = await fixture(t);
+test("originals require an explicit workspace UUID without a membership fallback", async (t) => {
+  const { app, listMemberships, findMembership, getDocumentOriginal } = await fixture(t);
   const url = originalPath(documentId);
   assert.equal((await app.inject({ method: "GET", url, headers: { authorization } })).statusCode, 400);
   assert.equal((await app.inject({ method: "GET", url, headers: { authorization, "x-workspace-id": "not-a-uuid" } })).statusCode, 400);
-  assert.equal(findPrimaryMembership.mock.callCount(), 0);
+  assert.equal(listMemberships.mock.callCount(), 0);
   assert.equal(findMembership.mock.callCount(), 0);
   assert.equal(getDocumentOriginal.mock.callCount(), 0);
 });

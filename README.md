@@ -146,6 +146,17 @@ answer previews are limited to 600 characters after masking personal data
 matched by the redaction rules. Search and processing previews hide passages
 flagged as high risk.
 
+### Work across multiple workspaces
+
+Use **New workspace** next to the workspace selector to create another space
+with the same account. You become its owner and start a separate setup guide.
+The selector stays available during setup so you can return to an existing
+workspace.
+
+The selected workspace controls documents, search, chat, and permissions. The
+same account can manage documents in one workspace and have read access in
+another. Each Control Center section loads its own data.
+
 ## Common commands
 
 ```bash
