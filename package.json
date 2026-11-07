@@ -3,8 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "description": "A study-focused custom RAG MVP using TypeScript, pgvector and Amazon Bedrock.",
-  "workspaces": ["apps/*", "packages/*"],
-  "engines": { "node": ">=20" },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "npm run dev:api",
     "dev:api": "npm run build:contracts && npm --workspace @rag-study/api run dev",
@@ -33,9 +38,13 @@
     "eval:regression": "npm --workspace @rag-study/api run eval:regression",
     "eval:jina": "npm --workspace @rag-study/api run eval:replay -- --jina",
     "eval:promptfoo": "npm --workspace @rag-study/api run eval:promptfoo",
-    "eval:harness": "node scripts/run-evaluation-harness.mjs"
+    "eval:harness": "node scripts/run-evaluation-harness.mjs",
+    "workflow:keys": "npm --workspace @rag-study/api run workflow:keys --",
+    "integration:deliveries": "npm --workspace @rag-study/api run integration:deliveries --"
   },
-  "overrides": { "light-my-request": "6.6.0" },
+  "overrides": {
+    "light-my-request": "6.6.0"
+  },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
     "@playwright/test": "1.64.1"

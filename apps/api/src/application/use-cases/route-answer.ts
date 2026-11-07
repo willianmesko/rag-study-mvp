@@ -1,3 +1,4 @@
+import {withProviderUsageScope} from "../provider-usage-context.js";
 import type { ChatAnswerRouting } from "@rag-study/contracts";
 import type { ProviderTokenUsage } from "../ports/answer-generator.js";
 import type { AnswerQuestionResult, AnswerWorkflowEvent, PreparedAnswerWorkflow } from "../ports/question-answering-workflow.js";
@@ -55,7 +56,7 @@ export class RouteAnswerUseCase {
   ) {}
 
   execute(input: AutoInput): Promise<AnswerQuestionResult> {
-    return withTransientBudget({maxSteps:50,maxCalls:16,maxInputTokens:this.options.maxTotalInputTokens,maxOutputTokens:Math.min(64_000,this.options.maxTotalOutputTokens+3_600),maxCostMicros:Math.ceil(this.options.maxEstimatedCostUsd*1_000_000),timeoutMs:this.options.timeoutMs},()=>withExecutionTimeout((signal) => this.run(input, signal), this.options.timeoutMs, input.signal));
+    return withProviderUsageScope({tenantId:input.tenantId,actorKey:input.actorKey},()=>withTransientBudget({maxSteps:50,maxCalls:16,maxInputTokens:this.options.maxTotalInputTokens,maxOutputTokens:Math.min(64_000,this.options.maxTotalOutputTokens+3_600),maxCostMicros:Math.ceil(this.options.maxEstimatedCostUsd*1_000_000),timeoutMs:this.options.timeoutMs},()=>withExecutionTimeout((signal) => this.run(input, signal), this.options.timeoutMs, input.signal)));
   }
 
   private async run(input: AutoInput, signal: AbortSignal): Promise<AnswerQuestionResult> {

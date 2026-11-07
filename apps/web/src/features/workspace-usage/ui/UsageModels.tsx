@@ -8,9 +8,11 @@ import {
 
 export function UsageModels({
   models,
+  expandedCoverage = false,
   total,
 }: {
   models: UsageModel[];
+  expandedCoverage?: boolean;
   total: number;
 }) {
   const { locale, t } = useLocale(),
@@ -53,11 +55,23 @@ export function UsageModels({
               `${number.format(model.inputTokens)} / ${number.format(model.outputTokens)}`,
             ],
             [
-              t("Average response time", "Tempo médio de resposta"),
+              t(
+                expandedCoverage
+                  ? "Average operation time"
+                  : "Average response time",
+                expandedCoverage
+                  ? "Tempo médio por operação"
+                  : "Tempo médio de resposta",
+              ),
               `${number.format(Math.round(model.averageLatencyMs))} ms`,
             ],
             [
-              t("P95 response time", "Tempo de resposta P95"),
+              t(
+                expandedCoverage ? "P95 operation time" : "P95 response time",
+                expandedCoverage
+                  ? "Tempo P95 por operação"
+                  : "Tempo de resposta P95",
+              ),
               `${number.format(Math.round(model.p95LatencyMs))} ms`,
             ],
             [

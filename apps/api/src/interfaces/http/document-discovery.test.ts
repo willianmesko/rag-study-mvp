@@ -1,3 +1,4 @@
+import {UploadAdmissionError} from '../../application/ports/ingestion-job-repository.js';
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test, { type TestContext } from "node:test";
@@ -33,6 +34,8 @@ async function fixture(t: TestContext, role: "owner" | "editor" | "viewer" = "ow
   const queue = t.mock.fn(async (input: Parameters<QueueDocumentUploadUseCase["execute"]>[0]) => {
     assert.equal(input.tenantId, tenantId);
     assert.equal(input.onlyIfMissing, true);
+    assert.equal(input.actorId,userId);
+    if(!allowQuota)throw new UploadAdmissionError('upload_quota_exceeded');
     const job = { ...input, id: randomUUID(), documentId: null, title: input.title ?? null, status: "queued" as const,
       storagePath: null, progress: 0, error: null, chunkCount: null, highRiskChunks: null, createdAt: new Date(), updatedAt: new Date() };
     states.set(input.source, { source: input.source, state: "queued", jobId: job.id, documentId: null });
@@ -98,7 +101,7 @@ test("seed is catalog-owned, scoped, quota-limited, audited, and skips accepted 
   assert.equal(first.statusCode, 202);
   assert.equal(demoSeedResponseSchema.parse(first.json()).created, true);
   assert.equal((await app.inject({ method: "POST", url: seedUrl, headers, payload: { locale: "en" } })).json().created, false);
-  assert.equal(queue.mock.callCount(), 1); assert.equal(quota.mock.callCount(), 1);
+  assert.equal(queue.mock.callCount(), 1); assert.equal(quota.mock.callCount(), 0);
   assert.ok(queue.mock.calls[0]!.arguments[0].payload.includes("Northstar"));
   assert.doesNotMatch(JSON.stringify(audit.mock.calls), /Ownership and review|Responsabilidade e revisão/);
 });
@@ -115,7 +118,7 @@ test("seed handles a concurrent already-created source without replacing it", as
 test("upload quota rejection does not enqueue any demo content", async (t) => {
   const { app, queue } = await fixture(t, "owner", false);
   assert.equal((await app.inject({ method: "POST", url: seedUrl, headers, payload: { locale: "en" } })).statusCode, 429);
-  assert.equal(queue.mock.callCount(), 0);
+  assert.equal(queue.mock.callCount(), 1);
 });
 
 test("server document filters validate dates, reject scope overrides, and forward bound values", async (t) => {

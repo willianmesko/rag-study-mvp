@@ -626,8 +626,11 @@ Recorded cost is the sum of each event's reported cost when present, otherwise
 its saved estimate. It is not the sum of both figures. A reported zero is valid;
 reported tokens alone do not imply a reported price. Model details distinguish
 token and cost provenance, reuse, failed operations, average latency, and P95.
-Latency covers the recorded application operation, including its retrieval or
-validation work; it is not pure provider latency. One question may create
+Answer latency covers its application operation, including retrieval and
+validation. Additional provider-stage records measure their own invocation.
+Operation averages/P95 can therefore combine different scopes; use the
+operation breakdown and stage traces for diagnosis. Nested durations must not be
+summed as end-to-end response time. One question may create
 multiple comparison/routing operations. Cache rows have zero generation cost,
 and no hypothetical savings figure is invented.
 
@@ -638,12 +641,14 @@ exported. Reading analytics does not call a model. The overview alert uses its
 30-day window; Usage & costs evaluates the same configured threshold for the chosen
 window.
 
-Coverage is currently recorded answer, comparison, and automatic-routing
-operations. Embeddings, reranking, and evidence/evaluation-judge calls are not
-included in this ledger total, although durable workflows reserve their budgets
-separately. Full provider billing capture remains backlog. Existing historical
-amounts are not recalculated with today's prices, and missing measurements are
-not fabricated. These figures do not constitute a complete provider invoice.
+New ledger records also cover document/query embeddings, enabled reranking,
+evidence judges, evaluation judges and evaluation generation. Provider-native
+tokens/cost take precedence. A separately configured estimate is labeled as
+such; operations without a known price are counted explicitly and do not become
+fictional zero-cost measurements. Historical rows retain their earlier coverage
+and saved amounts. The UI/export includes the start of expanded coverage.
+Workflow budget reservations remain separate from accounting. See
+[observability and cost operations](operations/observability.md).
 
 The model-cost delivery passed all three
 [release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42361785953)
@@ -658,10 +663,10 @@ inspected window. No production data or schema was rewritten.
 
 ## Next architectural increments
 
-1. Extend the recorded-cost ledger to embeddings, reranking, and judge calls,
-   preferring provider-native measurements where available.
-2. Validate mixed-workload capacity, connection budgets, and tenant fairness.
-3. Move large ingestion workloads to a dedicated queue worker when measurements require it.
+1. Activate a selected tracing/metrics receiver and a signed budget destination.
+2. Rehearse staged key rotation and backup restore in the target environment.
+3. Validate mixed-workload capacity, connection budgets, and tenant fairness.
+4. Move large ingestion workloads to a dedicated queue worker when measurements require it.
 
 
 ### Simplified guided setup
@@ -674,3 +679,44 @@ main chat; the complete glossary is in Help. Owners can invite teammates after a
 grounded reply. Completing the guide passes its authorized conversation UUID to
 Ask so the user can continue the same thread. Explicitly deferring setup saves a
 valid goal/final-step completion record and leaves Help available.
+
+
+## Resilient effects and operational signals
+
+Uploads use workspace/actor-scoped idempotency and a request fingerprint. Byte
+quota, job and queued timeline event commit in one PostgreSQL transaction. Stable
+private original paths tolerate a lost upload acknowledgement through byte
+verification. Ingestion admission has bounded delayed retries and does not claim
+jobs already owned by an active workflow.
+
+Workflow provider effects have a fenced journal: completed receipts are reused,
+known rejected rate limits can retry within the original deadline/budget, and
+uncertain paid calls are held for review. This avoids claiming distributed
+exactly-once delivery. Budget notifications use a durable outbox, stable UUID,
+HMAC signature, public pinned HTTPS egress, leased delivery, jittered retries,
+dead letters and owner-authorized idempotent replay. Safe attempt events retain
+audit history without source content.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Queued
+  Queued --> Sending: fenced lease
+  Sending --> Delivered: 2xx acknowledgement
+  Sending --> Queued: transient failure + backoff
+  Sending --> DeadLetter: permanent rejection / attempt limit
+  Sending --> Sending: expired lease, same delivery ID
+  DeadLetter --> Queued: owner replay, same delivery ID
+```
+
+Versioned AES-GCM envelopes separate active writer and retained reader keys. A
+bounded rotation command verifies four encrypted stores; online retirement also
+requires complete inventory and backup-key custody. OpenTelemetry spans trace
+workflow stages, provider effects, tools and HTTP requests using server-generated
+correlation IDs. Metrics use fixed bounded labels and distinguish reported,
+estimated and unpriced cost. Logs/traces exclude content and credentials.
+
+The optional local Collector/Jaeger/Prometheus/Grafana stack provides an operations
+dashboard and tested alarm rules. No new hosted backend or external write tool
+is automatically enabled. Read the [rotation procedure](operations/workflow-key-rotation.md)
+and [effect/recovery policy](operations/integration-recovery.md) before operational
+activation or registering a write-capable action.

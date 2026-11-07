@@ -117,3 +117,10 @@ test("a query containing only redacted identifiers does not reach retrieval", as
   });
   assert.deepEqual(result, { results: [] });
 });
+
+test('future write actions are denied before any repository access even for an owner', async () => {
+  const tools=fixture({});
+  for(const tool of ['send_email','delete_document','execute_sql','execute_shell','run_evaluation']) {
+    await assert.rejects(tools.execute({tool:tool as Parameters<McpReadTools['execute']>[0]['tool'],tenantId,userId:tenantId,role:'owner',arguments:{approved:true},signal}),/not allowlisted/);
+  }
+});

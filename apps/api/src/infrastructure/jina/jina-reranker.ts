@@ -6,7 +6,7 @@ import { requestProviderJson } from "../http/provider-client.js";
 
 const responseSchema = z.object({
   results: z.array(z.object({
-    index: z.number().int().nonnegative(),
+    index: z.number().int().min(0).max(2_147_483_647),
     relevance_score: z.number()
   }))
 });
@@ -35,6 +35,8 @@ export class JinaReranker implements Reranker {
         return_documents: false
       })
     });
+    const measured=z.object({usage:z.object({total_tokens:z.number().int().min(0).max(2_147_483_647)})}).safeParse(json);
+    if(measured.success)input.onUsage?.({inputTokens:measured.data.usage.total_tokens,outputTokens:0});
     const results = responseSchema.parse(json).results;
     const usedIndexes = new Set<number>();
 

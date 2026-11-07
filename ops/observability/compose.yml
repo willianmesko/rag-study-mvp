@@ -1,0 +1,43 @@
+name: lumora-observability
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./collector.yaml:/etc/otelcol/config.yaml:ro
+    ports: ["127.0.0.1:14318:4318"]
+    depends_on: [jaeger]
+    mem_limit: 256m
+    restart: unless-stopped
+  jaeger:
+    image: jaegertracing/jaeger:2.23.0
+    ports: ["127.0.0.1:16686:16686"]
+    mem_limit: 256m
+    restart: unless-stopped
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    command:
+      [
+        "--config.file=/etc/prometheus/prometheus.yml",
+        "--storage.tsdb.retention.time=7d",
+      ]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["127.0.0.1:19090:9090"]
+    mem_limit: 256m
+    restart: unless-stopped
+  grafana:
+    image: grafana/grafana:13.3.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${OBS_GRAFANA_ADMIN_PASSWORD:?Set a local Grafana password}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./dashboard.json:/var/lib/grafana/dashboards/lumora.json:ro
+    ports: ["127.0.0.1:13030:3000"]
+    mem_limit: 256m
+    restart: unless-stopped

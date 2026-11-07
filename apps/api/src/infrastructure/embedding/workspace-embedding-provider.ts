@@ -38,15 +38,15 @@ export function createWorkspaceEmbeddingAdapter(identity: EmbeddingModelIdentity
   }
   const redacting = new RedactingEmbeddingProvider(adapter);
   return {
-    async embed(text, inputType, signal) {
-      const vector = await redacting.embed(text, inputType, signal);
+    async embed(text, inputType, signal,onUsage) {
+      const vector = await redacting.embed(text, inputType, signal,onUsage);
       validateWorkspaceEmbedding(vector);
       return vector;
     }
   };
 }
 
-export function createWorkspaceEmbeddingProvider(pool: Pool): EmbeddingProvider {
+export function createWorkspaceEmbeddingProvider(pool: Pool,factory:(identity:EmbeddingModelIdentity,tenantId:string)=>EmbeddingProvider=(identity)=>createWorkspaceEmbeddingAdapter(identity)): EmbeddingProvider {
   const index = new PgWorkspaceEmbeddingIndex(pool);
   const initial = defaultWorkspaceEmbeddingModel();
   return {
@@ -55,7 +55,7 @@ export function createWorkspaceEmbeddingProvider(pool: Pool): EmbeddingProvider 
       signal?.throwIfAborted();
       const identity = await index.getOrPinActive(tenantId, initial);
       signal?.throwIfAborted();
-      return { provider: createWorkspaceEmbeddingAdapter(identity), version: identity.revision, identity };
+      return { provider: factory(identity,tenantId), version: identity.revision, identity };
     }
   };
 }

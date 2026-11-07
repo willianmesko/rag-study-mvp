@@ -1,3 +1,5 @@
+import {withProviderReceipt,currentProviderReceipt} from "../provider-usage-context.js";
+import {observeOperation} from "../observability.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import {
@@ -24,7 +26,11 @@ export const withExecution = <T>(
   work: () => Promise<T>,
 ) => context.run(execution, work);
 
-export async function workflowNode<T>(
+export function workflowNode<T>(name:string,work:()=>Promise<T>):Promise<T>{
+  const execution=currentExecution();
+  return observeOperation({kind:'workflow.stage',name,runId:execution?.lease.runId,correlationId:execution?.lease.correlationId??execution?.lease.runId,workflowKind:execution?.lease.kind},()=>runWorkflowNode(name,work));
+}
+async function runWorkflowNode<T>(
   name: string,
   work: () => Promise<T>,
 ): Promise<T> {
@@ -74,9 +80,10 @@ export async function workflowEffect<T>(
   work: () => Promise<T>,
 ): Promise<T> {
   const execution = currentExecution();
+  const observed=()=>withProviderReceipt(currentProviderReceipt()??createHash("sha256").update(JSON.stringify([name,request])).digest("hex"),()=>observeOperation({kind:/^(chat:|embedding:|judge:|rerank)/.test(name)?'provider.call':'workflow.effect',name,runId:execution?.lease.runId,correlationId:execution?.lease.correlationId??execution?.lease.runId,workflowKind:execution?.lease.kind},work));
   if (!execution) {
     reserveTransient(amount);
-    return work();
+    return observed();
   }
   execution.signal.throwIfAborted();
   if (!(await execution.authorize()))
@@ -90,7 +97,7 @@ export async function workflowEffect<T>(
       execution.lease,
       fingerprint,
       amount,
-      work,
+      observed,
     );
     execution.effects.set(fingerprint, pending);
   }

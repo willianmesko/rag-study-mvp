@@ -1,3 +1,4 @@
+import {IntegrationFailure} from '../../application/integrations/retry-policy.js';
 import type { ChatPromptVariantId } from "@rag-study/contracts";
 import type {
   AnswerControls,
@@ -149,14 +150,14 @@ export class WorkflowAnswerGenerator implements AnswerGenerator {
           return { ok: true as const, answer, usage };
         } catch (error) {
           signal?.throwIfAborted();
-          if (error instanceof WorkflowGuardError) throw error;
-          return { ok: false as const };
+          if (error instanceof WorkflowGuardError||error instanceof IntegrationFailure) throw error;
+          return { ok: false as const,usage };
         }
       },
     );
+    if(result.usage)onUsage?.(result.usage);
     if (!result.ok)
       throw new Error("The provider could not produce an answer.");
-    if (result.usage) onUsage?.(result.usage);
     return result.answer;
   }
 }

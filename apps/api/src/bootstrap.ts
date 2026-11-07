@@ -1,3 +1,6 @@
+import { InviteWorkspaceMember } from "./application/integrations/workspace-invitations.js";
+import { PgInvitationDeliveries } from "./infrastructure/postgres/pg-invitation-deliveries.js";
+import { SupabaseInvitationGateway } from "./infrastructure/auth/supabase-invitation-gateway.js";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { GroundedClaimVerifier } from "./application/policies/claim-verification.js";
@@ -18,7 +21,12 @@ import {
 } from "./infrastructure/langgraph/langgraph-evaluation-workflow.js";
 import { PgWorkflowRepository } from "./infrastructure/postgres/pg-workflow-repository.js";
 import { PgWorkflowCheckpointer } from "./infrastructure/langgraph/pg-workflow-checkpointer.js";
-import { WorkflowStateCodec } from "./infrastructure/security/workflow-state-codec.js";
+import { BudgetAlerts } from "./infrastructure/observability/budget-alerts.js";
+import { ProviderMeasurements } from "./infrastructure/observability/measured-providers.js";
+import {
+  workflowCodecFromEnvironment,
+  WorkflowStateCodec,
+} from "./infrastructure/security/workflow-state-codec.js";
 import {
   WorkflowAnswerGenerator,
   WorkflowEmbeddingProvider,
@@ -54,7 +62,11 @@ import { resolveWorkspaceEmbeddingIndex } from "./application/ports/embedding-pr
 import type { Reranker } from "./application/ports/reranker.js";
 import { BedrockAnswerGenerator } from "./infrastructure/bedrock/bedrock-answer-generator.js";
 import { createBedrockClient } from "./infrastructure/bedrock/client.js";
-import { createWorkspaceEmbeddingAdapter, createWorkspaceEmbeddingProvider, defaultWorkspaceEmbeddingModel } from "./infrastructure/embedding/workspace-embedding-provider.js";
+import {
+  createWorkspaceEmbeddingAdapter,
+  createWorkspaceEmbeddingProvider,
+  defaultWorkspaceEmbeddingModel,
+} from "./infrastructure/embedding/workspace-embedding-provider.js";
 import { LangGraphRagWorkflow } from "./infrastructure/langgraph/langgraph-rag-workflow.js";
 import { LangSmithTracingWorkflow } from "./infrastructure/langsmith/langsmith-tracing-workflow.js";
 import { JinaReranker } from "./infrastructure/jina/jina-reranker.js";
@@ -89,26 +101,100 @@ import { RunEvaluationUseCase } from "./application/use-cases/run-evaluation.js"
 
 export function createApplication() {
   const pool = createPostgresPool(config.DATABASE_URL);
+  const rawUsageMetrics = new PgUsageMetricsRepository(pool);
+  const budgetAlerts = new BudgetAlerts(pool, {
+    url: config.BUDGET_ALERT_WEBHOOK_URL,
+    secret: config.BUDGET_ALERT_WEBHOOK_SECRET,
+    thresholdUsd: config.USAGE_ALERT_THRESHOLD_USD,
+    log: (record) => process.stdout.write(JSON.stringify(record) + "\n"),
+  });
+  const usageMetrics = {
+    summarize: rawUsageMetrics.summarize.bind(rawUsageMetrics),
+    record: async (input: Parameters<typeof rawUsageMetrics.record>[0]) => {
+      await rawUsageMetrics.record(input);
+      await budgetAlerts
+        .enqueue(input.tenantId)
+        .catch(() =>
+          process.stdout.write(
+            '{"event":"budget_alert_enqueue","reason":"database_unavailable"}\n',
+          ),
+        );
+    },
+  };
+  const measurements = new ProviderMeasurements(usageMetrics);
+  const invitationDeliveries = new PgInvitationDeliveries(pool);
+  const inviteWorkspaceMember = new InviteWorkspaceMember(
+    invitationDeliveries,
+    new SupabaseInvitationGateway(
+      config.SUPABASE_URL,
+      config.SUPABASE_SERVICE_ROLE_KEY,
+      config.APP_BASE_URL,
+    ),
+  );
+  const measuredEmbeddings = (
+    identity: Parameters<typeof createWorkspaceEmbeddingAdapter>[0],
+    tenantId?: string,
+  ) =>
+    measurements.embedding(
+      createWorkspaceEmbeddingAdapter(identity),
+      identity,
+      tenantId,
+      identity.provider === "ollama"
+        ? 0
+        : config.EMBEDDING_LEDGER_INPUT_COST_PER_1K_USD,
+    );
+
   const mcpReadPool = config.MCP_ENABLED
     ? createPostgresPool(config.MCP_READ_DATABASE_URL ?? config.DATABASE_URL, 2)
     : null;
   const mcpControls = new PgMcpControls(pool, {
-    callsPerMinute: config.MCP_CALLS_PER_MINUTE, callsPerDay: config.MCP_CALLS_PER_DAY,
-    providerCallsPerDay: config.MCP_PROVIDER_CALLS_PER_DAY, inputTokensPerDay: config.MCP_INPUT_TOKENS_PER_DAY,
+    callsPerMinute: config.MCP_CALLS_PER_MINUTE,
+    callsPerDay: config.MCP_CALLS_PER_DAY,
+    providerCallsPerDay: config.MCP_PROVIDER_CALLS_PER_DAY,
+    inputTokensPerDay: config.MCP_INPUT_TOKENS_PER_DAY,
     userCostNanoUsdPerDay: Math.floor(config.MCP_USER_COST_USD_PER_DAY * 1e9),
-    tenantCostNanoUsdPerDay: Math.floor(config.MCP_WORKSPACE_COST_USD_PER_DAY * 1e9), concurrentProviders: config.MCP_CONCURRENT_PROVIDERS
+    tenantCostNanoUsdPerDay: Math.floor(
+      config.MCP_WORKSPACE_COST_USD_PER_DAY * 1e9,
+    ),
+    concurrentProviders: config.MCP_CONCURRENT_PROVIDERS,
   });
   const mcpReads = mcpReadPool ? new PgMcpReadRepository(mcpReadPool) : null;
-  const mcpTools = mcpReads ? new McpReadTools(mcpReads, new McpHybridSearch(mcpReads, mcpControls,
-    createWorkspaceEmbeddingAdapter, [{ ...defaultWorkspaceEmbeddingModel(), inputCostPer1kUsd: config.EMBEDDING_INPUT_COST_PER_1K_USD }],
-    { maxInputTokens: 2048, maxCostNanoUsd: Math.floor(config.MCP_COST_USD_PER_CALL * 1e9) })) : null;
+  const mcpTools = mcpReads
+    ? new McpReadTools(
+        mcpReads,
+        new McpHybridSearch(
+          mcpReads,
+          mcpControls,
+          measuredEmbeddings,
+          [
+            {
+              ...defaultWorkspaceEmbeddingModel(),
+              inputCostPer1kUsd: config.EMBEDDING_INPUT_COST_PER_1K_USD,
+            },
+          ],
+          {
+            maxInputTokens: 2048,
+            maxCostNanoUsd: Math.floor(config.MCP_COST_USD_PER_CALL * 1e9),
+          },
+        ),
+      )
+    : null;
   const embeddings = new WorkflowEmbeddingProvider(
-    createWorkspaceEmbeddingProvider(pool),
+    createWorkspaceEmbeddingProvider(pool, measuredEmbeddings),
     "default",
     config.EMBEDDING_DIMENSIONS,
     config.EMBEDDING_INPUT_COST_PER_1K_USD,
   );
-  const reranker = new WorkflowReranker(createReranker());
+  const rawReranker = createReranker();
+  const reranker = new WorkflowReranker(
+    rawReranker.enabled
+      ? measurements.reranker(rawReranker, {
+          provider: "jina",
+          model: config.JINA_RERANKER_MODEL,
+          inputPrice: config.JINA_INPUT_COST_PER_1K_USD,
+        })
+      : rawReranker,
+  );
   const documents = new PgDocumentRepository(pool, config.EMBEDDING_DIMENSIONS);
   const demoLibraryRepository = new PgDemoLibraryRepository(pool);
   const jobs = new PgIngestionJobRepository(pool);
@@ -119,7 +205,6 @@ export function createApplication() {
     pool,
     config.EMBEDDING_DIMENSIONS,
   );
-  const usageMetrics = new PgUsageMetricsRepository(pool);
   const evaluations = new PgEvaluationRepository(pool);
   const workspaceModelPolicies = new PgWorkspaceModelPolicyRepository(pool);
   const chatRuns = new PgChatRunRepository(pool);
@@ -206,12 +291,20 @@ export function createApplication() {
         const descriptor = { id, label, provider, isDefault: id === "default" };
         const pricing = { inputCostPer1kUsd, outputCostPer1kUsd };
         const generator = new WorkflowAnswerGenerator(
-          new RedactingAnswerGenerator(
-            createAnswerGenerator(
+          measurements.evaluationGenerator(
+            new RedactingAnswerGenerator(
+              createAnswerGenerator(
+                provider,
+                model,
+                config.CHAT_MAX_OUTPUT_TOKENS,
+              ),
+            ),
+            {
               provider,
               model,
-              config.CHAT_MAX_OUTPUT_TOKENS,
-            ),
+              inputPrice: inputCostPer1kUsd,
+              outputPrice: outputCostPer1kUsd,
+            },
           ),
           id,
           pricing,
@@ -220,10 +313,19 @@ export function createApplication() {
         const claimJudge =
           config.RAG_CLAIM_MODE === "model" && provider === "openrouter"
             ? new WorkflowFaithfulnessJudge(
-                new OpenRouterFaithfulnessJudge(
-                  config.OPENROUTER_BASE_URL,
-                  config.OPENROUTER_API_KEY!,
-                  model,
+                measurements.judge(
+                  new OpenRouterFaithfulnessJudge(
+                    config.OPENROUTER_BASE_URL,
+                    config.OPENROUTER_API_KEY!,
+                    model,
+                  ),
+                  {
+                    provider,
+                    model,
+                    inputPrice: inputCostPer1kUsd,
+                    outputPrice: outputCostPer1kUsd,
+                  },
+                  "evidence_judging",
                 ),
                 pricing,
               )
@@ -277,10 +379,19 @@ export function createApplication() {
   const defaultChat = chatModels.get("default")!;
   const judge = config.EVAL_FAITHFULNESS_JUDGE_MODEL
     ? new WorkflowFaithfulnessJudge(
-        new OpenRouterFaithfulnessJudge(
-          config.OPENROUTER_BASE_URL,
-          config.OPENROUTER_API_KEY as string,
-          config.EVAL_FAITHFULNESS_JUDGE_MODEL,
+        measurements.judge(
+          new OpenRouterFaithfulnessJudge(
+            config.OPENROUTER_BASE_URL,
+            config.OPENROUTER_API_KEY as string,
+            config.EVAL_FAITHFULNESS_JUDGE_MODEL,
+          ),
+          {
+            provider: "openrouter",
+            model: config.EVAL_FAITHFULNESS_JUDGE_MODEL,
+            inputPrice: config.EVAL_JUDGE_INPUT_COST_PER_1K_USD,
+            outputPrice: config.EVAL_JUDGE_OUTPUT_COST_PER_1K_USD,
+          },
+          "evaluation_judging",
         ),
         {
           inputCostPer1kUsd: config.EVAL_JUDGE_INPUT_COST_PER_1K_USD,
@@ -326,7 +437,7 @@ export function createApplication() {
     maxOcrPages: config.PDF_OCR_MAX_PAGES,
   });
   const codec = config.WORKFLOWS_ENABLED
-    ? new WorkflowStateCodec(config.WORKFLOW_STATE_KEY!)
+    ? workflowCodecFromEnvironment(config)
     : undefined;
   const workflowRepository = codec
     ? new PgWorkflowRepository(pool, codec)
@@ -375,8 +486,16 @@ export function createApplication() {
               config.CHAT_MAX_OUTPUT_TOKENS,
             );
             const generator = new WorkflowAnswerGenerator(
-              new RedactingAnswerGenerator(
-                createAnswerGenerator(provider, modelName, maxOutputTokens),
+              measurements.evaluationGenerator(
+                new RedactingAnswerGenerator(
+                  createAnswerGenerator(provider, modelName, maxOutputTokens),
+                ),
+                {
+                  provider,
+                  model: modelName,
+                  inputPrice: inputCostPer1kUsd,
+                  outputPrice: outputCostPer1kUsd,
+                },
               ),
               `evaluation:${modelId ?? "default"}:${maxOutputTokens}`,
               { inputCostPer1kUsd, outputCostPer1kUsd },
@@ -627,7 +746,11 @@ export function createApplication() {
     useCases: {
       ingestDocument,
       demoLibraryRepository,
-      queueDocumentUpload: new QueueDocumentUploadUseCase(jobs, originals),
+      queueDocumentUpload: new QueueDocumentUploadUseCase(
+        jobs,
+        originals,
+        config.DAILY_ADMIN_UPLOAD_BYTES_LIMIT,
+      ),
       publicHtmlFetcher: new HttpsPublicHtmlFetcher({
         maxBytes: Math.min(config.UPLOAD_MAX_BYTES, 1_000_000),
         timeoutMs: 10_000,
@@ -701,6 +824,12 @@ export function createApplication() {
       invalidateSemanticCache: (tenantId: string) =>
         semanticCache.invalidateTenant(tenantId),
       recordAuditEvent: auditEvents.record.bind(auditEvents),
+      budgetAlerts,
+      inviteWorkspaceMember,
+      listInvitationDeliveries:
+        invitationDeliveries.list.bind(invitationDeliveries),
+      pruneInvitationDeliveries:
+        invitationDeliveries.prune.bind(invitationDeliveries),
       searchDocuments,
       chatRuns,
       conversations: new PgConversationRepository(pool),
@@ -725,10 +854,18 @@ export function createApplication() {
             controls: mcpControls,
           }
         : undefined,
-      remoteMcp: config.MCP_REMOTE_ENABLED && mcpTools ? {
-        oauth: new McpOAuth(new PgMcpOAuthRepository(pool), config.MCP_PUBLIC_URL!, config.APP_BASE_URL!),
-        tools: mcpTools, controls: mcpControls
-      } : undefined,
+      remoteMcp:
+        config.MCP_REMOTE_ENABLED && mcpTools
+          ? {
+              oauth: new McpOAuth(
+                new PgMcpOAuthRepository(pool),
+                config.MCP_PUBLIC_URL!,
+                config.APP_BASE_URL!,
+              ),
+              tools: mcpTools,
+              controls: mcpControls,
+            }
+          : undefined,
       agentActions: config.AGENT_ACTIONS_ENABLED
         ? new AgentActionService(new PgAgentActionRepository(pool))
         : undefined,

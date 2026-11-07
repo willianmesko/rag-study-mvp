@@ -57,6 +57,9 @@ const environment = z.object({
   LANGSMITH_API_KEY: z.string().min(1).optional(),
   LANGSMITH_PROJECT: z.string().min(1).default("rag-study-mvp"),
   HOST: z.string().min(1).default("127.0.0.1"),
+  OTEL_ENABLED:booleanEnvironment.default(false),
+  OTEL_EXPORTER_OTLP_ENDPOINT:z.string().url().optional(),
+  OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:z.string().url().optional(),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   CHUNK_SIZE: z.coerce.number().int().min(200).max(10_000).default(1200),
   CHUNK_OVERLAP: z.coerce.number().int().min(0).max(5_000).default(200),
@@ -68,9 +71,13 @@ const environment = z.object({
   AGENT_MAX_STEPS: z.coerce.number().int().min(1).max(50).default(8),
   AGENT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
   WORKFLOWS_ENABLED:booleanEnvironment.default(false),
+  WORKFLOW_STATE_KEYS:z.string().min(1).max(4096).optional(),
+  WORKFLOW_STATE_ACTIVE_KEY_ID:z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,39}$/).optional(),
   WORKFLOW_STATE_KEY:z.string().regex(/^[A-Za-z0-9+/]{43}=$/).optional(),
   WORKFLOW_INGEST_MAX_COST_USD:z.coerce.number().min(0).max(10).default(0.1),
   WORKFLOW_EVAL_MAX_COST_USD:z.coerce.number().min(0).max(10).default(0.2),
+  EMBEDDING_LEDGER_INPUT_COST_PER_1K_USD:z.coerce.number().min(0).max(10).optional(),
+  JINA_INPUT_COST_PER_1K_USD:z.coerce.number().min(0).max(10).optional(),
   EMBEDDING_INPUT_COST_PER_1K_USD:z.coerce.number().min(0).max(10).default(0.001),
   RAG_CLAIM_MODE:z.enum(['model','extractive']).default('model'),
   MCP_ENABLED: booleanEnvironment.default(false),
@@ -101,6 +108,8 @@ const environment = z.object({
   SEMANTIC_CACHE_MINIMUM_SIMILARITY: z.coerce.number().min(0.7).max(1).default(0.96),
   ESTIMATED_INPUT_COST_PER_1K_USD: z.coerce.number().min(0).max(10).default(0.00015),
   ESTIMATED_OUTPUT_COST_PER_1K_USD: z.coerce.number().min(0).max(10).default(0.0006),
+  BUDGET_ALERT_WEBHOOK_URL:z.string().url().optional(),
+  BUDGET_ALERT_WEBHOOK_SECRET:z.string().min(32).max(256).optional(),
   USAGE_ALERT_THRESHOLD_USD: z.coerce.number().min(0).max(100_000).default(1),
   USAGE_HASH_SECRET: z.string().min(32).optional(),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
@@ -136,7 +145,7 @@ const environment = z.object({
 export const config = environment.parse(process.env);
 if (config.MCP_REMOTE_ENABLED && (!config.MCP_ENABLED || !config.MCP_PUBLIC_URL || !config.APP_BASE_URL || !config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY))
   throw new Error("Remote MCP requires MCP_ENABLED, MCP_PUBLIC_URL, APP_BASE_URL and Supabase authentication.");
-if (config.WORKFLOWS_ENABLED && !config.WORKFLOW_STATE_KEY) throw new Error("WORKFLOW_STATE_KEY is required when WORKFLOWS_ENABLED=true.");
+if (config.WORKFLOWS_ENABLED && !config.WORKFLOW_STATE_KEY && !(config.WORKFLOW_STATE_KEYS && config.WORKFLOW_STATE_ACTIVE_KEY_ID)) throw new Error("WORKFLOW_STATE_KEY is required when WORKFLOWS_ENABLED=true.");
 
 if (config.CHUNK_OVERLAP >= config.CHUNK_SIZE) {
   throw new Error("CHUNK_OVERLAP must be smaller than CHUNK_SIZE.");

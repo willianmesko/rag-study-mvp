@@ -1,3 +1,5 @@
+import {WorkflowGuardError} from '../workflows/types.js';
+import {retryDelayMs} from '../integrations/retry-policy.js';
 import type { DocumentTextExtractor } from "../ports/document-text-extractor.js";
 import type { IngestionJobRepository } from "../ports/ingestion-job-repository.js";
 import type { OriginalFileStore } from "../ports/original-file-store.js";
@@ -12,7 +14,11 @@ export class ProcessNextIngestionJobUseCase {
     if (!job) return false;
     if (this.enqueueWorkflow) {
       try { await this.enqueueWorkflow(job); }
-      catch { await this.jobs.fail(job.id, 'workflow_admission_failed'); }
+      catch (error) {
+        const permanent=error instanceof WorkflowGuardError&&error.code!=='queue_full';
+        if(!permanent&&this.jobs.deferAdmission)await this.jobs.deferAdmission(job.id,'workflow_admission_retry',retryDelayMs(job.admissionAttempts??1,{baseMs:1000}));
+        else await this.jobs.fail(job.id,'workflow_admission_failed');
+      }
       return true;
     }
     try {

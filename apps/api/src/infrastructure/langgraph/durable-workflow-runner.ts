@@ -1,3 +1,5 @@
+import {IntegrationFailure,retryDelayMs} from '../../application/integrations/retry-policy.js';
+import {recordOperationalEvent} from '../../application/observability.js';
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { traceable } from "langsmith/traceable";
 import { withExecution } from "../../application/workflows/execution-context.js";
@@ -152,6 +154,13 @@ export class DurableWorkflowRunner {
     } catch (error) {
       if (error instanceof WorkflowApprovalPending)
         await this.repository.finish(lease, "waiting_approval");
+      else if(error instanceof IntegrationFailure&&error.code==='rate_limited'&&lease.attempts<8&&!signal.aborted){
+        const delayMs=retryDelayMs(lease.attempts,{retryAfterMs:error.retryAfterMs});
+        if(Date.now()+delayMs<lease.deadlineAt.getTime()){
+          await this.repository.release(lease,{reason:'rate_limited',delayMs});
+          recordOperationalEvent({operation:lease.kind==='ingestion'?'ingestion':'provider_request',outcome:'retry',reason:'rate_limited'});
+        }else await this.repository.finish(lease,'failed',undefined,'deadline_exceeded');
+      }
       else if (this.closing) await this.repository.release(lease);
       else {
         const code =

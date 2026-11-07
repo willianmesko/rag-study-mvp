@@ -280,3 +280,54 @@ test("cost by model shows provenance, supports periods, and exports only aggrega
   ).toBeVisible();
   expect(requested).toEqual(expect.arrayContaining([30, 7, 90]));
 });
+
+test("expanded AI coverage explains unpriced operations and exports truthful provenance", async ({
+  page,
+  context,
+}) => {
+  await workspaceFixture().attach(context);
+  await context.route("**/v1/admin/usage?*", (route) => {
+    const data = response(30);
+    return route.fulfill({
+      json: {
+        ...data,
+        summary: {
+          ...data.summary,
+          extendedSince: "2026-11-07T12:00:00.000Z",
+          unpricedRequests: 2,
+        },
+      },
+    });
+  });
+  await page.goto("/workspace/usage");
+  const panel = page.getByRole("region", { name: /^(AI usage|Uso de IA)$/ });
+  await expect(
+    panel.getByText(
+      /Recorded calls now include embeddings|Os registros atuais incluem embeddings/,
+    ),
+  ).toBeVisible();
+  await expect(
+    panel.getByText(
+      /Some calls have no reported cost|Algumas chamadas não têm custo informado/,
+    ),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    ),
+  ).toBe(false);
+  const axe = await new AxeBuilder({ page })
+    .include("main")
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  expect(axe.violations).toEqual([]);
+  const waiting = page.waitForEvent("download");
+  await panel
+    .getByRole("button", { name: /Export metrics|Exportar métricas/ })
+    .click();
+  const file = await waiting,
+    path = await file.path();
+  const report = JSON.parse(await readFile(path!, "utf8"));
+  expect(report.coverage).toBe("recorded_provider_operations");
+  expect(report.summary.unpricedRequests).toBe(2);
+});

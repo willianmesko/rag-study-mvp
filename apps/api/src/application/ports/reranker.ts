@@ -1,3 +1,4 @@
+import type {ProviderUsageObserver} from "./answer-generator.js";
 import type { RetrievedChunk } from "../../domain/document.js";
 
 export type RerankInput = {
@@ -5,6 +6,7 @@ export type RerankInput = {
   candidates: RetrievedChunk[];
   limit: number;
   signal?: AbortSignal;
+  onUsage?:ProviderUsageObserver;
 };
 
 export interface Reranker {

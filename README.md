@@ -31,6 +31,11 @@ The detailed design is available in
 See [Durable workflows](docs/durable-workflows.md) for graphs, security boundaries,
 local setup, budget semantics, recovery limits, and failure runbooks.
 
+Operational guides cover [safe telemetry and cost coverage](docs/operations/observability.md),
+[staged workflow key rotation](docs/operations/workflow-key-rotation.md), and
+[idempotency, notifications and recovery](docs/operations/integration-recovery.md).
+The optional local monitoring stack is in `ops/observability`.
+
 ## Monorepo layout
 
 ```text

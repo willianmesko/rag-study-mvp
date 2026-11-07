@@ -2,7 +2,7 @@ import type { ChatPromptVariantId } from "@rag-study/contracts";
 import { z } from "zod";
 import type { AnswerControls, AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
-import { maxProviderResponseBytes, providerRequestSignal, requestProviderJson } from "../http/provider-client.js";
+import { maxProviderResponseBytes, requestProviderResponse, requestProviderJson } from "../http/provider-client.js";
 
 const responseSchema = z.object({ choices: z.array(z.object({ message: z.object({ content: z.string().nullable() }) })).min(1), usage: z.unknown().optional() });
 const usageSchema = z.object({
@@ -49,7 +49,7 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
 
   async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], controls?:AnswerControls): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, undefined, controls);
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+    const response = await requestProviderResponse(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json", accept: "text/event-stream" },
       body: JSON.stringify({
@@ -63,7 +63,7 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
           { role: "user", content: prompt.user }
         ]
       }),
-      signal: providerRequestSignal(signal)
+      signal
     });
     if (!response.ok) throw new Error(`OpenRouter streaming request failed (${response.status}).`);
     if (!response.body) throw new Error("OpenRouter did not return a streaming body.");

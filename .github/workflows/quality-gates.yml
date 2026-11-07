@@ -40,6 +40,11 @@ jobs:
       - name: Prepare local Supabase authentication fixture
         run: docker exec -i ${{ job.services.postgres.id }} psql -U rag -d rag -v ON_ERROR_STOP=1 < tests/fixtures/supabase-auth.sql
       - run: npm run test:mcp:postgres
+      - name: Validate operational alarms
+        run: >-
+          docker run --rm --entrypoint promtool
+          -v "$PWD/ops/observability:/etc/lumora:ro" -w /etc/lumora
+          prom/prometheus:v3.16.0 test rules alert-tests.yml
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 10

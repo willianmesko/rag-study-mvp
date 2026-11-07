@@ -1,3 +1,4 @@
+import {withProviderUsageScope} from "../provider-usage-context.js";
 import { createHash } from "node:crypto";
 import type { AnswerWorkflowEvent, QuestionAnsweringWorkflow, AnswerQuestionResult } from "../ports/question-answering-workflow.js";
 import { resolveWorkspaceEmbeddingIndex, type EmbeddingProvider } from "../ports/embedding-provider.js";
@@ -22,7 +23,7 @@ export class AnswerQuestionUseCase {
   ) {}
 
   execute(input: { question: string; previousQuestions?: readonly string[]; topK?: number; tenantId: string; actorKey: string; bypassCache?: boolean; signal?: AbortSignal; onEvent?: (event: AnswerWorkflowEvent) => void | Promise<void> }): Promise<AnswerQuestionResult> {
-    return withTransientBudget({maxSteps:50,maxCalls:12,maxInputTokens:160_000,maxOutputTokens:Math.min(64_000,this.options.maxOutputTokens*2+1_800),maxCostMicros:Math.ceil(this.options.maxEstimatedCostUsd*1_000_000),timeoutMs:120_000},()=>this.run(input));
+    return withProviderUsageScope({tenantId:input.tenantId,actorKey:input.actorKey},()=>withTransientBudget({maxSteps:50,maxCalls:12,maxInputTokens:160_000,maxOutputTokens:Math.min(64_000,this.options.maxOutputTokens*2+1_800),maxCostMicros:Math.ceil(this.options.maxEstimatedCostUsd*1_000_000),timeoutMs:120_000},()=>this.run(input)));
   }
   private async run(input: { question: string; previousQuestions?: readonly string[]; topK?: number; tenantId: string; actorKey: string; bypassCache?: boolean; signal?: AbortSignal; onEvent?: (event: AnswerWorkflowEvent) => void | Promise<void> }): Promise<AnswerQuestionResult> {
     const { signal } = input;

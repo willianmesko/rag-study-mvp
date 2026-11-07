@@ -5,6 +5,7 @@ import type {
 } from "../../application/ports/usage-metrics-repository.js";
 import { createHash } from "node:crypto";
 import { currentExecution } from "../../application/workflows/execution-context.js";
+import { recordOperationalUsage } from "../../application/observability.js";
 
 type SummaryRow = Record<string, string | number | Date | null> & {
   bucket: "total" | "model" | "operation" | "day";
@@ -32,6 +33,7 @@ function totals(row?: SummaryRow) {
     estimatedInputTokens: number("estimated_input_tokens"),
     estimatedOutputTokens: number("estimated_output_tokens"),
     p95LatencyMs: number("p95_latency_ms"),
+    unpricedRequests: number("unpriced_requests"),
   };
 }
 
@@ -51,15 +53,16 @@ export class PgUsageMetricsRepository implements UsageMetricsRepository {
               input.provider,
               input.model,
               input.promptVersion,
+              ...(input.idempotencyKey ? [input.idempotencyKey] : []),
             ]),
           )
           .digest("hex")
       : null;
-    await this.pool.query(
+    const inserted = await this.pool.query(
       `INSERT INTO ai_usage_events (tenant_id, actor_key, operation, provider, model, cache_hit, input_tokens, output_tokens, latency_ms, estimated_cost_usd, failed,
-                                    usage_source, observed_cost_usd, prompt_version, citation_count, safety_outcome,workflow_run_id,workflow_record_key)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
-       ON CONFLICT(tenant_id,workflow_run_id,workflow_record_key) WHERE workflow_run_id IS NOT NULL DO NOTHING`,
+                                    usage_source, observed_cost_usd, prompt_version, citation_count, safety_outcome,workflow_run_id,workflow_record_key,pricing_known,measurement_version)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,2)
+       ON CONFLICT(tenant_id,workflow_run_id,workflow_record_key) WHERE workflow_run_id IS NOT NULL DO NOTHING RETURNING id`,
       [
         input.tenantId,
         input.actorKey,
@@ -79,8 +82,25 @@ export class PgUsageMetricsRepository implements UsageMetricsRepository {
         input.safetyOutcome ?? null,
         execution?.lease.runId ?? null,
         recordKey,
+        input.pricingKnown ?? null,
       ],
     );
+    if (inserted.rowCount)
+      recordOperationalUsage({
+        provider: input.provider,
+        model: input.model,
+        operation: input.operation,
+        inputTokens: input.inputTokens,
+        outputTokens: input.outputTokens,
+        source: input.source ?? "estimated",
+        costSource:
+          input.observedCostUsd !== undefined
+            ? "reported"
+            : input.pricingKnown === false
+              ? "unknown"
+              : "estimated",
+        costUsd: input.observedCostUsd ?? input.estimatedCostUsd,
+      });
   }
 
   async summarize(input: {
@@ -94,7 +114,7 @@ export class PgUsageMetricsRepository implements UsageMetricsRepository {
     const { rows } = await this.pool.query<SummaryRow>(
       `WITH scoped AS (
          SELECT provider,model,operation,(created_at AT TIME ZONE 'UTC')::date::text AS day,
-           cache_hit,input_tokens,output_tokens,latency_ms,estimated_cost_usd,observed_cost_usd,usage_source,failed
+           cache_hit,input_tokens,output_tokens,latency_ms,estimated_cost_usd,observed_cost_usd,usage_source,failed,pricing_known,measurement_version,created_at
          FROM ai_usage_events
          WHERE tenant_id=$1 AND created_at>=NOW()-($2*INTERVAL '1 day') AND created_at<=NOW()
        )
@@ -109,8 +129,10 @@ export class PgUsageMetricsRepository implements UsageMetricsRepository {
          COALESCE(SUM(COALESCE(observed_cost_usd,estimated_cost_usd)),0)::text AS effective_cost_usd,
          COUNT(*) FILTER(WHERE usage_source='observed')::text AS observed_requests,
          COUNT(*) FILTER(WHERE observed_cost_usd IS NOT NULL)::text AS observed_cost_requests,
-         COUNT(*) FILTER(WHERE observed_cost_usd IS NULL AND NOT cache_hit AND usage_source IN ('estimated','observed'))::text AS estimated_cost_requests,
+         COUNT(*) FILTER(WHERE observed_cost_usd IS NULL AND pricing_known IS DISTINCT FROM false AND NOT cache_hit AND usage_source IN ('estimated','observed'))::text AS estimated_cost_requests,
          COUNT(*) FILTER(WHERE usage_source='none')::text AS skipped_requests,
+         COUNT(*) FILTER(WHERE pricing_known=false AND observed_cost_usd IS NULL)::text AS unpriced_requests,
+         MIN(created_at) FILTER(WHERE measurement_version=2) AS extended_since,
          COALESCE(SUM(input_tokens) FILTER(WHERE usage_source='observed'),0)::text AS observed_input_tokens,
          COALESCE(SUM(output_tokens) FILTER(WHERE usage_source='observed'),0)::text AS observed_output_tokens,
          COALESCE(SUM(input_tokens) FILTER(WHERE usage_source='estimated'),0)::text AS estimated_input_tokens,
@@ -126,6 +148,9 @@ export class PgUsageMetricsRepository implements UsageMetricsRepository {
     const cost = (row: ReturnType<typeof totals>) => row.effectiveCostUsd;
     return {
       ...totals(total),
+      ...(total?.extended_since instanceof Date
+        ? { extendedSince: total.extended_since.toISOString() }
+        : {}),
       models: rows
         .filter((row) => row.bucket === "model")
         .map((row) => ({

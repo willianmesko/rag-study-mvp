@@ -148,7 +148,7 @@ continues its fixed provider-free evaluation path independently.
 | Limit | Enforcement |
 | --- | --- |
 | Steps, provider calls, input/output tokens, configured spend | Atomic reservations before work; retained across attempts |
-| Provider ambiguity | At most two attempts per unfinished effect, each charged a reservation |
+| Provider ambiguity | Unknown paid outcomes stop; known rejected 429s have bounded retries and new call reservations |
 | Active workspace admissions | Five chat runs, twenty ingestion runs, one evaluation |
 | Worker concurrency | At most three runs per API process, including at most one ingestion and one evaluation |
 | Execution deadline | Chat configuration; ingestion five minutes; evaluation two minutes |
@@ -163,7 +163,10 @@ exact tokenizer counts. Spend reservations depend on configured provider rates.
 They cap permitted reservations, not the provider's invoice if rates are wrong.
 Set and maintain suitable rates; observe actual billing separately. A provider
 may already have billed an in-flight request when a process dies. If its result
-never reached the effect journal, recovery can retry once and reserve again.
+never reached the effect journal, its outcome is uncertain and automatic replay
+is blocked. Known rejected 429 responses can retry with a new reservation within
+the original deadline and remaining budget. See the
+[integration recovery policy](operations/integration-recovery.md).
 There is no claim of exactly-once provider billing.
 
 Cancelling a local run aborts its controller immediately. Another replica sees

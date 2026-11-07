@@ -8,8 +8,8 @@
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test:mcp:postgres": "tsx --test --test-concurrency=1 src/infrastructure/postgres/pg-mcp.integration.test.ts src/infrastructure/postgres/pg-agent-action-repository.test.ts src/infrastructure/postgres/pg-discovery.integration.test.ts src/infrastructure/langgraph/durable-workflows.integration.test.ts src/infrastructure/postgres/pg-usage-metrics.integration.test.ts src/infrastructure/postgres/pg-knowledge-status.integration.test.ts src/infrastructure/postgres/pg-mcp-remote.integration.test.ts src/infrastructure/postgres/pg-conversations.integration.test.ts",
-    "test": "tsx --test src/rag/chunk.test.ts src/application/use-cases/search-documents.test.ts src/application/use-cases/document-management.test.ts src/application/use-cases/get-document-original.test.ts src/application/use-cases/answer-question.test.ts src/application/use-cases/run-evaluation.test.ts src/application/evaluation/golden-set.test.ts src/application/evaluation/prompt-injection-suite.test.ts src/application/evaluation/replay-benchmark.test.ts src/application/evaluation/performance-gate.test.ts src/application/evaluation/reviewed-replay.test.ts src/application/policies/grounded-answer-policy.test.ts src/application/policies/structured-answer.test.ts src/application/policies/agent-execution-policy.test.ts src/application/policies/lexical-query.test.ts src/domain/security/prompt-injection.test.ts src/domain/security/pii-redaction.test.ts src/infrastructure/ingestion/document-text-extractor.test.ts src/infrastructure/ingestion/pdf-ocr.test.ts src/infrastructure/ingestion/public-html-fetcher.test.ts src/infrastructure/jina/jina-reranker.test.ts src/infrastructure/langgraph/langgraph-rag-workflow.test.ts src/interfaces/http/query-scope.test.ts src/interfaces/http/document-original.test.ts src/interfaces/http/url-import.test.ts src/interfaces/http/rag-evidence.test.ts src/interfaces/http/workspace-scope.test.ts src/interfaces/http/workspace-onboarding.test.ts src/interfaces/http/chat-runs.test.ts src/infrastructure/openrouter/openrouter-answer-generator.test.ts src/infrastructure/openrouter/openrouter-faithfulness-judge.test.ts src/interfaces/http/chat-models.test.ts src/application/mcp/read-tools.test.ts src/infrastructure/postgres/pg-mcp-read-repository.test.ts src/application/agent-actions/agent-actions.test.ts src/infrastructure/postgres/pg-agent-action-repository.test.ts src/interfaces/http/workspace-mcp.test.ts src/interfaces/mcp/stdio.test.ts src/interfaces/http/agent-actions.test.ts src/interfaces/http/document-discovery.test.ts src/application/policies/claim-verification.test.ts src/infrastructure/langgraph/langgraph-expansion.test.ts src/interfaces/http/workflow-executions.test.ts src/infrastructure/security/workflow-state-codec.test.ts src/infrastructure/http/provider-client.test.ts src/interfaces/http/usage-analytics.test.ts src/interfaces/http/knowledge-status.test.ts src/application/mcp/hybrid-search.test.ts src/application/mcp/oauth.test.ts src/interfaces/http/mcp-remote.test.ts",
+    "test:mcp:postgres": "tsx --test --test-concurrency=1 src/infrastructure/postgres/pg-mcp.integration.test.ts src/infrastructure/postgres/pg-agent-action-repository.test.ts src/infrastructure/postgres/pg-discovery.integration.test.ts src/infrastructure/langgraph/durable-workflows.integration.test.ts src/infrastructure/postgres/pg-usage-metrics.integration.test.ts src/infrastructure/postgres/pg-knowledge-status.integration.test.ts src/infrastructure/postgres/pg-mcp-remote.integration.test.ts src/infrastructure/postgres/pg-conversations.integration.test.ts src/infrastructure/postgres/pg-resilience-observability.integration.test.ts",
+    "test": "tsx --test src/rag/chunk.test.ts src/application/use-cases/search-documents.test.ts src/application/use-cases/document-management.test.ts src/application/use-cases/get-document-original.test.ts src/application/use-cases/answer-question.test.ts src/application/use-cases/run-evaluation.test.ts src/application/evaluation/golden-set.test.ts src/application/evaluation/prompt-injection-suite.test.ts src/application/evaluation/replay-benchmark.test.ts src/application/evaluation/performance-gate.test.ts src/application/evaluation/reviewed-replay.test.ts src/application/policies/grounded-answer-policy.test.ts src/application/policies/structured-answer.test.ts src/application/policies/agent-execution-policy.test.ts src/application/policies/lexical-query.test.ts src/domain/security/prompt-injection.test.ts src/domain/security/pii-redaction.test.ts src/infrastructure/ingestion/document-text-extractor.test.ts src/infrastructure/ingestion/pdf-ocr.test.ts src/infrastructure/ingestion/public-html-fetcher.test.ts src/infrastructure/jina/jina-reranker.test.ts src/infrastructure/langgraph/langgraph-rag-workflow.test.ts src/interfaces/http/query-scope.test.ts src/interfaces/http/document-original.test.ts src/interfaces/http/url-import.test.ts src/interfaces/http/rag-evidence.test.ts src/interfaces/http/workspace-scope.test.ts src/interfaces/http/workspace-onboarding.test.ts src/interfaces/http/chat-runs.test.ts src/infrastructure/openrouter/openrouter-answer-generator.test.ts src/infrastructure/openrouter/openrouter-faithfulness-judge.test.ts src/interfaces/http/chat-models.test.ts src/application/mcp/read-tools.test.ts src/infrastructure/postgres/pg-mcp-read-repository.test.ts src/application/agent-actions/agent-actions.test.ts src/infrastructure/postgres/pg-agent-action-repository.test.ts src/interfaces/http/workspace-mcp.test.ts src/interfaces/mcp/stdio.test.ts src/interfaces/http/agent-actions.test.ts src/interfaces/http/document-discovery.test.ts src/application/policies/claim-verification.test.ts src/infrastructure/langgraph/langgraph-expansion.test.ts src/interfaces/http/workflow-executions.test.ts src/infrastructure/security/workflow-state-codec.test.ts src/infrastructure/http/provider-client.test.ts src/interfaces/http/usage-analytics.test.ts src/interfaces/http/knowledge-status.test.ts src/application/mcp/hybrid-search.test.ts src/application/mcp/oauth.test.ts src/interfaces/http/mcp-remote.test.ts src/infrastructure/observability/telemetry.test.ts src/infrastructure/observability/measured-providers.test.ts src/application/integrations/retry-policy.test.ts src/infrastructure/storage/supabase-original-file-store.test.ts src/infrastructure/observability/provider-usage.test.ts src/interfaces/http/delivery-alerts.test.ts src/infrastructure/auth/supabase-invitation-gateway.test.ts",
     "db:migrate": "tsx src/db/migrate.ts",
     "test:embedding:index": "tsx --test src/infrastructure/postgres/pg-workspace-embedding-index.integration.test.ts",
     "ingest": "tsx src/interfaces/cli/ingest.ts",
@@ -21,7 +21,9 @@
     "eval:approve-replay": "tsx src/interfaces/cli/approve-reviewed-replay.ts",
     "eval:performance-gate": "tsx src/interfaces/cli/evaluate-performance-gate.ts",
     "eval:regression": "tsx src/interfaces/cli/evaluate-replays.ts --baseline apps/api/evals/replays/baseline.v1.json",
-    "eval:promptfoo": "promptfoo eval -c evals/promptfoo/promptfooconfig.yaml --no-cache"
+    "eval:promptfoo": "promptfoo eval -c evals/promptfoo/promptfooconfig.yaml --no-cache",
+    "workflow:keys": "tsx src/interfaces/cli/rotate-workflow-keys.ts",
+    "integration:deliveries": "tsx src/interfaces/cli/integration-deliveries.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.990.0",
@@ -29,6 +31,11 @@
     "@fastify/rate-limit": "^10.3.0",
     "@langchain/langgraph": "^1.7.0",
     "@modelcontextprotocol/server": "2.4.0",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/exporter-metrics-otlp-http": "0.223.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.223.0",
+    "@opentelemetry/sdk-metrics": "2.12.0",
+    "@opentelemetry/sdk-node": "0.223.0",
     "@rag-study/contracts": "0.1.0",
     "@supabase/supabase-js": "^2.49.8",
     "dotenv": "^16.6.1",
@@ -42,6 +49,7 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.4.0",
+    "@opentelemetry/sdk-trace-base": "2.12.0",
     "@types/node": "^22.15.30",
     "@types/pdf-parse": "^1.1.5",
     "@types/pg": "^8.15.4",

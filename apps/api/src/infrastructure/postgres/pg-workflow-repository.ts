@@ -1,3 +1,6 @@
+import { withProviderReceipt } from "../../application/provider-usage-context.js";
+import { IntegrationFailure } from "../../application/integrations/retry-policy.js";
+import { currentCorrelationId } from "../../application/observability.js";
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import {
@@ -15,6 +18,7 @@ import { WorkflowStateCodec } from "../security/workflow-state-codec.js";
 
 type Row = {
   conversation_id?: string | null;
+  correlation_id?: string | null;
   tenant_id: string;
   actor_id: string;
   run_id: string;
@@ -46,7 +50,8 @@ export const workflowParams = (scope: WorkflowScope) => [
   scope.runId,
 ];
 const map = (r: Row): WorkflowSnapshot => ({
-  ...(r.conversation_id ? {conversationId:r.conversation_id} : {}),
+  correlationId: r.correlation_id ?? r.run_id,
+  ...(r.conversation_id ? { conversationId: r.conversation_id } : {}),
   tenantId: r.tenant_id,
   actorId: r.actor_id,
   runId: r.run_id,
@@ -79,7 +84,15 @@ export class PgWorkflowRepository implements WorkflowRepository {
   async admit(input: WorkflowAdmission) {
     const budget = workflowBudgetSchema.parse(input.budget);
     const hash = createHash("sha256")
-      .update(JSON.stringify([input.kind, input.version, input.input, budget,...(input.conversationId?[input.conversationId]:[])]))
+      .update(
+        JSON.stringify([
+          input.kind,
+          input.version,
+          input.input,
+          budget,
+          ...(input.conversationId ? [input.conversationId] : []),
+        ]),
+      )
       .digest("hex");
     const cipher = this.codec.json(input.input, [
       ...workflowParams(input),
@@ -119,8 +132,8 @@ export class PgWorkflowRepository implements WorkflowRepository {
           throw new WorkflowGuardError("queue_full");
       }
       const inserted = await client.query<Row>(
-        `INSERT INTO workflow_runs(tenant_id,actor_id,run_id,kind,version,input_hash,input_cipher,budget,deadline_at,conversation_id)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp()+$9*interval '1 millisecond',$10)
+        `INSERT INTO workflow_runs(tenant_id,actor_id,run_id,kind,version,input_hash,input_cipher,budget,deadline_at,conversation_id,correlation_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp()+$9*interval '1 millisecond',$10,$11)
         ON CONFLICT(tenant_id,actor_id,run_id) DO NOTHING RETURNING *`,
         [
           ...workflowParams(input),
@@ -130,7 +143,8 @@ export class PgWorkflowRepository implements WorkflowRepository {
           cipher,
           JSON.stringify(budget),
           budget.timeoutMs,
-          input.conversationId??null,
+          input.conversationId ?? null,
+          input.correlationId ?? currentCorrelationId() ?? input.runId,
         ],
       );
       const row =
@@ -166,7 +180,11 @@ export class PgWorkflowRepository implements WorkflowRepository {
         const chat = await client.query(
           `INSERT INTO chat_runs(tenant_id,actor_id,run_id,deadline_at,conversation_id)
           VALUES($1,$2,$3,$4::timestamptz+interval '5 seconds',$5) ON CONFLICT DO NOTHING RETURNING run_id`,
-          [...workflowParams(input), row.deadline_at,input.conversationId??null],
+          [
+            ...workflowParams(input),
+            row.deadline_at,
+            input.conversationId ?? null,
+          ],
         );
         if (chat.rowCount !== 1)
           throw new WorkflowGuardError("definition_changed");
@@ -188,7 +206,7 @@ export class PgWorkflowRepository implements WorkflowRepository {
   async claim(kinds: readonly WorkflowKind[]): Promise<WorkflowLease | null> {
     const result = await this.pool.query<Row>(
       `WITH candidate AS (
-      SELECT tenant_id,actor_id,run_id FROM workflow_runs WHERE kind=ANY($1::text[]) AND expires_at>clock_timestamp()
+      SELECT tenant_id,actor_id,run_id FROM workflow_runs WHERE kind=ANY($1::text[]) AND expires_at>clock_timestamp() AND available_at<=clock_timestamp()
       AND (status='queued' OR (status='running' AND lease_until<clock_timestamp()))
       ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1)
       UPDATE workflow_runs r SET status='running',lease_token=$2,lease_until=clock_timestamp()+interval '10 seconds',
@@ -224,11 +242,19 @@ export class PgWorkflowRepository implements WorkflowRepository {
     );
     return r.rowCount === 1;
   }
-  async release(lease: WorkflowLease) {
+  async release(
+    lease: WorkflowLease,
+    retry?: { reason: string; delayMs: number },
+  ) {
     await this.pool.query(
-      `UPDATE workflow_runs SET status='queued',lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp()
+      `UPDATE workflow_runs SET status='queued',lease_token=NULL,lease_until=NULL,error_code=$5,available_at=clock_timestamp()+$6*interval '1 millisecond',updated_at=clock_timestamp()
       WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3 AND lease_token=$4 AND status='running'`,
-      [...workflowParams(lease), lease.leaseToken],
+      [
+        ...workflowParams(lease),
+        lease.leaseToken,
+        retry?.reason ?? null,
+        retry?.delayMs ?? 0,
+      ],
     );
   }
 
@@ -317,44 +343,88 @@ export class PgWorkflowRepository implements WorkflowRepository {
     amount: Reservation,
     operation: () => Promise<T>,
   ): Promise<T> {
-    const existing = await this.pool.query<{
-      cipher: Buffer | null;
-      attempts: number;
-    }>(
-      "SELECT cipher,attempts FROM workflow_effects WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3 AND effect_key=$4",
-      [...workflowParams(lease), key],
-    );
-    if (existing.rows[0]?.cipher)
-      return this.codec.parse(existing.rows[0].cipher, [
+    const admission = await this.fenced(lease, async (client) => {
+      const {
+        rows: [existing],
+      } = await client.query<{
+        cipher: Buffer | null;
+        attempts: number;
+        state: string | null;
+        last_code: string | null;
+      }>(
+        "SELECT cipher,attempts,state,last_code FROM workflow_effects WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3 AND effect_key=$4 FOR UPDATE",
+        [...workflowParams(lease), key],
+      );
+      if (existing?.cipher)
+        return { cipher: existing.cipher, attempt: existing.attempts };
+      if (
+        existing?.state === "permanent" &&
+        existing.last_code === "permanent_rejection"
+      )
+        throw new IntegrationFailure("permanent_rejection");
+      if (existing && existing.state !== "retryable")
+        throw new WorkflowGuardError("effect_outcome_unknown");
+      if ((existing?.attempts ?? 0) >= 3)
+        throw new WorkflowGuardError("budget_exceeded");
+      const {
+        rows: [next],
+      } = await client.query<{ attempts: number }>(
+        `INSERT INTO workflow_effects(tenant_id,actor_id,run_id,effect_key,state)
+        VALUES($1,$2,$3,$4,'started') ON CONFLICT(tenant_id,actor_id,run_id,effect_key)
+        DO UPDATE SET attempts=workflow_effects.attempts+1,state='started',last_code=NULL,updated_at=clock_timestamp() RETURNING attempts`,
+        [...workflowParams(lease), key],
+      );
+      return { cipher: null, attempt: next!.attempts };
+    });
+    if (admission.cipher)
+      return this.codec.parse(admission.cipher, [
         ...workflowParams(lease),
         "effect",
         key,
       ]) as T;
-    if ((existing.rows[0]?.attempts ?? 0) >= 2)
-      throw new WorkflowGuardError("budget_exceeded");
-    await this.reserve(lease, amount);
-    await this.fenced(lease, async (client) => {
-      await client.query(
-        `INSERT INTO workflow_effects(tenant_id,actor_id,run_id,effect_key) VALUES($1,$2,$3,$4)
-      ON CONFLICT(tenant_id,actor_id,run_id,effect_key) DO UPDATE SET attempts=workflow_effects.attempts+1`,
-        [...workflowParams(lease), key],
-      );
-    });
-    // Network work is outside the transaction. Unknown in-flight calls retain their reservation.
-    const result = await operation();
-    const cipher = this.codec.json(result, [
-      ...workflowParams(lease),
-      "effect",
-      key,
-    ]);
-    await this.fenced(lease, async (client) => {
-      await client.query(
-        "UPDATE workflow_effects SET cipher=$5 WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3 AND effect_key=$4",
-        [...workflowParams(lease), key, cipher],
-      );
-      await this.checkStateSize(client, lease);
-    });
-    return result;
+    try {
+      await this.reserve(lease, amount);
+      const receipt = createHash("sha256")
+        .update(
+          JSON.stringify([...workflowParams(lease), key, admission.attempt]),
+        )
+        .digest("hex");
+      const result = await withProviderReceipt(receipt, operation);
+      const cipher = this.codec.json(result, [
+        ...workflowParams(lease),
+        "effect",
+        key,
+      ]);
+      await this.fenced(lease, async (client) => {
+        await client.query(
+          "UPDATE workflow_effects SET cipher=$5,state='completed',last_code=NULL,updated_at=clock_timestamp() WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3 AND effect_key=$4",
+          [...workflowParams(lease), key, cipher],
+        );
+        await this.checkStateSize(client, lease);
+      });
+      return result;
+    } catch (error) {
+      const state =
+        error instanceof IntegrationFailure && error.code === "rate_limited"
+          ? "retryable"
+          : (error instanceof IntegrationFailure &&
+                error.code === "permanent_rejection") ||
+              error instanceof WorkflowGuardError
+            ? "permanent"
+            : "ambiguous";
+      const code =
+        error instanceof IntegrationFailure ||
+        error instanceof WorkflowGuardError
+          ? error.code
+          : "outcome_unknown";
+      await this.fenced(lease, async (client) => {
+        await client.query(
+          "UPDATE workflow_effects SET state=$5,last_code=$6,updated_at=clock_timestamp() WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3 AND effect_key=$4 AND cipher IS NULL",
+          [...workflowParams(lease), key, state, code],
+        );
+      }).catch(() => {});
+      throw error;
+    }
   }
 
   async checkStateSize(client: PoolClient, scope: WorkflowScope) {

@@ -1,3 +1,4 @@
+import {IntegrationFailure} from '../../application/integrations/retry-policy.js';
 import { LangGraphIngestionWorkflow } from "./langgraph-ingestion-workflow.js";
 import { LangGraphEvaluationWorkflow } from "./langgraph-evaluation-workflow.js";
 import { RunEvaluationUseCase } from "../../application/use-cases/run-evaluation.js";
@@ -540,7 +541,7 @@ test(
               embeddedTexts.push(text);
               calls++;
               if (calls === 2 && fail)
-                throw new Error("Fixture embedding interruption");
+                throw new IntegrationFailure('rate_limited',429);
               return Array.from({ length: 1024 }, (_, i) => (i === 0 ? 1 : 0));
             },
           },
@@ -575,7 +576,7 @@ test(
         const lease = (await repo.claim(["ingestion"]))!;
         await assert.rejects(
           run(lease, () => graph().execute(job, new AbortController().signal)),
-          /Fixture embedding interruption/,
+          /rate_limited/,
         );
         await repo.release(lease);
         fail = false;

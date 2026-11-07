@@ -1,3 +1,4 @@
+import {withProviderUsageScope,currentProviderUsageScope} from '../provider-usage-context.js';
 import { retrieveReferenceCases as retrieveCases } from "../evaluation/retrieve-reference-cases.js";
 import { assembleEvaluationReport } from "../evaluation/assemble-report.js";
 import { evaluateContextPrecision } from "../evaluation/context-precision.js";
@@ -48,6 +49,9 @@ export class RunEvaluationUseCase {
     if (input.includeFaithfulness && !await this.faithfulness?.resolveModel(input.tenantId,input.modelId,evaluationOutputLimits[input.effort ?? 'standard'])) throw new EvaluationRunError('model_unavailable');
   }
   async execute(input: { tenantId: string; includeFaithfulness?: boolean; modelId?: string; effort?: EvaluationEffort;signal?:AbortSignal }) {
+    return withProviderUsageScope({tenantId:input.tenantId,actorKey:currentProviderUsageScope()?.actorKey??'system:evaluation',purpose:'evaluation'},()=>this.executeScoped(input));
+  }
+  private async executeScoped(input: { tenantId: string; includeFaithfulness?: boolean; modelId?: string; effort?: EvaluationEffort;signal?:AbortSignal }) {
     const faithfulness = this.faithfulness;
     const effort = input.effort ?? "standard";
     if (input.includeFaithfulness && !faithfulness) throw new EvaluationRunError("judge_unavailable");

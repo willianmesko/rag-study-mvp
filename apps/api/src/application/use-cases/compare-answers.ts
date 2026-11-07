@@ -1,3 +1,4 @@
+import {withProviderUsageScope} from "../provider-usage-context.js";
 import type { ChatModelDescriptor, ChatPromptDescriptor, ChatPromptVariantId } from "@rag-study/contracts";
 import type { AnswerGenerator, ProviderTokenUsage } from "../ports/answer-generator.js";
 import type { AnswerQuestionResult, PreparedAnswerContext, PreparedAnswerWorkflow } from "../ports/question-answering-workflow.js";
@@ -43,7 +44,7 @@ export class CompareAnswersUseCase {
   ) {}
 
   execute(input: CompareInput): Promise<[ComparisonResult, ComparisonResult]> {
-    return withTransientBudget({maxSteps:50,maxCalls:16,maxInputTokens:320_000,maxOutputTokens:Math.min(64_000,this.options.maxOutputTokens*4+3_600),maxCostMicros:Math.ceil(this.options.maxEstimatedCostUsd*1_000_000),timeoutMs:this.options.timeoutMs},()=>this.run(input));
+    return withProviderUsageScope({tenantId:input.tenantId,actorKey:input.actorKey},()=>withTransientBudget({maxSteps:50,maxCalls:16,maxInputTokens:320_000,maxOutputTokens:Math.min(64_000,this.options.maxOutputTokens*4+3_600),maxCostMicros:Math.ceil(this.options.maxEstimatedCostUsd*1_000_000),timeoutMs:this.options.timeoutMs},()=>this.run(input)));
   }
   private async run(input: CompareInput): Promise<[ComparisonResult, ComparisonResult]> {
     const startedAt = performance.now();

@@ -1,3 +1,4 @@
+import type {ProviderUsageObserver} from "../../application/ports/answer-generator.js";
 import { z } from "zod";
 import type { FaithfulnessJudge } from "../../application/evaluation/public-faithfulness.js";
 import { requestProviderJson } from "../http/provider-client.js";
@@ -13,7 +14,7 @@ const verdictSchema = z.strictObject({ claims: z.array(z.strictObject({
 export class OpenRouterFaithfulnessJudge implements FaithfulnessJudge {
   constructor(private readonly baseUrl: string, private readonly apiKey: string, readonly model: string) {}
 
-  async assess(input: Parameters<FaithfulnessJudge["assess"]>[0], signal: AbortSignal) {
+  async assess(input: Parameters<FaithfulnessJudge["assess"]>[0], signal: AbortSignal,onUsage?:ProviderUsageObserver) {
     const response = await requestProviderJson(`${this.baseUrl}/chat/completions`, {
       method: "POST", signal,
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
@@ -45,6 +46,8 @@ export class OpenRouterFaithfulnessJudge implements FaithfulnessJudge {
         }
       })
     });
+    const measured=z.object({usage:z.object({prompt_tokens:z.number().int().min(0).max(2_147_483_647),completion_tokens:z.number().int().min(0).max(2_147_483_647),cost:z.number().min(0).max(999_999).nullish()})}).safeParse(response);
+    if(measured.success)onUsage?.({inputTokens:measured.data.usage.prompt_tokens,outputTokens:measured.data.usage.completion_tokens,...(measured.data.usage.cost!=null?{costUsd:measured.data.usage.cost}:{})});
     const { choices } = responseSchema.parse(response);
     return verdictSchema.parse(JSON.parse(choices[0]!.message.content)).claims;
   }

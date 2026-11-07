@@ -69,7 +69,7 @@ export class HttpsPublicHtmlFetcher implements PublicHtmlFetcher {
   }
 }
 
-function parseTarget(value: string, base?: URL): URL {
+export function parseTarget(value: string, base?: URL): URL {
   // Reject parser corrections that could obscure the authority, including an
   // explicit but empty credentials segment that URL.username would discard.
   const absolute = /^https:\/\//i.test(value);
@@ -106,7 +106,7 @@ function parseTarget(value: string, base?: URL): URL {
   return url;
 }
 
-async function resolvePublicAddress(hostname: string, signal: AbortSignal): Promise<string> {
+export async function resolvePublicAddress(hostname: string, signal: AbortSignal): Promise<string> {
   signal.throwIfAborted();
   // A records only. The socket connects directly to the vetted IPv4 address.
   const resolver = new Resolver({ tries: 1 });

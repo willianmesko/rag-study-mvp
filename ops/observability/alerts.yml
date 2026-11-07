@@ -1,0 +1,38 @@
+groups:
+  - name: lumora-operations
+    rules:
+      - alert: LumoraTelemetryUnavailable
+        expr: up{job="lumora"} == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: Lumora telemetry collection is unavailable
+          runbook_url: https://github.com/willianmesko/rag-study-mvp/blob/main/docs/operations/observability.md#missing-telemetry
+      - alert: LumoraProviderFailures
+        expr: sum(increase(lumora_operation_calls_total{lumora_kind="provider.call",outcome="failed"}[10m])) > 5
+        for: 2m
+        labels: { severity: warning }
+        annotations:
+          summary: Repeated provider failures require investigation
+          runbook_url: https://github.com/willianmesko/rag-study-mvp/blob/main/docs/operations/observability.md#provider-failures
+      - alert: LumoraWorkflowStageSlow
+        expr: histogram_quantile(0.95, sum by(le,lumora_operation)(rate(lumora_operation_duration_seconds_bucket{lumora_kind="workflow.stage"}[10m]))) > 20
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: A workflow stage is exceeding the demo latency target
+          runbook_url: https://github.com/willianmesko/rag-study-mvp/blob/main/docs/operations/observability.md#slow-workflows
+      - alert: LumoraDeliveryDeadLetter
+        expr: sum(increase(lumora_integration_events_total{operation="budget_webhook",outcome="dead_letter"}[10m])) > 0
+        for: 1m
+        labels: { severity: warning }
+        annotations:
+          summary: A budget notification needs owner review
+          runbook_url: https://github.com/willianmesko/rag-study-mvp/blob/main/docs/operations/integration-recovery.md
+      - alert: LumoraUsageWithoutPrice
+        expr: sum(increase(lumora_ai_unpriced_total[30m])) > 5
+        for: 5m
+        labels: { severity: info }
+        annotations:
+          summary: Recorded provider operations lack a billing price
+          runbook_url: https://github.com/willianmesko/rag-study-mvp/blob/main/docs/operations/observability.md#usage-and-cost-gaps

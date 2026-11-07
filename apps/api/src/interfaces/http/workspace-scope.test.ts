@@ -1,3 +1,4 @@
+import {InviteWorkspaceMember,InvitationDeliveryError} from '../../application/integrations/workspace-invitations.js';
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import type { TenantMembership } from "../../application/ports/tenant-membership-repository.js";
@@ -237,18 +238,21 @@ test("an invitation cannot update an existing membership or record a successful 
     assert.ok(pathname === "/auth/v1/user" || pathname === "/auth/v1/invite");
     return Response.json({ id: actorId, aud: "authenticated", role: "authenticated" });
   });
-  const addWorkspaceMember = t.mock.fn(async (_input: { tenantId: string; userId: string; role: string }) => false);
-  const recordWorkspaceInvitation = t.mock.fn(async () => {});
+  const begin=t.mock.fn(async(input:{tenantId:string;actorId:string})=>{assert.equal(input.tenantId,ti.tenantId);assert.equal(input.actorId,actorId);throw new InvitationDeliveryError('already_member');});
+  const send=t.mock.fn(async()=>actorId);
+  const complete=t.mock.fn(async()=>({userId:actorId,email:'existing@example.test',role:'viewer' as const}));
   const recordAuditEvent = t.mock.fn(async () => {});
+  const inviteWorkspaceMember=new InviteWorkspaceMember({begin,complete,fail:async()=>{}},{send});
   const app = await buildApp({
-    findMembership: async () => ti, addWorkspaceMember, recordWorkspaceInvitation, recordAuditEvent
+    findMembership: async () => ti, inviteWorkspaceMember, recordAuditEvent
   } as unknown as Parameters<typeof buildApp>[0]);
   t.after(() => app.close());
 
   const response = await app.inject({ method: "POST", url: `/v1/workspaces/${ti.tenantId}/invitations`,
     headers: headersFor(ti.tenantId), payload: { email: "existing@example.test", role: "viewer" } });
   assert.equal(response.statusCode, 409);
-  assert.deepEqual(addWorkspaceMember.mock.calls[0]?.arguments, [{ tenantId: ti.tenantId, userId: actorId, role: "viewer" }]);
-  assert.equal(recordWorkspaceInvitation.mock.callCount(), 0);
+  assert.equal(begin.mock.callCount(),1);
+  assert.equal(send.mock.callCount(),0);
+  assert.equal(complete.mock.callCount(),0);
   assert.equal(recordAuditEvent.mock.callCount(), 0);
 });

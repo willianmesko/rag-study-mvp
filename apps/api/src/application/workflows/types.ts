@@ -13,7 +13,7 @@ export type WorkflowScope = {
   tenantId: string;
   actorId: string;
   runId: string;
-  conversationId?: string;
+  conversationId?: string; correlationId?:string;
 };
 export const workflowBudgetSchema = z.strictObject({
   maxSteps: z.number().int().min(1).max(100),
@@ -65,6 +65,7 @@ export type WorkflowLease = WorkflowSnapshot & {
 export class WorkflowGuardError extends Error {
   constructor(
     readonly code:
+      | "effect_outcome_unknown"
       | "budget_exceeded"
       | "lease_lost"
       | "cancelled"
@@ -89,7 +90,7 @@ export interface WorkflowRepository {
   admit(input: WorkflowAdmission): Promise<WorkflowSnapshot>;
   claim(kinds: readonly WorkflowKind[]): Promise<WorkflowLease | null>;
   heartbeat(lease: WorkflowLease): Promise<boolean>;
-  release(lease: WorkflowLease): Promise<void>;
+  release(lease: WorkflowLease, retry?:{reason:string;delayMs:number}): Promise<void>;
   finish(
     lease: WorkflowLease,
     status: "completed" | "failed" | "waiting_approval",

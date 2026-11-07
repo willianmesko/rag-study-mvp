@@ -21,6 +21,7 @@ export const usageTotalsSchema = z.object({
   observedOutputTokens: count.default(0),
   estimatedInputTokens: count.default(0),
   estimatedOutputTokens: count.default(0),
+  unpricedRequests:count.optional(),
   p95LatencyMs: amount.default(0),
 });
 export const usageModelSchema = usageTotalsSchema.extend({
@@ -35,6 +36,7 @@ export const usageSummarySchema = usageTotalsSchema.extend({
   models: z.array(usageModelSchema).default([]),
   operations: z.array(usageOperationSchema).default([]),
   daily: z.array(usageDaySchema).default([]),
+  extendedSince:z.iso.datetime().optional(),
   windowStart: z.iso.datetime().optional(),
   windowEnd: z.iso.datetime().optional(),
 });

@@ -4,7 +4,7 @@ import { redactPii } from "../../domain/security/pii-redaction.js";
 import { estimateChatCost, type ChatPricing } from "../policies/chat-cost.js";
 import { createGroundedAnswerPrompt, formatUntrustedContext, groundedPromptVersion } from "../policies/grounded-answer-policy.js";
 import { parseGroundedAnswer, validateGroundedAnswer } from "../policies/structured-answer.js";
-import type { AnswerGenerator, ProviderTokenUsage } from "../ports/answer-generator.js";
+import type { AnswerGenerator, ProviderTokenUsage, ProviderUsageObserver } from "../ports/answer-generator.js";
 import { normalizeEvidence, reviewedPassages } from "./context-precision.js";
 import { dashboardGoldenSet } from "./default-evaluation-suites.js";
 import type { EvaluationEffort } from "./evaluation-effort.js";
@@ -19,7 +19,7 @@ const datasetDigest = benchmarkFingerprint({ cases: dashboardGoldenSet.cases, re
 
 export interface FaithfulnessJudge {
   readonly model: string;
-  assess(input: { answer: string; passages: readonly string[] }, signal: AbortSignal): Promise<Array<{ claim: string; evidence: string | null }>>;
+  assess(input: { answer: string; passages: readonly string[] }, signal: AbortSignal, onUsage?:ProviderUsageObserver): Promise<Array<{ claim: string; evidence: string | null }>>;
 }
 
 export type EvaluationModel = ChatPricing & { provider: string; model: string; generator: Pick<AnswerGenerator, "generate">; maxOutputTokens: number };

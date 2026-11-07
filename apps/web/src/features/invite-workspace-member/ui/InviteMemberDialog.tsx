@@ -8,6 +8,9 @@ import { Overlay } from "../../../shared/ui/Overlay";
 
 function inviteError(error: unknown, t: Translate) {
   if (error instanceof ApiError) {
+    if(error.code==='delivery_uncertain')return t('Delivery is unconfirmed. Ask the workspace owner to review its status before sending another invitation.','A entrega não foi confirmada. Peça ao proprietário para verificar o status antes de enviar outro convite.');
+    if(error.code==='delivery_pending')return t('This invitation is already being prepared. Wait a moment; retrying will reuse the same request.','Este convite já está sendo preparado. Aguarde um momento; uma nova tentativa reutilizará o mesmo pedido.');
+    if(error.code==='stale_state')return t('This invitation is no longer current. Refresh the team before sending a new invitation.','Este convite não está mais atualizado. Atualize a equipe antes de enviar um novo convite.');
     switch (error.status) {
       case 400: return t("Check the email address and try again.", "Confira o endereço de e-mail e tente novamente.");
       case 409: return t("The invitation could not be sent. Check whether this person already has a Lumora account.",
@@ -33,12 +36,17 @@ export function InviteMemberDialog({ token, workspaceId, onClose, onInvited }: {
   const [value, setValue] = useState("");
   const [role, setRole] = useState<"viewer" | "editor">("viewer");
   const emailInput = useRef<HTMLInputElement>(null);
+  const invitationKey=useRef<{signature:string;key:string}|null>(null);
   const roleId = useId();
   const errorId = useId();
   const email = value.trim().toLowerCase();
   const existing = members.data?.members.some((member) => member.email?.toLowerCase() === email);
   const invite = useMutation({
-    mutationFn: () => api.inviteWorkspaceMember({ workspaceId, email, role, accessToken: token }),
+    mutationFn: () => {
+      const signature=JSON.stringify([workspaceId,email,role]);
+      if(invitationKey.current?.signature!==signature)invitationKey.current={signature,key:crypto.randomUUID()};
+      return api.inviteWorkspaceMember({workspaceId,email,role,accessToken:token,idempotencyKey:invitationKey.current.key});
+    },
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: options.queryKey, exact: true });
       onInvited(result.member.email ?? email);

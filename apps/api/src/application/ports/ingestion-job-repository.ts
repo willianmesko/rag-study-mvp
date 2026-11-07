@@ -6,6 +6,14 @@ export class ExistingIngestionSourceError extends Error {
     this.name = "ExistingIngestionSourceError";
   }
 }
+export class UploadAdmissionError extends Error {
+  constructor(readonly code:'idempotency_conflict'|'upload_quota_exceeded') {
+    super(code==='idempotency_conflict'?'This upload key belongs to a different document.':'Daily upload quota reached. Try again tomorrow.');
+    this.name='UploadAdmissionError';
+  }
+}
+export type UploadAdmission={keyHash:string;requestHash:string;quota?:{actorKey:string;bytes:number;limit:number}};
+export type EnqueueOptions={onlyIfMissing?:true;admission?:UploadAdmission};
 
 export type IngestionJobStatus = "queued" | "processing" | "completed" | "failed";
 export type IngestionEventStatus = "started" | "completed" | "failed" | "info";
@@ -21,6 +29,7 @@ export type IngestionJobEvent = {
 };
 
 export type IngestionJob = {
+  admissionAttempts?:number;
   id: string;
   tenantId: string;
   documentId: string | null;
@@ -47,7 +56,10 @@ export type IngestionPassagePreview = {
 };
 
 export interface IngestionJobRepository {
-  enqueue(input: Omit<IngestionJob, "id" | "documentId" | "status" | "progress" | "error" | "chunkCount" | "highRiskChunks" | "createdAt" | "updatedAt">, options?: { onlyIfMissing: true }): Promise<IngestionJob>;
+  enqueue(input: Omit<IngestionJob, "id" | "documentId" | "status" | "progress" | "error" | "chunkCount" | "highRiskChunks" | "createdAt" | "updatedAt">, options?: EnqueueOptions): Promise<IngestionJob>;
+  findIdempotent?(tenantId:string,admission:Pick<UploadAdmission,'keyHash'|'requestHash'>):Promise<IngestionJob|null>;
+  usesStoragePath?(tenantId:string,path:string):Promise<boolean>;
+  deferAdmission?(id:string,reason:string,delayMs:number):Promise<boolean>;
   claimNext(): Promise<IngestionJob | null>;
   readForProcessing?(jobId:string,tenantId:string):Promise<IngestionJob|null>;
   complete(id: string, result: { documentId: string; chunkCount: number; highRiskChunks: number }): Promise<void>;

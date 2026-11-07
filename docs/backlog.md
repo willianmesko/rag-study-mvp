@@ -21,14 +21,14 @@ status section where they appear.
 
 ## In progress
 
-Durable conversations, simplified onboarding, and the owner-only Usage & costs
-route have passed 139 responsive browser checks (44 transport-only repetitions
-are intentionally skipped). Final CI and publication are pending.
+Durable conversations, simplified onboarding and the separate Usage & costs
+page are live on the frontend and API at `603ee63`. All three
+[release gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42376186468)
+passed and both deployments were verified on 2026-11-07.
 
-Observability, security, and cost controls are now being implemented: versioned
-workflow keys and staged rotation, safe OpenTelemetry, extended provider usage,
-operational monitoring and durable budget notifications. Items remain open below
-until their implementation and activation evidence is recorded.
+Observability and resilient integrations have passed local implementation checks.
+Their CI release and production publication are in progress. Operational
+activation items below remain distinct from completed code.
 
 **Approved delivery order**
 
@@ -55,22 +55,6 @@ The bilingual interface, automatic locale selection, localized dates/numbers,
 and document labels for Portuguese, English, mixed, and undetermined text are
 implemented.
 
-### 5. Observability, security, and cost controls
-
-- [ ] Add versioned workflow encryption keys and a tested staged rotation procedure.
-- [ ] Add OpenTelemetry spans by workflow stage, request correlation IDs,
-  reason-coded logs/metrics, and tool-call telemetry.
-- [ ] Add operational dashboards, alarms, and failure runbooks. Evaluate Splunk
-  and VictoriaMetrics as backends when operational needs justify them.
-- [ ] Extend provider-native token and cost coverage. Current records distinguish
-  reported usage/cost from configured estimates. Extend the answer-only ledger to
-  embeddings, reranking and evidence/evaluation judges; do not backfill fictional
-  historical measurements.
-- [ ] Deliver budget alerts by email or webhook. The owner-only dashboard alert
-  is already implemented.
-- [ ] Add Langfuse/Phoenix if selected as the tracing backend. A LangSmith adapter
-  already exists and has a separate activation item below.
-
 ### 6. Production capacity and operations
 
 - [ ] Execute the mixed-workload benchmark from the
@@ -90,18 +74,6 @@ implemented.
 - [ ] Define and verify backups, retention, domain configuration, identity
   limits, and incident procedures for real-user operation.
 
-### 7. Resilient integrations and future tool actions
-
-- [ ] Extend idempotency keys and deduplication to uploads, ingestion jobs,
-  model calls, and external notifications.
-- [ ] Standardize exponential-backoff retries, rate-limit handling, permanent
-  failure classification, and stale-state detection.
-- [ ] Add an outbox, dead-letter handling, replay commands, and runbooks for
-  failed or partially delivered events.
-- [ ] Define effect-specific authorization, approval, execution isolation,
-  idempotency, retries, replayable audits, and network egress policy before
-  adding write-capable external tools.
-
 ### 9. Workspace-owned evaluation datasets
 
 - [ ] Add reviewed workspace-specific evaluation datasets and expected-source
@@ -109,6 +81,20 @@ implemented.
   public faithfulness examples do not certify a team's own documents.
 
 ## Implemented, pending activation or live validation
+
+- [ ] Configure the selected OTLP trace/metrics receiver and operational alarm
+  delivery. The local Collector/Jaeger/Prometheus/Grafana configuration and
+  reason-coded signals are implemented. Langfuse/Phoenix remain conditional on
+  backend selection; Splunk/VictoriaMetrics are deferred until operations justify them.
+- [ ] Activate a signed budget-webhook destination, verify its timestamp/HMAC and
+  idempotency handling, and confirm a real delivery. No destination was invented.
+- [ ] Activate versioned workflow writer keys through staged rollout, complete
+  a target-environment inventory and rehearse restoring a real retained backup
+  before retiring reader keys. Current legacy-key compatibility is preserved.
+- [ ] Supply reviewed embedding/reranker billing rates where provider dollar
+  measurements are unavailable. New unpriced usage is flagged, and historical
+  measurements are unchanged.
+
 
 - [ ] Complete a real connection in the user's chosen remote assistant after
   interactive consent. The SDK authorization/discovery/PKCE/refresh and MCP
@@ -181,6 +167,56 @@ CloudWatch → metrics and alarms
   collaborative product flow requires them. Current chat uses SSE.
 
 ## Completed and validated
+
+### 5. Observability, security, and cost controls
+
+- [x] Versioned AES-GCM workflow envelopes, active writer/retained reader keys,
+  legacy compatibility, a bounded resumable rotation CLI and staged rotation
+  runbook. Real PostgreSQL checks cover all four encrypted stores, bounded
+  progress, authentication/tampering and reading after old-key retirement.
+- [x] Manual OpenTelemetry spans for workflow stages, provider effects, MCP tools
+  and HTTP, server-generated correlation IDs retained on workflow admission,
+  reason-coded outcomes, bounded labels and content-free operational logging.
+- [x] Local collector/traces/metrics configuration, a provisioned operations
+  dashboard, Prometheus alarm rules and failure runbooks. Collector validation,
+  alarm firing tests and real synthetic OTLP-to-Prometheus/Jaeger checks passed.
+- [x] New ledger coverage for document/query embeddings, enabled reranking,
+  evidence/evaluation judges and evaluation generation. Native tokens and reported
+  zero costs are preserved, configured estimates are identified, unknown prices
+  are explicit, and completed-effect replay cannot duplicate ledger receipts.
+  No historical provider measurements were fabricated or rewritten.
+- [x] Signed budget-webhook outbox, bounded leased delivery, Retry-After/backoff,
+  dead letters, safe attempt history and current-owner replay through API/CLI.
+
+### 7. Resilient integrations and future tool actions
+
+- [x] Workspace/actor-scoped upload keys and input fingerprints, deterministic
+  private originals with byte verification, atomic byte quota/job/queued-event
+  admission, conflict detection and safe cleanup after uncertain commits.
+- [x] Delayed capped ingestion admission, active-workflow exclusion, exhausted
+  admission detection, fenced leases and retained failed-job recovery.
+- [x] Durable provider-effect and usage receipts, bounded known-rejection retries
+  under original deadlines/call budgets, permanent classification and safe holds
+  for unknown paid outcomes. There is no claim of provider-side exactly-once.
+- [x] Stable signed webhook delivery IDs, jittered backoff, stale lease recovery,
+  deduplicated owner replay, a dead-letter outbox and a recovery runbook.
+- [x] Idempotent Supabase Auth invitation journal, bounded transport, concurrent
+  request protection, atomic membership/invitation/completion, current-owner
+  checks, stale-state detection and holds for uncertain email delivery. Private
+  recipient records have retention; operational audits exclude email content.
+- [x] Effect-specific prerequisites documented for future external write tools:
+  explicit authorization/approval, isolated execution, scoped egress, budgets,
+  idempotency, retries, reconciliation and replayable audits. MCP write, SQL,
+  shell and notification tool names remain denied even to an owner.
+
+The local harness passed, along with 54 real PostgreSQL integration checks,
+142 responsive browser checks and 19 focused usage/invitation checks (the
+focused set overlaps the full suite). Public provider/mail delivery is mocked
+in tests. Release publication and operational activation are tracked separately.
+See [operations](operations/observability.md),
+[rotation](operations/workflow-key-rotation.md) and
+[integration recovery](operations/integration-recovery.md).
+
 
 ### 1. Demonstration libraries and document discovery
 
@@ -423,7 +459,8 @@ Final CI and frontend/backend publication are pending.
 - [x] Finishing the guide opens the same saved conversation in the main chat.
   Continue later records valid resumable setup state without requiring a file.
 - [x] Separate owner-only `/workspace/usage` route with independent cost queries;
-  Settings retains workspace profile and policies. Publication is pending.
+  Settings retains workspace profile and policies. Both services were confirmed
+  live at `603ee63` after all release gates passed.
 
 ### Models, evaluations, and delivery
 

@@ -2,7 +2,7 @@ import type { ChatPromptVariantId } from "@rag-study/contracts";
 import { z } from "zod";
 import type { AnswerControls, AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
-import { maxProviderResponseBytes, providerRequestSignal, requestProviderJson } from "../http/provider-client.js";
+import { maxProviderResponseBytes, requestProviderResponse, requestProviderJson } from "../http/provider-client.js";
 
 const responseSchema = z.object({ message: z.object({ content: z.string() }), prompt_eval_count: z.unknown().optional(), eval_count: z.unknown().optional() });
 const usageSchema = z.object({
@@ -44,7 +44,7 @@ export class OllamaAnswerGenerator implements AnswerGenerator {
 
   async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], controls?:AnswerControls): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, undefined, controls);
-    const response = await fetch(`${this.baseUrl}/api/chat`, {
+    const response = await requestProviderResponse(`${this.baseUrl}/api/chat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -56,7 +56,7 @@ export class OllamaAnswerGenerator implements AnswerGenerator {
           { role: "user", content: prompt.user }
         ]
       }),
-      signal: providerRequestSignal(signal)
+      signal
     });
     if (!response.ok) throw new Error(`Ollama streaming request failed (${response.status}).`);
     if (!response.body) throw new Error("Ollama did not return a streaming body.");

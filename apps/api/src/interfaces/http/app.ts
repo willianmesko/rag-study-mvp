@@ -1,7 +1,13 @@
+import {InvitationDeliveryError,type InviteWorkspaceMember} from '../../application/integrations/workspace-invitations.js';
+import {UploadAdmissionError} from "../../application/ports/ingestion-job-repository.js";
+import {DeliveryCommandError,type BudgetAlerts} from "../../infrastructure/observability/budget-alerts.js";
 import type { WorkspaceWorkflows } from "../../application/workflows/workspace-workflows.js";
 import { WorkflowGuardError, WorkflowApprovalPending, type WorkflowSnapshot } from "../../application/workflows/types.js";
 import { publicAnswerResponse, publicWorkflowEvent } from "../../application/policies/answer-response.js";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import {withProviderUsageScope} from "../../application/provider-usage-context.js";
+import {withCorrelation} from "../../application/observability.js";
+import {openHttpSpan} from "../../infrastructure/observability/telemetry.js";
+import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
@@ -80,6 +86,9 @@ const urlImportStatus: Record<PublicHtmlFetchErrorCode, number> = {
 };
 
 type HttpDependencies = {
+  budgetAlerts?:BudgetAlerts;
+  inviteWorkspaceMember?:InviteWorkspaceMember;
+  listInvitationDeliveries?:(tenantId:string)=>Promise<unknown[]>;
   ingestDocument: IngestDocumentUseCase;
   searchDocuments: SearchDocumentsUseCase;
   answerQuestion: AnswerQuestionUseCase;
@@ -175,7 +184,10 @@ function anonymousActorKey(request: { headers: Record<string, string | string[] 
 }
 
 export async function buildApp(dependencies: HttpDependencies) {
-  const app = Fastify({ logger: { serializers: safeHttpLogSerializers }, bodyLimit: config.UPLOAD_MAX_BYTES + 100_000 });
+  const app = Fastify({ genReqId:()=>randomUUID(), logger: { serializers: safeHttpLogSerializers }, bodyLimit: config.UPLOAD_MAX_BYTES + 100_000 });
+  const requestSpans=new WeakMap<FastifyRequest,ReturnType<typeof openHttpSpan>>();
+  app.addHook('onRequest',(request,reply,done)=>{reply.header('x-request-id',request.id);reply.raw.setHeader('x-request-id',request.id);const span=openHttpSpan(request.method,request.routeOptions.url??'unmatched',request.id);requestSpans.set(request,span);reply.raw.once('finish',()=>span.end(reply.raw.statusCode));reply.raw.once('close',()=>span.end(reply.raw.writableFinished?reply.raw.statusCode:499));withCorrelation(request.id,()=>span.run(done));});
+  app.addHook('onResponse',async(request,reply)=>{requestSpans.get(request)?.end(reply.statusCode);});
   const streamShutdown = new AbortController();
   const answerRuns = new StreamAnswerRuns(dependencies.chatRuns, config.AGENT_TIMEOUT_MS);
   app.addHook("preClose", async () => { streamShutdown.abort(); });
@@ -213,10 +225,13 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (!remote && config.API_KEY && !matchesApiKey(apiKey, config.API_KEY)) return reply.code(401).send({ error: "Unauthorized" });
   });
   app.setErrorHandler((error, _request, reply) => {
+    if(error instanceof InvitationDeliveryError)return reply.code(error.code==='forbidden'?403:409).send({code:error.code,error:error.message});
+    if(error instanceof DeliveryCommandError)return reply.code({forbidden:403,not_found:404,stale_state:409}[error.code]).send({code:error.code,error:error.message});
+    if (error instanceof UploadAdmissionError) return reply.code(error.code==='idempotency_conflict'?409:429).send({code:error.code,error:error.message});
     if (error instanceof ConversationError) return reply.code(error.status).send({code:error.code,error:error.message});
     if (error instanceof WorkflowApprovalPending) return reply.code(409).send({code:'approval_required',error:error.message});
     if (error instanceof WorkflowGuardError) {
-      const status = { budget_exceeded:422,lease_lost:409,cancelled:409,deadline_exceeded:504,authorization_revoked:403,definition_changed:409,state_limit:422,queue_full:429 }[error.code];
+      const status = { effect_outcome_unknown:409,budget_exceeded:422,lease_lost:409,cancelled:409,deadline_exceeded:504,authorization_revoked:403,definition_changed:409,state_limit:422,queue_full:429 }[error.code];
       return reply.code(status).send({code:error.code,error:error.message});
     }
     if (error instanceof ZodError) return reply.code(400).send({ error: "Invalid request", details: error.flatten() });
@@ -371,6 +386,18 @@ export async function buildApp(dependencies: HttpDependencies) {
     records:dependencies.conversations,delivery:conversationDelivery,authorize:(request)=>authorizeMember(request,true),shutdown:streamShutdown.signal,audit:dependencies.recordAuditEvent,
     cancel:async(scope)=>{await dependencies.workflows?.cancel(scope);return answerRuns.cancel(scope);}
   });
+  app.get('/v1/admin/alerts',async(request,reply)=>{const owner=await authorizeOwner(request,true);if(!owner.ok)return rejectScope(reply,owner);return dependencies.budgetAlerts?dependencies.budgetAlerts.status(owner.tenantId):reply.code(503).send({error:'Budget notifications are unavailable.'});});
+  app.post('/v1/admin/alerts/:id/replay',{bodyLimit:2048,config:{rateLimit:{max:6}}},async(request,reply)=>{
+    const owner=await authorizeOwner(request,true);if(!owner.ok)return rejectScope(reply,owner);
+    if(!dependencies.budgetAlerts?.configured)return reply.code(503).send({error:'Budget notifications are not configured.'});
+    const {id}=z.strictObject({id:z.uuid()}).parse(request.params);
+    const {expectedAttempts}=z.strictObject({expectedAttempts:z.number().int().min(1).max(8)}).parse(request.body);
+    const idempotencyKey=z.string().min(16).max(128).regex(/^[A-Za-z0-9_-]+$/).parse(request.headers['idempotency-key']);
+    return dependencies.budgetAlerts.replay({tenantId:owner.tenantId,actorId:owner.userId,id,expectedAttempts,idempotencyKey});
+  });
+  let alertWork:Promise<void>|undefined,alertTimer:ReturnType<typeof setInterval>|undefined;
+  app.addHook('onReady',async()=>{if(!dependencies.budgetAlerts?.configured)return;alertTimer=setInterval(()=>{if(alertWork)return;alertWork=dependencies.budgetAlerts!.work().catch(()=>app.log.warn({code:'budget_alert_worker_failed'},'Budget notification check failed')).finally(()=>{alertWork=undefined;});},15000);alertTimer.unref();});
+  app.addHook('preClose',async()=>{if(alertTimer)clearInterval(alertTimer);await alertWork;});
   app.get("/v1/workspaces", async (request, reply) => {
     if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return reply.code(503).send({ error: "Workspace access is not configured." });
     const authorization = request.headers.authorization;
@@ -422,21 +449,23 @@ export async function buildApp(dependencies: HttpDependencies) {
     const members = await dependencies.listWorkspaceMembers(authorization.tenantId);
     return { members: members.map((member) => ({ userId: member.userId, email: emails.get(member.userId) ?? null, role: member.role, createdAt: member.createdAt.toISOString() })) };
   });
-  app.post("/v1/workspaces/:workspaceId/invitations", async (request, reply) => {
+  app.get('/v1/workspaces/:workspaceId/invitation-deliveries',async(request,reply)=>{
+    const owner=await authorizeOwner(request,true);if(!owner.ok)return rejectScope(reply,owner);
+    const {workspaceId}=z.strictObject({workspaceId:z.uuid()}).parse(request.params);
+    if(workspaceId!==owner.tenantId)return reply.code(403).send({error:'Select the workspace you want to manage.'});
+    return {deliveries:await dependencies.listInvitationDeliveries?.(owner.tenantId)??[]};
+  });
+  app.post("/v1/workspaces/:workspaceId/invitations", {bodyLimit:2048,config:{rateLimit:{max:6}}}, async (request, reply) => {
     const authorization = await authorizeOwner(request);
     if (!authorization.ok) return rejectScope(reply, authorization);
     const { workspaceId } = z.object({ workspaceId: z.string().uuid() }).parse(request.params);
     if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
     if (!config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY || !config.APP_BASE_URL) return reply.code(503).send({ error: "Invitations are not configured." });
     const input = invitationSchema.parse(request.body);
-    const admin = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(input.email, { redirectTo: config.APP_BASE_URL });
-    if (error || !data.user) return reply.code(409).send({ error: error?.message ?? "Unable to invite this email." });
-    const added = await dependencies.addWorkspaceMember({ tenantId: authorization.tenantId, userId: data.user.id, role: input.role });
-    if (!added) return reply.code(409).send({ error: "This person already belongs to the workspace." });
-    await dependencies.recordWorkspaceInvitation({ tenantId: authorization.tenantId, email: input.email, role: input.role, invitedBy: authorization.userId, invitedUserId: data.user.id });
-    await dependencies.recordAuditEvent({ tenantId: authorization.tenantId, actorUserId: authorization.userId, action: "workspace.member_invited", resourceType: "tenant_membership", resourceId: null, requestId: request.id, metadata: { role: input.role } });
-    return reply.code(201).send({ member: { userId: data.user.id, email: input.email, role: input.role } });
+    if(!dependencies.inviteWorkspaceMember)return reply.code(503).send({error:'Invitation delivery is unavailable.'});
+    const idempotencyKey=z.string().min(16).max(128).regex(/^[A-Za-z0-9_-]+$/).optional().parse(request.headers['idempotency-key']);
+    const member=await dependencies.inviteWorkspaceMember.execute({tenantId:authorization.tenantId,actorId:authorization.userId,requestId:request.id,...input,idempotencyKey});
+    return reply.code(201).send({member});
   });
   app.patch("/v1/workspaces/:workspaceId/members/:userId", async (request, reply) => {
     const authorization = await authorizeOwner(request);
@@ -460,11 +489,9 @@ export async function buildApp(dependencies: HttpDependencies) {
   async function queueWorkspaceUpload(
     actor: { tenantId: string; userId: string }, requestId: string,
     upload: Omit<Parameters<QueueDocumentUploadUseCase["execute"]>[0], "tenantId">,
-    sourceType: "file" | "url" | "demo"
+    sourceType: "file" | "url" | "demo", idempotencyKey?:string
   ) {
-    const quota = await dependencies.consumeAdminUploadQuota(actor.tenantId, actor.userId, upload.payload.byteLength);
-    if (!quota.allowed) return null;
-    const job = await dependencies.queueDocumentUpload.execute({ ...upload, tenantId: actor.tenantId });
+    const job = await dependencies.queueDocumentUpload.execute({ ...upload, tenantId: actor.tenantId, actorId:actor.userId, ...(idempotencyKey?{idempotencyKey}:{}) });
     await dependencies.recordAuditEvent({
       tenantId: actor.tenantId,
       actorUserId: actor.userId,
@@ -515,6 +542,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   app.post("/v1/admin/uploads", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
     if (!authorization.ok) return rejectScope(reply, authorization);
+    const uploadKey=z.string().min(16).max(128).regex(/^[A-Za-z0-9_-]+$/).optional().parse(request.headers["idempotency-key"]);
     const file = await request.file();
     if (!file) return reply.code(400).send({ error: "A document file is required." });
     const sourceHeader = request.headers["x-document-source"];
@@ -522,13 +550,14 @@ export async function buildApp(dependencies: HttpDependencies) {
     const input = z.object({ source: z.string().min(3).max(1_000), title: z.string().min(1).max(500).optional() }).parse({ source: sourceHeader ?? `upload/${file.filename}`, title: titleHeader || undefined });
     const job = await queueWorkspaceUpload(authorization, request.id, {
       ...input, filename: file.filename, mimeType: file.mimetype || "application/octet-stream", payload: await file.toBuffer()
-    }, "file");
+    }, "file", uploadKey);
     if (!job) return reply.code(429).send({ error: "Daily upload quota reached. Try again tomorrow." });
     return reply.code(202).send({ job: serializeJob(job) });
   });
   app.post("/v1/admin/uploads/url", { bodyLimit: 8_000, config: { rateLimit: { max: 6 } } }, async (request, reply) => {
     const authorization = await authorizeAdmin(request, true);
     if (!authorization.ok) return rejectScope(reply, authorization);
+    const uploadKey=z.string().min(16).max(128).regex(/^[A-Za-z0-9_-]+$/).optional().parse(request.headers["idempotency-key"]);
     const { url, title } = urlImportSchema.parse(request.body);
     let page: Awaited<ReturnType<PublicHtmlFetcher["fetch"]>>;
     try {
@@ -539,7 +568,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     }
     const job = await queueWorkspaceUpload(authorization, request.id, {
       source: page.url, title, filename: page.filename, mimeType: "text/html", payload: page.payload
-    }, "url");
+    }, "url", uploadKey);
     if (!job) return reply.code(429).send({ error: "Daily upload quota reached. Try again tomorrow." });
     return reply.code(202).send({ job: serializeJob(job) });
   });
@@ -768,7 +797,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { q, topK } = searchSchema.parse(request.query);
     const scope = await resolveQueryScope(request);
     if (!scope.ok) return rejectScope(reply, scope);
-    const results = await dependencies.searchDocuments.execute({ query: q, topK, tenantId: scope.tenantId });
+    const results = await withProviderUsageScope({tenantId:scope.tenantId,actorKey:scope.actorKey},()=>dependencies.searchDocuments.execute({ query: q, topK, tenantId: scope.tenantId }));
     return { results: results.map(({ content, ...result }) => {
       const { excerpt, excerptTruncated, previewBlocked } = restrictedPassagePreview(content, result.security);
       return { ...result, content: excerpt, previewTruncated: excerptTruncated, previewBlocked };

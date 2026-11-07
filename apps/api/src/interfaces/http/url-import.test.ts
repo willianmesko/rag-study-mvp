@@ -1,3 +1,4 @@
+import {UploadAdmissionError} from '../../application/ports/ingestion-job-repository.js';
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
@@ -28,6 +29,7 @@ async function fixture(t: TestContext, options: { role?: "viewer"; allowed?: boo
   });
   const consumeAdminUploadQuota = t.mock.fn(async (_tenantId: string, _userId: string, _bytes: number) => ({ allowed: options.allowed ?? true, used: null, limit: 1_000 }));
   const queue = t.mock.fn(async (input: Parameters<QueueDocumentUploadUseCase["execute"]>[0]) => {
+    if(options.allowed===false)throw new UploadAdmissionError('upload_quota_exceeded');
     const now = new Date();
     return {
       ...input, title: input.title ?? null, id: "fixture-job", documentId: null, storagePath: null,
@@ -63,8 +65,8 @@ test("URL import charges the workspace quota and queues the original HTML under 
   assert.equal(response.statusCode, 202);
   assert.equal(response.json().job.source, page.url);
   assert.deepEqual(download.mock.calls[0]?.arguments, [url]);
-  assert.deepEqual(consumeAdminUploadQuota.mock.calls[0]?.arguments, [tenantId, userId, page.payload.length]);
-  assert.deepEqual(queue.mock.calls[0]?.arguments, [{ tenantId, source: page.url, filename: page.filename, mimeType: "text/html", payload: page.payload, title: "RAG" }]);
+  assert.equal(consumeAdminUploadQuota.mock.callCount(),0); // Admission and quota commit together in the queue repository.
+  assert.deepEqual(queue.mock.calls[0]?.arguments, [{ tenantId, actorId:userId, source: page.url, filename: page.filename, mimeType: "text/html", payload: page.payload, title: "RAG" }]);
   assert.deepEqual(audit.mock.calls[0]?.arguments[0]?.metadata, { bytes: page.payload.length, mimeType: "text/html", sourceType: "url" });
 });
 
@@ -72,7 +74,7 @@ test("URL import never queues an upload if the byte quota is exhausted", async (
   const { app, queue, audit } = await fixture(t, { allowed: false });
   const response = await app.inject({ method: "POST", url: endpoint, headers, payload: { url } });
   assert.equal(response.statusCode, 429);
-  assert.equal(queue.mock.callCount(), 0);
+  assert.equal(queue.mock.callCount(), 1);
   assert.equal(audit.mock.callCount(), 0);
 });
 

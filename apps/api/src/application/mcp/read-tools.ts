@@ -1,3 +1,4 @@
+import {observeOperation} from "../observability.js";
 import { isIP } from "node:net";
 import { mcpReadToolInputSchemas, type McpReadToolName } from "@rag-study/contracts";
 import { z } from "zod";
@@ -43,13 +44,15 @@ export const maxMcpPassageChars = 12_000;
 export class McpReadToolForbiddenError extends Error {
   constructor() {
     super("Workspace owner access is required for the quality report.");
+    this.name='McpReadToolForbiddenError';
   }
 }
 
 export class McpReadTools {
   constructor(private readonly reads: McpReadRepository, private readonly search: McpSearch) {}
 
-  async execute({ tool, tenantId, userId, role, arguments: args, signal }: {
+  execute(input:Parameters<McpReadTools['run']>[0]):Promise<Record<string,unknown>>{return observeOperation({kind:'tool.call',name:input.tool},()=>this.run(input));}
+  private async run({ tool, tenantId, userId, role, arguments: args, signal }: {
     tool: McpReadToolName;
     tenantId: string;
     userId: string;

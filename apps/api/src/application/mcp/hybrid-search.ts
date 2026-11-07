@@ -1,3 +1,4 @@
+import {withProviderUsageScope} from "../provider-usage-context.js";
 import { Buffer } from "node:buffer";
 import type { EmbeddingModelIdentity } from "../ports/workspace-embedding-index.js";
 import type { EmbeddingProvider } from "../ports/embedding-provider.js";
@@ -29,7 +30,7 @@ export class McpIndexUnavailableError extends Error {
 export class McpHybridSearch implements McpSearch {
   constructor(private readonly reads: McpHybridReadRepository,
     private readonly budgets: McpProviderBudget,
-    private readonly provider: (identity: EmbeddingModelIdentity) => EmbeddingProvider,
+    private readonly provider: (identity: EmbeddingModelIdentity,tenantId?:string) => EmbeddingProvider,
     private readonly prices: readonly (EmbeddingModelIdentity & { inputCostPer1kUsd: number })[],
     private readonly limits: { maxInputTokens: number; maxCostNanoUsd: number }) {}
 
@@ -50,7 +51,7 @@ export class McpHybridSearch implements McpSearch {
     if (!reservation) throw new McpBudgetExceededError();
     try {
       input.signal.throwIfAborted();
-      const embedding = await withExecutionTimeout((signal) => this.provider(index).embed(query, "query", signal), 5_000, input.signal);
+      const embedding = await withExecutionTimeout((signal) => withProviderUsageScope({tenantId:input.tenantId,actorKey:`user:${input.userId}`},()=>this.provider(index,input.tenantId).embed(query, "query", signal)), 5_000, input.signal);
       input.signal.throwIfAborted();
       return await this.reads.hybrid({ tenantId: input.tenantId, revision: index.revision,
         embedding, lexicalQuery: toLexicalQuery(query), limit: input.limit, signal: input.signal });

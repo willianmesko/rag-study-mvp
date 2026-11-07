@@ -16,7 +16,9 @@ import { UsageTrend } from "./UsageTrend";
 function exportUsage(data: UsageResponse) {
   const report = {
     ...data,
-    coverage: "recorded_answer_operations",
+    coverage: data.summary.extendedSince
+      ? "recorded_provider_operations"
+      : "recorded_answer_operations",
     reportVersion: "1.0",
     exportedAt: new Date().toISOString(),
   };
@@ -61,7 +63,14 @@ export function WorkspaceUsage({
           number.format(summary.outputTokens),
         ],
         [
-          t("Average response time", "Tempo médio de resposta"),
+          t(
+            summary.extendedSince
+              ? "Average operation time"
+              : "Average response time",
+            summary.extendedSince
+              ? "Tempo médio por operação"
+              : "Tempo médio de resposta",
+          ),
           `${number.format(Math.round(summary.averageLatencyMs))} ms`,
         ],
         [
@@ -72,6 +81,12 @@ export function WorkspaceUsage({
     : [];
   const operationLabel = (operation: string) =>
     ({
+      embedding_document: t("Document preparation", "Preparação de documentos"),
+      embedding_query: t("Semantic search", "Busca semântica"),
+      reranking: t("Source ranking", "Ordenação das fontes"),
+      evidence_judging: t("Answer verification", "Verificação de respostas"),
+      evaluation_judging: t("Quality assessment", "Avaliação de qualidade"),
+      evaluation_generation: t("Evaluation answers", "Respostas de avaliação"),
       question_answering: t("Answers", "Respostas"),
       question_comparison: t(
         "Model and prompt comparisons",
@@ -94,14 +109,22 @@ export function WorkspaceUsage({
           </h2>
           <p className="mt-1 text-sm leading-6 text-slate-400">
             {t(
-              "See which models account for your recorded answer costs.",
-              "Veja quais modelos compõem os custos registrados das suas respostas.",
+              summary?.extendedSince
+                ? "See which models account for your recorded AI costs."
+                : "See which models account for your recorded answer costs.",
+              summary?.extendedSince
+                ? "Veja quais modelos compõem os custos registrados de IA."
+                : "Veja quais modelos compõem os custos registrados das suas respostas.",
             )}
           </p>
           <p className="mt-1 text-xs leading-5 text-slate-400">
             {t(
-              "Answer generation only. Other AI stages are not included.",
-              "Somente geração de respostas. Outras etapas de IA não estão incluídas.",
+              summary?.extendedSince
+                ? "Recorded calls now include embeddings, reranking and judges. Older records cover answers only."
+                : "Answer generation only. Other AI stages are not included.",
+              summary?.extendedSince
+                ? "Os registros atuais incluem embeddings, reranking e avaliadores. Registros antigos cobrem apenas respostas."
+                : "Somente geração de respostas. Outras etapas de IA não estão incluídas.",
             )}
           </p>
         </div>
@@ -118,6 +141,14 @@ export function WorkspaceUsage({
           className="w-full sm:w-48"
         />
       </div>
+      {Boolean(summary?.unpricedRequests) && (
+        <p className="text-sm text-amber-100" role="status">
+          {t(
+            "Some calls have no reported cost or configured price. The total excludes their unknown cost.",
+            "Algumas chamadas não têm custo informado nem preço configurado. O total não inclui esse custo desconhecido.",
+          )}
+        </p>
+      )}
       {usage.isLoading && (
         <div
           role="status"
@@ -207,6 +238,7 @@ export function WorkspaceUsage({
               {summary.models.length > 0 ? (
                 <UsageModels
                   models={summary.models}
+                  expandedCoverage={Boolean(summary.extendedSince)}
                   total={recordedCost(summary)}
                 />
               ) : (
@@ -257,8 +289,12 @@ export function WorkspaceUsage({
               </p>
               <p>
                 {t(
-                  "This history covers recorded answer, comparison and automatic-routing operations. Embeddings, reranking and evidence-judge calls are not included here yet. It is not a full provider invoice.",
-                  "Este histórico inclui operações registradas de resposta, comparação e seleção automática. Embeddings, reranking e chamadas de avaliação de evidências ainda não entram neste total. Ele não representa a fatura completa do provedor.",
+                  summary.extendedSince
+                    ? "New records include answer generation, embeddings, reranking and evaluation calls. Older records cover answers only. This is not a full provider invoice."
+                    : "This history covers recorded answer, comparison and automatic-routing operations. Embeddings, reranking and evidence-judge calls are not included here yet. It is not a full provider invoice.",
+                  summary.extendedSince
+                    ? "Os novos registros incluem respostas, embeddings, reranking e avaliações. Os registros antigos cobrem apenas respostas. Este total não representa a fatura completa do provedor."
+                    : "Este histórico inclui operações registradas de resposta, comparação e seleção automática. Embeddings, reranking e chamadas de avaliação de evidências ainda não entram neste total. Ele não representa a fatura completa do provedor.",
                 )}
               </p>
               <p>
