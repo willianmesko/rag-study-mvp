@@ -15,8 +15,8 @@ live activation remain in the [product backlog](backlog.md).
 | Status | Tickets | Count |
 | --- | --- | --- |
 | Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-05 | 15 |
-| Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08, FE-10 | 5 |
-| Pending implementation | BE-09, BE-13, FE-06, FE-07, FE-09, FE-11 | 6 |
+| Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-06, FE-08, FE-10 | 6 |
+| Pending implementation | BE-09, BE-13, FE-07, FE-09, FE-11 | 5 |
 
 The latest batch is live on the frontend and API at `cbd0f67`, after all four
 [CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42401306893).
@@ -292,8 +292,11 @@ feature-owned locations during BE-07's migration.
   a bundle of overlapping lint/FSD/test tools, mass-format the repository or add
   tests that merely mirror trivial code. Choose a DOM test tier only where useful.
 - **Partial:** dependency checks and focused session/cache/decoder/navigation
-  regressions exist. Promise/Hook correctness and the unused-symbol baseline
-  still require their own verification; the graph gate does not cover them.
+  regressions exist. The native unused-symbol slice is implemented: the six
+  diagnostics were removed and API `noUnusedLocals`/`noUnusedParameters` are now
+  enabled, with a passing strict check. Promise/Hook correctness remains open;
+  the graph gate and native flags do not cover it. Publication is tracked in the
+  [query-ownership release record](operations/release-2026-11-07-query-ownership.md).
 
 ## Phase 3 — Async reliability, least privilege and cost
 
@@ -312,6 +315,24 @@ feature-owned locations during BE-07's migration.
   policy: semantic search can call paid providers); stop settled/error job and
   evaluation timers; invalidate document views on mutation/terminal job revision
   while retaining focus/reconnect and cross-device readiness reconciliation.
+- [x] **Administrative read slice, implemented; release validation in progress:**
+  explicit ten-second metadata/resource reads compose caller cancellation with
+  the deadline. Document lists no longer poll. One mounted workspace monitor
+  owns the active-job interval and invalidates all document-filter variants and
+  Ask readiness once per observed terminal revision. Failed jobs/evaluations/
+  usage reads stop interval retries; approval-only evaluations wait quietly.
+  Focus/reconnect and explicit retry remain available. Visible owner usage keeps
+  its 30-second refresh and disposes it on section exit. Settled Ask readiness
+  uses slower 30-second reconciliation instead of a three-second empty-library
+  loop. Search/provider calls, writes, original-file blobs and conversation
+  transports retain their current budgets and semantics.
+- **Measured local evidence:** new browser request counters cover idle and
+  active-to-terminal behavior, filtered/unfiltered invalidation, one deliberate
+  approval, 401/403/429, invalid success data, offline/reconnect, finite deadlines
+  and read disposal. Thirty focused cases passed across all three profiles;
+  the complete local harness and 78 architecture fixtures passed. Exact-source CI and
+  publication evidence are maintained in the release record. Conversation
+  pagination/transport work below is still pending; FE-06 is not closed.
 - **Conversation scope:** keep durable capability independent from read visibility,
   select one active-run transport owner, and refresh only newest messages rather
   than every loaded infinite-query page. Do not turn navigation into cancellation

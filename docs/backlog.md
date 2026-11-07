@@ -9,8 +9,9 @@ Last reviewed on 2026-11-07.
 The [resume checkpoint](backlog-resume.md) preserves the next general FE-06 and
 BE-08 slices; both were inspected and stopped before edits. The owner then added
 the specific BE-15 priority: technology-neutral module assembly. That follow-up
-is implemented, validated and published. General
-backlog work and the learning walkthrough retain their saved starting points.
+is implemented, validated and published. General backlog work has resumed with
+FE-06 administrative reads and the BE-08 native TypeScript slice. The learning
+walkthrough retains its saved starting point; teaching sessions remain pending.
 
 ## Status guide
 
@@ -38,7 +39,7 @@ The earlier [observability/resilience release](operations/release-2026-11-07.md)
 is included.
 
 The [technical backlog](technical-backlog.md) records 15 published tickets,
-five partial tickets and six pending tickets. The published
+six partial tickets and five pending tickets. The published
 batch includes shared success-response schemas, SQL limits, bounded Auth/member
 lookup, frontend composition/Public APIs, provider reservations, safe shutdown
 and NestJS-inspired business-module organization. See the
@@ -48,8 +49,10 @@ provider, workflow and tracing selection.** It is included in the live SHA above
 Its [release evidence](operations/release-2026-11-07-capability-boundaries.md)
 records 78 architecture fixtures, 83 real PostgreSQL checks, the cutover and the
 complete harness. Exact-source CI also passed 247 UX cases with 44 deliberate
-profile skips, and production verification passed. No new general backlog slice
-is active; the saved continuation remains FE-06/BE-08.
+profile skips, and production verification passed. The next bounded delivery
+improves administrative query ownership and native TypeScript checks; see its
+[release record](operations/release-2026-11-07-query-ownership.md). Conversation
+read visibility, pagination and transport ownership remain the next FE-06 slice.
 Operational activation remains separate.
 
 OAuth extension-parameter compatibility and standard MCP icon metadata are live.

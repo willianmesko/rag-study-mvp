@@ -6,5 +6,6 @@ export const usageQuery = (token: string, workspaceId: string, userId: string | 
   queryOptions({
     queryKey: privateQueryKey("usage-summary", userId, workspaceId, days),
     queryFn: ({ signal }) => api.getUsageSummary(token, workspaceId, days, signal),
-    refetchInterval: 30_000,
+    retry: false,
+    refetchInterval: (query) => query.state.status === "error" ? false : 30_000,
   });

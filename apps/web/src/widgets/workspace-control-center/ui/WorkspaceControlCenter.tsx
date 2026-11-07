@@ -5,6 +5,8 @@ import { canAccessWorkspaceSection, type WorkspaceSection } from "../../../share
 import { useLocale } from "../../../shared/i18n/locale";
 import { WorkspaceOverview } from "./WorkspaceOverview";
 import { WorkspaceSectionNav } from "./WorkspaceSectionNav";
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { useIngestionMonitor } from "../model/use-ingestion-monitor";
 
 const WorkspaceKnowledge = lazyWithRecovery(async () => ({ default: (await import("./WorkspaceKnowledge")).WorkspaceKnowledge }), "workspace");
 const WorkspaceProcessing = lazyWithRecovery(async () => ({ default: (await import("./WorkspaceProcessing")).WorkspaceProcessing }), "workspace");
@@ -23,6 +25,8 @@ type WorkspaceControlCenterProps = {
 
 export function WorkspaceControlCenter({ section, workspace, token, onSectionChange, onAsk }: WorkspaceControlCenterProps) {
   const { t } = useLocale();
+  const userId = useQueryIdentity();
+  useIngestionMonitor(token, workspace.tenantId, userId);
   return (
     <section className="space-y-6">
       <WorkspaceSectionNav activeSection={section} role={workspace.role} onChange={onSectionChange} />

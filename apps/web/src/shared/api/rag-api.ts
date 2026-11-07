@@ -49,6 +49,17 @@ async function requestJson<T>(schema: z.ZodType<T>, path: string, init?: Request
   return decodeApiResponse(schema, await request(path, init));
 }
 
+/** Explicitly selected metadata reads only. Search, streams, files and writes
+ * retain their own provider/workflow budgets and cancellation semantics. */
+async function readResourceJson<T>(schema: z.ZodType<T>, path: string,
+  init?: Pick<RequestInit, "signal" | "headers" | "cache">): Promise<T> {
+  const deadline = AbortSignal.timeout(10_000);
+  return requestJson(schema, path, {
+    ...init,
+    signal: init?.signal ? AbortSignal.any([init.signal, deadline]) : deadline,
+  });
+}
+
 async function requestVoid(path: string, init?: RequestInit): Promise<void> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
@@ -125,7 +136,7 @@ export const api = {
     method: "DELETE", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) },
     signal: AbortSignal.timeout(10_000)
   }),
-  mcpConsent: async (token: string, id: string, signal: AbortSignal) => await requestJson(mcpConsentDetailsSchema, `/v1/mcp/oauth/requests/${encodeURIComponent(id)}`, {
+  mcpConsent: async (token: string, id: string, signal: AbortSignal) => await readResourceJson(mcpConsentDetailsSchema, `/v1/mcp/oauth/requests/${encodeURIComponent(id)}`, {
     signal, headers: { authorization: `Bearer ${token}` }
   }),
   approveMcpConsent: async (token: string, workspaceId: string, id: string, tools: McpReadToolName[]) => await requestJson(mcpConsentRedirectSchema, `/v1/mcp/oauth/requests/${encodeURIComponent(id)}/approve`, {
@@ -135,13 +146,13 @@ export const api = {
     method: "POST", headers: { authorization: `Bearer ${token}` }
   }),
   mcpConnections: async (token: string, workspaceId: string, signal: AbortSignal) => {
-    try { return await requestJson(mcpConnectionsSchema, "/v1/mcp/connections", { signal, headers: { authorization: `Bearer ${token}`, ...workspaceHeaders(workspaceId) } }); }
+    try { return await readResourceJson(mcpConnectionsSchema, "/v1/mcp/connections", { signal, headers: { authorization: `Bearer ${token}`, ...workspaceHeaders(workspaceId) } }); }
     catch (error) { if (error instanceof ApiError && error.status === 404) return null; throw error; }
   },
   revokeMcpConnection: (token: string, workspaceId: string, id: string) => requestVoid(`/v1/mcp/connections/${encodeURIComponent(id)}`, {
     method: "DELETE", headers: { authorization: `Bearer ${token}`, ...workspaceHeaders(workspaceId) }
   }),
-  workspaces: (accessToken: string, signal?: AbortSignal) => requestJson(workspacesResponseSchema, "/v1/workspaces", { signal, headers: { authorization: `Bearer ${accessToken}` } }),
+  workspaces: (accessToken: string, signal?: AbortSignal) => readResourceJson(workspacesResponseSchema, "/v1/workspaces", { signal, headers: { authorization: `Bearer ${accessToken}` } }),
   createWorkspace: (input: { name: string; slug: string; accessToken: string }) => requestJson(workspaceCreatedResponseSchema, "/v1/workspaces", { method: "POST", body: JSON.stringify({ name: input.name, slug: input.slug }), headers: { authorization: `Bearer ${input.accessToken}` } }),
   getOnboardingProgress: async (workspaceId: string, accessToken: string, signal: AbortSignal) => {
     const response = await requestJson(workspaceOnboardingResponseSchema, `/v1/workspaces/${workspaceId}/onboarding`, {
@@ -160,12 +171,12 @@ export const api = {
     if (!saved) throw new Error("The guide progress was not saved.");
     return saved;
   },
-  listWorkspaceMembers: (workspaceId: string, accessToken: string, signal?: AbortSignal) => requestJson(workspaceMembersResponseSchema, `/v1/workspaces/${workspaceId}/members`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listWorkspaceMembers: (workspaceId: string, accessToken: string, signal?: AbortSignal) => readResourceJson(workspaceMembersResponseSchema, `/v1/workspaces/${workspaceId}/members`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   inviteWorkspaceMember: (input: { workspaceId: string; email: string; role: "editor" | "viewer"; accessToken: string; idempotencyKey?:string }) => requestJson(workspaceInvitationResponseSchema, `/v1/workspaces/${input.workspaceId}/invitations`, { method: "POST", body: JSON.stringify({ email: input.email, role: input.role }), headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId), ...(input.idempotencyKey?{"idempotency-key":input.idempotencyKey}:{}) } }),
   changeWorkspaceMemberRole: (input: { workspaceId: string; userId: string; role: "editor" | "viewer"; accessToken: string }) => requestVoid(`/v1/workspaces/${input.workspaceId}/members/${input.userId}`, { method: "PATCH", body: JSON.stringify({ role: input.role }), headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
   removeWorkspaceMember: (input: { workspaceId: string; userId: string; accessToken: string }) => requestVoid(`/v1/workspaces/${input.workspaceId}/members/${input.userId}`, { method: "DELETE", headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
   health: () => requestJson(healthResponseSchema, "/health"),
-  knowledgeStatus: async (accessToken?: string | null, workspaceId?: string, signal?: AbortSignal) => await requestJson(knowledgeStatusSchema, "/v1/knowledge/status", { signal, headers: {
+  knowledgeStatus: async (accessToken?: string | null, workspaceId?: string, signal?: AbortSignal) => await readResourceJson(knowledgeStatusSchema, "/v1/knowledge/status", { signal, headers: {
       ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}), ...workspaceHeaders(workspaceId)
     } }),
   ingest: (input: DocumentInput) =>
@@ -182,7 +193,7 @@ export const api = {
     signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)])
   }),
   chatModelPolicy: async (accessToken: string, workspaceId: string, signal: AbortSignal) =>
-    await requestJson(workspaceChatModelPolicyResponseSchema, "/v1/admin/chat-model-policy", {
+    await readResourceJson(workspaceChatModelPolicyResponseSchema, "/v1/admin/chat-model-policy", {
       signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
     }),
   saveChatModelPolicy: async (accessToken: string, workspaceId: string, policy: WorkspaceChatModelPolicy) =>
@@ -194,14 +205,14 @@ export const api = {
       method: "POST", signal, body: JSON.stringify(input),
       headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
     }),
-  listUploads: (accessToken: string, workspaceId?: string, signal?: AbortSignal) => requestJson(uploadsResponseSchema, "/v1/admin/uploads", { signal, headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
-  listUploadEvents: (jobId: string, accessToken: string, workspaceId?: string, signal?: AbortSignal) => requestJson(ingestionEventsResponseSchema, `/v1/admin/uploads/${jobId}/events`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listUploads: (accessToken: string, workspaceId?: string, signal?: AbortSignal) => readResourceJson(uploadsResponseSchema, "/v1/admin/uploads", { signal, headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
+  listUploadEvents: (jobId: string, accessToken: string, workspaceId?: string, signal?: AbortSignal) => readResourceJson(ingestionEventsResponseSchema, `/v1/admin/uploads/${jobId}/events`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   previewUploadPassages: (jobId: string, accessToken: string, workspaceId: string, signal: AbortSignal) =>
-    requestJson(ingestionPassagePreviewSchema, `/v1/admin/uploads/${encodeURIComponent(jobId)}/preview`, {
+    readResourceJson(ingestionPassagePreviewSchema, `/v1/admin/uploads/${encodeURIComponent(jobId)}/preview`, {
       headers: { authorization: `Bearer ${accessToken}`, "x-workspace-id": workspaceId }, signal, cache: "no-store"
     }),
-  getUsageSummary: async (accessToken: string, workspaceId: string, days = 30, signal?: AbortSignal) => await requestJson(usageResponseSchema, `/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
-  listEvaluationRuns: (accessToken: string, workspaceId: string, signal?: AbortSignal) => requestJson(evaluationsResponseSchema, "/v1/admin/evaluations?limit=20", { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  getUsageSummary: async (accessToken: string, workspaceId: string, days = 30, signal?: AbortSignal) => await readResourceJson(usageResponseSchema, `/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listEvaluationRuns: (accessToken: string, workspaceId: string, signal?: AbortSignal) => readResourceJson(evaluationsResponseSchema, "/v1/admin/evaluations?limit=20", { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   runEvaluation: (accessToken: string, workspaceId: string, options: { includeFaithfulness?: boolean; modelId?: string; effort?: "compact" | "standard" | "extended" } = {}) =>
     requestJson(evaluationCreatedResponseSchema, "/v1/admin/evaluations/run", {
       method: "POST", body: JSON.stringify(options), headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
@@ -218,7 +229,7 @@ export const api = {
   retryUpload: (jobId: string, accessToken: string, workspaceId?: string) => requestJson(uploadRetriedResponseSchema, `/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listDocuments: (accessToken: string, workspaceId?: string, signal?: AbortSignal, filters: DocumentFilters = {}) => {
     const query = new URLSearchParams(Object.entries(filters).flatMap(([key, value]) => value === undefined ? [] : [[key, value]]));
-    return requestJson(documentsResponseSchema, `/v1/admin/documents${query.size ? `?${query}` : ""}`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } });
+    return readResourceJson(documentsResponseSchema, `/v1/admin/documents${query.size ? `?${query}` : ""}`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } });
   },
   getOriginalDocument: async (input: { documentId: string; accessToken: string; workspaceId: string; signal: AbortSignal }): Promise<OriginalDocumentFile> => {
     const response = await fetch(`${apiBaseUrl}/v1/admin/documents/${encodeURIComponent(input.documentId)}/original`, {
@@ -236,7 +247,7 @@ export const api = {
     const filename = originalFilename(response.headers.get("content-disposition"), isPdf ? "original-file.pdf" : "original-file");
     return { blob: await response.blob(), filename, isPdf };
   },
-  listDocumentChunks: (documentId: string, accessToken: string, workspaceId?: string, signal?: AbortSignal) => requestJson(documentChunksResponseSchema, `/v1/admin/documents/${documentId}/chunks`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listDocumentChunks: (documentId: string, accessToken: string, workspaceId?: string, signal?: AbortSignal) => readResourceJson(documentChunksResponseSchema, `/v1/admin/documents/${documentId}/chunks`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   reindexDocument: (documentId: string, accessToken: string, workspaceId?: string) => requestJson(uploadQueuedResponseSchema, `/v1/admin/documents/${documentId}/reindex`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   deleteDocument: (documentId: string, accessToken: string, workspaceId?: string) => requestVoid(`/v1/admin/documents/${documentId}`, { method: "DELETE", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   importDocumentUrl: (input: { url: string; title?: string; accessToken: string; workspaceId: string }) =>

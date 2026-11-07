@@ -1,4 +1,3 @@
-import { InvitationDeliveryError } from "../../modules/workspaces/application/integrations/workspace-invitations.js";
 import {
   context,
   trace,

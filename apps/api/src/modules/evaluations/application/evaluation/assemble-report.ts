@@ -7,7 +7,6 @@ import {
 import { evaluatePromptInjectionSuite } from "./prompt-injection-suite.js";
 import {
   dashboardGoldenSet,
-  dashboardPromptInjectionSuite,
 } from "./default-evaluation-suites.js";
 import {
   faithfulnessBenchmarkVersion,

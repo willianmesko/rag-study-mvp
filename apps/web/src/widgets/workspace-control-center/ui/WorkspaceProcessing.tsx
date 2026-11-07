@@ -97,7 +97,8 @@ function ProcessingTimeline({ job, token, workspaceId }: { job: UploadJob; token
   const events = useQuery({
     queryKey: privateQueryKey("ingestion-events", userId, workspaceId, job.id, job.status),
     queryFn: ({ signal }) => api.listUploadEvents(job.id, token, workspaceId, signal),
-    refetchInterval: job.status === "processing" || job.status === "queued" ? 1_500 : false
+    retry: false,
+    refetchInterval: (query) => query.state.status !== "error" && (job.status === "processing" || job.status === "queued") ? 1_500 : false
   });
   return <>
     <PipelineVisualization job={job} events={events.data?.events ?? []} />

@@ -21,7 +21,6 @@ import {
 import { withCorrelation } from "../../../../platform/observability/observer.js";
 import { ProviderMeasurements } from "../observability/measured-providers.js";
 import { IntegrationFailure } from "../../../../platform/integrations/retry-policy.js";
-import type { WorkflowLease } from "../../../../platform/workflows/types.js";
 
 const url = process.env.MCP_TEST_DATABASE_URL;
 const budget = {

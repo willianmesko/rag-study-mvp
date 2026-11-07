@@ -22,7 +22,7 @@ async function fixture(t: TestContext, role = "owner") {
   t.mock.method(globalThis, "fetch", async () =>
     Response.json({ id: userId, aud: "authenticated", role: "authenticated" }),
   );
-  const replay = t.mock.fn(async (input: unknown) => ({ replayed: true, id }));
+  const replay = t.mock.fn(async (_input: unknown) => ({ replayed: true, id }));
   const status = t.mock.fn(async () => ({ configured: true, correlationId:currentCorrelationId(), recent: [] }));
   const app = await buildApp({
     budgetAlerts: { configured: true, replay, status, work: async () => {} },

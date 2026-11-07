@@ -2,7 +2,6 @@ import type {
   QuestionInput,
   QuestionComparisonInput,
   QuestionComparisonResponse,
-  ConversationTurn,
 } from "@rag-study/contracts";
 import type {
   ConversationRepository,

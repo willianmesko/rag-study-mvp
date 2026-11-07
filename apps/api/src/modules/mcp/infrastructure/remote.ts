@@ -9,7 +9,7 @@ import {
 import type { McpOAuth } from "../application/oauth.js";
 import { McpBudgetExceededError, McpIndexUnavailableError } from "../application/hybrid-search.js";
 import { McpReadToolForbiddenError, type McpReadTools } from "../application/read-tools.js";
-import type { McpCallControls, McpPrincipal } from "../application/remote-types.js";
+import type { McpCallControls } from "../application/remote-types.js";
 import type { AuditEventRepository } from "../../usage/index.js";
 import { withReplySignal } from "../../../platform/http/reply-signal.js";
 import { withExecutionTimeout } from "../application/policies/agent-execution-policy.js";
