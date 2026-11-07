@@ -20,6 +20,20 @@ function EvidenceList({ passages, showSimilarity }: { passages: QuestionSource[]
   </ul>;
 }
 
+export function ValidatedCitations({ citations }: { citations: QuestionSource[] }) {
+  const { t, locale } = useLocale();
+  if (citations.length === 0) return null;
+  const count = `${citations.length.toLocaleString(locale)} ${citations.length === 1 ? t("passage", "trecho") : t("passages", "trechos")}`;
+
+  return <section aria-label={t("Validated citations", "Citações validadas")}>
+    <h4 className="text-sm font-semibold text-slate-100">{t("Validated citations", "Citações validadas")} · {count}</h4>
+    <p className="mt-1 text-xs leading-5 text-slate-400">
+      {t("Lumora checked that the references point to the passages below. Read the excerpts to verify what they support.", "O Lumora conferiu se as referências apontam para os trechos abaixo. Leia as prévias para verificar o que sustentam.")}
+    </p>
+    <EvidenceList passages={citations} showSimilarity />
+  </section>;
+}
+
 export function RagEvidencePanel({ response, citations }: { response: QuestionResponse; citations: QuestionSource[] }) {
   const { t, locale } = useLocale();
   const context = response.cacheHit ? [] : response.contextSources ?? [];
@@ -41,13 +55,7 @@ export function RagEvidencePanel({ response, citations }: { response: QuestionRe
             : t("A document can be split into several passages. Open a passage to review its excerpt.", "Um documento pode ser dividido em vários trechos. Abra um trecho para ler a prévia.")}
         </p>
       </div>
-      {citations.length > 0 && <div>
-        <h4 className="text-sm font-semibold text-slate-100">{t("Validated citations", "Citações validadas")} · {count(citations.length)}</h4>
-        <p className="mt-1 text-xs leading-5 text-slate-400">
-          {t("Lumora checked that the references point to the passages below. Read the excerpts to verify what they support.", "O Lumora conferiu se as referências apontam para os trechos abaixo. Leia as prévias para verificar o que sustentam.")}
-        </p>
-        <EvidenceList passages={citations} showSimilarity />
-      </div>}
+      <ValidatedCitations citations={citations} />
       {context.length > 0 && <details className="rounded-xl border border-slate-800 px-4 py-3">
         <summary className="cursor-pointer rounded-md text-sm font-semibold text-slate-100">
           {t("Passages sent to the model", "Trechos enviados ao modelo")} · {count(context.length)}

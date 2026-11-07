@@ -3,10 +3,15 @@ import { config } from "../../config.js";
 
 const errorBody = z.object({ error: z.unknown().optional(), message: z.string().optional(), detail: z.string().optional() }).passthrough();
 
+export function providerRequestSignal(signal?: AbortSignal | null): AbortSignal {
+  const deadline = AbortSignal.timeout(config.PROVIDER_TIMEOUT_MS);
+  return signal ? AbortSignal.any([signal, deadline]) : deadline;
+}
+
 export async function requestProviderJson(url: string, init: RequestInit): Promise<unknown> {
   let response: Response;
   try {
-    response = await fetch(url, { ...init, signal: AbortSignal.timeout(config.PROVIDER_TIMEOUT_MS) });
+    response = await fetch(url, { ...init, signal: providerRequestSignal(init.signal) });
   } catch (error) {
     if (error instanceof DOMException && error.name === "TimeoutError") {
       throw new Error("Provider request timed out.");

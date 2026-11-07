@@ -92,11 +92,13 @@ test("LangGraph can require structured output for production providers", async (
   assert.match(result.answer, /structured response/i);
 });
 
-test("LangGraph streams retrieval, generation, tokens, and validation events", async () => {
+test("LangGraph awaits citation validation before emitting bounded, redacted answer text", async () => {
   const events: string[] = [];
-  const answer = `Grounded answer.\n\n${"a".repeat(70)} 😊`;
-  const streamed = JSON.stringify({ answer, citedChunkIds: ["S1"], refusalReason: null });
+  const rawAnswer = `${"a".repeat(255)}😊\n\nContact user@example.com`;
+  const answer = redactPii(rawAnswer).text;
+  const streamed = JSON.stringify({ answer: rawAnswer, citedChunkIds: ["S1"], refusalReason: null }).replace("@", "\\u0040");
   const deltas: string[] = [];
+  let citationsWritten = false;
   const workflow = new LangGraphRagWorkflow(
     {
       execute: async () => [{
@@ -114,15 +116,22 @@ test("LangGraph streams retrieval, generation, tokens, and validation events", a
     { maxContextChars: 1_000, minimumScore: 0.3 }
   );
 
-  const result = await workflow.answerStream({ question: "What are embeddings?" }, (event) => {
+  const result = await workflow.answerStream({ question: "What are embeddings?" }, async (event) => {
     events.push(event.type);
-    if (event.type === "token") deltas.push(event.delta);
+    if (event.type === "citations") {
+      assert.deepEqual(event.sources.map((source) => source.chunkId), ["chunk-1"]);
+      await Promise.resolve();
+      citationsWritten = true;
+    }
+    if (event.type === "token") {
+      assert.equal(citationsWritten, true);
+      deltas.push(event.delta);
+    }
   });
   assert.equal(result.answer, answer);
   assert.equal(deltas.join(""), answer);
-  assert.deepEqual(events.slice(0, 3), ["retrieving", "generating", "validating"]);
-  assert.ok(events.slice(3).every((event) => event === "token"));
-  assert.ok(events.slice(3).length > 0);
+  assert.equal(deltas[0], `${"a".repeat(255)}😊`);
+  assert.deepEqual(events, ["retrieving", "generating", "validating", "citations", "token", "token"]);
 });
 
 const ragChunk: RetrievedChunk = {
@@ -174,11 +183,39 @@ test("RAG refuses citations outside the prompt and never streams the rejected an
   assert.deepEqual(answer.sources, []);
   assert.deepEqual(answer.citedChunkIds, []);
   assert.equal(answer.contextSources, undefined);
-  const deltas: string[] = [];
+  const events: string[] = [];
   assert.deepEqual(await workflow.answerStream(input, (event) => {
-    if (event.type === "token") deltas.push(event.delta);
+    events.push(event.type);
   }), answer);
-  assert.deepEqual(deltas, []);
+  assert.deepEqual(events, ["retrieving", "generating", "validating"]);
+});
+
+test("cancellation reaches the streaming generator before any citations or answer text are emitted", { timeout: 2_000 }, async () => {
+  const controller = new AbortController();
+  let markStarted!: () => void;
+  let markStopped!: () => void;
+  const started = new Promise<void>((resolve) => { markStarted = resolve; });
+  const stopped = new Promise<void>((resolve) => { markStopped = resolve; });
+  const events: string[] = [];
+  const workflow = new LangGraphRagWorkflow({ execute: async () => [ragChunk] }, {
+    generate: async () => { throw new Error("Expected the streaming generator."); },
+    stream: async (_question, _context, onDelta, signal) => {
+      assert.ok(signal);
+      const completion = new Promise<string>((_, reject) => {
+        signal.addEventListener("abort", () => { markStopped(); reject(signal.reason); }, { once: true });
+      });
+      await onDelta("Unverified provider text");
+      markStarted();
+      return completion;
+    }
+  }, { maxContextChars: 1_000, minimumScore: 0.3 });
+
+  const answer = workflow.answerStream({ question: "What is RAG?", signal: controller.signal }, (event) => { events.push(event.type); });
+  await started;
+  controller.abort();
+  await assert.rejects(answer, { name: "AbortError" });
+  await stopped;
+  assert.deepEqual(events, ["retrieving", "generating"]);
 });
 
 test("RAG reports the exact ordered safe context and keeps cited sources a subset in both answer paths", async () => {

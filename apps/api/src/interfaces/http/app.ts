@@ -3,9 +3,11 @@ import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createClient } from "@supabase/supabase-js";
-import { documentInputSchema, questionInputSchema, workspaceMemberRoleSchema } from "@rag-study/contracts";
+import { chatRunIdSchema, documentInputSchema, questionInputSchema, questionStreamInputSchema, workspaceMemberRoleSchema, type ChatRunEvent } from "@rag-study/contracts";
 import { ZodError, z } from "zod";
 import type { AnswerQuestionUseCase } from "../../application/use-cases/answer-question.js";
+import { StreamAnswerRuns } from "../../application/use-cases/stream-answer-runs.js";
+import type { ChatRunRepository } from "../../application/ports/chat-run-repository.js";
 import type { AnswerQuestionResult, AnswerWorkflowEvent } from "../../application/ports/question-answering-workflow.js";
 import type { IngestDocumentUseCase } from "../../application/use-cases/ingest-document.js";
 import type { SearchDocumentsUseCase } from "../../application/use-cases/search-documents.js";
@@ -27,12 +29,15 @@ import { PublicHtmlFetchError, type PublicHtmlFetchErrorCode, type PublicHtmlFet
 import { config } from "../../config.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 import { isSafeForAnswer, type PromptInjectionAssessment } from "../../domain/security/prompt-injection.js";
+import { openAnswerStream, replayAnswerStream } from "./answer-stream.js";
 
 const searchSchema = z.object({ q: z.string().min(1).max(5_000), topK: z.coerce.number().int().min(1).max(20).optional() });
 const invitationSchema = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: workspaceMemberRoleSchema });
 const memberRoleSchema = z.object({ role: workspaceMemberRoleSchema });
 const workspaceIdSchema = z.string().uuid();
 const workspaceRequired = { ok: false, status: 400, error: "Select a workspace.", code: "workspace_required" } as const;
+const chatRunParams = z.object({ runId: chatRunIdSchema });
+const chatRunCursor = z.object({ after: z.coerce.number().int().min(0).max(2_147_483_647).default(0) });
 const maxPassageExcerptChars = 600;
 const urlImportSchema = z.object({ url: z.string().trim().min(1).max(1_000).url(), title: z.string().trim().min(1).max(500).optional() });
 const urlImportStatus: Record<PublicHtmlFetchErrorCode, number> = {
@@ -51,6 +56,7 @@ type HttpDependencies = {
   ingestDocument: IngestDocumentUseCase;
   searchDocuments: SearchDocumentsUseCase;
   answerQuestion: AnswerQuestionUseCase;
+  chatRuns: ChatRunRepository;
   queueDocumentUpload: QueueDocumentUploadUseCase;
   publicHtmlFetcher: PublicHtmlFetcher;
   processNextIngestionJob: ProcessNextIngestionJobUseCase;
@@ -128,6 +134,10 @@ function anonymousActorKey(request: { headers: Record<string, string | string[] 
 
 export async function buildApp(dependencies: HttpDependencies) {
   const app = Fastify({ logger: true, bodyLimit: config.UPLOAD_MAX_BYTES + 100_000 });
+  const streamShutdown = new AbortController();
+  const answerRuns = new StreamAnswerRuns(dependencies.chatRuns, config.AGENT_TIMEOUT_MS);
+  app.addHook("preClose", async () => { streamShutdown.abort(); });
+  app.addHook("onClose", () => answerRuns.close());
   await app.register(multipart, { limits: { files: 1, fileSize: config.UPLOAD_MAX_BYTES, fields: 0 } });
   await app.register(rateLimit, {
     max: config.RATE_LIMIT_MAX,
@@ -519,48 +529,77 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { tenantId, actorKey } = scope;
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
-    const result = await dependencies.answerQuestion.execute({ question, topK, tenantId, actorKey });
-    return serializeQuestionAnswer(result);
+    const controller = new AbortController();
+    const disconnect = () => controller.abort();
+    reply.raw.once("close", disconnect);
+    try {
+      const signal = AbortSignal.any([controller.signal, streamShutdown.signal]);
+      const result = await dependencies.answerQuestion.execute({ question, topK, tenantId, actorKey, signal });
+      return serializeQuestionAnswer(result);
+    } finally {
+      reply.raw.off("close", disconnect);
+    }
   });
   app.post("/v1/qa/stream", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
-    const { question, topK } = questionInputSchema.parse(request.body);
+    const { question, topK, runId } = questionStreamInputSchema.parse(request.body);
+    if (runId) {
+      const membership = await authorizeMember(request, true);
+      if (!membership.ok) return rejectScope(reply, membership);
+      const { tenantId, userId } = membership;
+      const actorKey = `user:${userId}`;
+      const scope = { runId, tenantId, actorId: userId };
+      await answerRuns.start(scope, {
+        reserveQuota: async () => (await dependencies.consumeQuestionQuota(tenantId, actorKey)).allowed,
+        answer: async ({ signal, publish }) => serializeQuestionAnswer(await dependencies.answerQuestion.execute({
+          question, topK, tenantId, actorKey, signal,
+          onEvent: (event) => publish(serializeWorkflowEvent(event))
+        })),
+        reportFailure: (error) => request.log.warn({ errorType: error instanceof Error ? error.name : typeof error, runId }, "Answer run execution failed")
+      });
+      return replayAnswerStream(request, reply, dependencies.chatRuns, scope, 0, streamShutdown.signal);
+    }
+
     const scope = await resolveQueryScope(request);
     if (!scope.ok) return rejectScope(reply, scope);
     const { tenantId, actorKey } = scope;
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
 
-    reply.hijack();
-    reply.raw.writeHead(200, {
-      "content-type": "text/event-stream; charset=utf-8",
-      "cache-control": "no-cache, no-transform",
-      connection: "keep-alive",
-      "x-accel-buffering": "no",
-      "x-content-type-options": "nosniff",
-      "x-frame-options": "DENY",
-      "referrer-policy": "no-referrer",
-      ...(typeof request.headers.origin === "string" && config.ALLOWED_ORIGINS.includes(request.headers.origin) ? { "access-control-allow-origin": request.headers.origin, vary: "Origin" } : {})
-    });
-    let disconnected = false;
-    request.raw.on("close", () => { disconnected = true; });
-    const send = (event: string, data: unknown) => {
-      if (!disconnected && !reply.raw.destroyed) reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-    };
-    send("accepted", { status: "accepted" });
+    const stream = openAnswerStream(request, reply, streamShutdown.signal);
     try {
+      await stream.event("accepted", { status: "accepted" });
       const result = await dependencies.answerQuestion.execute({
-        question,
-        topK,
-        tenantId,
-        actorKey,
-        onEvent: (event: AnswerWorkflowEvent) => send(event.type, event.type === "token" ? { delta: event.delta } : { status: event.type })
+        question, topK, tenantId, actorKey, signal: stream.signal,
+        onEvent: (event) => {
+          const serialized = serializeWorkflowEvent(event);
+          return stream.event(serialized.type, "sources" in serialized || "delta" in serialized ? serialized : { status: serialized.type });
+        }
       });
-      send("completed", serializeQuestionAnswer(result));
+      await stream.event("completed", serializeQuestionAnswer(result));
     } catch (error) {
-      send("error", { error: error instanceof Error ? error.message : "Unable to complete the answer." });
+      if (!stream.signal.aborted) {
+        request.log.warn({ errorType: error instanceof Error ? error.name : typeof error }, "Transient answer stream failed");
+        await stream.event("error", { error: "Lumora could not prepare an answer. Try again." }).catch(() => undefined);
+      }
     } finally {
-      if (!reply.raw.destroyed) reply.raw.end();
+      stream.close();
     }
+  });
+  app.get("/v1/qa/runs/:runId/events", { exposeHeadRoute: false }, async (request, reply) => {
+    const { runId } = chatRunParams.parse(request.params);
+    const { after } = chatRunCursor.parse(request.query);
+    const membership = await authorizeMember(request, true);
+    if (!membership.ok) return rejectScope(reply, membership);
+    const scope = { runId, tenantId: membership.tenantId, actorId: membership.userId };
+    return replayAnswerStream(request, reply, dependencies.chatRuns, scope, after, streamShutdown.signal);
+  });
+  app.post("/v1/qa/runs/:runId/cancel", async (request, reply) => {
+    const { runId } = chatRunParams.parse(request.params);
+    const membership = await authorizeMember(request, true);
+    if (!membership.ok) return rejectScope(reply, membership);
+    const status = await answerRuns.cancel({ runId, tenantId: membership.tenantId, actorId: membership.userId });
+    if (!status) return reply.code(404).send({ error: "This answer session is no longer available." });
+    return { status };
   });
   return app;
 }
@@ -615,5 +654,10 @@ function serializeQuestionAnswer(result: AnswerQuestionResult) {
     contextSources: result.contextSources?.map(serializeAnswerSource) ?? [],
     cacheHit: result.cacheHit ?? false
   };
+}
+
+function serializeWorkflowEvent(event: AnswerWorkflowEvent): ChatRunEvent {
+  if (event.type === "citations") return { type: "citations", sources: event.sources.map(serializeAnswerSource) };
+  return event;
 }
 

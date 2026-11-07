@@ -24,6 +24,7 @@ export class JinaReranker implements Reranker {
 
     const json = await requestProviderJson(`${this.baseUrl}/rerank`, {
       method: "POST",
+      signal: input.signal,
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
       body: JSON.stringify({
         model: this.model,

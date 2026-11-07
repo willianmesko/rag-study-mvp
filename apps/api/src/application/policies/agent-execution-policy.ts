@@ -39,16 +39,20 @@ export function assertToolAllowed(toolName: string, tools: readonly ToolDefiniti
   if (toolCalls >= budget.maxToolCalls) throw new Error("Agent tool-call budget exceeded.");
 }
 
-export async function withExecutionTimeout<T>(task: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+export async function withExecutionTimeout<T>(task: (signal: AbortSignal) => Promise<T>, timeoutMs: number, parentSignal?: AbortSignal): Promise<T> {
+  const deadline = new AbortController();
+  const signal = parentSignal ? AbortSignal.any([parentSignal, deadline.signal]) : deadline.signal;
+  signal.throwIfAborted();
+  let onAbort: () => void = () => undefined;
+  const interrupted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  const timeout = setTimeout(() => deadline.abort(new Error("Agent execution timed out.")), timeoutMs);
   try {
-    return await Promise.race([
-      task,
-      new Promise<T>((_, reject) => {
-        timeout = setTimeout(() => reject(new Error("Agent execution timed out.")), timeoutMs);
-      })
-    ]);
+    return await Promise.race([Promise.resolve().then(() => { signal.throwIfAborted(); return task(signal); }), interrupted]);
   } finally {
-    if (timeout) clearTimeout(timeout);
+    clearTimeout(timeout);
+    signal.removeEventListener("abort", onAbort);
   }
 }

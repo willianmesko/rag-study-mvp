@@ -1,5 +1,5 @@
 export interface AnswerGenerator {
-  generate(question: string, context: string): Promise<string>;
-  stream?(question: string, context: string, onDelta: (delta: string) => void | Promise<void>): Promise<string>;
+  generate(question: string, context: string, signal?: AbortSignal): Promise<string>;
+  stream?(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal): Promise<string>;
 }
 

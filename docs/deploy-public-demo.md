@@ -30,6 +30,12 @@ Fastify API on Render
 4. Create a private bucket called `rag-originals` if administrative uploads are
    enabled. Never expose the service-role key to the frontend.
 
+Apply `016_chat_runs.sql` before releasing the resumable chat API. This adds
+server-only replay tables. Confirm both tables have RLS enabled and that
+`anon` and `authenticated` have no direct table grants before deploying the web
+client. Deploy the API before the web client and retain the tables during a
+code rollback so existing runs can still expire normally after recovery.
+
 ## 2. Render API
 
 The API is built from the repository root using `apps/api/Dockerfile`. Set at

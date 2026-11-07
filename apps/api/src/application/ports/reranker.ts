@@ -4,6 +4,7 @@ export type RerankInput = {
   query: string;
   candidates: RetrievedChunk[];
   limit: number;
+  signal?: AbortSignal;
 };
 
 export interface Reranker {

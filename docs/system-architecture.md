@@ -166,25 +166,47 @@ inspect the evidence.
 sequenceDiagram
   participant Browser
   participant API
+  participant DB as PostgreSQL
   participant Workflow as LangGraph
   participant Provider
 
-  Browser->>API: POST /v1/qa/stream (session + workspace)
-  API-->>Browser: accepted
-  API->>Workflow: retrieve with tenant scope
-  Workflow-->>Browser: retrieving
-  Workflow->>Provider: stream grounded generation
-  Workflow-->>Browser: generating + token deltas
-  Workflow-->>Browser: validating
-  API-->>Browser: completed answer + validated citations
-  Browser->>API: AbortController on user cancel
+  Browser->>API: POST /v1/qa/stream with run ID
+  API->>DB: Create run once and store accepted event
+  API->>Workflow: Check quota and retrieve in the workspace
+  Workflow->>Provider: Generate a grounded draft
+  API-->>Browser: Numbered progress events over SSE
+  opt Browser disconnects
+    Browser->>API: GET /v1/qa/runs/:id/events?after=lastEventId
+    API->>DB: Read later events for the same workspace and user
+    API-->>Browser: Replay events and continue streaming
+  end
+  alt Validated response
+    Workflow-->>API: Checked citations, then safe answer deltas
+    API->>DB: Store validated events and terminal answer
+    API-->>Browser: Citations, answer deltas, completed
+  else User stops the run
+    Browser->>API: POST /v1/qa/runs/:id/cancel
+    API->>DB: Record terminal cancellation atomically
+    API->>Provider: Abort in-flight request
+    API-->>Browser: Cancelled
+  end
 ```
 
-The first streaming transport is authenticated Server-Sent Events (SSE), which
-fits the dominant server-to-browser flow and preserves the existing structured
-answer contract. The regular JSON endpoint remains a fallback. WebSocket is
-reserved for future bidirectional requirements such as presence, live approval,
-or collaborative sessions.
+Authenticated Server-Sent Events (SSE) use a client-generated UUID and numbered
+events. Admission is idempotent per workspace and user. A duplicate start or
+reconnect reuses the existing run and does not consume question quota again.
+Every replay and cancel request revalidates membership. A server-side stop
+aborts local calls immediately and reaches a run on another replica through its
+next status check. The state transition and terminal event commit together.
+
+The server buffers the provider draft until it has checked the structured
+answer and the citation identifiers. Fresh checked citations precede safe text
+deltas. Reused or unstructured answers arrive in the terminal response with the
+appropriate evidence status. The private replay tables retain progress and the
+answer for up to 24 hours, and expire runs interrupted by a worker restart.
+They do not hold raw questions or raw provider drafts. Anonymous demo streams
+are transient. The JSON endpoint is available as a fallback before a streaming
+run is admitted.
 
 ## LangGraph workflow
 

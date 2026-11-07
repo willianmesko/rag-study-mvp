@@ -12,9 +12,10 @@ export class OpenRouterEmbeddingProvider implements EmbeddingProvider {
     private readonly dimensions: number
   ) {}
 
-  async embed(text: string, inputType: "document" | "query"): Promise<number[]> {
+  async embed(text: string, inputType: "document" | "query", signal?: AbortSignal): Promise<number[]> {
     const json = await requestProviderJson(`${this.baseUrl}/embeddings`, {
       method: "POST",
+      signal,
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
       body: JSON.stringify({ input: text, model: this.model, dimensions: this.dimensions, input_type: inputType === "query" ? "search_query" : "search_document" })
     });

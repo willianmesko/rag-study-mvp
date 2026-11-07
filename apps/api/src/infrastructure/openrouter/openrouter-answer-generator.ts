@@ -1,18 +1,18 @@
 import { z } from "zod";
 import type { AnswerGenerator } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
-import { requestProviderJson } from "../http/provider-client.js";
-import { config } from "../../config.js";
+import { providerRequestSignal, requestProviderJson } from "../http/provider-client.js";
 
 const responseSchema = z.object({ choices: z.array(z.object({ message: z.object({ content: z.string().nullable() }) })).min(1) });
 
 export class OpenRouterAnswerGenerator implements AnswerGenerator {
   constructor(private readonly baseUrl: string, private readonly apiKey: string, private readonly model: string, private readonly maxOutputTokens = 500) {}
 
-  async generate(question: string, context: string): Promise<string> {
+  async generate(question: string, context: string, signal?: AbortSignal): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context);
     const json = await requestProviderJson(`${this.baseUrl}/chat/completions`, {
       method: "POST",
+      signal,
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
       body: JSON.stringify({
         model: this.model,
@@ -29,7 +29,7 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
     return answer;
   }
 
-  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>): Promise<string> {
+  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context);
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
@@ -44,7 +44,7 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
           { role: "user", content: prompt.user }
         ]
       }),
-      signal: AbortSignal.timeout(config.PROVIDER_TIMEOUT_MS)
+      signal: providerRequestSignal(signal)
     });
     if (!response.ok) throw new Error(`OpenRouter streaming request failed (${response.status}).`);
     if (!response.body) throw new Error("OpenRouter did not return a streaming body.");
@@ -52,25 +52,41 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
     const decoder = new TextDecoder();
     let buffer = "";
     let answer = "";
+    let completed = false;
     const consumeLine = async (line: string) => {
       if (!line.startsWith("data:")) return;
       const payload = line.slice(5).trim();
-      if (!payload || payload === "[DONE]") return;
-      const parsed = JSON.parse(payload) as { choices?: Array<{ delta?: { content?: string | null } }> };
+      if (!payload) return;
+      if (payload === "[DONE]") {
+        completed = true;
+        return;
+      }
+      const parsed = JSON.parse(payload) as { error?: unknown; choices?: Array<{ delta?: { content?: string | null }; finish_reason?: string }> };
+      if (parsed.error || parsed.choices?.[0]?.finish_reason === "error") throw new Error("OpenRouter could not finish streaming the answer.");
       const delta = parsed.choices?.[0]?.delta?.content ?? "";
       if (!delta) return;
       answer += delta;
       await onDelta(delta);
     };
-    while (true) {
-      const { done, value } = await reader.read();
-      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
-      const lines = buffer.split(/\r?\n/);
-      buffer = lines.pop() ?? "";
-      for (const line of lines) await consumeLine(line);
-      if (done) break;
+    try {
+      while (!completed) {
+        const { done, value } = await reader.read();
+        buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+        const lines = buffer.split(/\r?\n/);
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          await consumeLine(line);
+          if (completed) break;
+        }
+        if (done && !completed && buffer) await consumeLine(buffer);
+        if (done) break;
+      }
+    } finally {
+      await reader.cancel().catch(() => undefined);
+      reader.releaseLock();
     }
-    if (buffer) await consumeLine(buffer);
+    signal?.throwIfAborted();
+    if (!completed) throw new Error("OpenRouter closed the stream before the answer was complete.");
     if (!answer.trim()) throw new Error("OpenRouter returned an empty streaming response.");
     return answer.trim();
   }

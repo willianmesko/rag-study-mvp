@@ -52,6 +52,9 @@ product decision, credentials, or additional operational cost.
 - Workspace Control Center: six independent, role-aware sections and a signed-in
   workspace creation action with separate onboarding for each new space. The
   API requires explicit selection for accounts with multiple memberships.
+- Resumable signed-in chat with ordered SSE replay, workspace and user scope,
+  one quota charge per run, provider cancellation, and checked citations before
+  fresh answer deltas. The replay window is 24 hours.
 - Feature-Sliced Design frontend and npm-workspaces monorepo with shared Zod
   contracts in `packages/contracts`.
 - Professional UX/UI first pass: shared design tokens and components, clearer
@@ -84,7 +87,8 @@ product decision, credentials, or additional operational cost.
    workspace creation, explicit API selection, and tenant isolation checks.
 5. Product expansion — demo datasets, backend history and feedback, invites,
    filters, and faithfulness evaluation.
-6. Real-time chat — reconnect, resume, and provider cancellation.
+6. Real-time chat — complete for connection recovery, persisted run state,
+   provider cancellation, and streaming validated citations.
 7. Portuguese and English — verify automatic UI locale and evaluate retrieval in
    both languages.
 8. Onboarding — validate the standalone Milo flow and sync progress across devices.
@@ -178,7 +182,6 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      the tenant switcher can be demonstrated immediately.
    - Persist question history and thumbs-up/thumbs-down feedback in the backend,
      scoped by workspace and user, instead of keeping it only in the browser.
-   - Extend the existing answer stream with incremental, validated citations.
    - Extend the evaluation dashboard with faithfulness and context precision
      from an approved LLM judge or Ragas evaluation job.
    - Verify invitation delivery and onboarding with the existing Supabase Auth
@@ -322,28 +325,23 @@ make model availability, cost estimates, and quota behavior visible in Ask.
    - Remaining: sync onboarding progress to the backend so it follows the user
      across browsers and devices.
 
-17. **Real-time chat and streaming answers**
-   - Phase 1 implemented: authenticated `/v1/qa/stream` SSE, provider streaming
-     for OpenRouter, Bedrock, and Ollama, live status events, token deltas,
-     cancellation in the browser, and HTTP fallback.
-   - Stream answer progress to the browser: request accepted, retrieving,
-     generating, validating citations, and completed/refused/failed.
-   - Stream structured answer deltas and citations while preserving the final
-     Zod-validated response contract.
-   - Use authenticated Server-Sent Events (SSE) as the default transport for
-     one-way model output; support `AbortController` cancellation and a
-     non-streaming fallback when streaming is unavailable.
-   - Persist request/run status so a reconnect can recover the final answer and
-     never expose provider credentials to the browser.
-   - Use WebSocket only when the product needs true bidirectional realtime
-     behavior, such as collaborative sessions, presence, live approvals, or
-     interactive tool execution.
-   - Enforce tenant scope, quotas, timeouts, backpressure, correlation IDs,
-     safe disconnect handling, and audit metadata for every stream.
-   - Add tests for partial output, cancellation, reconnect, provider failure,
-     citation validation, and fallback to the regular HTTP response.
-   - Remaining: persist run state for reconnect/resume and propagate browser
-     cancellation all the way to provider requests.
+17. **Real-time chat and streaming answers — complete**
+   - Signed-in requests use an idempotent run ID and receive numbered SSE
+     events. Reconnecting in the same tab resumes from the last received event.
+     Reloading a tab with an active run replays its events from the beginning.
+   - PostgreSQL persists run status, validated output, and ordered events for
+     a 24-hour replay window. Membership and the run's actor are checked on
+     every connection and cancellation. Raw questions and drafts are excluded
+     from replay storage. The public demo remains transient.
+   - Stop records a terminal state and aborts in-flight provider requests.
+     Structured citations are verified before fresh answer deltas are released.
+     Cached responses and refusals are delivered as terminal events.
+   - The regular JSON endpoint remains available before SSE admission. Socket
+     tests cover reconnection, quota deduplication, cancellation across API
+     instances, safe provider failure, and authorization.
+   - Follow-up under LangGraph workflow expansion: checkpoint work across a
+     server restart. Current in-flight runs end as interrupted if their worker
+     exits. Bidirectional collaboration remains a separate future feature.
 
 18. **Portuguese and English support**
    - The interface now supports Brazilian Portuguese and English with automatic

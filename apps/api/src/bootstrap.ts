@@ -29,6 +29,7 @@ import { PgTenantMembershipRepository } from "./infrastructure/postgres/pg-tenan
 import { PgSemanticAnswerCache } from "./infrastructure/postgres/pg-semantic-answer-cache.js";
 import { PgUsageMetricsRepository } from "./infrastructure/postgres/pg-usage-metrics-repository.js";
 import { PgEvaluationRepository } from "./infrastructure/postgres/pg-evaluation-repository.js";
+import { PgChatRunRepository } from "./infrastructure/postgres/pg-chat-run-repository.js";
 import { RedactingAnswerGenerator } from "./infrastructure/security/redacting-answer-generator.js";
 import { RedactingEmbeddingProvider } from "./infrastructure/security/redacting-embedding-provider.js";
 import { MultiFormatDocumentTextExtractor } from "./infrastructure/ingestion/document-text-extractor.js";
@@ -52,6 +53,7 @@ export function createApplication() {
   const semanticCache = new PgSemanticAnswerCache(pool, config.EMBEDDING_DIMENSIONS);
   const usageMetrics = new PgUsageMetricsRepository(pool);
   const evaluations = new PgEvaluationRepository(pool);
+  const chatRuns = new PgChatRunRepository(pool);
   const originals = new SupabaseOriginalFileStore(
     config.SUPABASE_URL,
     config.SUPABASE_SERVICE_ROLE_KEY,
@@ -125,6 +127,7 @@ export function createApplication() {
       invalidateSemanticCache: (tenantId: string) => semanticCache.invalidateTenant(tenantId),
       recordAuditEvent: auditEvents.record.bind(auditEvents),
       searchDocuments,
+      chatRuns,
       answerQuestion: new AnswerQuestionUseCase(answerWorkflow, embeddings, semanticCache, usageMetrics, {
         cacheTtlSeconds: config.SEMANTIC_CACHE_TTL_SECONDS,
         cacheMinimumSimilarity: config.SEMANTIC_CACHE_MINIMUM_SIMILARITY,

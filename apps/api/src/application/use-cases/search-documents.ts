@@ -20,8 +20,10 @@ export class SearchDocumentsUseCase {
     }
   ) {}
 
-  async execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[] }): Promise<RetrievedChunk[]> {
-    const queryEmbedding = input.queryEmbedding ?? await this.embeddings.embed(input.query, "query");
+  async execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[]; signal?: AbortSignal }): Promise<RetrievedChunk[]> {
+    input.signal?.throwIfAborted();
+    const queryEmbedding = input.queryEmbedding ?? await this.embeddings.embed(input.query, "query", input.signal);
+    input.signal?.throwIfAborted();
     const limit = input.topK ?? this.options.defaultTopK;
     const rerankCandidateLimit = this.reranker.enabled
       ? limit * this.options.rerankerCandidateMultiplier
@@ -37,13 +39,15 @@ export class SearchDocumentsUseCase {
       reciprocalRankConstant: this.options.reciprocalRankConstant
     });
 
+    input.signal?.throwIfAborted();
     if (!this.reranker.enabled) return candidates.slice(0, limit);
 
     // High-risk chunks remain inspectable through search, but never leave this
     // process to a remote reranker and never reach the answer-generation model.
     const safeCandidates = candidates.filter((candidate) => isSafeForAnswer(candidate.security));
     const highRiskCandidates = candidates.filter((candidate) => !isSafeForAnswer(candidate.security));
-    const reranked = await this.reranker.rerank({ query: input.query, candidates: safeCandidates, limit });
+    const reranked = await this.reranker.rerank({ query: input.query, candidates: safeCandidates, limit, signal: input.signal });
+    input.signal?.throwIfAborted();
     return [...reranked, ...highRiskCandidates].slice(0, limit);
   }
 }

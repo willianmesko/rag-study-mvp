@@ -58,8 +58,8 @@ Zod schemas in both applications.
 - Workspaces with `owner`, `editor`, and read-only `viewer` roles.
 - Workspace control center with routed Overview, Knowledge, Processing, Team,
   Evaluations, and Settings sections plus a guided first-run onboarding path.
-- Authenticated SSE answer streaming with retrieval/generation/validation status,
-  token deltas, browser cancellation, and HTTP fallback.
+- Authenticated SSE chat with resumable progress, checked citations, and a stop
+  action that cancels the provider request. The JSON endpoint remains available.
 - Deterministic golden-set and prompt-injection evaluation suites.
 
 ## Prerequisites
@@ -156,6 +156,19 @@ workspace.
 The selected workspace controls documents, search, chat, and permissions. The
 same account can manage documents in one workspace and have read access in
 another. Each Control Center section loads its own data.
+
+### Resume or stop a live answer
+
+Signed-in chat resumes an interrupted connection in the same tab. The browser
+keeps the run ID for that account and workspace. PostgreSQL keeps the ordered
+events and answer for up to 24 hours, without storing the original question
+in the replay tables. **Stop answer** cancels the run and aborts in-flight
+provider requests. The public demo streams without storing a replay.
+
+The chat shows progress while the model drafts. Lumora checks structured
+citations before releasing the citations and answer text. A provider's ability
+to stop upstream processing after an HTTP abort depends on its cancellation
+support.
 
 ## Common commands
 

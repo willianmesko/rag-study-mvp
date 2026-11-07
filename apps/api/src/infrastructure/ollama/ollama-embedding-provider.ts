@@ -11,9 +11,10 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
     private readonly dimensions: number
   ) {}
 
-  async embed(text: string, _inputType: "document" | "query"): Promise<number[]> {
+  async embed(text: string, _inputType: "document" | "query", signal?: AbortSignal): Promise<number[]> {
     const json = await requestProviderJson(`${this.baseUrl}/api/embed`, {
       method: "POST",
+      signal,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ model: this.model, input: text, dimensions: this.dimensions })
     });

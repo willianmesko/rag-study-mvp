@@ -92,6 +92,22 @@ test("valid existing cached answers remain usable", async () => {
   assert.deepEqual(useCase.usageCacheHits, [true]);
 });
 
+test("legacy cache entries are redacted on read and do not publish validated citations", async () => {
+  const useCase = makeUseCase({
+    cached: { answer: "Write to user@example.com", sources: groundedAnswer.sources, similarity: 1 },
+    generated: groundedAnswer
+  });
+  const answer = await useCase.execute();
+  assert.equal(answer.answer, "Write to [REDACTED_EMAIL]");
+  assert.deepEqual(useCase.events.map(({ type }) => type), ["cached", "validating"]);
+});
+
+test("generated answer text is redacted before it is returned and cached", async () => {
+  const useCase = makeUseCase({ cached: null, generated: { ...groundedAnswer, answer: "Write to user@example.com" } });
+  assert.equal((await useCase.execute()).answer, "Write to [REDACTED_EMAIL]");
+  assert.equal(useCase.writes[0]?.answer, "Write to [REDACTED_EMAIL]");
+});
+
 test("fresh model context is returned without being stored in the answer cache", async () => {
   const generated = {
     ...groundedAnswer,

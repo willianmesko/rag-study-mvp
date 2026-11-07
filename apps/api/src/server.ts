@@ -13,10 +13,20 @@ async function main(): Promise<void> {
       .catch((error: unknown) => app.log.error(error, "Ingestion worker failed."))
       .finally(() => { processing = false; });
   }, config.INGESTION_WORKER_INTERVAL_MS);
+  let pruning: Promise<void> | undefined;
+  const cleanup = setInterval(() => {
+    if (pruning) return;
+    pruning = application.useCases.chatRuns.pruneExpired()
+      .then(() => undefined)
+      .catch((error: unknown) => app.log.error(error, "Chat replay cleanup failed."))
+      .finally(() => { pruning = undefined; });
+  }, 60_000);
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`Received ${signal}; shutting down.`);
     clearInterval(worker);
+    clearInterval(cleanup);
     await app.close();
+    await pruning;
     await application.close();
     process.exit(0);
   };
@@ -26,7 +36,10 @@ async function main(): Promise<void> {
     await app.listen({ port: config.PORT, host: config.HOST });
   } catch (error) {
     app.log.error(error);
+    clearInterval(worker);
+    clearInterval(cleanup);
     await app.close();
+    await pruning;
     await application.close();
     process.exitCode = 1;
   }

@@ -1,14 +1,15 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import type { AnswerGenerator } from "../../application/ports/answer-generator.js";
-import type { AnswerQuestionResult, AnswerWorkflowEvent, QuestionAnsweringWorkflow } from "../../application/ports/question-answering-workflow.js";
+import type { AnswerQuestionResult, AnswerWorkflowEvent, AnswerWorkflowInput, QuestionAnsweringWorkflow } from "../../application/ports/question-answering-workflow.js";
 import { formatUntrustedContext, type GroundedContext } from "../../application/policies/grounded-answer-policy.js";
 import { assertStepBudget, withExecutionTimeout } from "../../application/policies/agent-execution-policy.js";
 import { parseGroundedAnswer, validateGroundedAnswer } from "../../application/policies/structured-answer.js";
 import type { RetrievedChunk } from "../../domain/document.js";
+import { redactPii } from "../../domain/security/pii-redaction.js";
 import { isSafeForAnswer } from "../../domain/security/prompt-injection.js";
 
 type Retriever = {
-  execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[] }): Promise<RetrievedChunk[]>;
+  execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[]; signal?: AbortSignal }): Promise<RetrievedChunk[]>;
 };
 
 const RagState = Annotation.Root({
@@ -49,38 +50,50 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
     this.graph = this.createGraph();
   }
 
-  async answer(input: { question: string; topK?: number; tenantId?: string; queryEmbedding?: number[] }): Promise<AnswerQuestionResult> {
-    const output = await withExecutionTimeout(this.graph.invoke(input), this.options.timeoutMs);
+  async answer({ signal, ...input }: AnswerWorkflowInput): Promise<AnswerQuestionResult> {
+    const output = await withExecutionTimeout((executionSignal) => this.graph.invoke(input, { signal: executionSignal }), this.options.timeoutMs, signal);
     return output.result;
   }
 
-  async answerStream(input: { question: string; topK?: number; tenantId?: string; queryEmbedding?: number[] }, onEvent: (event: AnswerWorkflowEvent) => void | Promise<void>): Promise<AnswerQuestionResult> {
-    await onEvent({ type: "retrieving" });
-    const matches = (await this.retriever.execute({ query: input.question, topK: input.topK, tenantId: input.tenantId, queryEmbedding: input.queryEmbedding })).filter((match) => isSafeForAnswer(match.security));
-    const context = formatUntrustedContext(matches, this.options.maxContextChars);
-    if (!this.hasRelevantSource(context.sourcesByReference.values())) {
-      await onEvent({ type: "validating" });
-      return insufficientContext;
-    }
-    await onEvent({ type: "generating" });
-    const rawAnswer = this.answerGenerator.stream
-      ? await withExecutionTimeout(this.answerGenerator.stream(input.question, context.text, () => undefined), this.options.timeoutMs)
-      : await withExecutionTimeout(this.answerGenerator.generate(input.question, context.text), this.options.timeoutMs);
-    await onEvent({ type: "validating" });
-    const result = this.resolveAnswer(rawAnswer, context);
-    if (!result.refusalReason) {
-      for (const delta of result.answer.match(/[\s\S]{1,48}/gu) ?? []) await onEvent({ type: "token", delta });
-    }
-    return result;
+  answerStream(input: AnswerWorkflowInput, onEvent: (event: AnswerWorkflowEvent) => void | Promise<void>): Promise<AnswerQuestionResult> {
+    return withExecutionTimeout(async (signal) => {
+      const emit = async (event: AnswerWorkflowEvent) => {
+        signal.throwIfAborted();
+        await onEvent(event);
+        signal.throwIfAborted();
+      };
+      await emit({ type: "retrieving" });
+      const matches = await this.retriever.execute({
+        query: input.question, topK: input.topK, tenantId: input.tenantId, queryEmbedding: input.queryEmbedding, signal
+      });
+      signal.throwIfAborted();
+      const context = formatUntrustedContext(matches.filter((match) => isSafeForAnswer(match.security)), this.options.maxContextChars);
+      if (!this.hasRelevantSource(context.sourcesByReference.values())) {
+        await emit({ type: "validating" });
+        return insufficientContext;
+      }
+      await emit({ type: "generating" });
+      const rawAnswer = this.answerGenerator.stream
+        ? await this.answerGenerator.stream(input.question, context.text, () => undefined, signal)
+        : await this.answerGenerator.generate(input.question, context.text, signal);
+      await emit({ type: "validating" });
+      const result = this.resolveAnswer(rawAnswer, context);
+      // Only publish deltas after the structured answer and its source references are checked.
+      if (!result.refusalReason && result.structuredOutput && result.sources.length > 0) {
+        await emit({ type: "citations", sources: result.sources });
+        for (const delta of result.answer.match(/[\s\S]{1,256}/gu) ?? []) await emit({ type: "token", delta });
+      }
+      return result;
+    }, this.options.timeoutMs, input.signal);
   }
 
   private createGraph() {
     return new StateGraph(RagState)
       .addNode(
         "retrieve",
-        async (state) => {
+        async (state, runtime) => {
           const stepCount = assertStepBudget(state.stepCount + 1, this.options);
-          const matches = await this.retriever.execute({ query: state.question, topK: state.topK, tenantId: state.tenantId, queryEmbedding: state.queryEmbedding });
+          const matches = await this.retriever.execute({ query: state.question, topK: state.topK, tenantId: state.tenantId, queryEmbedding: state.queryEmbedding, signal: runtime.signal });
           return { matches: matches.filter((match) => isSafeForAnswer(match.security)), stepCount };
         },
         { retryPolicy: { maxAttempts: 3, initialInterval: 0.25, maxInterval: 1, backoffFactor: 2 } }
@@ -89,9 +102,9 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
         context: formatUntrustedContext(state.matches, this.options.maxContextChars),
         stepCount: assertStepBudget(state.stepCount + 1, this.options)
       }))
-      .addNode("generate_answer", async (state) => {
+      .addNode("generate_answer", async (state, runtime) => {
         const stepCount = assertStepBudget(state.stepCount + 1, this.options);
-        const rawAnswer = await withExecutionTimeout(this.answerGenerator.generate(state.question, state.context.text), this.options.timeoutMs);
+        const rawAnswer = await this.answerGenerator.generate(state.question, state.context.text, runtime.signal);
         return { result: this.resolveAnswer(rawAnswer, state.context), stepCount };
       })
       .addNode("no_context", () => ({ result: insufficientContext }))
@@ -120,14 +133,14 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
       return { answer: "I could not validate the model's structured response, so I am declining to answer.", sources: [], citedChunkIds: [], structuredOutput: false, refusalReason: "unstructured_model_output" };
     }
     if (parsed.refusalReason) {
-      return { answer: parsed.answer, sources: [], citedChunkIds: [], structuredOutput: parsed.structured, refusalReason: parsed.refusalReason };
+      return { answer: redactPii(parsed.answer).text, sources: [], citedChunkIds: [], structuredOutput: parsed.structured, refusalReason: redactPii(parsed.refusalReason).text };
     }
     const contextSources = [...context.sourcesByReference.values()];
     const sources = parsed.structured
       ? [...new Set(parsed.citedChunkIds)].flatMap((reference) => context.sourcesByReference.get(reference) ?? [])
       : contextSources;
     return {
-      answer: parsed.answer,
+      answer: redactPii(parsed.answer).text,
       sources,
       contextSources,
       citedChunkIds: parsed.structured ? sources.map((source) => source.chunkId) : [],
