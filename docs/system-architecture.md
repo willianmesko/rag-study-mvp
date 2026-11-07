@@ -66,6 +66,12 @@ a side panel with metadata, original-file controls, and passages. Processing
 loads its detailed timeline for the selected file. Settings groups use dividers
 and expandable model and assistant controls.
 
+Invitation access is a native radio group with Viewer and Editor visible inside
+the modal. Viewer is selected by default, descriptions are associated with
+each input, and the group is disabled while sending. This works in the Team
+dialog, initial onboarding and the nested Milo Help guide. The invitation API,
+owner authorization and workspace scope keep the existing contract.
+
 The desktop Ask surface fills its content column and the remaining viewport
 height. The message thread keeps a readable line width inside that surface.
 

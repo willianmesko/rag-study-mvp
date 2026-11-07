@@ -21,9 +21,9 @@ status section where they appear.
 
 ## In progress
 
-No implementation is currently active. Chat-first navigation, document-aware
-entry, the shared upload dialog and refreshed logo were published and verified
-on 2026-11-07. The pending sections below contain the remaining work.
+Invitation access selection is being updated to show both allowed roles inside
+the modal. Responsive, keyboard and nested-onboarding validation and frontend
+publication are in progress. The pending sections below contain the other work.
 
 **Approved delivery order**
 
@@ -327,6 +327,12 @@ See [Durable workflows](durable-workflows.md).
 
 ### Product UI and current chat behavior
 
+- [x] Invitation access uses two immediately visible native radio choices,
+  Viewer/Editor, with short descriptions and Viewer selected by default.
+  The choice remains usable in Team, onboarding and the nested Help guide;
+  keyboard navigation, focus return and pending-state locks are validated.
+  Responsive checks and accessibility passed locally. Frontend publication
+  is in progress; release evidence will follow verification.
 - [x] Ask-first navigation without numbered page labels; normal sign-in and
   completed onboarding open chat while authorized private deep links remain.
 - [x] Document-aware chat entry: loading, empty, preparing, failed and ready
