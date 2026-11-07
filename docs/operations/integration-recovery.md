@@ -56,8 +56,14 @@ this is an intentional protection against another paid invocation.
 Configure `BUDGET_ALERT_WEBHOOK_URL`, `BUDGET_ALERT_WEBHOOK_SECRET` (at least 32
 characters) and `USAGE_ALERT_THRESHOLD_USD`. No destination is active by default.
 The threshold covers known reported/estimated cost over 30 days. Unknown-price
-operations are included as a count. Enqueue repair recovers transient ledger-to-
-outbox failures; the ledger and pending entries survive process restarts.
+operations are included as a count. The ledger and queued entries survive
+restarts, but current enqueue repair discovers only tenants active in the last
+day. A crash between ledger commit and enqueue followed by more than a day
+offline can leave a qualifying 30-day alert undiscovered without a new call.
+Complete [BE-04](../technical-backlog.md#be-04--complete-budget-alert-repair-window)
+before unattended notification activation. Already queued deliveries retain
+their durable lease/retry behavior. Do not represent repair as complete across
+the full accounting window until that regression is fixed and tested.
 
 The server chooses the HTTPS destination. DNS is resolved and public IPv4
 addresses vetted; the socket pins a validated address with hostname TLS/SNI

@@ -25,6 +25,12 @@ The shared database and in-process worker remain intentional low-cost choices.
 There is no throughput/load-test evidence yet; separate workers, shared burst
 limits, connection budgeting, and tenant-skewed retrieval benchmarks remain open.
 
+The later [backend architecture review](backend-architecture-review.md) evaluates
+the expanded `e25572d` source and records current correctness/modularity findings
+in the [technical backlog](technical-backlog.md). Use BE-13 for this benchmark's
+execution status. The original table below is historical evidence, not a claim
+that all of its earlier defects remain present.
+
 ## Original findings and priorities
 
 | Priority | Finding | Next decision or change |

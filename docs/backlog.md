@@ -21,14 +21,19 @@ status section where they appear.
 
 ## In progress
 
-Durable conversations, simplified onboarding and the separate Usage & costs
-page are live on the frontend and API at `603ee63`. All three
-[release gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42376186468)
-passed and both deployments were verified on 2026-11-07.
+The latest application release, `e25572d6118efbdb84190367a039526775fbd0b2`, is
+live on the frontend and API. All three
+[release gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42382954451)
+passed; both deployments, public assets, health and protected-route behavior were
+verified on 2026-11-07. It includes durable conversations, simplified onboarding,
+Usage & costs, observability and resilient integrations. See the
+[release evidence](operations/release-2026-11-07.md) for scope and limits.
 
-Observability and resilient integrations have passed local implementation checks.
-Their CI release and production publication are in progress. Operational
-activation items below remain distinct from completed code.
+The parallel backend/frontend architecture **analysis is complete**. Its 25
+implementation tickets are **pending**, not deployed refactors. No application
+implementation is marked in progress by this audit. The
+[technical backlog](technical-backlog.md) defines the incremental execution plan;
+operational activation remains separate below.
 
 **Approved delivery order**
 
@@ -80,6 +85,29 @@ implemented.
   mappings. The fixed RAG reference benchmark measures its bundled corpus;
   public faithfulness examples do not certify a team's own documents.
 
+### 10. Technical architecture and code quality
+
+The [backend review](backend-architecture-review.md) and
+[frontend review](frontend-architecture-review.md) record code evidence,
+alternatives, trade-offs and validation. The authoritative task checklist is the
+[technical backlog](technical-backlog.md); all 25 implementation tickets remain
+open. The audit itself is complete and introduced no dependency or runtime change.
+
+- [ ] Correct HTTP/JSON boundaries, credential-bearing cache keys, local recovery,
+  pool fault handling, key-inventory traversal, budget-alert repair and the
+  embedding cutover CI gap (phase 1).
+- [ ] Extract cohesive Auth/HTTP/app responsibilities, finish shared wire
+  contracts and slice Public APIs, and pilot compatible FSD/correctness gates
+  with explicit exceptions (phase 2).
+- [ ] Standardize query/stream transitions, cancellation, least-privilege MCP
+  credentials, reranker reservations, shutdown and dependency/build hygiene
+  (phase 3).
+- [ ] Consolidate current UI primitives/tokens, measure browser/backend capacity
+  and improve forms/URL state only where evidence justifies it (phase 4).
+
+Keep the established stack. Library/tool adoption requires the documented pilot;
+neither the review nor a new package replaces tests or server authorization.
+
 ## Implemented, pending activation or live validation
 
 - [ ] Configure the selected OTLP trace/metrics receiver and operational alarm
@@ -87,10 +115,13 @@ implemented.
   reason-coded signals are implemented. Langfuse/Phoenix remain conditional on
   backend selection; Splunk/VictoriaMetrics are deferred until operations justify them.
 - [ ] Activate a signed budget-webhook destination, verify its timestamp/HMAC and
-  idempotency handling, and confirm a real delivery. No destination was invented.
+  idempotency handling, and confirm a real delivery **after BE-04 fixes the repair
+  window**. No destination was invented.
 - [ ] Activate versioned workflow writer keys through staged rollout, complete
   a target-environment inventory and rehearse restoring a real retained backup
-  before retiring reader keys. Current legacy-key compatibility is preserved.
+  before retiring reader keys. **BE-01 must resolve concurrent inventory traversal
+  first**, or inventory must be rigorously quiesced as described in the runbook.
+  Current legacy-key compatibility is preserved.
 - [ ] Supply reviewed embedding/reranker billing rates where provider dollar
   measurements are unavailable. New unpriced usage is flagged, and historical
   measurements are unchanged.
@@ -102,7 +133,8 @@ implemented.
   automatically performed by deployment.
 
 - [ ] Run the existing Jina benchmark with credentials and review measured
-  quality and latency against the golden set before enabling reranking.
+  quality and latency against the golden set before enabling reranking. Resolve
+  BE-10's conservative reservation policy before paid production activation.
 - [ ] Supply reviewed live latency/cost exports to activate release performance
   gates for a representative workload. Offline ranking/screening gates run now.
 - [ ] Populate replay tooling with approved anonymized or reconstructed
@@ -113,7 +145,8 @@ implemented.
   tooling are implemented.
 - [ ] Validate an embedding-version cutover in the target environment before
   changing its live index. Staging, full rebuild, dimension checks, atomic
-  activation, and cache invalidation are implemented.
+  activation, and cache invalidation are implemented. BE-05 must execute its
+  dedicated integration suite in CI without skips first.
 - [ ] Enable and validate the existing LangSmith adapter only with credentials
   and an approved trace-data policy.
 - [ ] Verify real invitation delivery and onboarding through the existing
@@ -212,7 +245,11 @@ CloudWatch → metrics and alarms
 The local harness passed, along with 54 real PostgreSQL integration checks,
 142 responsive browser checks and 19 focused usage/invitation checks (the
 focused set overlaps the full suite). Public provider/mail delivery is mocked
-in tests. Release publication and operational activation are tracked separately.
+in tests. All three CI gates passed and the frontend/API are live at `e25572d`.
+The [release record](operations/release-2026-11-07.md) preserves migration,
+deployment and smoke-test evidence. Operational activation and the newly found
+BE-01/BE-04 recovery limitations remain open; completed local checks do not
+replace concurrent-inventory or extended-repair-window regressions.
 See [operations](operations/observability.md),
 [rotation](operations/workflow-key-rotation.md) and
 [integration recovery](operations/integration-recovery.md).
@@ -319,7 +356,8 @@ for contracts, diagrams, privacy/deletion rules, and operational limits.
 Validation: 13 real PostgreSQL/API checks, seven focused browser journeys across
 three responsive profiles, accessibility checks, and the evaluation harness
 passed locally. The Supabase migration and private-role checks are complete.
-Final CI and frontend/backend publication are pending.
+All three release gates and frontend/backend publication passed at `603ee63`;
+the latest `e25572d` release retains that functionality.
 
 ### RAG and ingestion
 

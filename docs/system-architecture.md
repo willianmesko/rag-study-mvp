@@ -217,6 +217,28 @@ packages/contracts       Zod schemas shared between web and API
 boundaries. The API still owns authorization and every server-side invariant.
 Type sharing does not make the browser a trusted source.
 
+### Architecture review and incremental plan, 2026-11-07
+
+Parallel source reviews of frontend and backend at `e25572d` support retaining
+the current stack and modular API. They do not establish throughput or complete
+FSD enforcement. The [technical backlog](technical-backlog.md) contains 25
+pending implementation tickets, with evidence and alternatives in the
+[frontend review](frontend-architecture-review.md) and
+[backend review](backend-architecture-review.md).
+
+The frontend has recognizable FSD layers and independently loaded workspace
+sections, but routing/session/workspace orchestration still lives in the RAG
+page. Slice Public APIs and an automated FSD gate are not implemented. The
+proposed direction is `app` composition → pages → widgets → features → entities
+→ narrow shared segments, with no page-to-page dependency. Not every slice needs
+every segment. Tool adoption requires a compatible development-only pilot.
+
+The API's application/domain relative-import graph respects inward dependencies,
+but HTTP/composition files still mix responsibilities. Native Fastify plugins,
+small typed factories and bounded Auth/directory ports are the proposed next
+step. No framework, ORM, router, global store or UI toolkit migration is part of
+this audit. Concrete boundary/recovery corrections precede broad file moves.
+
 ## API architecture
 
 The API follows Clean Architecture. Dependencies point inward.
@@ -565,8 +587,10 @@ does not transmit document text, prompts, or secrets to a hosted model.
 
 ### Structured output and Zod status
 
-Request validation is fully shared through `packages/contracts`, but generated
-answers were previously free text. The LangGraph boundary now asks providers for
+Zod validates inputs throughout the API, and `packages/contracts` shares many
+wire schemas. Shared coverage is not complete: some route DTOs and client
+response assumptions remain local and are tracked in BE-12/FE-02. The LangGraph
+boundary asks providers for
 a JSON answer with `answer`, `citedChunkIds`, and `refusalReason`, parses it with
 Zod, and verifies the short source labels (`S1`, `S2`) against the passages
 included in the prompt. The API maps those labels to database chunk IDs after
@@ -663,10 +687,16 @@ inspected window. No production data or schema was rewritten.
 
 ## Next architectural increments
 
-1. Activate a selected tracing/metrics receiver and a signed budget destination.
-2. Rehearse staged key rotation and backup restore in the target environment.
-3. Validate mixed-workload capacity, connection budgets, and tenant fairness.
-4. Move large ingestion workloads to a dedicated queue worker when measurements require it.
+1. Correct the prioritized transport/session/pool and recovery findings in the
+   [technical backlog](technical-backlog.md), preserving public behavior.
+2. Resolve BE-04 before activating unattended budget delivery; select a tracing/
+   metrics receiver and alarm routing under the existing data policy.
+3. Resolve BE-01's concurrent inventory gap, then rehearse staged key rotation
+   and backup restore before reader-key retirement.
+4. Extract cohesive HTTP/application composition and frontend Public APIs with
+   tested architecture gates; no additional framework is a prerequisite.
+5. Validate mixed-workload capacity, connection budgets and tenant fairness.
+   Separate ingestion workers only when measurements justify their cost.
 
 
 ### Simplified guided setup
@@ -709,8 +739,11 @@ stateDiagram-v2
 ```
 
 Versioned AES-GCM envelopes separate active writer and retained reader keys. A
-bounded rotation command verifies four encrypted stores; online retirement also
-requires complete inventory and backup-key custody. OpenTelemetry spans trace
+bounded rotation command covers four encrypted stores. Its current physical
+cursor is not safe proof of completeness during concurrent row updates; BE-01
+and the [activation gate](operations/workflow-key-rotation.md#current-activation-gate)
+must be satisfied before reader-key retirement, along with backup-key custody.
+OpenTelemetry spans trace
 workflow stages, provider effects, tools and HTTP requests using server-generated
 correlation IDs. Metrics use fixed bounded labels and distinguish reported,
 estimated and unpriced cost. Logs/traces exclude content and credentials.
@@ -720,3 +753,7 @@ dashboard and tested alarm rules. No new hosted backend or external write tool
 is automatically enabled. Read the [rotation procedure](operations/workflow-key-rotation.md)
 and [effect/recovery policy](operations/integration-recovery.md) before operational
 activation or registering a write-capable action.
+
+The frontend and API are verified live at `e25572d`; the
+[release record](operations/release-2026-11-07.md) distinguishes CI/production
+evidence from still-pending operational activation and architecture fixes.

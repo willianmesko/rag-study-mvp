@@ -6,6 +6,24 @@ associated data. New envelopes also authenticate a format header and key ID.
 The active writer key and retained reader keys are separate. Keys never appear
 in reports, logs, source control or browser configuration.
 
+## Current activation gate
+
+The 2026-11-07 architecture review found that the current inventory paginates
+physical `ctid` values across transactions. Heartbeats/status updates can relocate
+a row without changing its old ciphertext, so a concurrent scan may miss it.
+Do **not** retire reader keys based solely on this scan's `complete`/`remaining`
+report while database writers are active. Stopping only old encryption writers
+does not stop status updates.
+
+Complete [BE-01](../technical-backlog.md#be-01--stable-encryption-key-inventory)
+with immutable logical-key traversal and concurrent-update tests before online
+retirement. An alternative maintenance procedure must quiesce **all writes and
+row-relocating maintenance on all four stores**, retain the full reader ring,
+and perform complete fresh verification before resuming work. If that cannot be
+proven, keep old reader keys. Actual production key activation/retirement has not
+been performed by this release. Existing staged happy-path tests do not close
+this concurrency gap.
+
 ## Compatibility and rollout
 
 1. **Prepare readers.** Deploy the keyring-capable code to every API/worker while
@@ -18,7 +36,8 @@ in reports, logs, source control or browser configuration.
    to base64 keys and `WORKFLOW_STATE_ACTIVE_KEY_ID`, keeping the old legacy key
    available for reads. For later rotations retain the prior named keys in the
    JSON ring. All old writers must be stopped/upgraded before verification.
-4. **Inventory.** Run `npm run workflow:keys -- --dry-run`. Reports contain only
+4. **Inventory.** First satisfy the activation gate above. Run
+   `npm run workflow:keys -- --dry-run`. Reports contain only
    key IDs, scanned counts and completeness, never decrypted values.
 5. **Reencrypt.** Run `npm run workflow:keys -- --apply` in a controlled trusted
    process. It uses bounded transactions, lock/statement timeouts, authenticated
@@ -37,8 +56,9 @@ in reports, logs, source control or browser configuration.
    tests verify old/new readers, tenant authentication, all stores, bounded
    progress, tamper failure and reading after online retirement. This is not
    evidence that a real production backup has been restored.
-8. **Retire online readers.** Only after complete verification and restore
-   readiness remove inactive keys from the running service. Keep escrow copies
+8. **Retire online readers.** Only after the concurrency gate, complete
+   verification and restore readiness remove inactive keys from the running
+   service. Keep escrow copies
    until every backup, archive and retained encrypted record needing them expires.
 
 ## Failure and rollback
