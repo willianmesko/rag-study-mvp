@@ -260,3 +260,27 @@ screenshots on desktop, tablet and mobile. CI runs all three gates.
 Native persistence follows the installed LangGraph APIs documented in the
 [official persistence guide](https://docs.langchain.com/oss/javascript/langgraph/persistence)
 and [interrupt guide](https://docs.langchain.com/oss/javascript/langgraph/interrupts).
+
+## Release evidence: 2026-11-07
+
+Code commit `9f179be480765666488a0dbf6685cbd22470246d` passed all three
+[GitHub quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42359824117).
+The local harness, 22 PostgreSQL checks, and 78 applicable browser checks passed.
+The remaining 30 browser cases intentionally run only in their designated
+viewport. New approval screenshots were reviewed for desktop, tablet and mobile.
+
+- API deploy: `dep-dbnevq9srm7s7398ha6g`, live at 09:33 UTC.
+- Frontend deploy: `dep-dbnf137f3r2c738fmeag`, live at 09:34 UTC.
+- [Demo](https://rag-study-demo-web-4ae2.onrender.com) and
+  [API health](https://rag-study-demo-api-4ae2.onrender.com/health) were verified.
+- The migration, all six private-table grants/RLS settings, new protected routes,
+  page routes, and served feature assets were checked. No new API errors appeared
+  in the inspected post-release window.
+- One public Q&A smoke request returned a safe insufficient-context refusal.
+  No private account was impersonated or production corpus seeded. Recovery,
+  claim/repair, cancellation, and approval integration tests used isolated
+  fixtures; an owner can test private flows through the signed-in demo.
+
+Durable execution is activated using the existing Render API and Supabase
+services. It introduces no additional paid hosting service. Provider requests
+still depend on the configured provider account and usage.

@@ -21,15 +21,14 @@ status section where they appear.
 
 ## In progress
 
-The seven LangGraph capabilities are implemented and locally validated. The
-release is awaiting its remote CI checks, environment activation, and API/web
-publication. Local harness checks, 22 real PostgreSQL checks, and all 78 applicable
-responsive browser checks passed. Remote CI and production release remain pending.
+No implementation is currently active. The seven LangGraph workflow capabilities
+were published and verified on 2026-11-07. The pending sections below are the
+remaining product and engineering backlog.
 
 **Approved delivery order**
 
 1. **Completed:** [Demonstration libraries and document discovery](#1-demonstration-libraries-and-document-discovery).
-2. **Implementation validated; release in progress:** [LangGraph workflow expansion](#2-langgraph-workflow-expansion): adaptive
+2. **Completed:** [LangGraph workflow expansion](#2-langgraph-workflow-expansion): adaptive
    retrieval, claim verification and citation repair, checkpointed ingestion,
    unified evaluations, durable approvals, execution budgets/cancellation, and
    restart recovery.
@@ -259,7 +258,17 @@ Processing offers cancellation. Direct CLI imports, JSON/anonymous chat, and
 comparisons remain bounded synchronous paths. A lexical rewrite is deterministic;
 claim judging is evidence assessment, not proof. Private corpus datasets,
 provider-complete actual billing, key rotation, and capacity testing remain open.
-Production activation is pending. See [Durable workflows](durable-workflows.md).
+All three [release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42359824117)
+passed for code commit `9f179be`. Local validation also passed the quality harness,
+22 real PostgreSQL checks, and 78 applicable browser checks (30 intentionally
+restricted to other viewports). The additive Supabase migration and private-table
+permissions were verified. API and frontend were confirmed live on Render on
+2026-11-07; API health advertised durable workflows, protected operations rejected
+unauthenticated access, and the served frontend included approval/cancellation.
+The public Q&A smoke request safely refused because its public corpus lacked
+relevant context; live private-model generation was not exercised through an
+impersonated account. Native recovery/provider tests use isolated fixtures.
+See [Durable workflows](durable-workflows.md).
 
 ### RAG and ingestion
 
