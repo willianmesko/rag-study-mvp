@@ -21,20 +21,7 @@ status section where they appear.
 
 ## In progress
 
-### 8. MCP expansion — validated, preparing publication
-
-- [x] Remote MCP HTTP connections with OAuth authorization-code + S256 PKCE,
-  explicit workspace/tool consent, rotating refresh tokens and revocable grants.
-- [x] Hybrid workspace retrieval with a pinned/priced embedding identity,
-  PostgreSQL text search, pgvector and RRF; atomic user/workspace provider
-  budgets and cancellation propagated to embedding and SQL operations.
-- [x] Shared allowlists, strict Zod contracts, workspace scope, current RBAC,
-  durable rate/call budgets, deadlines, output caps, safe previews and audits.
-- [x] Connected-assistant management for every member role, plus responsive
-  PT/EN consent, sign-in return, expiry, decline and revocation states.
-- [x] Publish the API and verify public OAuth discovery, resource challenge,
-  authentication, CORS and invalid-token/form rejection (`266fdaf`).
-- [ ] Publish the frontend and verify the public connection and consent UI.
+No implementation is currently active in this checkout.
 
 **Approved delivery order**
 
@@ -43,6 +30,8 @@ status section where they appear.
    retrieval, claim verification and citation repair, checkpointed ingestion,
    unified evaluations, durable approvals, execution budgets/cancellation, and
    restart recovery.
+3. **Completed:** [MCP expansion](#8-mcp-expansion): OAuth URL connections,
+   workspace hybrid retrieval, durable budgets/cancellation and safe tool policies.
 
 ## Pending implementation
 
@@ -432,6 +421,34 @@ See [Durable workflows](durable-workflows.md).
   Zod contracts in `packages/contracts`, plus Clean Architecture backend ports.
 - [x] Architecture documentation, deployment guidance, an MCP guide, and an
   initial backend scalability review.
+
+### 8. MCP expansion
+
+- [x] Remote MCP HTTP connections with OAuth authorization-code + S256 PKCE,
+  explicit workspace/tool consent, rotating refresh tokens and revocable grants.
+- [x] Hybrid workspace retrieval with a pinned/priced embedding identity,
+  PostgreSQL text search, pgvector and RRF; atomic user/workspace provider
+  budgets and cancellation propagated to embedding and SQL operations.
+- [x] Shared allowlists, strict Zod contracts, workspace scope, current RBAC,
+  durable rate/call budgets, deadlines, output caps, safe previews and audits.
+- [x] Connected-assistant management for every member role, plus responsive
+  PT/EN consent, sign-in return, expiry, decline and revocation states.
+- [x] Publish the API and verify public OAuth discovery, resource challenge,
+  authentication, CORS and invalid-token/form rejection (`266fdaf`).
+- [x] Publish the frontend and verify the public connection and consent UI
+  (`8af43a1`), including return from sign-in before onboarding is complete.
+
+Validation on 2026-11-07: 35 PostgreSQL integration checks, full OAuth
+discovery/DCR/PKCE/refresh using the official MCP SDK, modern and legacy
+transports, concurrent/replay/cancellation tests, 18 connection UX cases,
+and the full [release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42369767912) passed.
+Live checks confirmed OAuth discovery, access rejection, CORS, no-store,
+iframe denial and the deployed consent bundle. EN/PT browser smoke checks
+used synthetic authenticated fixtures and issued no real assistant grant.
+The first third-party account connection remains an interactive consent
+step, listed separately under live validation. Usage survives membership
+removal/rejoining and failed/cancelled provider attempts remain charged
+against the reserved budget. See the [connection guide](workspace-mcp.md).
 
 ### Project-owned MCP reads
 

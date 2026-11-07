@@ -217,6 +217,32 @@ public/client roles access to these private tables. The demo uses the existing
 backend connection in a separate pool plus explicit read-only transactions;
 it does not claim to have provisioned a separate database principal.
 
+### Published demo verification
+
+Published on 2026-11-07: API commit `266fdaf` and frontend commit
+`8af43a1`. Both passed their complete GitHub quality gates. The API URL
+above serves public OAuth/resource discovery and the protected MCP
+transport. [Connected assistants](https://rag-study-demo-web-4ae2.onrender.com/connections)
+opens the authenticated management page.
+
+Validation includes 35 disposable-PostgreSQL integration checks and 18
+connection UX cases across desktop/tablet/mobile. The official SDK
+completed discovery, HTTP client registration, PKCE exchange, refresh and
+modern/legacy tool calls against the local test server. Live API checks
+confirmed discovery, resource binding/challenge, missing-credential
+rejection, CORS/Origin policy, no-store and malformed token-form rejection.
+The deployed frontend was checked in EN/PT, with no JavaScript errors;
+authenticated browser scenarios used synthetic fixtures. No real external
+assistant account was authorized by these checks.
+
+The control-table RLS/privileges were checked after both migrations.
+The existing private-table “RLS enabled, no policy” information notices
+are intentional; the project’s existing vector-schema and password-policy
+advisories are separate hardening work. See the
+[RLS advisor](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy),
+[vector-schema advisor](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public)
+and [password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
 References: [MCP authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization),
 [SDK serving](https://ts.sdk.modelcontextprotocol.io/v2/serving/fastify.html),
 [SDK authorization](https://ts.sdk.modelcontextprotocol.io/v2/serving/authorization.html).
@@ -246,7 +272,8 @@ untrusted source material for the host's model.
 ## Build and start
 
 Use Node 24. The API requires Supabase Auth and the existing workspace schema.
-Apply all migrations, including `20261107111130_mcp_remote_oauth_and_budgets.sql`,
+Apply all migrations, including `20261107111130_mcp_remote_oauth_and_budgets.sql`
+and `20261107113843_mcp_accounting_retention.sql`,
 through the normal migration command.
 
 ```sh
