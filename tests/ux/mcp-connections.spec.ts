@@ -92,3 +92,19 @@ test("sign-in preserves the OAuth request and returns to consent instead of onbo
   await expect(page.getByRole("heading", { name: /Connect your assistant|Conecte seu assistente/ })).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/mcp/authorize\\?requestId=${requestId}$`));
 });
+
+test("sign-in returns a member to connection management even when the guide is unfinished", async ({ page, context }) => {
+  await workspaceFixture(null, "viewer").attach(context);
+  await context.addInitScript(() => localStorage.removeItem("sb-fixture-auth-token"));
+  await context.route("**/v1/mcp/connections", (route) => route.fulfill({ json: { url: "https://api.example/mcp", connections: [] } }));
+  await context.route("https://fixture.supabase.co/auth/v1/token**", (route) => route.fulfill({ json: {
+    access_token: token, refresh_token: "fixture-refresh-token", token_type: "bearer", expires_in: 3600,
+    user: { id: "22222222-2222-4222-a222-222222222222", email: "viewer@example.test", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {} }
+  } }));
+  await page.goto("/connections");
+  await page.getByLabel(/Email address|E-mail/).fill("viewer@example.test");
+  await page.getByLabel(/^(Password|Senha)$/).fill("fixture-password");
+  await page.getByRole("button", { name: /^(Sign in|Entrar)$/ }).click();
+  await expect(page).toHaveURL(/\/connections$/);
+  await expect(page.getByLabel(/MCP server URL|URL do servidor MCP/)).toHaveValue("https://api.example/mcp");
+});

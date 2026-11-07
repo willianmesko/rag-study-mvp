@@ -32,7 +32,9 @@ status section where they appear.
   durable rate/call budgets, deadlines, output caps, safe previews and audits.
 - [x] Connected-assistant management for every member role, plus responsive
   PT/EN consent, sign-in return, expiry, decline and revocation states.
-- [ ] Publish the API and frontend and verify public OAuth discovery and UI.
+- [x] Publish the API and verify public OAuth discovery, resource challenge,
+  authentication, CORS and invalid-token/form rejection (`266fdaf`).
+- [ ] Publish the frontend and verify the public connection and consent UI.
 
 **Approved delivery order**
 

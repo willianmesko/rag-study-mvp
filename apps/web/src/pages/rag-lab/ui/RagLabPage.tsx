@@ -126,11 +126,14 @@ export function RagLabPage() {
       if (route.kind === "private") returnPath.current = pathname;
       navigateTo("/sign-in", { replace: true });
     } else if (workspaceQuery.isSuccess && !workspaceQuery.isError && !setupLoading) {
-      if (!setupComplete && !(route.kind === "private" && route.lab.tab === "connections")) {
+      const requestedPath = route.kind === "private" ? pathname : returnPath.current;
+      const requestedRoute = readAppRoute(requestedPath ?? "/");
+      const openingConnections = requestedRoute.kind === "private" && requestedRoute.lab.tab === "connections";
+      if (!setupComplete && !openingConnections) {
         if (route.kind === "private") returnPath.current = pathname;
         navigateTo("/onboarding", { replace: true });
       } else if (activeRole) {
-        const next = accessibleWorkspacePath(route.kind === "private" ? pathname : returnPath.current, activeRole);
+        const next = accessibleWorkspacePath(requestedPath, activeRole);
         returnPath.current = null;
         navigateTo(next, { replace: true });
       }
