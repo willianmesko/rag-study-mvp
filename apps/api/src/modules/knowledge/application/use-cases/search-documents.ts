@@ -5,19 +5,21 @@ import type { DocumentRepository } from "../ports/document-repository.js";
 import { resolveWorkspaceEmbeddingIndex, type EmbeddingProvider } from "../../../ai/index.js";
 import type { Reranker } from "../../../ai/index.js";
 
+export type DocumentSearchOptions = {
+  defaultTopK: number;
+  vectorCandidateMultiplier: number;
+  keywordCandidateMultiplier: number;
+  reciprocalRankConstant: number;
+  rerankerCandidateMultiplier: number;
+  defaultTenantId: string;
+};
+
 export class SearchDocumentsUseCase {
   constructor(
     private readonly embeddings: EmbeddingProvider,
     private readonly documents: DocumentRepository,
     private readonly reranker: Reranker,
-    private readonly options: {
-      defaultTopK: number;
-      vectorCandidateMultiplier: number;
-      keywordCandidateMultiplier: number;
-      reciprocalRankConstant: number;
-      rerankerCandidateMultiplier: number;
-      defaultTenantId: string;
-    }
+    private readonly options: DocumentSearchOptions
   ) {}
 
   async execute(input: { query: string; lexicalQuestion?: string; topK?: number; tenantId?: string; queryEmbedding?: number[]; embeddingIndexVersion?: string; signal?: AbortSignal }): Promise<RetrievedChunk[]> {

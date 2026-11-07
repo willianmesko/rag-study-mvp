@@ -14,7 +14,6 @@ import type {
   PreparedAnswerWorkflow,
   QuestionAnsweringWorkflow,
 } from "../../application/ports/question-answering-workflow.js";
-import type { ClaimVerifier } from "../../../ai/index.js";
 import {
   estimateGroundedPromptTokens,
   formatUntrustedContext,
@@ -34,31 +33,11 @@ import {
 import { rewriteRetrievalQuery } from "../../application/policies/retrieval-rewrite.js";
 import { workflowNode } from "../../../../platform/workflows/execution-context.js";
 import type { RetrievedChunk } from "../../../knowledge/index.js";
+import type { QuestionRetriever, AnswerWorkflowOptions } from "../../application/ports/answer-workflow-factory.js";
 import { redactPii } from "../../../../platform/security/pii-redaction.js";
 import { isSafeForAnswer } from "../../../../platform/security/prompt-injection.js";
 import { graphExecution } from "../../../../platform/workflows/graph-execution.js";
 
-type Retriever = {
-  execute(input: {
-    query: string;
-    lexicalQuestion?: string;
-    topK?: number;
-    tenantId?: string;
-    queryEmbedding?: number[];
-    embeddingIndexVersion?: string;
-    signal?: AbortSignal;
-  }): Promise<RetrievedChunk[]>;
-};
-type Options = {
-  maxContextChars: number;
-  minimumScore: number;
-  maxSteps?: number;
-  timeoutMs?: number;
-  requireStructuredOutput?: boolean;
-  claimVerifier?: ClaimVerifier;
-  claimVerifierFor?: (generator: AnswerGenerator) => ClaimVerifier;
-  workflowId?: string;
-};
 const RetrievalState = Annotation.Root({
   question: Annotation<string>,
   previousQuestions: Annotation<readonly string[] | undefined>,
@@ -95,15 +74,15 @@ const insufficientContext: AnswerQuestionResult = {
 export class LangGraphRagWorkflow
   implements QuestionAnsweringWorkflow, PreparedAnswerWorkflow
 {
-  private readonly options: Options & {
+  private readonly options: AnswerWorkflowOptions & {
     maxSteps: number;
     timeoutMs: number;
     requireStructuredOutput: boolean;
   };
   constructor(
-    private readonly retriever: Retriever,
+    private readonly retriever: QuestionRetriever,
     private readonly answerGenerator: AnswerGenerator,
-    options: Options,
+    options: AnswerWorkflowOptions,
   ) {
     this.options = {
       ...options,

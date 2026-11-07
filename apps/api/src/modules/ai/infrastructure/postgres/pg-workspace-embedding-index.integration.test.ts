@@ -8,6 +8,7 @@ import { IngestDocumentUseCase } from "../../../ingestion/application/use-cases/
 import { rebuildWorkspaceEmbeddings } from "../../../knowledge/application/use-cases/rebuild-workspace-embeddings.js";
 import { SearchDocumentsUseCase } from "../../../knowledge/application/use-cases/search-documents.js";
 import { config } from "../../../../config.js";
+import { createConfiguredProviderBindings } from "../../../../app/composition/provider-registry.js";
 import { createWorkspaceEmbeddingAdapter, createWorkspaceEmbeddingProvider } from "../embedding/workspace-embedding-provider.js";
 import { PassThroughReranker } from "../reranking/pass-through-reranker.js";
 import { PgDocumentRepository } from "../../../knowledge/infrastructure/postgres/pg-document-repository.js";
@@ -62,7 +63,9 @@ test("a workspace embedding cutover is complete, scoped, cache-invalidating and 
   const index = new PgWorkspaceEmbeddingIndex(pool);
   const documents = new PgDocumentRepository(pool, dimensions);
   const cache = new PgSemanticAnswerCache(pool, dimensions);
-  const provider = createWorkspaceEmbeddingProvider(pool);
+  const bindings = createConfiguredProviderBindings(config);
+  const adapter = (identity: EmbeddingModelIdentity) => createWorkspaceEmbeddingAdapter(identity, bindings.registry);
+  const provider = createWorkspaceEmbeddingProvider(index, bindings.defaultEmbedding, adapter);
   const ingest = new IngestDocumentUseCase(provider, documents, { chunkSize: 1000, chunkOverlap: 100, embeddingConcurrency: 2 });
   const search = new SearchDocumentsUseCase(provider, documents, new PassThroughReranker(), {
     defaultTopK: 5, vectorCandidateMultiplier: 4, keywordCandidateMultiplier: 4, reciprocalRankConstant: 60,
@@ -79,13 +82,13 @@ test("a workspace embedding cutover is complete, scoped, cache-invalidating and 
   const foreignChunk = (await documents.listChunks({ tenantId: otherTenant, documentId: isolatedDoc.id, limit: 1 }))[0]!;
   assert.equal(await index.stageVectors(tenantId, build.id, [{ id: foreignChunk.id, embedding: vector(1) }]), 0);
   await assert.rejects(index.stageVectors(tenantId, build.id, [{ id: foreignChunk.id, embedding: [1] }]), /1024 dimensions/);
-  assert.equal((await rebuildWorkspaceEmbeddings(index, createWorkspaceEmbeddingAdapter(newModel), { tenantId, versionId: build.id, maxChunks: 1 })).stagedVectors, 1);
+  assert.equal((await rebuildWorkspaceEmbeddings(index, adapter(newModel), { tenantId, versionId: build.id, maxChunks: 1 })).stagedVectors, 1);
 
   // A new document is accepted by the old index while the backfill runs.
   await ingest.execute({ tenantId, source: "lease-2", text: "A later synthetic delivery note." });
   await assert.rejects(index.switchActive(tenantId, build.id, "activate"), /missing 1 current chunk/);
   assert.equal((await index.getOrPinActive(tenantId, newModel)).revision, active.revision);
-  await rebuildWorkspaceEmbeddings(index, createWorkspaceEmbeddingAdapter(newModel), { tenantId, versionId: build.id, maxChunks: 10 });
+  await rebuildWorkspaceEmbeddings(index, adapter(newModel), { tenantId, versionId: build.id, maxChunks: 10 });
 
   const literal = toVectorLiteral(vector(0), dimensions);
   await pool.query(

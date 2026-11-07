@@ -1,7 +1,7 @@
 # ADR 0003: Technology-neutral feature assembly
 
 - Date: 2026-11-07
-- Status: accepted; implementation in progress under BE-15
+- Status: accepted; implemented and locally validated under BE-15, publication pending
 - Baseline: `d0459492862a181d77860a1aa26a18e3385f1caa`
 
 ## Concrete problem
@@ -86,3 +86,13 @@ capabilities. Do not silently drop a safety property to make an adapter fit.
 No framework, ORM, DI container, hosted service or additional package is required
 for this decision. It evolves the existing ports and explicit constructor/factory
 injection rather than wrapping every language/library operation.
+
+## Verification evidence
+
+The [release record](../operations/release-2026-11-07-capability-boundaries.md)
+tracks the seven-check harness, 78 architecture fixtures, two zero-violation
+dependency graphs, replacement-adapter contracts, current-adapter HTTP/graph
+coverage, 83 PostgreSQL checks, isolated embedding cutover and native OCR smoke.
+The injected transaction writer is covered by report-insert rollback and lease-
+expiry rollback cases. Publication is recorded only after exact-source CI and
+live deployment verification.

@@ -3,3 +3,4 @@ export { type AuditEventRepository } from "./application/ports/audit-event-repos
 export { type QuotaResult } from "./application/ports/quota-repository.js";
 export { type QuotaRepository } from "./application/ports/quota-repository.js";
 export { type UsageMetricsRepository } from "./application/ports/usage-metrics-repository.js";
+export { DeliveryCommandError, type BudgetAlertService, type BudgetAlertStatus } from "./application/ports/budget-alert-service.js";

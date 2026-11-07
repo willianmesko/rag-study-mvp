@@ -23,8 +23,19 @@ npm run test:architecture
 - Different slices in the same sliced layer cannot import each other. Consumers of another slice must use its explicit `index.ts` Public API.
 - Imports within a slice remain relative implementation imports. Shared is deliberately unsliced: its small public leaf modules can be imported directly. There is no giant Shared barrel.
 - Backend business modules live in `apps/api/src/modules/<feature>`. Their `domain` and `application` code cannot import module infrastructure, HTTP helpers, controllers, composition factories, or application composition. The legacy root `domain`/`application` boundary remains enforced while transitional paths exist.
+- Application/domain code and `*.module.ts` factories also cannot import concrete
+  database/graph/transport adapters, vendor SDKs or the global environment, even
+  through type-only edges. This includes the currently used database, cloud,
+  Auth, model/graph/tracing, HTTP and document-parser SDK packages. Pure shared
+  workflow contracts, operational observer ports and security policies remain
+  allowed. New integration packages require corresponding boundary review.
 - A business module imports another business module through its `index.ts` Public API, including type imports, reexports and literal dynamic imports. Module factories do not have a cross-module bypass. Global `app` composition and its CLIs may wire private controllers and adapters; integration tests may exercise them directly because test filenames are outside the production graph.
-- A business-module Public API cannot directly reexport a `*.controller.ts` or `*.module.ts` file. Keep public exports narrow and named: ports, policies, domain types and the services another module actually consumes. Exported symbol semantics still require review; a file graph cannot determine whether an arbitrarily named function is a composition factory.
+- A business-module Public API cannot directly reexport a `*.controller.ts`,
+  `*.module.ts` or infrastructure file, including adapter types. Keep public
+  exports narrow and named: ports, policies, domain types and the services another
+  module actually consumes. Exported symbol semantics still require review; a
+  file graph cannot determine whether an arbitrarily named function is a
+  composition factory.
 - Generic `platform` code cannot import business modules or global application composition. The exact HTTP authorization type exception below is erased from the runtime graph; every platform-to-module runtime edge remains forbidden.
 - Runtime dependency cycles fail a separate graph pass. Type-only or mixed type/runtime graph cycles do not masquerade as runtime cycles; type edges still participate in structural boundary checks.
 - Dynamic imports must have an unwrapped literal string or a template literal without substitutions. The graph checker validates those edges; a small TypeScript AST check rejects computed or parenthesized targets instead of silently ignoring them. The pilot found that the structural graph misses parenthesized import targets, so the same restriction covers that syntax explicitly.

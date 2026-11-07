@@ -4,6 +4,7 @@ import { workspaceMemberRoleSchema } from "@rag-study/contracts";
 import type { MemberDirectory } from "../identity/index.js";
 import type { TenantMembershipRepository } from "./application/ports/tenant-membership-repository.js";
 import type { InviteWorkspaceMember } from "./application/integrations/workspace-invitations.js";
+import type { InvitationDeliveryHistory } from "./application/ports/invitation-delivery-history.js";
 import { rejectScope, type WorkspaceAuthorizer } from "../../platform/http/workspace-authorization.js";
 import { withReplySignal } from "../../platform/http/reply-signal.js";
 
@@ -17,7 +18,7 @@ export type WorkspaceTeamRoutesDependencies = {
   changeWorkspaceMemberRole: TenantMembershipRepository["changeMemberRole"];
   removeWorkspaceMember: TenantMembershipRepository["removeMember"];
   inviteWorkspaceMember?: Pick<InviteWorkspaceMember, "execute">;
-  listInvitationDeliveries?: (tenantId: string) => Promise<unknown[]>;
+  listInvitationDeliveries?: InvitationDeliveryHistory["list"];
   isMemberDirectoryConfigured: () => boolean;
   isInvitationConfigured: () => boolean;
   shutdown: AbortSignal;

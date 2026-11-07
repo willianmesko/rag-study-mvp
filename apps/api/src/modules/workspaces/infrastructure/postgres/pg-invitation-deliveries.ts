@@ -1,13 +1,14 @@
 import { retryDelayMs } from "../../../../platform/integrations/retry-policy.js";
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
+import type { InvitationDeliveryHistory, InvitationDeliveryRecord } from "../../application/ports/invitation-delivery-history.js";
 import {
   InvitationDeliveryError,
   type InvitationDeliveryRepository,
   type InvitationLease,
   type InvitationReceipt,
 } from "../../application/integrations/workspace-invitations.js";
-export class PgInvitationDeliveries implements InvitationDeliveryRepository {
+export class PgInvitationDeliveries implements InvitationDeliveryRepository, InvitationDeliveryHistory {
   constructor(private readonly pool: Pool) {}
   private async owner(db: PoolClient, tenant: string, actor: string) {
     if (
@@ -31,9 +32,9 @@ export class PgInvitationDeliveries implements InvitationDeliveryRepository {
       [scope.tenantId, scope.actorId, id, scope.requestId, code],
     );
   }
-  async list(tenantId: string) {
+  async list(tenantId: string): Promise<InvitationDeliveryRecord[]> {
     return (
-      await this.pool.query(
+      await this.pool.query<InvitationDeliveryRecord>(
         "SELECT id,email,role,CASE WHEN state='sending' AND lease_until<=clock_timestamp() THEN 'ambiguous' ELSE state END AS state,attempts,last_code AS reason,created_at,updated_at FROM workspace_invitation_requests WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT 50",
         [tenantId],
       )

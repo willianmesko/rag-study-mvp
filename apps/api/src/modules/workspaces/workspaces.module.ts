@@ -1,24 +1,24 @@
-import type { Pool } from "pg";
-import { InviteWorkspaceMember } from "./application/integrations/workspace-invitations.js";
-import { SupabaseInvitationGateway } from "./infrastructure/auth/supabase-invitation-gateway.js";
-import { PgInvitationDeliveries } from "./infrastructure/postgres/pg-invitation-deliveries.js";
-import { PgTenantMembershipRepository } from "./infrastructure/postgres/pg-tenant-membership-repository.js";
-import { PgWorkspaceOnboardingRepository } from "./infrastructure/postgres/pg-workspace-onboarding-repository.js";
+import {
+  InviteWorkspaceMember,
+  type InvitationDeliveryRepository,
+  type InvitationGateway,
+} from "./application/integrations/workspace-invitations.js";
+import type { InvitationDeliveryHistory } from "./application/ports/invitation-delivery-history.js";
+import type { TenantMembershipRepository } from "./application/ports/tenant-membership-repository.js";
+import type { WorkspaceOnboardingRepository } from "./application/ports/workspace-onboarding-repository.js";
 
-/** Assemble workspace providers using the application-owned pool. */
-export function createWorkspacesServices(pool: Pool, options: {
-  supabaseUrl?: string;
-  serviceRoleKey?: string;
-  appBaseUrl?: string;
+/** Invitation policy depends on capabilities; application composition selects adapters. */
+export function createWorkspacesServices(dependencies: {
+  memberships: TenantMembershipRepository;
+  workspaceOnboarding: WorkspaceOnboardingRepository;
+  invitationDeliveries: InvitationDeliveryRepository & InvitationDeliveryHistory;
+  invitationGateway: InvitationGateway;
 }) {
-  const invitationDeliveries = new PgInvitationDeliveries(pool);
+  const { memberships, workspaceOnboarding, invitationDeliveries, invitationGateway } = dependencies;
   return {
-    memberships: new PgTenantMembershipRepository(pool),
-    workspaceOnboarding: new PgWorkspaceOnboardingRepository(pool),
+    memberships,
+    workspaceOnboarding,
     invitationDeliveries,
-    inviteWorkspaceMember: new InviteWorkspaceMember(
-      invitationDeliveries,
-      new SupabaseInvitationGateway(options.supabaseUrl, options.serviceRoleKey, options.appBaseUrl),
-    ),
+    inviteWorkspaceMember: new InviteWorkspaceMember(invitationDeliveries, invitationGateway),
   };
 }

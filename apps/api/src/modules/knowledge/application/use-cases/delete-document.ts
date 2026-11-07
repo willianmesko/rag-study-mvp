@@ -5,7 +5,7 @@ import type { OriginalFileStore } from "../ports/original-file-store.js";
 export class DeleteDocumentUseCase {
   constructor(
     private readonly documents: DocumentRepository,
-    private readonly jobs: IngestionJobRepository,
+    private readonly jobs: Pick<IngestionJobRepository, "listStoragePathsForDocument" | "deleteForDocument">,
     private readonly originals: OriginalFileStore
   ) {}
 

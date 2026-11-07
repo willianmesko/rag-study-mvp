@@ -9,8 +9,8 @@ Last reviewed on 2026-11-07.
 The [resume checkpoint](backlog-resume.md) preserves the next general FE-06 and
 BE-08 slices; both were inspected and stopped before edits. The owner then added
 the specific BE-15 priority: technology-neutral module assembly. That follow-up
-is active; general backlog work and the learning walkthrough retain their saved
-starting points.
+is implemented and locally validated, with CI/publication in progress. General
+backlog work and the learning walkthrough retain their saved starting points.
 
 ## Status guide
 
@@ -36,13 +36,17 @@ The earlier [observability/resilience release](operations/release-2026-11-07.md)
 is included.
 
 The [technical backlog](technical-backlog.md) records 14 published tickets,
-BE-15 in progress, five partial tickets and six pending tickets. The published
+BE-15 locally validated and awaiting publication, five partial tickets and six
+pending tickets. The published
 batch includes shared success-response schemas, SQL limits, bounded Auth/member
 lookup, frontend composition/Public APIs, provider reservations, safe shutdown
 and NestJS-inspired business-module organization. See the
 [module guide](backend-modules.md) and [ADR 0002](decisions/0002-business-modules.md).
 **BE-15 now separates tool-neutral feature assembly from concrete database,
 provider, workflow and tracing selection.** It is not yet part of that live SHA.
+Its [release evidence](operations/release-2026-11-07-capability-boundaries.md)
+records 78 architecture fixtures, 83 real PostgreSQL checks, the cutover and the
+complete local harness. Exact-source CI and production verification follow.
 Operational activation remains separate.
 
 OAuth extension-parameter compatibility and standard MCP icon metadata are live.
@@ -122,7 +126,7 @@ migration and preserves the existing stack.
   facilities under `platform` and global composition under `app`. Preserve the
   current framework, public API and resource ownership, and validate module
   exports/dependencies automatically before deployment.
-- [ ] **BE-15, current explicit priority:** make feature factories depend on
+- [x] **BE-15, implemented and locally validated; publication pending:** make feature factories depend on
   repository/service/workflow/tracing/provider ports and plain options. Select
   PostgreSQL, Supabase, LangGraph, LangSmith, Ollama/OpenRouter/Bedrock and optional
   reranker adapters in outer composition. Add alternate-adapter contract tests

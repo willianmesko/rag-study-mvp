@@ -12,6 +12,9 @@ const workspaceAuthorization = `^${platform}/http/workspace-authorization\\.ts$`
 // Runtime imports remain forbidden by the separate erased-edge graph below.
 const authorizationPublicTypes = `^${modules}/(?:identity|workspaces)/index\\.ts$`;
 const moduleTransport = `${modules}/[^/]+/(?:infrastructure/|http/|[^/]+\\.(?:controller|module)\\.ts$)`;
+const moduleCore = `^${modules}/[^/]+/(?:application/|domain/|[^/]+\\.module\\.ts$)`;
+const vendorSdk = "(?:^|/)node_modules/(?:@aws-sdk/|@supabase/|@langchain/|@opentelemetry/|@modelcontextprotocol/|@fastify/|@types/(?:pg|mammoth)(?:/|$)|(?:pg|langsmith|fastify|mammoth|pdf-parse|parse5)(?:/|$))";
+const technicalAdapter = `^${platform}/(?:ai/|database/(?!embedding-index-error\\.ts$)|http/(?:provider-client|public-webhook-client)\\.ts$|workflows/(?:durable-workflow-runner|pg-workflow-repository|pg-workflow-checkpointer|graph-execution|workflow-state-codec|rotate-workflow-keys)\\.ts$)`;
 
 const options = {
   tsConfig: { fileName: "apps/web/tsconfig.json" },
@@ -49,12 +52,24 @@ function structuralConfig() {
       { name: "api-module-inner-layers-independent", severity: "error",
         from: { path: `^${modules}/[^/]+/(?:domain|application)/` },
         to: { path: `^(?:${moduleTransport}|${api}/(?:app|infrastructure|interfaces)/)` } },
+      { name: "api-core-no-concrete-infrastructure", severity: "error",
+        from: { path: moduleCore },
+        to: { path: `^(?:${modules}/[^/]+/infrastructure/|${api}/app/)` } },
+      { name: "api-core-no-vendor-sdk", severity: "error",
+        from: { path: moduleCore }, to: { path: vendorSdk } },
+      { name: "api-core-no-technical-adapter", severity: "error",
+        from: { path: moduleCore }, to: { path: technicalAdapter } },
+      { name: "api-core-no-environment-import", severity: "error",
+        from: { path: moduleCore }, to: { path: `^${api}/config\\.ts$` } },
       { name: "api-no-private-cross-module", severity: "error",
         from: { path: `^${modules}/([^/]+)/` },
         to: { path: `^${modules}/[^/]+/(?!index\\.ts$)`, pathNot: `^${modules}/$1/` } },
       { name: "api-module-public-api-no-composition", severity: "error",
         from: { path: `^${modules}/[^/]+/index\\.ts$` },
         to: { path: `^${modules}/[^/]+/[^/]+\\.(?:controller|module)\\.ts$` } },
+      { name: "api-module-public-api-no-infrastructure", severity: "error",
+        from: { path: `^${modules}/[^/]+/index\\.ts$` },
+        to: { path: `^${modules}/[^/]+/infrastructure/` } },
       { name: "api-platform-no-module-import", severity: "error",
         from: { path: `^${platform}/`, pathNot: workspaceAuthorization },
         to: { path: `^${modules}/` } },

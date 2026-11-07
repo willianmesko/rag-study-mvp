@@ -1,5 +1,5 @@
-import type { IdentityVerifier, MemberDirectory } from "./application/ports/identity-verifier.js";
-import { SupabaseIdentityGateway } from "./infrastructure/auth/supabase-identity-gateway.js";
+import type { IdentityVerifier, MemberDirectory } from "../../modules/identity/application/ports/identity-verifier.js";
+import { SupabaseIdentityGateway } from "../../modules/identity/infrastructure/auth/supabase-identity-gateway.js";
 
 export type IdentityServices = { identityVerifier: IdentityVerifier; memberDirectory: MemberDirectory };
 

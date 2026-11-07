@@ -2,8 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { AgentActionError, type AgentActionIdentity, type AgentActionReason, type AgentActionRepository,
   type AgentActionSnapshot, type AgentActionStatus } from "../../application/agent-actions/agent-action-service.js";
 import { agentActionAttemptLimit, type AgentActionFailure, type AgentActionLease, type AgentActionWorkerRepository } from "../../application/agent-actions/agent-action-worker.js";
-import type { CreateEvaluationRun } from "../../../evaluations/index.js";
-import { PgEvaluationRepository } from "../../../evaluations/index.js";
+import type { CreateEvaluationRun, EvaluationRun } from "../../../evaluations/index.js";
 import { applyPostgresDeadlines, postgresDeadlineProfiles } from "../../../../platform/database/sql-boundary.js";
 
 type ActionRow = {
@@ -23,7 +22,10 @@ const columns = `id, tenant_id, requested_by, approved_by, status, attempts, eva
   expires_at, expires_at <= clock_timestamp() AS expired`;
 
 export class PgAgentActionRepository implements AgentActionRepository, AgentActionWorkerRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(
+    private readonly pool: Pool,
+    private readonly writeEvaluation: (client: PoolClient, result: CreateEvaluationRun) => Promise<EvaluationRun>,
+  ) {}
 
   request({ tenantId, userId, keyHash }: { tenantId: string; userId: string; keyHash: string }) {
     return this.transaction(async (client) => {
@@ -131,7 +133,7 @@ export class PgAgentActionRepository implements AgentActionRepository, AgentActi
       if (!action) return;
       if (action.expired) return terminate(client, action, "approval_expired");
       if (!await ownersStillAuthorized(client, action)) return terminate(client, action, "owner_revoked");
-      const evaluation = await new PgEvaluationRepository(client).create(result);
+      const evaluation = await this.writeEvaluation(client, result);
       const updated = await client.query(
         `UPDATE agent_actions SET status = 'succeeded', evaluation_run_id = $3, lease_id = NULL, lease_until = NULL
          WHERE tenant_id = $1 AND id = $2 AND lease_until > clock_timestamp()`,

@@ -1,12 +1,12 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import type { BudgetAlerts } from "./infrastructure/observability/budget-alerts.js";
+import type { BudgetAlertService } from "./application/ports/budget-alert-service.js";
 import type { UsageSummary } from "./application/ports/usage-metrics-repository.js";
 import { rejectScope, type WorkspaceAuthorizer } from "../../platform/http/workspace-authorization.js";
 
 export type OperationsRoutesDependencies = {
   authorizeOwner: WorkspaceAuthorizer;
-  budgetAlerts?: Pick<BudgetAlerts, "status" | "replay" | "configured">;
+  budgetAlerts?: Pick<BudgetAlertService, "status" | "replay" | "configured">;
   getUsageSummary: (tenantId: string, days: number) => Promise<UsageSummary>;
   usageAlertThresholdUsd: () => number;
 };

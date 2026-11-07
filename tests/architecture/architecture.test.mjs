@@ -136,7 +136,7 @@ const moduleFiles = {
   [`${api}modules/knowledge/application/ports/store.ts`]: 'export interface Store { read(): number }',
   [`${api}modules/knowledge/application/use-cases/read.ts`]: 'import type { Store } from "../ports/store.js"; export const read = (store: Store) => store.read();',
   [`${api}modules/knowledge/infrastructure/store.ts`]: 'import type { Store } from "../application/ports/store.js"; export const store: Store = { read: () => 1 };',
-  [`${api}modules/knowledge/knowledge.module.ts`]: 'import { read } from "./application/use-cases/read.js"; import { store } from "./infrastructure/store.js"; export const service = () => read(store); export type Service = typeof service;',
+  [`${api}modules/knowledge/knowledge.module.ts`]: 'import { read } from "./application/use-cases/read.js"; import type { Store } from "./application/ports/store.js"; export const service = (store: Store) => read(store); export type Service = typeof service;',
   [`${api}modules/knowledge/documents.controller.ts`]: 'import { service } from "./knowledge.module.js"; export const route = service; export type Request = { workspaceId: string };',
   [`${api}modules/knowledge/http/serialize.ts`]: 'export const serialize = (value: number) => ({ value });',
   [`${api}modules/knowledge/index.ts`]: 'export type { Document } from "./domain/document.js"; export { read } from "./application/use-cases/read.js";',
@@ -266,7 +266,75 @@ const applicationCases = [
   } },
 ].map((entry) => ({ ...entry, name: `cross-application: ${entry.name}` }));
 
-for (const entry of [...cases, ...moduleCases, ...applicationCases]) test(`architecture gate: ${entry.name}`, async (t) => {
+function sdkFixture(name) {
+  return {
+    [`node_modules/${name}/package.json`]: JSON.stringify({ name, type: "module", exports: { ".": { types: "./index.d.ts", import: "./index.js" } } }),
+    [`node_modules/${name}/index.js`]: 'export const client = true;',
+    [`node_modules/${name}/index.d.ts`]: 'export declare const client: boolean; export interface Client { ready: boolean }',
+  };
+}
+
+const technologyCases = [
+  ...[
+    { name: "application cannot import an AWS SDK value", sdk: "@aws-sdk/client-bedrock-runtime", source: "application/use-cases/vendor.ts", type: false },
+    { name: "domain cannot import PostgreSQL driver types", sdk: "pg", source: "domain/vendor.ts", type: true },
+    { name: "module factory cannot import Supabase SDK types", sdk: "@supabase/supabase-js", source: "knowledge.module.ts", type: true },
+    { name: "module factory cannot import LangGraph", sdk: "@langchain/langgraph", source: "knowledge.module.ts", type: false },
+    { name: "application cannot import LangSmith SDK types", sdk: "langsmith", source: "application/use-cases/vendor.ts", type: true },
+    { name: "application cannot import Fastify transport types", sdk: "fastify", source: "application/use-cases/vendor.ts", type: true },
+  ].map(({ name, sdk, source, type }) => ({ name, rule: "api-core-no-vendor-sdk", changes: {
+    ...sdkFixture(sdk),
+    [`${api}modules/knowledge/${source}`]: type
+      ? `import type { Client } from "${sdk}"; export type Vendor = Client;`
+      : `import { client } from "${sdk}"; export const vendor = client;`,
+  } })),
+  { name: "module factory cannot construct its concrete adapter", rule: "api-core-no-concrete-infrastructure", changes: {
+    [`${api}modules/knowledge/knowledge.module.ts`]: 'import { store } from "./infrastructure/store.js"; export const service = () => store.read();',
+  } },
+  { name: "module factory cannot use concrete adapter types", rule: "api-core-no-concrete-infrastructure", changes: {
+    [`${api}modules/knowledge/knowledge.module.ts`]: 'import type { ConcreteStore } from "./infrastructure/concrete.ts"; export type Service = ConcreteStore;',
+    [`${api}modules/knowledge/infrastructure/concrete.ts`]: 'export type ConcreteStore = { read(): number };',
+  } },
+  { name: "module factory cannot bypass injection through app composition", rule: "api-core-no-concrete-infrastructure", changes: {
+    [`${api}modules/knowledge/knowledge.module.ts`]: 'import { adapter } from "../../app/composition/adapter.js"; export const service = adapter;',
+    [`${api}app/composition/adapter.ts`]: 'export const adapter = true;',
+  } },
+  { name: "public APIs cannot disguise concrete adapters as types", rule: "api-module-public-api-no-infrastructure", changes: {
+    [`${api}modules/knowledge/index.ts`]: 'export type { ConcreteStore } from "./infrastructure/concrete.js";',
+    [`${api}modules/knowledge/infrastructure/concrete.ts`]: 'export type ConcreteStore = { read(): number };',
+  } },
+  { name: "public APIs cannot export concrete adapter values", rule: "api-module-public-api-no-infrastructure", changes: {
+    [`${api}modules/knowledge/index.ts`]: 'export { store } from "./infrastructure/store.js";',
+  } },
+  { name: "module factories cannot import a concrete Bedrock client", rule: "api-core-no-technical-adapter", changes: {
+    [`${api}modules/knowledge/knowledge.module.ts`]: 'import { client } from "../../platform/ai/bedrock-client.js"; export const service = client;',
+    [`${api}platform/ai/bedrock-client.ts`]: 'export const client = true;',
+  } },
+  { name: "core ports cannot import concrete database pool types", rule: "api-core-no-technical-adapter", changes: {
+    [`${api}modules/knowledge/application/ports/database.ts`]: 'import type { Pool } from "../../../../platform/database/pool.js"; export type Database = Pool;',
+    [`${api}platform/database/pool.ts`]: 'export type Pool = { query(): number };',
+  } },
+  { name: "core ports cannot import a concrete graph executor type", rule: "api-core-no-technical-adapter", changes: {
+    [`${api}modules/knowledge/application/ports/graph.ts`]: 'import type { Graph } from "../../../../platform/workflows/graph-execution.js"; export type Workflow = Graph;',
+    [`${api}platform/workflows/graph-execution.ts`]: 'export type Graph = { execute(): number };',
+  } },
+  { name: "module factories receive options instead of global environment types", rule: "api-core-no-environment-import", changes: {
+    [`${api}modules/knowledge/knowledge.module.ts`]: 'import type { config } from "../../config.js"; export type Options = typeof config;',
+    [`${api}config.ts`]: 'export const config = { DATABASE_URL: "fixture" };',
+  } },
+  { name: "concrete SDKs remain legal in adapters and outer composition", changes: {
+    ...sdkFixture("@aws-sdk/client-bedrock-runtime"),
+    [`${api}modules/knowledge/infrastructure/store.ts`]: 'import { client } from "@aws-sdk/client-bedrock-runtime"; export const store = { read: () => Number(client) };',
+    [`${api}app/composition/adapter.ts`]: 'import { client } from "@aws-sdk/client-bedrock-runtime"; import { store } from "../../modules/knowledge/infrastructure/store.js"; export const adapter = { client, store };',
+  } },
+  { name: "neutral errors and workflow contracts remain legal core dependencies", changes: {
+    [`${api}modules/knowledge/application/ports/workflow.ts`]: 'import type { Workflow } from "../../../../platform/workflows/types.js"; import { EmbeddingIndexChangedError } from "../../../../platform/database/embedding-index-error.js"; export type State = Workflow; export const conflict = EmbeddingIndexChangedError;',
+    [`${api}platform/workflows/types.ts`]: 'export type Workflow = { runId: string };',
+    [`${api}platform/database/embedding-index-error.ts`]: 'export class EmbeddingIndexChangedError extends Error {}',
+  } },
+].map((entry) => ({ ...entry, name: `technology boundary: ${entry.name}`, changes: { ...moduleFiles, ...entry.changes } }));
+
+for (const entry of [...cases, ...moduleCases, ...applicationCases, ...technologyCases]) test(`architecture gate: ${entry.name}`, async (t) => {
   const root = await fixture(t, entry.changes);
   let output = "";
   const code = await checkArchitecture({ root, write: (value) => { output += value; } });

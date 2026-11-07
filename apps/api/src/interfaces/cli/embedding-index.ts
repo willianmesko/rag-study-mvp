@@ -4,7 +4,8 @@ import type { EmbeddingProvider } from "../../modules/ai/application/ports/embed
 import { workspaceEmbeddingDimensions, type EmbeddingModelIdentity } from "../../modules/ai/application/ports/workspace-embedding-index.js";
 import { rebuildWorkspaceEmbeddings } from "../../modules/knowledge/application/use-cases/rebuild-workspace-embeddings.js";
 import { config } from "../../config.js";
-import { createWorkspaceEmbeddingAdapter, defaultWorkspaceEmbeddingModel } from "../../modules/ai/infrastructure/embedding/workspace-embedding-provider.js";
+import { createWorkspaceEmbeddingAdapter } from "../../modules/ai/index.js";
+import { createConfiguredProviderBindings } from "../../app/composition/provider-registry.js";
 import { PgWorkspaceEmbeddingIndex } from "../../modules/ai/infrastructure/postgres/pg-workspace-embedding-index.js";
 import { createPostgresPool } from "../../platform/database/pool.js";
 
@@ -23,8 +24,10 @@ const help = `Usage: npm run embedding:index -- <action> --workspace <uuid>
   rollback --version <uuid>
   discard --version <uuid>`;
 
+const providerBindings = createConfiguredProviderBindings(config);
+
 function operatorProvider(model: EmbeddingModelIdentity): EmbeddingProvider {
-  const adapter = createWorkspaceEmbeddingAdapter(model);
+  const adapter = createWorkspaceEmbeddingAdapter(model, providerBindings.registry);
   return {
     async embed(text, type, signal) {
       try {
@@ -57,7 +60,7 @@ async function main(): Promise<void> {
       case "pin": {
         const model = values.provider || values.model
           ? { ...identity.parse(values), dimensions: workspaceEmbeddingDimensions }
-          : defaultWorkspaceEmbeddingModel();
+          : providerBindings.defaultEmbedding;
         const pinned = await index.getOrPinActive(tenantId, model);
         if (pinned.provider !== model.provider || pinned.model !== model.model) throw new Error("A different model is already pinned. Use an explicit rebuild to switch models.");
         console.log(JSON.stringify(pinned, null, 2));
@@ -72,7 +75,7 @@ async function main(): Promise<void> {
         const adapter = operatorProvider(model);
         await adapter.embed("Workspace embedding index probe.", "query", signal);
         await adapter.embed("Workspace embedding index probe.", "document", signal);
-        await index.getOrPinActive(tenantId, defaultWorkspaceEmbeddingModel());
+        await index.getOrPinActive(tenantId, providerBindings.defaultEmbedding);
         const target = await index.startBuild(tenantId, model);
         console.log(JSON.stringify({ stagingVersion: target.id }));
         const result = await rebuildWorkspaceEmbeddings(index, adapter, { tenantId, versionId: target.id, maxChunks, signal });

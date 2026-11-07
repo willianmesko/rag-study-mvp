@@ -2,7 +2,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { AgentActionWorker } from "../../modules/mcp/application/agent-actions/agent-action-worker.js";
 import { LexicalEvaluationAction } from "../../modules/mcp/application/agent-actions/lexical-evaluation-action.js";
-import { PgAgentActionRepository } from "../../modules/mcp/infrastructure/postgres/pg-agent-action-repository.js";
+import { createPostgresAgentActionRepository } from "../../app/composition/postgres-persistence.js";
 import { PgMcpReadRepository } from "../../modules/mcp/infrastructure/postgres/pg-mcp-read-repository.js";
 import { createPostgresPool } from "../../platform/database/pool.js";
 
@@ -14,7 +14,7 @@ async function main() {
   }
   const databaseUrl = z.url().parse(process.env.AGENT_ACTIONS_DATABASE_URL);
   const pool = createPostgresPool(databaseUrl, 2);
-  const worker = new AgentActionWorker(new PgAgentActionRepository(pool), new LexicalEvaluationAction(new PgMcpReadRepository(pool)));
+  const worker = new AgentActionWorker(createPostgresAgentActionRepository(pool), new LexicalEvaluationAction(new PgMcpReadRepository(pool)));
   const once = process.argv.includes("--once");
   const controller = new AbortController();
   const stop = () => controller.abort();

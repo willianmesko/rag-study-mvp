@@ -239,9 +239,16 @@ SQL deadlines, narrow controllers/factories and shutdown/budget safeguards.
 Publication status and verification evidence are maintained in the technical
 backlog rather than inferred from the presence of code.
 
-The backend is being organized by business modules following
+The backend is organized by business modules following
 [ADR 0002](decisions/0002-business-modules.md), with a concrete
-[module guide](backend-modules.md). The frontend remains `app` → pages → widgets
+[module guide](backend-modules.md). The subsequent
+[capability-boundary decision](decisions/0003-technology-neutral-modules.md)
+moves technology selection into `app/composition`: module factories receive
+repository/provider/workflow/tracing ports and plain options, without concrete
+SDKs or database clients. The registry is backend-owned and read-only to business
+code; current public model allowlists, embedding-index constraints and persisted
+workflow versions are preserved. Replacement requires tested capability and state
+compatibility. The frontend remains `app` → pages → widgets
 → features → entities → narrow shared segments. Not every slice needs every
 segment. The approved graph checker is a development tool; application frameworks
 and runtime dependencies are preserved.

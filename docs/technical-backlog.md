@@ -15,7 +15,7 @@ live activation remain in the [product backlog](backlog.md).
 | Status | Tickets | Count |
 | --- | --- | --- |
 | Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, FE-01–FE-05 | 14 |
-| New explicit architecture follow-up in progress | BE-15 | 1 |
+| Implemented and locally validated; awaiting CI/publication | BE-15 | 1 |
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08, FE-10 | 5 |
 | Pending implementation | BE-09, BE-13, FE-06, FE-07, FE-09, FE-11 | 6 |
 
@@ -31,7 +31,9 @@ pre-migration API suite passed 308 tests with one intentionally optional databas
 skip; frontend response/session/navigation checks passed 105 profile cases. This
 source is published; CI also passed 81 PostgreSQL cases, the isolated cutover,
 61 architecture fixtures, the harness and 247 UX cases with 44 intentional profile
-skips. The new BE-15 follow-up remains separate and is not in that deployed SHA.
+skips. BE-15 is now implemented and locally validated, separately from that live
+SHA; its [release record](operations/release-2026-11-07-capability-boundaries.md)
+tracks the remaining exact-source CI/publication checks.
 
 The owner requested NestJS-style business-module organization. BE-07 includes
 the [module migration](decisions/0002-business-modules.md): `modules`, `platform`
@@ -385,7 +387,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-15 — Technology-neutral modules and replaceable capabilities
 
-- [ ] **P2 · L, incremental · High risk · Owner's current explicit priority.**
+- [x] **P2 · L, incremental · High risk · Implemented; publication pending.**
   Scope: module factories and application ports, `app/composition`, provider
   registry bindings and architecture checks. See
   [ADR 0003](decisions/0003-technology-neutral-modules.md).
@@ -408,6 +410,15 @@ feature-owned locations during BE-07's migration.
 - **Limits:** replacing persistent state engines/databases and embedding models
   requires compatibility/migration evidence. Capability equivalence is verified,
   not assumed from matching method names. Live activation remains explicit.
+- **Evidence:** seven-check harness passed; 78 architecture fixtures and both
+  dependency graphs passed without violations; 104 focused HTTP/workflow/assembly
+  cases, 83 PostgreSQL cases and the isolated embedding cutover passed with zero
+  skips. Two native OCR tests passed using the clean compiled code with the
+  unchanged verified native dependency image. Alternative provider/workflow/
+  tracing/repository/engine tests preserve budgets, redaction, signatures and
+  tenant authorization. Both new same-client completion regressions prove rollback
+  on post-insert failure and lease expiry. Exact-source CI and deployment remain
+  separately tracked in the release record.
 
 ### FE-09 — Semantic tokens and existing primitive consolidation
 

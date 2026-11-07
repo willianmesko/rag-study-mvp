@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import { AgentActionError, AgentActionService } from "../../application/agent-actions/agent-action-service.js";
 import { LexicalEvaluationAction } from "../../application/agent-actions/lexical-evaluation-action.js";
 import { PgAgentActionRepository } from "./pg-agent-action-repository.js";
+import { PgEvaluationRepository } from "../../../evaluations/infrastructure/postgres/pg-evaluation-repository.js";
 
 const databaseUrl = process.env.AGENT_ACTION_TEST_DATABASE_URL;
 const idempotencyKey = "agent_action_test_key";
@@ -34,7 +35,9 @@ test("the PostgreSQL action queue fences approval, retries, writes and replay", 
     await pool.query(await readFile(new URL(`../../../../../db/migrations/${filename}`, import.meta.url), "utf8"));
   }
 
-  const repository = new PgAgentActionRepository(pool);
+  const writeEvaluation: ConstructorParameters<typeof PgAgentActionRepository>[1] = (client, result) =>
+    new PgEvaluationRepository(client).create(result);
+  const repository = new PgAgentActionRepository(pool, writeEvaluation);
   const service = new AgentActionService(repository);
   const emptyEvaluation = new LexicalEvaluationAction({ async search() { return []; } });
   const report = (tenantId: string) => emptyEvaluation.prepare(tenantId, new AbortController().signal);
@@ -99,6 +102,52 @@ test("the PostgreSQL action queue fences approval, retries, writes and replay", 
     assert.equal(await countEvaluations(scope.tenantId), 0);
   });
 
+  await t.test("an injected report writer shares the completion transaction and rolls back a post-insert failure", async () => {
+    const scope = await workspace();
+    const action = await service.request({ ...scope, idempotencyKey, input });
+    await service.approve({ ...scope, actionId: action.id });
+    const lease = await repository.claim(15_000);
+    assert.ok(lease);
+    const result = await report(scope.tenantId);
+    let writes = 0;
+    const failing = new PgAgentActionRepository(pool, async (client, evaluation) => {
+      writes++;
+      await writeEvaluation(client, evaluation);
+      assert.equal(Number((await client.query("SELECT count(*) FROM evaluation_runs WHERE tenant_id=$1", [scope.tenantId])).rows[0].count), 1);
+      throw new Error("Fixture failure after the report insert.");
+    });
+    await assert.rejects(failing.complete(lease, result), /Fixture failure after the report insert/);
+    assert.equal(writes, 1);
+    assert.equal(await countEvaluations(scope.tenantId), 0);
+    const pending = await service.get({ ...scope, actionId: action.id });
+    assert.equal(pending.status, "running");
+    assert.equal(pending.evaluationRunId, null);
+    assert.equal(pending.events.at(-1)?.reason, "started");
+    await repository.complete(lease, result);
+    assert.equal(await countEvaluations(scope.tenantId), 1);
+    assert.equal((await service.get({ ...scope, actionId: action.id })).status, "succeeded");
+  });
+
+  await t.test("a lease expiring inside the injected report write rolls back the report and completion together", async () => {
+    const scope = await workspace();
+    const action = await service.request({ ...scope, idempotencyKey, input });
+    await service.approve({ ...scope, actionId: action.id });
+    const lease = await repository.claim(15_000);
+    assert.ok(lease);
+    const result = await report(scope.tenantId);
+    const expiresDuringWrite = new PgAgentActionRepository(pool, async (client, evaluation) => {
+      const saved = await writeEvaluation(client, evaluation);
+      await client.query("UPDATE agent_actions SET lease_until=clock_timestamp()-interval '1 second' WHERE tenant_id=$1 AND id=$2", [scope.tenantId, action.id]);
+      return saved;
+    });
+    await assert.rejects(expiresDuringWrite.complete(lease, result), /lease expired while committing/);
+    assert.equal(await countEvaluations(scope.tenantId), 0);
+    assert.equal((await service.get({ ...scope, actionId: action.id })).status, "running");
+    await repository.complete(lease, result);
+    assert.equal(await countEvaluations(scope.tenantId), 1);
+    assert.equal((await service.get({ ...scope, actionId: action.id })).status, "succeeded");
+  });
+
   await t.test("expired leases cannot write and repeated failures enter dead letter", async () => {
     const scope = await workspace();
     const action = await service.request({ ...scope, idempotencyKey, input });
@@ -151,7 +200,7 @@ test("the PostgreSQL action queue fences approval, retries, writes and replay", 
       await repository.complete(lease, await report(scope.tenantId));
     }
     const action = await service.request({ ...scope, idempotencyKey: "approved_action_2", input });
-    await assert.rejects(new AgentActionService(new PgAgentActionRepository(pool)).approve({ ...scope, actionId: action.id }), (error) =>
+    await assert.rejects(new AgentActionService(new PgAgentActionRepository(pool, writeEvaluation)).approve({ ...scope, actionId: action.id }), (error) =>
       error instanceof AgentActionError && error.code === "rate_limited");
     assert.equal((await service.get({ ...scope, actionId: action.id })).status, "pending_approval");
   });

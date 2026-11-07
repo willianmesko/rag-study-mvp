@@ -12,6 +12,10 @@ export type WorkspaceEmbeddingVersion = EmbeddingModelIdentity & {
   state: "active" | "building" | "previous";
 };
 
+export interface WorkspaceEmbeddingIndexResolver {
+  getOrPinActive(tenantId: string, initial: EmbeddingModelIdentity, signal?: AbortSignal): Promise<WorkspaceEmbeddingVersion>;
+}
+
 export interface WorkspaceEmbeddingIndexRepository {
   nextUnindexedChunks(tenantId: string, versionId: string, limit: number): Promise<Array<{ id: string; content: string }>>;
   stageVectors(tenantId: string, versionId: string, vectors: Array<{ id: string; embedding: number[] }>): Promise<number>;

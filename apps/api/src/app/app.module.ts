@@ -1,38 +1,41 @@
 import { createEvaluationServices } from "../modules/evaluations/evaluations.module.js";
-import { createWorkflowRuntime, createWorkspaceWorkflowServices } from "../modules/workflows/workflows.module.js";
+import { createWorkspaceWorkflowServices } from "../modules/workflows/workflows.module.js";
 import { createMcpServices } from "../modules/mcp/mcp.module.js";
 import { createIngestionWorkflow } from "../modules/ingestion/ingestion.module.js";
 import { createUsageServices } from "../modules/usage/usage.module.js";
-import { createReranker, createModelRuntimeProviders } from "../modules/ai/ai.module.js";
+import { createModelRuntimeProviders } from "../modules/ai/ai.module.js";
 import { WorkflowEmbeddingProvider, WorkflowReranker } from "../modules/ai/infrastructure/security/workflow-provider-guards.js";
 import { IngestDocumentUseCase } from "../modules/ingestion/application/use-cases/ingest-document.js";
-import { SearchDocumentsUseCase } from "../modules/knowledge/application/use-cases/search-documents.js";
 import { QueueDocumentUploadUseCase } from "../modules/ingestion/application/use-cases/queue-document-upload.js";
 import { ProcessNextIngestionJobUseCase } from "../modules/ingestion/application/use-cases/process-next-ingestion-job.js";
 import { RetryIngestionJobUseCase } from "../modules/ingestion/application/use-cases/retry-ingestion-job.js";
 import { ReindexDocumentUseCase } from "../modules/ingestion/application/use-cases/reindex-document.js";
-import { DeleteDocumentUseCase } from "../modules/knowledge/application/use-cases/delete-document.js";
-import { GetDocumentOriginalUseCase } from "../modules/knowledge/application/use-cases/get-document-original.js";
 import { config } from "../config.js";
 import { resolveWorkspaceEmbeddingIndex } from "../modules/ai/application/ports/embedding-provider.js";
 import {
   createWorkspaceEmbeddingAdapter,
   createWorkspaceEmbeddingProvider,
-  defaultWorkspaceEmbeddingModel,
-} from "../modules/ai/infrastructure/embedding/workspace-embedding-provider.js";
+} from "../modules/ai/application/services/workspace-embedding-provider.js";
+import { PgWorkspaceEmbeddingIndex } from "../modules/ai/infrastructure/postgres/pg-workspace-embedding-index.js";
 import type { DocumentFilters } from "@rag-study/contracts";
 import { PgIngestionJobRepository } from "../modules/ingestion/infrastructure/postgres/pg-ingestion-job-repository.js";
-import { PgQuotaRepository } from "../modules/usage/infrastructure/postgres/pg-quota-repository.js";
-import { PgAuditEventRepository } from "../modules/usage/infrastructure/postgres/pg-audit-event-repository.js";
 import { MultiFormatDocumentTextExtractor } from "../modules/ingestion/infrastructure/extraction/document-text-extractor.js";
 import { PopplerTesseractOcr } from "../modules/ingestion/infrastructure/extraction/pdf-ocr.js";
 import { HttpsPublicHtmlFetcher } from "../modules/ingestion/infrastructure/extraction/public-html-fetcher.js";
 import { createPostgresPool } from "../platform/database/pool.js";
-import { createIdentityServices } from "../modules/identity/identity.module.js";
+import { createIdentityServices } from "./composition/identity.js";
 import { closeApplicationResources } from "../platform/lifecycle/resources.js";
 import { createWorkspacesServices } from "../modules/workspaces/workspaces.module.js";
 import { createKnowledgeServices } from "../modules/knowledge/knowledge.module.js";
-import { createChatStorage, createChatRuntime } from "../modules/chat/chat.module.js";
+import { createChatRuntime } from "../modules/chat/chat.module.js";
+import { createChatStorage } from "./composition/chat-storage.js";
+import { createConfiguredProviderBindings } from "./composition/provider-registry.js";
+import { chatRuntimeOptionsFromConfiguration, createChatWorkflowBindings } from "./composition/chat-workflows.js";
+import { createEvaluationWorkflowBinding } from "./composition/evaluation-workflow.js";
+import { createIngestionWorkflowAdapter, ingestionWorkflowOptionsFromConfiguration } from "./composition/ingestion-workflow.js";
+import { createWorkflowRuntime, workspaceWorkflowOptionsFromConfiguration } from "./composition/workflow-runtime.js";
+import { createPostgresAccessBindings, createPostgresEvaluationRepository, createPostgresKnowledgeBindings, createPostgresMcpBindings, createPostgresUsageBindings, createPostgresWorkspaceBindings } from "./composition/postgres-persistence.js";
+import { createSupabaseInvitationGateway, createSupabaseOriginalFileStore } from "./composition/supabase-bindings.js";
 
 export function createApplication() {
   const identityServices = createIdentityServices({
@@ -42,23 +45,31 @@ export function createApplication() {
     timeoutMs: Math.min(config.PROVIDER_TIMEOUT_MS, 10_000),
   });
   const pool = createPostgresPool(config.DATABASE_URL);
-  const { budgetAlerts, usageMetrics, measurements } = createUsageServices(pool, {
+  const usageBindings = createPostgresUsageBindings(pool, {
     url: config.BUDGET_ALERT_WEBHOOK_URL,
     secret: config.BUDGET_ALERT_WEBHOOK_SECRET,
     thresholdUsd: config.USAGE_ALERT_THRESHOLD_USD,
     log: (record) => process.stdout.write(JSON.stringify(record) + "\n"),
-  }, () => process.stdout.write('{"event":"budget_alert_enqueue","reason":"database_unavailable"}\n'));
-  const { memberships, workspaceOnboarding, invitationDeliveries, inviteWorkspaceMember } = createWorkspacesServices(pool, {
-    supabaseUrl: config.SUPABASE_URL,
-    serviceRoleKey: config.SUPABASE_SERVICE_ROLE_KEY,
-    appBaseUrl: config.APP_BASE_URL,
   });
+  const { budgetAlerts, usageMetrics, measurements } = createUsageServices({
+    ...usageBindings,
+    reportEnqueueFailure: () => process.stdout.write('{"event":"budget_alert_enqueue","reason":"database_unavailable"}\n'),
+  });
+  const { memberships, workspaceOnboarding, invitationDeliveries, inviteWorkspaceMember } = createWorkspacesServices({
+    ...createPostgresWorkspaceBindings(pool),
+    invitationGateway: createSupabaseInvitationGateway({
+      url: config.SUPABASE_URL,
+      serviceRoleKey: config.SUPABASE_SERVICE_ROLE_KEY,
+      appBaseUrl: config.APP_BASE_URL,
+    }),
+  });
+  const providerBindings = createConfiguredProviderBindings(config);
   const measuredEmbeddings = (
     identity: Parameters<typeof createWorkspaceEmbeddingAdapter>[0],
     tenantId?: string,
   ) =>
     measurements.embedding(
-      createWorkspaceEmbeddingAdapter(identity),
+      createWorkspaceEmbeddingAdapter(identity, providerBindings.registry),
       identity,
       tenantId,
       identity.provider === "ollama"
@@ -70,16 +81,31 @@ export function createApplication() {
     ? createPostgresPool(config.MCP_READ_DATABASE_URL ?? config.DATABASE_URL, 2)
     : null;
   const mcpServices = createMcpServices({
-    pool, readPool: mcpReadPool, measuredEmbeddings,
-    defaultEmbeddingIdentity: defaultWorkspaceEmbeddingModel, configuration: config,
+    ...createPostgresMcpBindings(pool, mcpReadPool, {
+      callsPerMinute: config.MCP_CALLS_PER_MINUTE,
+      callsPerDay: config.MCP_CALLS_PER_DAY,
+      providerCallsPerDay: config.MCP_PROVIDER_CALLS_PER_DAY,
+      inputTokensPerDay: config.MCP_INPUT_TOKENS_PER_DAY,
+      userCostNanoUsdPerDay: Math.floor(config.MCP_USER_COST_USD_PER_DAY * 1e9),
+      tenantCostNanoUsdPerDay: Math.floor(config.MCP_WORKSPACE_COST_USD_PER_DAY * 1e9),
+      concurrentProviders: config.MCP_CONCURRENT_PROVIDERS,
+    }),
+    measuredEmbeddings,
+    defaultEmbeddingIdentity: () => providerBindings.defaultEmbedding,
+    options: {
+      remote: config.MCP_REMOTE_ENABLED ? { resource: config.MCP_PUBLIC_URL!, appUrl: config.APP_BASE_URL! } : undefined,
+      agentActionsEnabled: config.AGENT_ACTIONS_ENABLED,
+      embeddingInputCostPer1kUsd: config.EMBEDDING_INPUT_COST_PER_1K_USD,
+      maxCostNanoUsd: Math.floor(config.MCP_COST_USD_PER_CALL * 1e9),
+    },
   });
   const embeddings = new WorkflowEmbeddingProvider(
-    createWorkspaceEmbeddingProvider(pool, measuredEmbeddings),
+    createWorkspaceEmbeddingProvider(new PgWorkspaceEmbeddingIndex(pool), providerBindings.defaultEmbedding, measuredEmbeddings),
     "default",
     config.EMBEDDING_DIMENSIONS,
     config.EMBEDDING_INPUT_COST_PER_1K_USD,
   );
-  const rawReranker = createReranker(config);
+  const rawReranker = providerBindings.registry.createReranker();
   const reranker = new WorkflowReranker(
     rawReranker.enabled
       ? measurements.reranker(rawReranker, {
@@ -92,21 +118,18 @@ export function createApplication() {
       ? { billing: "paid", provider: "jina", model: config.JINA_RERANKER_MODEL, inputCostPer1kUsd: config.JINA_INPUT_COST_PER_1K_USD }
       : { billing: "local" },
   );
-  const { documents, knowledgeStatus, demoLibraryRepository, originals } = createKnowledgeServices(pool, {
-    embeddingDimensions: config.EMBEDDING_DIMENSIONS,
-    supabaseUrl: config.SUPABASE_URL,
+  const jobs = new PgIngestionJobRepository(pool);
+  const { quotas, auditEvents } = createPostgresAccessBindings(pool);
+  const originals = createSupabaseOriginalFileStore({
+    url: config.SUPABASE_URL,
     serviceRoleKey: config.SUPABASE_SERVICE_ROLE_KEY,
     uploadBucket: config.SUPABASE_UPLOAD_BUCKET,
   });
-  const jobs = new PgIngestionJobRepository(pool);
-  const quotas = new PgQuotaRepository(pool);
-  const auditEvents = new PgAuditEventRepository(pool);
   const { chatRuns, conversations, semanticCache, workspaceModelPolicies } = createChatStorage(pool, config.EMBEDDING_DIMENSIONS);
-  const searchDocuments = new SearchDocumentsUseCase(
-    embeddings,
-    documents,
-    reranker,
-    {
+  const { documents, knowledgeStatus, demoLibraryRepository, searchDocuments, getDocumentOriginal, deleteDocument } = createKnowledgeServices({
+    ...createPostgresKnowledgeBindings(pool, config.EMBEDDING_DIMENSIONS),
+    originals, embeddings, reranker, sourceJobs: jobs,
+    searchOptions: {
       defaultTopK: config.RETRIEVAL_TOP_K,
       vectorCandidateMultiplier: config.HYBRID_VECTOR_CANDIDATE_MULTIPLIER,
       keywordCandidateMultiplier: config.HYBRID_KEYWORD_CANDIDATE_MULTIPLIER,
@@ -114,11 +137,17 @@ export function createApplication() {
       rerankerCandidateMultiplier: config.RERANKER_CANDIDATE_MULTIPLIER,
       defaultTenantId: config.DEFAULT_TENANT_ID,
     },
-  );
-  const modelProviders = createModelRuntimeProviders(config, measurements);
+  });
+  const modelProviders = createModelRuntimeProviders({
+    registry: providerBindings.registry,
+    guards: providerBindings.guards,
+    measurements,
+    options: providerBindings.options,
+  });
   const { chatModels, defaultChat, compareAnswers, routeAnswer, defaultModel, embeddingModel, bindings: chatBindings } = createChatRuntime({
-    embeddings, searchDocuments, semanticCache, usageMetrics, workspaceModelPolicies, chatRuns,
-    quota: quotas, aiProviders: modelProviders, configuration: config,
+    embeddings, searchDocuments, semanticCache, usageMetrics, workspaceModelPolicies,
+    ...createChatWorkflowBindings(chatRuns, { enabled: config.LANGSMITH_TRACING, projectName: config.LANGSMITH_PROJECT }),
+    quota: quotas, aiProviders: modelProviders, options: chatRuntimeOptionsFromConfiguration(config),
   });
   const ingestDocument = new IngestDocumentUseCase(embeddings, documents, {
     chunkSize: config.CHUNK_SIZE,
@@ -139,21 +168,29 @@ export function createApplication() {
     const { identity, version } = await resolveWorkspaceEmbeddingIndex(embeddings, tenantId);
     return identity ? { provider: identity.provider, model: identity.model, version } : undefined;
   };
-  const { runEvaluation, listEvaluationRuns, evaluationVersion } = createEvaluationServices({
-    pool, searchDocuments,
+  const evaluationDependencies = {
+    searchDocuments,
+    evaluations: createPostgresEvaluationRepository(pool),
     models: { embeddingProvider: config.EMBEDDING_PROVIDER, embeddingModel, chatProvider: config.CHAT_PROVIDER, chatModel: defaultModel },
-    aiProviders: modelProviders, chatBindings, embeddingIdentity, demoLibraryRepository, durable: Boolean(engine),
+    embeddingIdentity,
+  };
+  const { runEvaluation, listEvaluationRuns, evaluationVersion } = createEvaluationServices({
+    ...evaluationDependencies,
+    aiProviders: modelProviders, chatBindings, demoLibraryRepository,
+    workflow: createEvaluationWorkflowBinding({ ...evaluationDependencies, durable: Boolean(engine) }),
   });
   const embeddingVersion = async (tenantId: string) =>
     (await resolveWorkspaceEmbeddingIndex(embeddings, tenantId)).version ??
     "legacy-default";
   const workflows = createWorkspaceWorkflowServices({
     engine, chat: chatBindings, runEvaluation, evaluationVersion,
-    member: memberships.findByUserAndTenant.bind(memberships), embeddingVersion, configuration: config,
+    member: memberships.findByUserAndTenant.bind(memberships), embeddingVersion,
+    options: workspaceWorkflowOptionsFromConfiguration(config),
   });
   const enqueueIngestion = createIngestionWorkflow({
-    jobs, extractor, ingestDocument, originals, semanticCache,
-    engine, embeddingVersion, configuration: config,
+    jobs, engine, embeddingVersion,
+    workflow: createIngestionWorkflowAdapter({ jobs, extractor, ingestDocument, originals, semanticCache }),
+    options: ingestionWorkflowOptionsFromConfiguration(config),
   });
   return {
     useCases: {
@@ -202,9 +239,9 @@ export function createApplication() {
         documentId: string,
         limit: number,
       ) => documents.listChunks({ tenantId, documentId, limit }),
-      getDocumentOriginal: new GetDocumentOriginalUseCase(jobs, originals),
+      getDocumentOriginal,
       reindexDocument: new ReindexDocumentUseCase(jobs),
-      deleteDocument: new DeleteDocumentUseCase(documents, jobs, originals),
+      deleteDocument,
       consumeQuestionQuota: (
         tenantId: string,
         actorKey: string,

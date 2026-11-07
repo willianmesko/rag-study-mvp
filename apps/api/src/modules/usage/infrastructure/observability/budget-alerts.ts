@@ -9,14 +9,17 @@ import {
 import { recordOperationalEvent } from "../../../../platform/observability/observer.js";
 import { postPublicWebhook } from "../../../../platform/http/public-webhook-client.js";
 import { parseTarget } from "../../../../platform/http/public-network-target.js";
+import {
+  DeliveryCommandError,
+  type BudgetAlertService,
+  type BudgetAlertStatus,
+  type BudgetAlertDeliveryCount,
+  type BudgetAlertDeliveryRecord,
+  type BudgetAlertReplayCommand,
+} from "../../application/ports/budget-alert-service.js";
+export { DeliveryCommandError } from "../../application/ports/budget-alert-service.js";
 export const deliveryDisposition = classifyStatus;
-export class DeliveryCommandError extends Error {
-  constructor(readonly code: "forbidden" | "not_found" | "stale_state") {
-    super(`Delivery command stopped: ${code}.`);
-    this.name = "DeliveryCommandError";
-  }
-}
-export class BudgetAlerts {
+export class BudgetAlerts implements BudgetAlertService {
   private cursor: string | null = null;
   constructor(
     private readonly pool: Pool,
@@ -61,12 +64,12 @@ export class BudgetAlerts {
       ],
     );
   }
-  async status(tenantId: string) {
-    const { rows } = await this.pool.query(
+  async status(tenantId: string): Promise<BudgetAlertStatus> {
+    const { rows } = await this.pool.query<BudgetAlertDeliveryCount>(
       "SELECT status,count(*)::int AS count FROM budget_alert_outbox WHERE tenant_id=$1 AND created_at>=clock_timestamp()-interval '30 days' GROUP BY status",
       [tenantId],
     );
-    const { rows: recent } = await this.pool.query(
+    const { rows: recent } = await this.pool.query<BudgetAlertDeliveryRecord>(
       "SELECT id,status,attempts,last_code AS reason,available_at,created_at,delivered_at FROM budget_alert_outbox WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT 50",
       [tenantId],
     );
@@ -79,13 +82,7 @@ export class BudgetAlerts {
       recent,
     };
   }
-  async replay(input: {
-    tenantId: string;
-    actorId: string;
-    id: string;
-    expectedAttempts: number;
-    idempotencyKey: string;
-  }) {
+  async replay(input: BudgetAlertReplayCommand) {
     z.uuid().parse(input.tenantId);
     z.uuid().parse(input.actorId);
     z.uuid().parse(input.id);

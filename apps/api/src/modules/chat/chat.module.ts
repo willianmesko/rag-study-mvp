@@ -1,93 +1,67 @@
-import type { config } from "../../config.js";
 import { createHash } from "node:crypto";
 import type { ClaimVerifier, EmbeddingProvider, ModelRuntimeProviders } from "../ai/index.js";
-import type { SearchDocumentsUseCase } from "../knowledge/index.js";
 import type { UsageMetricsRepository, QuotaRepository } from "../usage/index.js";
 import type { SemanticAnswerCache } from "./application/ports/semantic-answer-cache.js";
 import type { WorkspaceModelPolicyRepository } from "./application/ports/workspace-model-policy-repository.js";
-import type { ChatRunRepository } from "./application/ports/chat-run-repository.js";
 import type { ChatRuntimeBindings } from "./application/ports/chat-runtime.js";
+import type { QuestionAnsweringWorkflowFactory, QuestionAnsweringWorkflowDecorator, QuestionRetriever } from "./application/ports/answer-workflow-factory.js";
+import type { ChatExecutionWorkflow } from "./application/ports/chat-execution-workflow.js";
+import type { ChatRuntimeOptions } from "./application/ports/chat-runtime-options.js";
 import { AnswerQuestionUseCase } from "./application/use-cases/answer-question.js";
 import { CompareAnswersUseCase } from "./application/use-cases/compare-answers.js";
 import { RouteAnswerUseCase } from "./application/use-cases/route-answer.js";
-import { LangGraphRagWorkflow } from "./infrastructure/langgraph/langgraph-rag-workflow.js";
-import { LangSmithTracingWorkflow } from "./infrastructure/langsmith/langsmith-tracing-workflow.js";
-import { LangGraphChatWorkflow, chatWorkflowVersion } from "./infrastructure/langgraph/langgraph-chat-workflow.js";
 import { defaultWorkspaceChatPolicy, resolveWorkspaceChatModels } from "./application/policies/workspace-chat-models.js";
-import type { Pool } from "pg";
-import { PgChatRunRepository } from "./infrastructure/postgres/pg-chat-run-repository.js";
-import { PgConversationRepository } from "./infrastructure/postgres/pg-conversation-repository.js";
-import { PgSemanticAnswerCache } from "./infrastructure/postgres/pg-semantic-answer-cache.js";
-import { PgWorkspaceModelPolicyRepository } from "./infrastructure/postgres/pg-workspace-model-policy-repository.js";
-
-/** Chat providers share the root pool; lifecycle remains with the application. */
-export function createChatStorage(pool: Pool, embeddingDimensions: number) {
-  return {
-    chatRuns: new PgChatRunRepository(pool),
-    conversations: new PgConversationRepository(pool),
-    semanticCache: new PgSemanticAnswerCache(pool, embeddingDimensions),
-    workspaceModelPolicies: new PgWorkspaceModelPolicyRepository(pool),
-  };
-}
-
-type ChatRuntimeConfiguration = Pick<typeof config, "AGENT_MAX_STEPS" | "AGENT_TIMEOUT_MS" | "BEDROCK_CHAT_MODEL_ID" | "BEDROCK_EMBEDDING_MODEL_ID" | "CHAT_ADDITIONAL_MODELS" | "CHAT_AUTO_MAX_TOTAL_INPUT_TOKENS" | "CHAT_AUTO_MAX_TOTAL_OUTPUT_TOKENS" | "CHAT_DEFAULT_MODEL_LABEL" | "CHAT_MAX_OUTPUT_TOKENS" | "CHAT_PROVIDER" | "DAILY_TENANT_QA_LIMIT" | "DAILY_USER_QA_LIMIT" | "EMBEDDING_PROVIDER" | "ESTIMATED_INPUT_COST_PER_1K_USD" | "ESTIMATED_OUTPUT_COST_PER_1K_USD" | "JINA_RERANKER_MODEL" | "LANGSMITH_PROJECT" | "LANGSMITH_TRACING" | "MAX_ESTIMATED_COST_USD_PER_REQUEST" | "OLLAMA_CHAT_MODEL" | "OLLAMA_EMBEDDING_MODEL" | "OPENROUTER_CHAT_MODEL" | "OPENROUTER_EMBEDDING_MODEL" | "RAG_CLAIM_MODE" | "RAG_MINIMUM_SCORE" | "REQUIRE_STRUCTURED_ANSWER" | "RERANKER_PROVIDER" | "RETRIEVAL_TOP_K" | "SEMANTIC_CACHE_MINIMUM_SIMILARITY" | "SEMANTIC_CACHE_TTL_SECONDS">;
 
 export function createChatRuntime(dependencies: {
   embeddings: EmbeddingProvider;
-  searchDocuments: SearchDocumentsUseCase;
+  searchDocuments: QuestionRetriever;
   semanticCache: SemanticAnswerCache;
   usageMetrics: UsageMetricsRepository;
   workspaceModelPolicies: Pick<WorkspaceModelPolicyRepository, "get">;
-  chatRuns: ChatRunRepository;
+  workflowFactory: QuestionAnsweringWorkflowFactory;
+  tracing: QuestionAnsweringWorkflowDecorator;
+  chatExecution: ChatExecutionWorkflow;
   quota: Pick<QuotaRepository, "consumeQuestion">;
   aiProviders: Pick<ModelRuntimeProviders, "createAnswer" | "createClaimVerifier">;
-  configuration: ChatRuntimeConfiguration;
+  options: ChatRuntimeOptions;
 }) {
-  const { embeddings, searchDocuments, semanticCache, usageMetrics, workspaceModelPolicies, chatRuns, quota, aiProviders, configuration } = dependencies;
+  const { embeddings, searchDocuments, semanticCache, usageMetrics, workspaceModelPolicies, workflowFactory, tracing, chatExecution, quota, aiProviders, options } = dependencies;
   const workflowOptions = {
     maxContextChars: 12_000,
-    minimumScore: configuration.RAG_MINIMUM_SCORE,
-    maxSteps: configuration.AGENT_MAX_STEPS,
-    timeoutMs: configuration.AGENT_TIMEOUT_MS,
-    requireStructuredOutput: configuration.REQUIRE_STRUCTURED_ANSWER,
+    minimumScore: options.minimumScore,
+    maxSteps: options.maxSteps,
+    timeoutMs: options.timeoutMs,
+    requireStructuredOutput: options.requireStructuredOutput,
   };
-  const defaultModel = {
-    ollama: configuration.OLLAMA_CHAT_MODEL,
-    openrouter: configuration.OPENROUTER_CHAT_MODEL,
-    bedrock: configuration.BEDROCK_CHAT_MODEL_ID,
-  }[configuration.CHAT_PROVIDER];
-  const embeddingModel = {
-    ollama: configuration.OLLAMA_EMBEDDING_MODEL,
-    openrouter: configuration.OPENROUTER_EMBEDDING_MODEL,
-    bedrock: configuration.BEDROCK_EMBEDDING_MODEL_ID,
-  }[configuration.EMBEDDING_PROVIDER];
+  const defaultModel = options.defaultModel.model;
+  const embeddingModel = options.embeddingIdentity.model;
   const cacheVariant = JSON.stringify([
     "rag-claims-v2",
-    configuration.RAG_CLAIM_MODE,
-    configuration.EMBEDDING_PROVIDER,
+    options.claimMode,
+    options.embeddingIdentity.provider,
     embeddingModel,
-    configuration.RERANKER_PROVIDER,
-    configuration.RERANKER_PROVIDER === "jina" ? configuration.JINA_RERANKER_MODEL : null,
-    configuration.RETRIEVAL_TOP_K,
-    configuration.RAG_MINIMUM_SCORE,
-    configuration.REQUIRE_STRUCTURED_ANSWER,
-    configuration.CHAT_MAX_OUTPUT_TOKENS,
+    options.rerankerIdentity.provider,
+    options.rerankerIdentity.model ?? null,
+    options.retrievalTopK,
+    options.minimumScore,
+    options.requireStructuredOutput,
+    options.maxOutputTokens,
   ]);
   const modelConfigs = [
     {
       id: "default",
-      label: configuration.CHAT_DEFAULT_MODEL_LABEL ?? defaultModel.slice(0, 80),
+      label: options.defaultModel.label ?? defaultModel.slice(0, 80),
       model: defaultModel,
-      provider: configuration.CHAT_PROVIDER,
-      inputCostPer1kUsd: configuration.ESTIMATED_INPUT_COST_PER_1K_USD,
-      outputCostPer1kUsd: configuration.ESTIMATED_OUTPUT_COST_PER_1K_USD,
+      provider: options.defaultModel.provider,
+      inputCostPer1kUsd: options.defaultModel.inputCostPer1kUsd,
+      outputCostPer1kUsd: options.defaultModel.outputCostPer1kUsd,
     },
-    ...configuration.CHAT_ADDITIONAL_MODELS,
+    ...options.additionalModels,
   ];
   if (
     new Set(
       modelConfigs.map(
-        ({ model, provider }) => `${provider ?? configuration.CHAT_PROVIDER}:${model}`,
+        ({ model, provider }) => `${provider ?? options.defaultModel.provider}:${model}`,
       ),
     ).size !== modelConfigs.length
   ) {
@@ -102,16 +76,16 @@ export function createChatRuntime(dependencies: {
         id,
         label,
         model,
-        provider = configuration.CHAT_PROVIDER,
+        provider = options.defaultModel.provider,
         inputCostPer1kUsd,
         outputCostPer1kUsd,
       }) => {
         const descriptor = { id, label, provider, isDefault: id === "default" };
         const pricing = { inputCostPer1kUsd, outputCostPer1kUsd };
-        const generator = aiProviders.createAnswer({ provider, model, ...pricing, checkpointKey: id, maxOutputTokens: configuration.CHAT_MAX_OUTPUT_TOKENS });
+        const generator = aiProviders.createAnswer({ provider, model, ...pricing, checkpointKey: id, maxOutputTokens: options.maxOutputTokens });
         const verifier = aiProviders.createClaimVerifier({ provider, model, ...pricing });
         claimVerifiers.set(id, verifier);
-        const workflow = new LangGraphRagWorkflow(searchDocuments, generator, {
+        const workflow = workflowFactory(searchDocuments, generator, {
           ...workflowOptions,
           workflowId: id,
           claimVerifier: verifier,
@@ -119,23 +93,20 @@ export function createChatRuntime(dependencies: {
             claimVerifiers.get(target.checkpointKey?.split(":")[0] ?? id) ??
             aiProviders.createClaimVerifier(),
         });
-        const answerWorkflow = new LangSmithTracingWorkflow(workflow, {
-          enabled: configuration.LANGSMITH_TRACING,
-          projectName: configuration.LANGSMITH_PROJECT,
-        });
+        const answerWorkflow = tracing(workflow);
         const answerQuestion = new AnswerQuestionUseCase(
           answerWorkflow,
           embeddings,
           semanticCache,
           usageMetrics,
           {
-            cacheTtlSeconds: configuration.SEMANTIC_CACHE_TTL_SECONDS,
-            cacheMinimumSimilarity: configuration.SEMANTIC_CACHE_MINIMUM_SIMILARITY,
+            cacheTtlSeconds: options.cacheTtlSeconds,
+            cacheMinimumSimilarity: options.cacheMinimumSimilarity,
             cacheVariant,
             provider: descriptor.provider,
             model,
-            maxOutputTokens: configuration.CHAT_MAX_OUTPUT_TOKENS,
-            maxEstimatedCostUsd: configuration.MAX_ESTIMATED_COST_USD_PER_REQUEST,
+            maxOutputTokens: options.maxOutputTokens,
+            maxEstimatedCostUsd: options.maxEstimatedCostUsd,
             inputCostPer1kUsd,
             outputCostPer1kUsd,
           },
@@ -160,22 +131,22 @@ export function createChatRuntime(dependencies: {
     defaultChat.workflow,
     usageMetrics,
     {
-      timeoutMs: configuration.AGENT_TIMEOUT_MS,
-      maxOutputTokens: configuration.CHAT_MAX_OUTPUT_TOKENS,
-      maxEstimatedCostUsd: configuration.MAX_ESTIMATED_COST_USD_PER_REQUEST,
+      timeoutMs: options.timeoutMs,
+      maxOutputTokens: options.maxOutputTokens,
+      maxEstimatedCostUsd: options.maxEstimatedCostUsd,
     },
   );
   const routeAnswer = new RouteAnswerUseCase(
     defaultChat.workflow,
     usageMetrics,
     {
-      timeoutMs: configuration.AGENT_TIMEOUT_MS,
-      maxOutputTokens: configuration.CHAT_MAX_OUTPUT_TOKENS,
+      timeoutMs: options.timeoutMs,
+      maxOutputTokens: options.maxOutputTokens,
       maxTotalOutputTokens:
-        configuration.CHAT_AUTO_MAX_TOTAL_OUTPUT_TOKENS ??
-        configuration.CHAT_MAX_OUTPUT_TOKENS * 2,
-      maxTotalInputTokens: configuration.CHAT_AUTO_MAX_TOTAL_INPUT_TOKENS,
-      maxEstimatedCostUsd: configuration.MAX_ESTIMATED_COST_USD_PER_REQUEST,
+        options.autoMaxTotalOutputTokens ??
+        options.maxOutputTokens * 2,
+      maxTotalInputTokens: options.autoMaxTotalInputTokens,
+      maxEstimatedCostUsd: options.maxEstimatedCostUsd,
     },
   );
 
@@ -198,8 +169,8 @@ export function createChatRuntime(dependencies: {
           JSON.stringify([
             plan,
             cacheVariant,
-            configuration.CHAT_MAX_OUTPUT_TOKENS,
-            configuration.RAG_CLAIM_MODE,
+            options.maxOutputTokens,
+            options.claimMode,
           ]),
         )
         .digest("hex");
@@ -227,8 +198,8 @@ export function createChatRuntime(dependencies: {
                   tenantId: input.tenantId,
                   actorKey: input.actorKey,
                   receiptKey: `fallback:${id}`,
-                  tenantLimit: configuration.DAILY_TENANT_QA_LIMIT,
-                  actorLimit: configuration.DAILY_USER_QA_LIMIT,
+                  tenantLimit: options.tenantDailyQuestionLimit,
+                  actorLimit: options.userDailyQuestionLimit,
                 })
               ).allowed,
           }),
@@ -254,15 +225,14 @@ export function createChatRuntime(dependencies: {
     const model = profile.models.get(modelId ?? profile.defaultModelId ?? "");
     if (!model) return undefined;
     const { descriptor: { provider }, model: modelName, inputCostPer1kUsd, outputCostPer1kUsd } = model;
-    const maxOutputTokens = Math.min(requestedMaxOutputTokens, configuration.CHAT_MAX_OUTPUT_TOKENS);
+    const maxOutputTokens = Math.min(requestedMaxOutputTokens, options.maxOutputTokens);
     const generator = aiProviders.createAnswer({ provider, model: modelName, inputCostPer1kUsd, outputCostPer1kUsd, checkpointKey: `evaluation:${modelId ?? "default"}:${maxOutputTokens}`, maxOutputTokens });
     return { provider, model: modelName, generator, inputCostPer1kUsd, outputCostPer1kUsd, maxOutputTokens };
   };
-  const chatGraph = new LangGraphChatWorkflow(chatRuns);
   const bindings: ChatRuntimeBindings = {
-    chatVersion: chatWorkflowVersion, resolveChat, resolveEvaluationModel,
-    consumeQuota: async (tenantId, actorKey) => (await quota.consumeQuestion({ tenantId, actorKey, receiptKey: "primary", tenantLimit: configuration.DAILY_TENANT_QA_LIMIT, actorLimit: configuration.DAILY_USER_QA_LIMIT })).allowed,
-    runChat: chatGraph.execute.bind(chatGraph),
+    chatVersion: chatExecution.version, resolveChat, resolveEvaluationModel,
+    consumeQuota: async (tenantId, actorKey) => (await quota.consumeQuestion({ tenantId, actorKey, receiptKey: "primary", tenantLimit: options.tenantDailyQuestionLimit, actorLimit: options.userDailyQuestionLimit })).allowed,
+    runChat: chatExecution.execute.bind(chatExecution),
   };
   return { chatModels, defaultChat, compareAnswers, routeAnswer, defaultModel, embeddingModel, bindings };
 }

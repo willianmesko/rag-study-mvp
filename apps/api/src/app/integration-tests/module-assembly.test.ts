@@ -5,13 +5,17 @@ import type { WorkspaceChatModelPolicy } from "@rag-study/contracts";
 import { config } from "../../config.js";
 import type { ModelRuntimeIdentity, ModelRuntimeProviders } from "../../modules/ai/index.js";
 import type { QuotaRepository } from "../../modules/usage/index.js";
-import { createReranker } from "../../modules/ai/ai.module.js";
-import { createChatRuntime, createChatStorage } from "../../modules/chat/chat.module.js";
+import { createConfiguredProviderBindings } from "../composition/provider-registry.js";
+import { createChatRuntime } from "../../modules/chat/chat.module.js";
+import { createChatStorage } from "../composition/chat-storage.js";
+import { createChatWorkflowBindings, chatRuntimeOptionsFromConfiguration } from "../composition/chat-workflows.js";
+import { createEvaluationWorkflowBinding } from "../composition/evaluation-workflow.js";
+import { createPostgresKnowledgeBindings, createPostgresEvaluationRepository, createPostgresMcpBindings } from "../composition/postgres-persistence.js";
 import { createKnowledgeServices } from "../../modules/knowledge/knowledge.module.js";
-import { SearchDocumentsUseCase } from "../../modules/knowledge/application/use-cases/search-documents.js";
 import { createEvaluationServices } from "../../modules/evaluations/evaluations.module.js";
 import { createMcpServices } from "../../modules/mcp/mcp.module.js";
-import { createWorkflowRuntime, createWorkspaceWorkflowServices } from "../../modules/workflows/workflows.module.js";
+import { createWorkspaceWorkflowServices } from "../../modules/workflows/workflows.module.js";
+import { createWorkflowRuntime, workspaceWorkflowOptionsFromConfiguration } from "../composition/workflow-runtime.js";
 
 const tenantId = "20000000-0000-4000-8000-000000000001";
 const actorKey = "user:fixture";
@@ -26,12 +30,16 @@ function fixture(t: TestContext) {
     CHAT_MAX_OUTPUT_TOKENS: 500, RAG_CLAIM_MODE: "extractive" as const,
     CHAT_ADDITIONAL_MODELS: [{ id: "second", label: "Second", model: "fixture-second", provider: "ollama" as const, inputCostPer1kUsd: 0, outputCostPer1kUsd: 0 }],
   };
-  const knowledge = createKnowledgeServices(pool, { embeddingDimensions: 1024, uploadBucket: "fixture" });
   const chat = createChatStorage(pool, 1024);
   const embeddings = { embed: async () => { throw new Error("Unexpected embedding"); } };
-  const searchDocuments = new SearchDocumentsUseCase(embeddings, knowledge.documents, createReranker({ ...config, RERANKER_PROVIDER: "none" }), {
-    defaultTopK: 5, vectorCandidateMultiplier: 4, keywordCandidateMultiplier: 4, reciprocalRankConstant: 60, rerankerCandidateMultiplier: 4, defaultTenantId: tenantId,
+  const knowledge = createKnowledgeServices({
+    ...createPostgresKnowledgeBindings(pool, 1024),
+    originals: { isEnabled: () => false, put: async () => { throw new Error("Unexpected upload"); }, get: async () => { throw new Error("Unexpected original read"); }, remove: async () => { throw new Error("Unexpected original deletion"); } },
+    embeddings, reranker: createConfiguredProviderBindings({ ...config, RERANKER_PROVIDER: "none" }).registry.createReranker(),
+    sourceJobs: { findIndexedOriginal: async () => null, listStoragePathsForDocument: async () => [], deleteForDocument: async () => {} },
+    searchOptions: { defaultTopK: 5, vectorCandidateMultiplier: 4, keywordCandidateMultiplier: 4, reciprocalRankConstant: 60, rerankerCandidateMultiplier: 4, defaultTenantId: tenantId },
   });
+  const { searchDocuments } = knowledge;
   let policy: WorkspaceChatModelPolicy = { allowedModelIds: ["default", "second"], defaultModelId: "default", auto: null };
   const policies = { get: t.mock.fn(async (_tenantId: string) => policy) };
   const requests: Array<ModelRuntimeIdentity & { checkpointKey: string; maxOutputTokens: number }> = [];
@@ -44,7 +52,9 @@ function fixture(t: TestContext) {
   const runtime = createChatRuntime({
     embeddings, searchDocuments, semanticCache: chat.semanticCache,
     usageMetrics: { record: async () => {}, summarize: async () => { throw new Error("Unexpected ledger query"); } },
-    workspaceModelPolicies: policies, chatRuns: chat.chatRuns, quota: { consumeQuestion }, aiProviders: providers, configuration,
+    workspaceModelPolicies: policies, quota: { consumeQuestion }, aiProviders: providers,
+    ...createChatWorkflowBindings(chat.chatRuns, { enabled: false, projectName: config.LANGSMITH_PROJECT }),
+    options: chatRuntimeOptionsFromConfiguration(configuration),
   });
   return { pool, configuration, knowledge, chat, embeddings, searchDocuments, policies, providers, requests, consumeQuestion, runtime, setPolicy: (value: WorkspaceChatModelPolicy) => { policy = value; } };
 }
@@ -75,9 +85,16 @@ test("chat assembly rechecks workspace policies and preserves evaluation caps, c
 test("MCP assembly keeps actions independent and shares controls without eagerly resolving a disabled read index", (t) => {
   const f = fixture(t);
   const configuration = { ...config, MCP_REMOTE_ENABLED: true, MCP_PUBLIC_URL: "https://api.example.test/mcp", APP_BASE_URL: "https://app.example.test", AGENT_ACTIONS_ENABLED: true };
-  const disabled = createMcpServices({ pool: f.pool, readPool: null, measuredEmbeddings: () => f.embeddings, defaultEmbeddingIdentity: () => { throw new Error("Disabled reads resolved an index."); }, configuration });
+  const limits = {
+    callsPerMinute: configuration.MCP_CALLS_PER_MINUTE, callsPerDay: configuration.MCP_CALLS_PER_DAY,
+    providerCallsPerDay: configuration.MCP_PROVIDER_CALLS_PER_DAY, inputTokensPerDay: configuration.MCP_INPUT_TOKENS_PER_DAY,
+    userCostNanoUsdPerDay: Math.floor(configuration.MCP_USER_COST_USD_PER_DAY * 1e9),
+    tenantCostNanoUsdPerDay: Math.floor(configuration.MCP_WORKSPACE_COST_USD_PER_DAY * 1e9), concurrentProviders: configuration.MCP_CONCURRENT_PROVIDERS,
+  };
+  const options = { remote: { resource: configuration.MCP_PUBLIC_URL, appUrl: configuration.APP_BASE_URL }, agentActionsEnabled: true, embeddingInputCostPer1kUsd: configuration.EMBEDDING_INPUT_COST_PER_1K_USD, maxCostNanoUsd: Math.floor(configuration.MCP_COST_USD_PER_CALL * 1e9) };
+  const disabled = createMcpServices({ ...createPostgresMcpBindings(f.pool, null, limits), measuredEmbeddings: () => f.embeddings, defaultEmbeddingIdentity: () => { throw new Error("Disabled reads resolved an index."); }, options });
   assert.equal(disabled.workspaceMcp, undefined); assert.equal(disabled.remoteMcp, undefined); assert.ok(disabled.agentActions);
-  const enabled = createMcpServices({ pool: f.pool, readPool: f.pool, measuredEmbeddings: () => f.embeddings, defaultEmbeddingIdentity: () => ({ provider: "ollama", model: "fixture-embedding", dimensions: 1024 }), configuration });
+  const enabled = createMcpServices({ ...createPostgresMcpBindings(f.pool, f.pool, limits), measuredEmbeddings: () => f.embeddings, defaultEmbeddingIdentity: () => ({ provider: "ollama", model: "fixture-embedding", dimensions: 1024 }), options });
   assert.ok(enabled.workspaceMcp); assert.ok(enabled.remoteMcp);
   assert.equal(enabled.workspaceMcp.tools, enabled.remoteMcp.tools);
   assert.equal(enabled.workspaceMcp.controls, enabled.remoteMcp.controls);
@@ -89,18 +106,21 @@ test("evaluation and workflow assembly share bindings and runtime without starti
   const engine = createWorkflowRuntime(f.pool, { WORKFLOWS_ENABLED: true, WORKFLOW_STATE_KEY: Buffer.alloc(32, 7).toString("base64") }, () => { throw new Error("Unexpected workflow failure"); });
   assert.ok(engine);
   const register = t.mock.method(engine, "register");
+  const evaluations = createPostgresEvaluationRepository(f.pool);
+  const models = { embeddingProvider: "ollama", embeddingModel: "fixture-embedding", chatProvider: "ollama", chatModel: f.runtime.defaultModel };
+  const embeddingIdentity = async () => ({ provider: "ollama", model: "fixture-embedding", version: "fixture-index" });
   const evaluation = createEvaluationServices({
-    pool: f.pool, searchDocuments: f.searchDocuments,
-    models: { embeddingProvider: "ollama", embeddingModel: "fixture-embedding", chatProvider: "ollama", chatModel: f.runtime.defaultModel },
+    evaluations, searchDocuments: f.searchDocuments, models,
     aiProviders: f.providers, chatBindings: f.runtime.bindings,
-    embeddingIdentity: async () => ({ provider: "ollama", model: "fixture-embedding", version: "fixture-index" }),
-    demoLibraryRepository: { sourceStates: async () => [{ source: "golden/rag-fundamentals", state: "ready", documentId: null, jobId: null }] }, durable: true,
+    embeddingIdentity,
+    demoLibraryRepository: { sourceStates: async () => [{ source: "golden/rag-fundamentals", state: "ready", documentId: null, jobId: null }] },
+    workflow: createEvaluationWorkflowBinding({ searchDocuments: f.searchDocuments, evaluations, models, embeddingIdentity, durable: true }),
   });
   assert.equal(evaluation.runEvaluation.supportsFaithfulness, true);
   await evaluation.runEvaluation.preflight({ tenantId, includeFaithfulness: true, modelId: "second" });
   f.setPolicy({ allowedModelIds: ["default"], defaultModelId: "default", auto: null });
   await assert.rejects(evaluation.runEvaluation.preflight({ tenantId, includeFaithfulness: true, modelId: "second" }), (error) => error instanceof Error && error.message === "Select an available evaluation model.");
-  const workflows = createWorkspaceWorkflowServices({ engine, chat: f.runtime.bindings, runEvaluation: evaluation.runEvaluation, evaluationVersion: evaluation.evaluationVersion, member: async () => null, embeddingVersion: async () => "fixture-index", configuration: f.configuration });
+  const workflows = createWorkspaceWorkflowServices({ engine, chat: f.runtime.bindings, runEvaluation: evaluation.runEvaluation, evaluationVersion: evaluation.evaluationVersion, member: async () => null, embeddingVersion: async () => "fixture-index", options: workspaceWorkflowOptionsFromConfiguration(f.configuration) });
   assert.ok(workflows);
   assert.deepEqual(register.mock.calls.map((call) => [call.arguments[0], call.arguments[1].version]), [["chat", "chat-v2"], ["evaluation", "evaluation-v2"]]);
   const close = t.mock.method(engine, "close");
