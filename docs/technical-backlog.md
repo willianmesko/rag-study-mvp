@@ -18,9 +18,17 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-06, FE-08, FE-10 | 6 |
 | Pending implementation | BE-09, BE-13, FE-07, FE-09, FE-11 | 5 |
 
-The latest batch is live on the frontend and API at `cbd0f67`, after all four
-[CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42401306893).
-See the [capability-boundary release evidence](operations/release-2026-11-07-capability-boundaries.md).
+The latest batch is live on the frontend and API at `2fcd121`, after all four
+[CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42405593398).
+See the [query-ownership release evidence](operations/release-2026-11-07-query-ownership.md).
+It delivers the FE-06 administrative slice and BE-08 native unused checks;
+both parent tickets remain partial. CI passed 274 UX cases/44 deliberate profile
+skips, 83 PostgreSQL cases, the isolated cutover, 78 architecture fixtures and
+all seven harness checks. Both live source SHAs, health and protected routes
+were verified. The next FE-06 slice covers conversation visibility/pagination
+and execution readers, as saved in the resume checkpoint.
+The prior `cbd0f67` batch is recorded in the
+[capability-boundary evidence](operations/release-2026-11-07-capability-boundaries.md).
 The preceding module-organization release at `d045949` is recorded in the
 [phase 2 evidence](operations/release-2026-11-07-architecture-phase2.md).
 The earlier six-ticket batch at `a590360` remains documented in the
@@ -294,7 +302,8 @@ feature-owned locations during BE-07's migration.
 - **Partial:** dependency checks and focused session/cache/decoder/navigation
   regressions exist. The native unused-symbol slice is implemented: the six
   diagnostics were removed and API `noUnusedLocals`/`noUnusedParameters` are now
-  enabled, with a passing strict check. Promise/Hook correctness remains open;
+  enabled, with passing strict checks, harness/CI and deployment at `2fcd121`.
+  Promise/Hook correctness remains open;
   the graph gate and native flags do not cover it. Publication is tracked in the
   [query-ownership release record](operations/release-2026-11-07-query-ownership.md).
 
@@ -308,14 +317,11 @@ feature-owned locations during BE-07's migration.
   abort; settled inactive surfaces stop short-interval polling. Active durable
   jobs still reconcile. Record request-count reduction without duplicate mutation
   or provider calls; test offline, 401/403/429 and navigation while loading.
-- **Current evidence:** administrative jobs/evaluations/usage already forward
-  TanStack's signal. The remaining problems are bounded read waits and ownership
-  of idle/refetch timers; the earlier source review is not current signal status.
-- **Next slices:** add explicit deadlines to resource reads (not a blanket GET
-  policy: semantic search can call paid providers); stop settled/error job and
-  evaluation timers; invalidate document views on mutation/terminal job revision
-  while retaining focus/reconnect and cross-device readiness reconciliation.
-- [x] **Administrative read slice, implemented; release validation in progress:**
+- **Current evidence:** administrative reads forward Query's signal and use
+  explicit resource deadlines. Idle/error interval ownership and terminal
+  invalidation are implemented; remaining work concerns conversation readers and
+  pagination. Provider-backed search is not classified as a cheap metadata GET.
+- [x] **Administrative read slice, CI verified and published at `2fcd121`:**
   explicit ten-second metadata/resource reads compose caller cancellation with
   the deadline. Document lists no longer poll. One mounted workspace monitor
   owns the active-job interval and invalidates all document-filter variants and
@@ -330,8 +336,10 @@ feature-owned locations during BE-07's migration.
   active-to-terminal behavior, filtered/unfiltered invalidation, one deliberate
   approval, 401/403/429, invalid success data, offline/reconnect, finite deadlines
   and read disposal. Thirty focused cases passed across all three profiles;
-  the complete local harness and 78 architecture fixtures passed. Exact-source CI and
-  publication evidence are maintained in the release record. Conversation
+  the complete local harness and 78 architecture fixtures passed. All four CI
+  gates and both deployments passed; evidence is in the release record. The full
+  gate caught a demo-readiness regression, fixed by an explicit terminal-source
+  notification while retaining original tests/baselines. Conversation
   pagination/transport work below is still pending; FE-06 is not closed.
 - **Conversation scope:** keep durable capability independent from read visibility,
   select one active-run transport owner, and refresh only newest messages rather

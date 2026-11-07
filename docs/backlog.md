@@ -6,11 +6,11 @@ optional study examples.
 
 Last reviewed on 2026-11-07.
 
-The [resume checkpoint](backlog-resume.md) preserves the next general FE-06 and
-BE-08 slices; both were inspected and stopped before edits. The owner then added
-the specific BE-15 priority: technology-neutral module assembly. That follow-up
-is implemented, validated and published. General backlog work has resumed with
-FE-06 administrative reads and the BE-08 native TypeScript slice. The learning
+The [resume checkpoint](backlog-resume.md) preserves the next FE-06 slice:
+conversation read visibility/pagination. Technology-neutral module assembly
+(BE-15), FE-06 administrative reads and BE-08 native TypeScript checks are
+implemented, validated and published. The parent FE-06 and BE-08/FE-08 tickets
+remain partial. The learning
 walkthrough retains its saved starting point; teaching sessions remain pending.
 
 ## Status guide
@@ -28,11 +28,13 @@ status section where they appear.
 
 ## In progress
 
-The latest application release, `cbd0f677baff2b415b16a785ea67bcbf48c99cc2`, is
+The latest application release, `2fcd1215a1f6c8f8cdd10039d23814616d394db6`, is
 live on the frontend and API after all four
-[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42401306893).
+[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42405593398).
 Both deployments, served features/icon, health and protected routes were verified
-on 2026-11-07. See [capability-boundary release evidence](operations/release-2026-11-07-capability-boundaries.md).
+on 2026-11-07. See [query-ownership release evidence](operations/release-2026-11-07-query-ownership.md).
+The previous [capability-boundary release](operations/release-2026-11-07-capability-boundaries.md)
+remains documented separately.
 The earlier [module-organization release](operations/release-2026-11-07-architecture-phase2.md)
 is retained as historical evidence.
 The earlier [observability/resilience release](operations/release-2026-11-07.md)
@@ -48,9 +50,10 @@ and NestJS-inspired business-module organization. See the
 provider, workflow and tracing selection.** It is included in the live SHA above.
 Its [release evidence](operations/release-2026-11-07-capability-boundaries.md)
 records 78 architecture fixtures, 83 real PostgreSQL checks, the cutover and the
-complete harness. Exact-source CI also passed 247 UX cases with 44 deliberate
-profile skips, and production verification passed. The next bounded delivery
-improves administrative query ownership and native TypeScript checks; see its
+complete harness. That prior CI also passed 247 UX cases with 44 deliberate
+profile skips. The latest bounded delivery improves administrative query ownership
+and native TypeScript checks; its CI passed 274 UX cases and production checks
+passed. See its
 [release record](operations/release-2026-11-07-query-ownership.md). Conversation
 read visibility, pagination and transport ownership remain the next FE-06 slice.
 Operational activation remains separate.

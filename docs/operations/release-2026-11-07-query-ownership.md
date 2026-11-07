@@ -3,9 +3,20 @@
 ## Status and scope
 
 This increment resumes the saved FE-06 administrative-read slice and BE-08 native
-TypeScript slice after `cbd0f67`. Code is implemented and locally validated;
-publication still requires exact-source CI and observed deployments. Neither
-FE-06 nor BE-08/FE-08 is marked fully complete.
+TypeScript slice after `cbd0f67`. **Frontend and API are live** at
+`2fcd1215a1f6c8f8cdd10039d23814616d394db6`.
+All four [exact-source CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42405593398)
+passed for `2fcd1215a1f6c8f8cdd10039d23814616d394db6` before deployment was
+triggered. Deployment verification passed. Neither FE-06 nor
+BE-08/FE-08 is marked fully complete.
+
+| Service | Deployment | Observed live at UTC |
+| --- | --- | --- |
+| API | `dep-dbnnm5nf3r2c7395f00g` | 2026-11-07 19:26:38 |
+| Frontend | `dep-dbnnm6s9v7es73d97gtg` | 2026-11-07 19:26:10 |
+
+Both deployment records match the source above. A later documentation-only
+receipt does not change the runtime source.
 
 ## Behavior
 
@@ -61,7 +72,10 @@ Strict API typechecking passes with the new native flags. All seven local harnes
 checks passed, including builds, unit tests, golden set, injection, replays and
 local Promptfoo with telemetry/updates disabled. Both architecture graphs have
 zero violations (437 structural/436 runtime modules); all 78 guard fixtures
-passed. Exact-source CI and production evidence are pending final record.
+passed. The final CI also passed 83 PostgreSQL tests, one isolated embedding
+cutover, all 78 architecture fixtures and the complete seven-check harness.
+Responsive UX passed 274 cases with 44 deliberate profile skips in 4.7 minutes.
+Production verification is recorded below.
 
 The first full CI run (`42404854787`, source `9e381a8`) passed backend, cutover and
 verify gates, with 271 UX passes/44 deliberate skips and three failures in the
@@ -70,7 +84,22 @@ exposed the missing completion notification previously masked by document pollin
 The application was corrected; original tests and baselines were retained. The
 combined discovery/query suite then passed 41 cases with four deliberate profile
 skips locally, plus a fresh strict web typecheck. A fresh exact-source CI run is
-required for the fix.
+required for the fix; that fresh run passed all four gates as recorded above.
+
+## Production verification
+
+Public checks at 19:26:55 UTC confirmed frontend HTTP 200, the new
+`/assets/index-QJ8tWCrR.js` entry, expected recovery/response-decoding markers and
+the unchanged source-matching 256×256 Lumora icon. API health returned 200 with
+OCR, durable workflows and durable conversations active. Request correlation
+remained server-controlled.
+
+Unauthenticated MCP, conversation and budget routes returned 401. OAuth discovery
+retained the exact resource, Lumora name and S256; malformed JSON/unsupported token
+MIME returned sanitized 400/415, and missing resource/PKCE parameters were denied.
+No provider call, real grant/consent, document access or notification was created.
+The API error/fatal log query from 19:26:38 to 19:27:31 UTC returned no records.
+That is the inspected interval, not a guarantee about future errors.
 
 ## Remaining acceptance criteria
 

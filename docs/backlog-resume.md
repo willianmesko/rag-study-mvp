@@ -3,25 +3,28 @@
 Recorded on **2026-11-07** after the owner requested resuming later from the same
 point. The owner subsequently requested the specific BE-15 abstraction follow-up;
 that follow-up is now validated and published. General continuation has resumed
-with the FE-06 administrative slice and BE-08 native TypeScript checks below.
+with the FE-06 administrative slice and BE-08 native TypeScript checks below;
+both are published. The next slice is FE-06 conversation readers/pagination.
 
 ## Current delivery
 
-- Source: `cbd0f677baff2b415b16a785ea67bcbf48c99cc2`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42401306893).
-- [Release evidence](operations/release-2026-11-07-capability-boundaries.md) records
+- Source: `2fcd1215a1f6c8f8cdd10039d23814616d394db6`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42405593398).
+- [Release evidence](operations/release-2026-11-07-query-ownership.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
   conservative reranking and FSD/module checks are in that delivery. Capability
   ports and outer adapter bindings now isolate the business factories from
   concrete database, model, graph and tracing implementations.
+- Administrative resource deadlines/polling ownership and API native unused
+  checks are now included. Full FE-06 and BE-08/FE-08 acceptance remains partial.
 - [Learning walkthrough](learning-walkthrough.md): an 18-chapter plan is saved.
   The teaching sessions and learner outcomes remain pending.
 
 The saved administrative and native TypeScript slices are now implemented.
-Their [release record](operations/release-2026-11-07-query-ownership.md) tracks
-validation/publication separately from the previous runtime above. No conversation
+Their [release record](operations/release-2026-11-07-query-ownership.md) records
+all four green CI gates, both live deployments and production checks. No conversation
 transport or pagination refactor has been bundled into the administrative slice.
 
 ## Completed explicit follow-up: BE-15
