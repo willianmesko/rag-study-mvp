@@ -52,11 +52,11 @@ export function RagLabPage({ scope, lab, privateArea, accountAction, accountErro
   const [addingDocuments, setAddingDocuments] = useState(false);
   const [suggestion, setSuggestion] = useState<{ id: string; text: string } | null>(null);
   const [selectedSource, setSelectedSource] = useState<QuestionSource | null>(null);
-  const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 30_000 });
+  const health = useQuery({ queryKey: ["health"], queryFn: ({ signal }) => api.health(signal), refetchInterval: 30_000 });
   const activeTab = lab.tab;
   const workspaceId = privateArea?.workspace.tenantId;
   const workspaceName = privateArea?.workspace.tenantName;
-  const conversation = useConversation({ accessToken: privateArea?.token, workspaceId, scope, onAnswered: addAnswer });
+  const conversation = useConversation({ accessToken: privateArea?.token, workspaceId, scope, onAnswered: addAnswer, observed: activeTab === "answer" || activeTab === "history", messagesObserved: activeTab === "answer" });
   const isChat = activeTab === "answer";
   const showLearningAside = activeTab !== "admin" && activeTab !== "connections" && !isChat;
 

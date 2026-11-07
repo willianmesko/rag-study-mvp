@@ -65,12 +65,13 @@ function isRetryable(error: unknown) {
     (error instanceof ApiError && (error.status === 408 || error.status >= 500));
 }
 
-export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, onFinished, autoRecover = true }: {
+export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, onFinished, onReadingChange, autoRecover = true }: {
   accessToken?: string | null;
   workspaceId?: string;
   scope: string;
   onRecovered: (runId: string) => void;
   onFinished: (result: AnswerOutcome) => void;
+  onReadingChange?: (reading: boolean) => void;
   autoRecover?: boolean;
 }) {
   const [state, setState] = useState(emptyAnswer);
@@ -78,10 +79,10 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
   const [stopError, setStopError] = useState(false);
   const active = useRef<Run | null>(null);
   const session = accessToken && workspaceId ? { accessToken, workspaceId } : undefined;
-  const latest = useRef({ session, onRecovered, onFinished });
+  const latest = useRef({ session, onRecovered, onFinished, onReadingChange });
   const storageKey = session ? `lumora-chat-run:${scope}` : null;
 
-  useEffect(() => { latest.current = { session, onRecovered, onFinished }; }, [accessToken, workspaceId, onRecovered, onFinished]);
+  useEffect(() => { latest.current = { session, onRecovered, onFinished, onReadingChange }; }, [accessToken, workspaceId, onRecovered, onFinished, onReadingChange]);
 
   useEffect(() => {
     const id = autoRecover && storageKey && readRun(storageKey);
@@ -97,6 +98,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
       window.removeEventListener("online", resume);
       active.current?.controller.abort();
       active.current = null;
+      latest.current.onReadingChange?.(false);
     };
   }, [storageKey,autoRecover]);
 
@@ -104,6 +106,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
     if (active.current !== run) return;
     if (run.durable) clearRun(run.durable);
     active.current = null;
+    latest.current.onReadingChange?.(false);
     run.controller.abort();
     setStopping(false);
     setStopError(false);
@@ -114,6 +117,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
   async function connect(run: Run, mode: Connection) {
     if (run.connecting) return;
     run.connecting = true;
+    latest.current.onReadingChange?.(true);
     const { signal } = run.controller;
     let hasCitations = false;
     const update = (event: ChatRunEvent, sequence: number | null) => {
@@ -185,6 +189,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
       }
     } finally {
       run.connecting = false;
+      if (active.current === run) latest.current.onReadingChange?.(false);
     }
   }
 
@@ -212,7 +217,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
     active.current=run;setState({...emptyAnswer,phase:'reconnecting'});void connect(run,typeof ReadableStream==='undefined'?'regular':'resume');
   }
   function settleSaved(result:AnswerOutcome){if(active.current)finish(active.current,result);}
-  function detach(){const run=active.current;if(run?.durable)clearRun(run.durable);run?.controller.abort();active.current=null;setState(emptyAnswer);setStopping(false);}
+  function detach(){const run=active.current;if(run?.durable)clearRun(run.durable);run?.controller.abort();active.current=null;latest.current.onReadingChange?.(false);setState(emptyAnswer);setStopping(false);}
 
   async function stop() {
     const run = active.current;

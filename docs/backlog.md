@@ -6,11 +6,13 @@ optional study examples.
 
 Last reviewed on 2026-11-07.
 
-The [resume checkpoint](backlog-resume.md) preserves the next FE-06 slice:
-conversation read visibility/pagination. Technology-neutral module assembly
+The [resume checkpoint](backlog-resume.md) records FE-06 conversation readers and
+pagination as implemented and locally validated, awaiting release gates.
+Technology-neutral module assembly
 (BE-15), FE-06 administrative reads and BE-08 native TypeScript checks are
 implemented, validated and published. The parent FE-06 and BE-08/FE-08 tickets
-remain partial. The learning
+were partial at that delivery. The remaining FE-06 slice now has passing focused
+verification; BE-08/FE-08 still retain their promise/Hook work. The learning
 walkthrough retains its saved starting point; teaching sessions remain pending.
 
 ## Status guide
@@ -41,7 +43,8 @@ The earlier [observability/resilience release](operations/release-2026-11-07.md)
 is included.
 
 The [technical backlog](technical-backlog.md) records 15 published tickets,
-six partial tickets and five pending tickets. The published
+FE-06 locally validated and awaiting publication, five partial tickets and five
+pending tickets. The published
 batch includes shared success-response schemas, SQL limits, bounded Auth/member
 lookup, frontend composition/Public APIs, provider reservations, safe shutdown
 and NestJS-inspired business-module organization. See the
@@ -55,7 +58,10 @@ profile skips. The latest bounded delivery improves administrative query ownersh
 and native TypeScript checks; its CI passed 274 UX cases and production checks
 passed. See its
 [release record](operations/release-2026-11-07-query-ownership.md). Conversation
-read visibility, pagination and transport ownership remain the next FE-06 slice.
+read visibility, pagination and transport ownership are now implemented with
+42 passing focused checks and the full local harness; see the
+[conversation-reader record](operations/release-2026-11-07-conversation-readers.md)
+for exact-source CI/publication status. FE-07 is the next implementation ticket.
 Operational activation remains separate.
 
 OAuth extension-parameter compatibility and standard MCP icon metadata are live.

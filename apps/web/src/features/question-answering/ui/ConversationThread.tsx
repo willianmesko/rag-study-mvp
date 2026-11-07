@@ -90,7 +90,8 @@ export function ConversationThread({ turns, live, demo, onSuggestion, suggestion
     }
     if (previousLatest.current !== latest?.id) {
       previousLatest.current = latest?.id;
-      scrollToLatest();
+      if (pinned.current) scrollToLatest();
+      else setShowLatest(true);
     } else if (pinned.current && transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight;
   }, [latest?.id, latest?.status, live.phase, live.draft, live.citations.length]);
 

@@ -94,11 +94,11 @@ export const api = {
     if(turn.comparison)return turn.comparison;
     throw new ApiError('The saved comparison did not complete.',409,'execution_failed');
   },
-  conversations: async(token:string,workspaceId:string,signal:AbortSignal,cursor?:string)=>await requestJson(conversationPageSchema, `/v1/conversations?${new URLSearchParams({limit:'20',...(cursor?{cursor}:{})})}`, {
+  conversations: async(token:string,workspaceId:string,signal:AbortSignal,cursor?:string)=>await readResourceJson(conversationPageSchema, `/v1/conversations?${new URLSearchParams({limit:'20',...(cursor?{cursor}:{})})}`, {
     signal,headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}}),
   createConversation: async(token:string,workspaceId:string,id:string)=>await requestJson(conversationCreatedSchema, '/v1/conversations', {
     method:'POST',headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)},body:JSON.stringify({id}),signal:AbortSignal.timeout(15000)}),
-  conversationMessages: async(token:string,workspaceId:string,id:string,signal:AbortSignal,before?:number)=>await requestJson(conversationMessagesSchema, `/v1/conversations/${encodeURIComponent(id)}/messages?${new URLSearchParams({limit:'25',...(before?{before:String(before)}:{})})}`, {
+  conversationMessages: async(token:string,workspaceId:string,id:string,signal:AbortSignal,before?:number,limit=25)=>await readResourceJson(conversationMessagesSchema, `/v1/conversations/${encodeURIComponent(id)}/messages?${new URLSearchParams({limit:String(limit),...(before?{before:String(before)}:{})})}`, {
     signal,headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}}),
   renameConversation: async(token:string,workspaceId:string,id:string,title:string)=>await requestJson(conversationCreatedSchema, `/v1/conversations/${encodeURIComponent(id)}`, {
     method:'PATCH',headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)},body:JSON.stringify({title}),signal:AbortSignal.timeout(15000)}),
@@ -106,7 +106,7 @@ export const api = {
     method:'DELETE',headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)},signal:AbortSignal.timeout(15000)}),
   feedbackConversation: (token:string,workspaceId:string,id:string,messageId:string,value:'up'|'down'|null)=>requestVoid(`/v1/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/feedback`,{
     method:'PUT',headers:{authorization:`Bearer ${token}`,'content-type':'application/json',...workspaceHeaders(workspaceId)},body:JSON.stringify({value}),signal:AbortSignal.timeout(15000)}),
-  conversationTurn: async(token:string,workspaceId:string,id:string,runId:string,signal?:AbortSignal)=>(await requestJson(conversationTurnResponseSchema, `/v1/conversations/${encodeURIComponent(id)}/runs/${encodeURIComponent(runId)}`,{
+  conversationTurn: async(token:string,workspaceId:string,id:string,runId:string,signal?:AbortSignal)=>(await readResourceJson(conversationTurnResponseSchema, `/v1/conversations/${encodeURIComponent(id)}/runs/${encodeURIComponent(runId)}`,{
     signal,headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}})).turn,
   cancelConversationTurn: async(token:string,workspaceId:string,id:string,runId:string)=>(await requestJson(conversationTurnResponseSchema, `/v1/conversations/${encodeURIComponent(id)}/runs/${encodeURIComponent(runId)}/cancel`,{
     method:'POST',signal:AbortSignal.timeout(15000),headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}})).turn,
@@ -175,7 +175,7 @@ export const api = {
   inviteWorkspaceMember: (input: { workspaceId: string; email: string; role: "editor" | "viewer"; accessToken: string; idempotencyKey?:string }) => requestJson(workspaceInvitationResponseSchema, `/v1/workspaces/${input.workspaceId}/invitations`, { method: "POST", body: JSON.stringify({ email: input.email, role: input.role }), headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId), ...(input.idempotencyKey?{"idempotency-key":input.idempotencyKey}:{}) } }),
   changeWorkspaceMemberRole: (input: { workspaceId: string; userId: string; role: "editor" | "viewer"; accessToken: string }) => requestVoid(`/v1/workspaces/${input.workspaceId}/members/${input.userId}`, { method: "PATCH", body: JSON.stringify({ role: input.role }), headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
   removeWorkspaceMember: (input: { workspaceId: string; userId: string; accessToken: string }) => requestVoid(`/v1/workspaces/${input.workspaceId}/members/${input.userId}`, { method: "DELETE", headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
-  health: () => requestJson(healthResponseSchema, "/health"),
+  health: (signal?: AbortSignal) => readResourceJson(healthResponseSchema, "/health", { signal }),
   knowledgeStatus: async (accessToken?: string | null, workspaceId?: string, signal?: AbortSignal) => await readResourceJson(knowledgeStatusSchema, "/v1/knowledge/status", { signal, headers: {
       ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}), ...workspaceHeaders(workspaceId)
     } }),

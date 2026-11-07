@@ -40,18 +40,23 @@ export function useConversation({
   scope,
   onAnswered,
   navigation = true,
+  observed = true,
+  messagesObserved = true,
 }: {
   accessToken?: string | null;
   workspaceId?: string;
   scope: string;
   onAnswered: (input: { question: string; response: QuestionResponse }) => void;
   navigation?: boolean;
+  observed?: boolean;
+  messagesObserved?: boolean;
 }) {
+  const [readerOwned, setReaderOwned] = useState(false);
   const saved = useSavedConversations({
     token: accessToken,
     workspaceId,
     scope,
-    navigation,
+    navigation, observed, messagesObserved, readerOwned,
   });
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -108,12 +113,13 @@ export function useConversation({
     workspaceId,
     scope,
     onFinished: finishAnswer,
+    onReadingChange: setReaderOwned,
     autoRecover: !accessToken || (!saved.enabled && !saved.initializing),
     onRecovered: (id) => {
       if (!active.current) addTurn({ id, mode: "answer", question: null });
     },
   });
-  const comparison = useModelComparison(finishComparison);
+  const comparison = useModelComparison(finishComparison, setReaderOwned);
 
   const previousSelection = useRef(saved.selectedId);
   useEffect(() => {
@@ -127,7 +133,7 @@ export function useConversation({
     }
   }, [saved.selectedId]);
   useEffect(() => {
-    if (!saved.enabled) return;
+    if (!saved.enabled || !messagesObserved) return;
     const pending = saved.turns.find(
       (turn) => turn.status === "queued" || turn.status === "running",
     );
@@ -169,6 +175,7 @@ export function useConversation({
   }, [
     saved.turns.map(({ runId, status }) => `${runId}:${status}`).join(","),
     saved.enabled,
+    messagesObserved,
     submitting,
   ]);
 

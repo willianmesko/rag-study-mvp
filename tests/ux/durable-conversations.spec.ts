@@ -185,12 +185,15 @@ function durableFixture(
       if (parts[3] === "messages") {
         const before = Number(searchParams.get("before") ?? 501),
           items = row.turns.filter(({ sequence }) => sequence < before),
-          page = items.slice(-25);
+          limit = Number(searchParams.get("limit") ?? 25),
+          page = items.slice(-limit);
+        expect(limit).toBeGreaterThan(0);
+        expect(limit).toBeLessThanOrEqual(50);
         return route.fulfill({
           json: {
             conversation: row.summary,
             turns: page,
-            nextBefore: items.length > 25 ? page[0].sequence : null,
+            nextBefore: items.length > limit ? page[0].sequence : null,
           },
         });
       }
@@ -608,4 +611,265 @@ test("finishing the guide continues the same saved conversation in the main chat
     messages(page).getByText(question, { exact: true }),
   ).toBeVisible();
   expect(fixture.submissions.length).toBe(1);
+});
+
+test("FE-06 refreshes only recent messages, retaining 75 turns, old feedback and reading position", async ({ page, context }) => {
+  const fixture = durableFixture(), row = fixture.create(undefined, "FE-06 history");
+  for (let i = 1; i <= 75; i++) fixture.turn(row.summary.id, `Visited message ${i}`);
+  const reads: (string | null)[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.endsWith("/messages")) reads.push(url.searchParams.get("before"));
+  });
+  await fixture.attach(context);
+  await page.clock.install();
+  await page.goto(`/ask?conversation=${row.summary.id}`);
+  await expect(messages(page).locator("ol > li")).toHaveCount(25);
+  await messages(page).getByRole("button", { name: /Load older messages|Carregar mensagens anteriores/ }).click();
+  await expect(messages(page).locator("ol > li")).toHaveCount(50);
+  await messages(page).getByRole("button", { name: /Load older messages|Carregar mensagens anteriores/ }).click();
+  await expect(messages(page).locator("ol > li")).toHaveCount(75);
+  expect(reads).toEqual([null, "51", "26"]);
+  const old = messages(page).locator("ol > li").filter({ has: page.getByText("Visited message 30", { exact: true }) });
+  await old.getByRole("button", { name: /👍 Helpful|👍 Útil/ }).click();
+  await expect(old.getByRole("button", { name: /👍 Helpful|👍 Útil/ })).toHaveAttribute("aria-pressed", "true");
+  await old.scrollIntoViewIfNeeded();
+  const position = await messages(page).evaluate((el) => el.scrollTop);
+  fixture.turn(row.summary.id, "A new message on another device");
+  const baseline = reads.length;
+  await page.clock.fastForward(15_100);
+  await expect(messages(page).locator("ol > li")).toHaveCount(76);
+  expect(reads.slice(baseline)).toEqual([null]);
+  await expect(old.getByRole("button", { name: /👍 Helpful|👍 Útil/ })).toHaveAttribute("aria-pressed", "true");
+  expect(Math.abs(await messages(page).evaluate((el) => el.scrollTop) - position)).toBeLessThan(3);
+  const nav = page.getByRole("navigation", { name: /Main navigation|Navegação principal/ });
+  await nav.getByRole("button", { name: /^(Search|Buscar)$/ }).click();
+  const hidden = reads.length;
+  await page.clock.fastForward(45_000);
+  expect(reads).toHaveLength(hidden);
+  await nav.getByRole("button", { name: /^(History|Histórico)$/ }).click();
+  await expect(page.getByRole("heading", { name: /Your conversations|Suas conversas/ })).toBeVisible();
+  expect(reads).toHaveLength(hidden);
+  await nav.getByRole("button", { name: /^(Ask|Perguntar)$/ }).click();
+  await expect(messages(page).locator("ol > li")).toHaveCount(76);
+  await expect.poll(() => reads.length).toBe(hidden + 1);
+  expect(reads.at(-1)).toBeNull();
+  expect(fixture.submissions).toHaveLength(0);
+});
+
+test("FE-06 a stream owns the active reader across navigation and one explicit stop", async ({ page, context }) => {
+  const fixture = durableFixture();
+  fixture.setHold(true);
+  await fixture.attach(context);
+  await context.addInitScript(() => {
+    const original = window.fetch;
+    window.fetch = async (input, init) => {
+      const result = await original(input, init);
+      if (String(input).endsWith("/v1/qa/stream") && init?.method === "POST") {
+        void result.body?.cancel();
+        let abort: () => void;
+        return new Response(new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('id: 1\nevent: accepted\ndata: {"type":"accepted"}\n\n'));
+            abort = () => controller.error(init.signal?.reason);
+            init.signal?.addEventListener("abort", abort, { once: true });
+          },
+          cancel() { init.signal?.removeEventListener("abort", abort); },
+        }), { headers: { "content-type": "text/event-stream" } });
+      }
+      return result;
+    };
+  });
+  let messagesRead = 0, statusReads = 0, cancellations = 0;
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.endsWith("/messages")) messagesRead++;
+    if (/\/runs\//.test(path) && request.method() === "GET") statusReads++;
+    if (path.endsWith("/cancel")) cancellations++;
+  });
+  await page.clock.install();
+  await page.goto("/ask");
+  await send(page);
+  await expect.poll(() => fixture.submissions.length).toBe(1);
+  await expect(page.getByRole("button", { name: /^(Stop answer|Parar resposta)$/ })).toBeVisible();
+  const baseline = messagesRead;
+  await page.clock.fastForward(9_000);
+  expect(messagesRead).toBe(baseline);
+  expect(statusReads).toBe(0);
+  const nav = page.getByRole("navigation", { name: /Main navigation|Navegação principal/ });
+  await nav.getByRole("button", { name: /^(Search|Buscar)$/ }).click();
+  await page.clock.fastForward(9_000);
+  expect(cancellations).toBe(0);
+  await nav.getByRole("button", { name: /^(Ask|Perguntar)$/ }).click();
+  await page.getByRole("button", { name: /^(Stop answer|Parar resposta)$/ }).click();
+  await expect.poll(() => cancellations).toBe(1);
+  await expect(page.getByRole("button", { name: /^(Stop answer|Parar resposta)$/ })).toHaveCount(0);
+  await page.clock.fastForward(5_000);
+  expect(cancellations).toBe(1);
+  expect(fixture.submissions).toHaveLength(1);
+  expect([...fixture.records.values()][0].turns).toHaveLength(1);
+});
+
+test("FE-06 HTTP fallback has one status reader and never repeats admission", async ({ page, context }) => {
+  const fixture = durableFixture();
+  await fixture.attach(context);
+  await context.addInitScript(() => Object.defineProperty(window, "ReadableStream", { value: undefined }));
+  let statusReads = 0, headReads = 0;
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.endsWith("/messages")) headReads++;
+    if (/\/runs\//.test(path) && request.method() === "GET") statusReads++;
+  });
+  await context.route("**/v1/qa/stream", (route) => {
+    const input = route.request().postDataJSON();
+    fixture.submissions.push(input);
+    const turn = fixture.turn(input.conversationId, input.question, input.runId);
+    Object.assign(turn, { status: "running", answer: null, completedAt: null });
+    return route.fulfill({ status: 202, json: { turn } });
+  });
+  await page.clock.install();
+  await page.goto("/ask");
+  await send(page);
+  await expect.poll(() => statusReads).toBe(1);
+  const initial = headReads;
+  await page.clock.fastForward(3_000);
+  await expect.poll(() => statusReads).toBe(2);
+  expect(headReads).toBe(initial);
+  const turn = [...fixture.records.values()][0].turns[0];
+  Object.assign(turn, { status: "completed", answer: response, completedAt: date });
+  await page.clock.fastForward(700);
+  await expect(messages(page).getByText(response.answer, { exact: true })).toBeVisible();
+  expect(fixture.submissions).toHaveLength(1);
+  expect([...fixture.records.values()][0].turns).toHaveLength(1);
+});
+
+for (const status of [401, 403, 429]) {
+  test(`FE-06 conversation errors stop readers and recover without submission (${status})`, async ({ page, context }) => {
+    const fixture = durableFixture(), row = fixture.create();
+    fixture.turn(row.summary.id, "Already saved");
+    await fixture.attach(context);
+    let reads = 0, recover = false;
+    await context.route("**/v1/conversations/*/messages?*", (route) => {
+      reads++;
+      return recover ? route.fallback() : route.fulfill({ status, json: { error: "Fixture access failure." } });
+    });
+    await page.clock.install();
+    await page.goto(`/ask?conversation=${row.summary.id}`);
+    await expect(page.getByRole("alert")).toBeVisible();
+    const initial = reads;
+    await page.clock.fastForward(35_000);
+    expect(reads).toBe(initial);
+    recover = true;
+    await page.getByRole("button", { name: /^(Try again|Tentar novamente)$/ }).first().click();
+    await expect(messages(page).getByText("Already saved", { exact: true })).toBeVisible();
+    expect(fixture.submissions).toHaveLength(0);
+  });
+}
+
+test("FE-06 pending history requests abort on navigation and reconnect keeps the durable path", async ({ page, context }) => {
+  const fixture = durableFixture(), row = fixture.create();
+  fixture.turn(row.summary.id, "Saved before a disconnect");
+  await fixture.attach(context);
+  await context.addInitScript(() => {
+    const original = window.fetch;
+    Object.assign(window, { abortedHistory: 0 });
+    window.fetch = (input, init) => {
+      if (String(input).includes("/messages?")) init?.signal?.addEventListener("abort", () => {
+        const state = window as unknown as { abortedHistory: number }; state.abortedHistory++;
+      }, { once: true });
+      return original(input, init);
+    };
+  });
+  let hold = true, release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  await context.route("**/v1/conversations/*/messages?*", async (route) => {
+    if (hold) await pending;
+    return route.fallback();
+  });
+  try {
+    await page.goto(`/ask?conversation=${row.summary.id}`);
+    await expect(page.getByText(/Opening your conversation|Abrindo sua conversa/)).toBeVisible();
+    const nav = page.getByRole("navigation", { name: /Main navigation|Navegação principal/ });
+    await nav.getByRole("button", { name: /^(Search|Buscar)$/ }).click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as { abortedHistory: number }).abortedHistory)).toBe(1);
+    hold = false; release();
+    await context.setOffline(true);
+    await nav.getByRole("button", { name: /^(Ask|Perguntar)$/ }).click();
+    await context.setOffline(false);
+    await expect(messages(page).getByText("Saved before a disconnect", { exact: true })).toBeVisible();
+    expect(fixture.submissions).toHaveLength(0);
+    await send(page, "A follow-up after reconnect");
+    await expect.poll(() => fixture.submissions.length).toBe(1);
+    expect(fixture.submissions[0]).toMatchObject({ conversationId: row.summary.id });
+  } finally { release(); }
+});
+
+test("FE-06 comparison polling owns its reader and coalesces repeated Stop clicks", async ({ page, context }) => {
+  const fixture = durableFixture();
+  await fixture.attach(context);
+  await context.route("**/v1/qa/compare", (route) => {
+    const input = route.request().postDataJSON();
+    fixture.submissions.push(input);
+    const turn = fixture.turn(input.conversationId, input.question, input.runId, "comparison");
+    Object.assign(turn, { status: "running", comparison: null, completedAt: null });
+    return route.fulfill({ status: 202, json: { turn } });
+  });
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await context.route("**/v1/conversations/*/runs/*/cancel", async (route) => { await held; return route.fallback(); });
+  let heads = 0, statuses = 0, stops = 0;
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.endsWith("/messages")) heads++;
+    if (path.includes("/runs/") && request.method() === "GET") statuses++;
+    if (path.endsWith("/cancel")) stops++;
+  });
+  await page.clock.install();
+  try {
+    await page.goto("/ask");
+    await page.getByRole("checkbox", { name: /Compare two models|Comparar dois modelos/ }).check();
+    await send(page);
+    await expect.poll(() => statuses).toBe(1);
+    const initial = heads;
+    await page.clock.fastForward(3_000);
+    await expect.poll(() => statuses).toBe(2);
+    expect(heads).toBe(initial);
+    const stop = page.getByRole("button", { name: /^(Stop comparison|Parar comparação)$/ });
+    await stop.click();
+    await stop.click();
+    expect(stops).toBe(1);
+    // Let the status reader see cancellation before the Stop response arrives.
+    Object.assign([...fixture.records.values()][0].turns[0], { status: "cancelled", completedAt: date });
+    await page.clock.fastForward(700);
+    release();
+    await expect(stop).toHaveCount(0);
+    expect(stops).toBe(1);
+    expect(fixture.submissions).toHaveLength(1);
+  } finally { release(); }
+});
+
+test("FE-06 an exhausted stream hands reconciliation to the recent window without resubmitting", async ({ page, context }) => {
+  const fixture = durableFixture();
+  fixture.setHold(true);
+  await fixture.attach(context);
+  let resumes = 0;
+  page.on("request", (request) => { if (request.url().includes("/events?after=")) resumes++; });
+  await page.clock.install();
+  await page.goto("/ask");
+  await send(page);
+  await expect.poll(() => fixture.submissions.length).toBe(1);
+  for (const [index, delay] of [400, 1_200, 3_000].entries()) {
+    await page.clock.fastForward(delay + 50);
+    await expect.poll(() => resumes).toBe(index + 1);
+    // Flush the response and schedule the next bounded reconnect delay.
+    await page.clock.runFor(50);
+  }
+  await expect(page.getByRole("button", { name: /^(Reconnect|Reconectar)$/ })).toBeVisible();
+  const row = [...fixture.records.values()][0];
+  Object.assign(row.turns[0], { status: "completed", answer: response, completedAt: date });
+  await page.clock.fastForward(2_100);
+  await expect(messages(page).getByText(response.answer, { exact: true })).toBeVisible();
+  expect(fixture.submissions).toHaveLength(1);
+  expect(row.turns).toHaveLength(1);
+  expect(resumes).toBe(3);
 });

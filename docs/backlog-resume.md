@@ -4,7 +4,8 @@ Recorded on **2026-11-07** after the owner requested resuming later from the sam
 point. The owner subsequently requested the specific BE-15 abstraction follow-up;
 that follow-up is now validated and published. General continuation has resumed
 with the FE-06 administrative slice and BE-08 native TypeScript checks below;
-both are published. The next slice is FE-06 conversation readers/pagination.
+both are published. FE-06 conversation readers/pagination are now implemented
+and locally validated; their exact-source CI/publication gates are still pending.
 
 ## Current delivery
 
@@ -55,30 +56,31 @@ Primary files: `widgets/workspace-control-center/model/queries.ts`, relevant
 Knowledge/Processing/Evaluations observers, `entities/workspace/model/knowledge.ts`
 and `usage.ts`, plus the shared API and focused UX tests. No new dependency.
 
-**Next implementation slice:** conversation observer visibility, one active-run
-transport owner and newest-page refresh without reloading older messages. Keep
-durable capability separate from whether a view is currently observed. Verify
-75 retained messages, scope disposal, terminal reconciliation and exactly one
-explicit cancellation without resubmitting work. FE-07 then addresses explicit
-chat lifecycle transitions. FE-06 remains partially complete until these pass.
+## Implemented frontend slice: FE-06 conversations
 
-The next read-only inspection has identified concrete starting points:
+The [conversation-reader record](operations/release-2026-11-07-conversation-readers.md)
+tracks the latest follow-up independently of the previously published source.
 
-- `pages/rag-lab/ui/RagLabPage.tsx` keeps `useConversation` mounted while the
-  selected tab changes. Pass explicit observation state; do not reuse durable
-  capability as a visibility flag or route work through a stateless fallback.
-- `features/question-answering/model/use-saved-conversations.ts` currently polls
-  an infinite message query every two/fifteen seconds. Its refetch revisits loaded
-  older pages. Preserve cursor/order and already loaded turns while refreshing
-  only the newest window; handle window overlap and newly arrived messages.
-- The same model can overlap the SSE reader in `use-live-answer.ts` or the saved
-  comparison reader in `use-model-comparison.ts` / `api.waitForSavedTurn`. Pick one
-  active execution reader, including disconnected/recovery states. Metadata
-  reconciliation and explicit execution cancellation are different operations.
-- Add request counters for 75 loaded messages, tab changes, scope disposal,
-  offline recovery, completion and one explicit Stop. Preserve message feedback,
-  idempotent IDs, reconnect cursors and older-page scroll position. Do not broaden
-  this into the separate FE-07 state-machine increment without its acceptance tests.
+- `RagLabPage` passes observation state while durable capability remains available.
+  Ask observes messages, History observes names, and Search/admin do not poll an
+  invisible conversation. Disposed reads consume abort signals.
+- `use-conversation-messages` owns a finite recent-window query and explicit older
+  page reads. `conversation-window` merges visited turns, validates scope/cursor/
+  identities, fetches only unseen gaps and enforces deadline/page budgets.
+- `use-live-answer` and `use-model-comparison` report reader ownership. SSE, HTTP
+  fallback or comparison polling suppresses the competing recent-window reader;
+  exhaustion hands reconciliation back to metadata without another admission.
+- Forty-two focused checks passed across desktop/tablet/mobile, including 75
+  visited turns, old feedback, unpinned scroll, abort/navigation, offline recovery,
+  401/403/429, exact admission counts and coalesced comparison Stop races. The
+  seven-check local harness passed. Original baselines remain unchanged.
+
+**Next ticket after release validation: FE-07.** Introduce explicit chat lifecycle
+transitions for submission, creation/navigation, replayed events, delayed terminal
+results and cancel/reconnect races. Preserve the new reader/window guarantees and
+existing idempotent IDs. Use native unions/reducers before considering another
+library. Broader promise/Hook tooling, least-privilege MCP credentials and the
+other technical tickets retain their own acceptance criteria.
 
 ## Implemented backend slice: BE-08 native TypeScript checks
 

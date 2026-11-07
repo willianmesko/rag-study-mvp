@@ -9,6 +9,8 @@ import { api } from "../../../shared/api/rag-api";
 import { navigateTo } from "../../../shared/lib/app-route";
 import { useQueryIdentity } from "../../../shared/lib/query-identity";
 import { privateQueryKey } from "../../../shared/lib/query-keys";
+import { useConversationMessages } from "./use-conversation-messages";
+import type { ConversationWindow } from "./conversation-window";
 
 function selectedFromUrl() {
   const value = new URLSearchParams(window.location.search).get("conversation");
@@ -20,17 +22,23 @@ export function useSavedConversations({
   workspaceId,
   scope,
   navigation = true,
+  observed = true,
+  messagesObserved = true,
+  readerOwned = false,
 }: {
   token?: string | null;
   workspaceId?: string;
   scope: string;
   navigation?: boolean;
+  observed?: boolean;
+  messagesObserved?: boolean;
+  readerOwned?: boolean;
 }) {
   const client = useQueryClient();
   const userId = useQueryIdentity();
   const health = useQuery({
     queryKey: ["health"],
-    queryFn: api.health,
+    queryFn: ({ signal }) => api.health(signal),
     staleTime: 10000,
   });
   const enabled = Boolean(
@@ -52,38 +60,20 @@ export function useSavedConversations({
     queryFn: ({ signal, pageParam }) =>
       api.conversations(token!, workspaceId!, signal, pageParam ?? undefined),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
-    enabled,
+    enabled: enabled && observed,
+    refetchOnReconnect: "always",
     refetchOnWindowFocus: "always",
     retry: false,
   });
-  const messages = useInfiniteQuery({
-    queryKey: messagesKey,
-    initialPageParam: null as number | null,
-    queryFn: ({ signal, pageParam }) =>
-      api.conversationMessages(
-        token!,
-        workspaceId!,
-        selectedId!,
-        signal,
-        pageParam ?? undefined,
-      ),
-    getNextPageParam: (last) => last.nextBefore ?? undefined,
-    enabled: enabled && Boolean(selectedId),
-    retry: false,
-    refetchOnWindowFocus: "always",
-    refetchInterval: (query) =>
-      enabled && selectedId
-        ? query.state.data?.pages[0]?.turns.some(
-            (turn) => turn.status === "queued" || turn.status === "running",
-          )
-          ? 2000
-          : 15000
-        : false,
-  });
-  const conversation = messages.data?.pages[0]?.conversation;
-  const turns = [...(messages.data?.pages ?? [])]
-    .reverse()
-    .flatMap((page) => page.turns);
+  const messages = useConversationMessages({ token, workspaceId, userId,
+    conversationId: selectedId, enabled, observed: messagesObserved, readerOwned });
+  const conversation = messages.data?.conversation;
+  const turns = messages.data?.turns ?? [];
+  useEffect(() => {
+    if (!observed && !client.getQueryCache().find({ queryKey: key, exact: true })?.isActive()) {
+      void client.cancelQueries({ queryKey: key, exact: true });
+    }
+  }, [client, observed, JSON.stringify(key)]);
   const conversations =
     list.data?.pages.flatMap((page) => page.conversations) ?? [];
   useEffect(() => {
@@ -164,7 +154,12 @@ export function useSavedConversations({
         assistantId,
         value,
       );
-      await client.invalidateQueries({ queryKey: messagesKey });
+      // The server acknowledged the rating. Update the visited record in place;
+      // rating an old message must not refetch every old history page.
+      await client.cancelQueries({ queryKey: messagesKey, exact: true });
+      client.setQueryData<ConversationWindow>(messagesKey, (current) => current && ({
+        ...current, turns: current.turns.map((turn) => turn.assistantMessageId === assistantId ? { ...turn, feedback: value } : turn),
+      }));
     } catch (error) {
       setMutationError(error);
     } finally {
@@ -180,17 +175,17 @@ export function useSavedConversations({
     conversation,
     turns,
     conversations,
-    loading: enabled && Boolean(selectedId) && messages.isPending,
+    loading: messages.canRead && messages.isPending,
     creating,
     rating,
-    error: mutationError ?? messages.error ?? list.error,
-    listLoading: list.isPending,
+    error: mutationError ?? (messagesObserved ? messages.error : null) ?? list.error,
+    listLoading: enabled && observed && list.isPending,
     hasMore: list.hasNextPage,
     loadingMore: list.isFetchingNextPage,
     more: () => void list.fetchNextPage(),
-    hasOlder: messages.hasNextPage,
-    loadingOlder: messages.isFetchingNextPage,
-    older: () => void messages.fetchNextPage(),
+    hasOlder: messages.hasOlder,
+    loadingOlder: messages.loadingOlder,
+    older: () => void messages.loadOlder(),
     ensure,
     open: (id: string) => select(id, true),
     newChat: () => select(null),
@@ -201,7 +196,7 @@ export function useSavedConversations({
     retry: () => {
       setMutationError(null);
       void list.refetch();
-      if (selectedId) void messages.refetch();
+      if (selectedId && messages.canRead) messages.retry();
     },
   };
 }
