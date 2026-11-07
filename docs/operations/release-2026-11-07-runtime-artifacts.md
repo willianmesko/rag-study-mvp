@@ -2,8 +2,9 @@
 
 ## Status
 
-The artifact-separation increment is locally validated and awaiting exact-source
-CI and publication. BE-14 remains partial: the separately reviewed Supabase SDK
+The artifact-separation increment is **published on frontend and API** at
+`d2882699695a02ce9c41be541832501034411db0`, after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42422892309) passed. BE-14 remains partial: the separately reviewed Supabase SDK
 update has not been installed. Dependency versions, credentials, database schema
 and application behavior are unchanged. The previous verified runtime is
 `2e6a4281fecb8fa55d6aa69e589d48a62999599a`.
@@ -81,6 +82,35 @@ The Render build must verify its actual amd64 runtime independently.
 Third-party package contents are outside the project-artifact inventory. No
 claim is made that every dependency contains no upstream tests. No real user
 content, paid provider, notification or production credential was used locally.
+
+## Exact-source production receipt
+
+| Service | Deployment | Observed live at UTC |
+| --- | --- | --- |
+| API | `dep-dbnqt7c9v7es73dh0jng` | 2026-11-07 23:07:02 |
+| Frontend | `dep-dbnqt8qjnfac73d4nc4g` | 2026-11-07 23:06:05 |
+
+Fresh remote-head/queue checks and four green jobs preceded manual deployment.
+CI passed 410 UX checks/46 intentional profile skips, **85 PostgreSQL checks with
+zero skips**, the isolated cutover with zero skips, 78 architecture fixtures,
+seven harness checks, four native route-state, three artifact and three payload
+cases. The fresh CI database resolved the local validation limitation; the local
+failure record above is retained rather than relabeled as a pass.
+
+The actual Render build recorded **two native OCR passes / zero skips** at
+23:05:42 UTC, then its final-stage copy used the verified tree. Its receipt
+matched **486 files / 1,525,686 bytes / 14 entries / zero test artifacts**.
+This is independent production-build evidence from the local arm64 image.
+
+Public checks at **23:08:07 UTC** confirmed frontend 200, entry
+`/assets/index-B-Qgg-J_.js`, application chunk
+`/assets/WorkspaceSwitcher-OP4Wzwjj.js`, semantic CSS and unchanged original icon
+bytes. API health was 200 with OCR/durable workflows/conversations enabled;
+correlation stayed server-owned. Private conversations/MCP/alerts were 401, and
+OAuth resource/S256 plus sanitized 400/415 rejection remained intact.
+The API error/fatal query for **23:07:02–23:08:33 UTC** returned no records.
+No real private data, paid provider, notification or third-party consent was
+exercised by public smoke checks. Those authorized paths retain fixture evidence.
 
 ## Remaining BE-14 and rollback
 

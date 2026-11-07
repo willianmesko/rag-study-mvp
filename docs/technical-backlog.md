@@ -18,21 +18,24 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08 | 4 |
 | Pending implementation | BE-09, BE-13 | 2 |
 
-The latest batch is live on frontend and API at `2e6a4281fecb8fa55d6aa69e589d48a62999599a` after all four
-[CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42421393271) passed. FE-11 is complete and the bounded BE-12 configuration/
-stored-record increment is published. BE-12 retains explicit remaining work.
-CI passed 410 UX-suite checks/46 deliberate profile skips, 85 PostgreSQL checks,
-the isolated cutover, 78 architecture fixtures, seven harness checks, four native
-route-state and three payload-budget cases. Both live SHAs, assets, health,
-protected routes and a bounded error-log window were verified.
+The latest batch is live on frontend and API at `d2882699695a02ce9c41be541832501034411db0`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42422892309) passed.
+FE-11 and the bounded BE-12 configuration/record increment remain included.
+BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
+CI passed 410 UX cases/46 deliberate skips, 85 PostgreSQL cases, the isolated
+cutover, 78 architecture fixtures, seven harness checks, four native route-state,
+three artifact and three payload cases. The Render build independently passed
+both actual OCR cases with zero skips and zero project test artifacts in the
+final application tree. Both live SHAs, public assets, health, protected routes
+and a bounded error-log window were verified.
 
-See the [FE-11 receipt](operations/release-2026-11-07-url-state.md) and
+See the [artifact receipt](operations/release-2026-11-07-runtime-artifacts.md),
+[FE-11 receipt](operations/release-2026-11-07-url-state.md) and
 [BE-12 receipt](operations/release-2026-11-07-configuration-records.md).
-FE-10's [measurement release](operations/release-2026-11-07-frontend-performance.md),
-FE-09's [primitive release](operations/release-2026-11-07-ui-primitives.md) and earlier
-conversation/lifecycle records retain their evidence. Automatic continuation is
-validating BE-14's runtime/test-artifact separation, preserving real native OCR.
-BE-08/FE-08 retain promise/Hook work; BE-09 retains minimum-privilege activation.
+Automatic continuation is validating instance-scoped provider deadlines and
+lazy compatibility configuration, followed by the actual minimal MCP image gate.
+BE-12 remains partial; BE-08/FE-08 retain promise/Hook work and BE-09 retains
+minimum-privilege activation. Earlier releases retain their dated evidence.
 The prior administrative/unused-check slice is recorded in the
 [query-ownership evidence](operations/release-2026-11-07-query-ownership.md).
 The prior `cbd0f67` batch is recorded in the
@@ -436,14 +439,14 @@ feature-owned locations during BE-07's migration.
   image-level Poppler/Tesseract smoke validation. Evaluate native dependency/
   static-analysis automation with explicit scope; no uncontrolled major upgrades.
 - [x] Align manifest/`.nvmrc` with the existing Node 24 CI/container baseline.
-- [x] Production/test-artifact separation is locally validated; CI/publication pending. Explicit runtime roots, clean output inventory and a separate mandatory two-pass native OCR stage are implemented. The final image contains no project test/helper files. See the [candidate record](operations/release-2026-11-07-runtime-artifacts.md) for actual image checks and the local Docker disk limit.
+- [x] Production/test-artifact separation is CI verified and published. Explicit runtime roots, clean output inventory and a separate mandatory two-pass native OCR stage are implemented. The final image contains no project test/helper files. See the [release record](operations/release-2026-11-07-runtime-artifacts.md) for actual image checks and the local Docker disk limit.
 - [ ] Apply the reviewed compatible Auth fix with its complete regression/release evidence. The candidate SDK has not been installed.
 - **Review evidence:** the [dated dependency/OCR review](operations/dependency-hygiene-2026-11-07.md)
   verifies that two low audit entries represent one Auth advisory. The only
   affected application sink rejects malformed IDs before any request; a mocked
   raw-SDK comparison confirms the underlying routing behavior. SDK `2.50.0`
   is the smallest reviewed vendor candidate, but it has not been installed or
-  released. Dependency versions remain unchanged. Native OCR is preserved by the new verified artifact candidate; its CI/publication and the separate compatible SDK update retain their own gates.
+  released. Dependency versions remain unchanged. Native OCR is preserved by the published verified artifact. The compatible SDK update remains a separate uninstalled decision.
 
 ## Phase 4 — Consistency and evidence-led performance
 
