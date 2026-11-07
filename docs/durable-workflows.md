@@ -151,6 +151,7 @@ continues its fixed provider-free evaluation path independently.
 | Worker lease | Ten seconds, renewed every two seconds; stale writers fenced |
 | State size | 16 MiB per encrypted value, 64 MiB aggregate checkpoint/write/effect state per run |
 | Retention | 24 hours; bounded cleanup and two checkpoints per graph namespace |
+| Provider response bodies | 2 MiB total wire/JSON bound; smaller per-answer delta bound aborts output overrun |
 | Publication | At most 512 chat events; final sources must still exist in the workspace |
 
 Token reservations use conservative UTF-8 byte bounds and output ceilings, not

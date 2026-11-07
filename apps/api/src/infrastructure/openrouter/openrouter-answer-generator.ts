@@ -2,7 +2,7 @@ import type { ChatPromptVariantId } from "@rag-study/contracts";
 import { z } from "zod";
 import type { AnswerControls, AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
-import { providerRequestSignal, requestProviderJson } from "../http/provider-client.js";
+import { maxProviderResponseBytes, providerRequestSignal, requestProviderJson } from "../http/provider-client.js";
 
 const responseSchema = z.object({ choices: z.array(z.object({ message: z.object({ content: z.string().nullable() }) })).min(1), usage: z.unknown().optional() });
 const usageSchema = z.object({
@@ -72,6 +72,7 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
     let buffer = "";
     let answer = "";
     let completed = false;
+    let receivedBytes = 0;
     const consumeLine = async (line: string) => {
       if (!line.startsWith("data:")) return;
       const payload = line.slice(5).trim();
@@ -91,6 +92,8 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
     try {
       while (!completed) {
         const { done, value } = await reader.read();
+        receivedBytes += value?.byteLength ?? 0;
+        if (receivedBytes > maxProviderResponseBytes) throw new Error('The provider stream exceeded its size limit.');
         buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
         const lines = buffer.split(/\r?\n/);
         buffer = lines.pop() ?? "";

@@ -1,3 +1,4 @@
+import { WorkflowGuardError } from "../workflows/types.js";
 import type { RetrievedChunk } from "../../domain/document.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 import { estimateChatCost, type ChatPricing } from "../policies/chat-cost.js";
@@ -91,6 +92,8 @@ async function assessAnswer(judge: FaithfulnessJudge, answer: string, passages: 
 
 export async function calibrate(judge: FaithfulnessJudge, signal: AbortSignal): Promise<CalibrationReport> {
   const assessed = await Promise.allSettled(judgeCalibrationCases.map(({ answer, passages }) => assessAnswer(judge, answer, passages, signal)));
+  signal.throwIfAborted();
+  for (const outcome of assessed) if (outcome.status === "rejected" && outcome.reason instanceof WorkflowGuardError) throw outcome.reason;
   let scoredExamples = 0;
   let matchedClaims = 0;
   let falsePositives = 0;
@@ -136,7 +139,7 @@ export async function generatePublicCase(item:typeof dashboardGoldenSet.cases[nu
   const fixture:RetrievedChunk={chunkId:item.id,documentId:"public-reference",ordinal:0,content:reference.content,source:"public-reference",title:null,score:1,security:{promptInjectionRisk:"low",signals:[]}};
   const context=formatUntrustedContext([fixture],2_000);
   const started=performance.now();let observed:ProviderTokenUsage|undefined;
-  const rawAnswer=await model.generator.generate(item.question,context.text,signal,(usage)=>{observed=usage;}).catch(()=>null);
+  const rawAnswer=await model.generator.generate(item.question,context.text,signal,(usage)=>{observed=usage;}).catch((error:unknown)=>{signal.throwIfAborted();if(error instanceof WorkflowGuardError)throw error;return null;});
   signal.throwIfAborted();
   const latencyMs=Math.round(performance.now()-started),prompt=createGroundedAnswerPrompt(item.question,context.text);
   const inputTokens=observed?.inputTokens??(rawAnswer===null?null:Math.ceil((prompt.system.length+prompt.user.length)/4));
@@ -156,7 +159,7 @@ export async function scoreGeneratedPublicCase(generated:PublicGeneratedCase,jud
     if(!answer.structured||answer.refusalReason||answer.answer.length>maxAnswerChars)return measurement;
     const claims=await assessAnswer(judge,redactPii(answer.answer).text,[reference.content],signal);
     return{...measurement,score:claims.filter(({evidence})=>evidence!==null).length/claims.length};
-  }catch{signal.throwIfAborted();return measurement;}
+  }catch(error){signal.throwIfAborted();if(error instanceof WorkflowGuardError)throw error;return measurement;}
 }
 
 export function publicFaithfulnessReport(model:EvaluationModel,judge:FaithfulnessJudge,effort:EvaluationEffort,calibration:CalibrationReport,measurements:GenerationMeasurement[]):FaithfulnessResult {

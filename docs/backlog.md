@@ -23,8 +23,8 @@ status section where they appear.
 
 The seven LangGraph capabilities are implemented and locally validated. The
 release is awaiting its remote CI checks, environment activation, and API/web
-publication. Local harness checks, 22 real PostgreSQL checks, and the three new
-responsive approval journeys passed. Full browser regression is running.
+publication. Local harness checks, 22 real PostgreSQL checks, and all 78 applicable
+responsive browser checks passed. Remote CI and production release remain pending.
 
 **Approved delivery order**
 

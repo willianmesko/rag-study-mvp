@@ -187,3 +187,35 @@ test("a model request is blocked before the provider when its reservation exceed
   );
   assert.equal(calls, 0);
 });
+
+test("a provider ignoring the output cap is aborted before its oversized delta is released", async () => {
+  let aborted = false,
+    released = 0;
+  const generator = new WorkflowAnswerGenerator(
+    {
+      generate: async () => "",
+      stream: async (_q, _c, onDelta, signal) => {
+        signal!.addEventListener(
+          "abort",
+          () => {
+            aborted = true;
+          },
+          { once: true },
+        );
+        await onDelta("x".repeat(5000));
+        return "unexpected";
+      },
+    },
+    "fixture",
+    { inputCostPer1kUsd: 0, outputCostPer1kUsd: 0 },
+    10,
+  );
+  await assert.rejects(
+    generator.stream("question", "context", () => {
+      released++;
+    }),
+    /budget_exceeded/,
+  );
+  assert.equal(aborted, true);
+  assert.equal(released, 0);
+});

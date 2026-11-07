@@ -1,3 +1,4 @@
+import { WorkflowGuardError } from "../workflows/types.js";
 import type { RetrievedChunk } from "../../domain/document.js";
 import type { SearchDocumentsUseCase } from "../use-cases/search-documents.js";
 import { dashboardGoldenSet } from "./default-evaluation-suites.js";
@@ -27,6 +28,7 @@ export async function retrieveReferenceCases(
     ),
   );
   signal?.throwIfAborted();
+  for (const outcome of outcomes) if (outcome.status === "rejected" && outcome.reason instanceof WorkflowGuardError) throw outcome.reason;
   const current = await identity?.(tenantId);
   const changed =
     index?.version !== current?.version ||

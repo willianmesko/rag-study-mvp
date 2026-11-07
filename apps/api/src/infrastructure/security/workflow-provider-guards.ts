@@ -75,8 +75,23 @@ export class WorkflowAnswerGenerator implements AnswerGenerator {
     controls?: AnswerControls,
     onDelta?: (delta: string) => void | Promise<void>,
   ) {
-    const signal = executionSignal(parent);
-    signal?.throwIfAborted();
+    const overrun = new AbortController();
+    const activeSignal = executionSignal(parent);
+    const signal = activeSignal
+      ? AbortSignal.any([activeSignal, overrun.signal])
+      : overrun.signal;
+    signal.throwIfAborted();
+    let streamedBytes = 0;
+    const boundedDelta = async (delta: string) => {
+      signal.throwIfAborted();
+      streamedBytes += Buffer.byteLength(delta);
+      if (streamedBytes > this.maxOutputTokens * 16 + 2_048) {
+        const reason = new WorkflowGuardError("budget_exceeded");
+        overrun.abort(reason);
+        throw reason;
+      }
+      await onDelta?.(delta);
+    };
     const prompt = createGroundedAnswerPrompt(
       question,
       context,
@@ -110,7 +125,7 @@ export class WorkflowAnswerGenerator implements AnswerGenerator {
               ? await this.inner.stream(
                   question,
                   context,
-                  onDelta,
+                  boundedDelta,
                   signal,
                   observe,
                   previousQuestions,
