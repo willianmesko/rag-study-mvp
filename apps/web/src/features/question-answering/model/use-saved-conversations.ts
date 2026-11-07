@@ -50,6 +50,12 @@ export function useSavedConversations({
   const [creating, setCreating] = useState(false),
     [mutationError, setMutationError] = useState<unknown>(null),
     [rating, setRating] = useState<string | null>(null);
+  const selectionEpoch = useRef(0), mounted = useRef(true);
+  const routeIdentity = useRef(window.location.pathname + window.location.search);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; selectionEpoch.current++; };
+  }, [scope]);
   const createPending = useRef<Promise<string> | null>(null),
     draftId = useRef<string | null>(null);
   const key = privateQueryKey("conversations", userId, workspaceId);
@@ -79,27 +85,34 @@ export function useSavedConversations({
   useEffect(() => {
     if (!navigation) return;
     const onPop = () => {
+      const route = window.location.pathname + window.location.search;
+      if (route !== routeIdentity.current) { selectionEpoch.current++; routeIdentity.current = route; }
       if (window.location.pathname === "/ask") setSelectedId(selectedFromUrl());
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [navigation]);
   function select(id: string | null, forceNavigation = false) {
+    selectionEpoch.current++;
     setSelectedId(id);
     setMutationError(null);
     draftId.current = null;
     if (navigation && (forceNavigation || window.location.pathname === "/ask"))
       navigateTo(id ? `/ask?conversation=${encodeURIComponent(id)}` : "/ask");
   }
-  async function ensure() {
+  async function ensure(onCreated?: (id: string) => void) {
     if (selectedId) return selectedId;
     if (createPending.current) return createPending.current;
+    const epoch = selectionEpoch.current;
     setCreating(true);
     setMutationError(null);
     draftId.current ??= crypto.randomUUID();
     const task = api
       .createConversation(token!, workspaceId!, draftId.current)
       .then(({ conversation }) => {
+        if (!mounted.current || selectionEpoch.current !== epoch)
+          throw new DOMException("Conversation selection changed.", "AbortError");
+        onCreated?.(conversation.id);
         select(conversation.id);
         void client.invalidateQueries({ queryKey: key });
         return conversation.id;
@@ -108,11 +121,11 @@ export function useSavedConversations({
     try {
       return await task;
     } catch (error) {
-      setMutationError(error);
+      if (mounted.current && selectionEpoch.current === epoch) setMutationError(error);
       throw error;
     } finally {
-      createPending.current = null;
-      setCreating(false);
+      if (createPending.current === task) createPending.current = null;
+      if (mounted.current) setCreating(false);
     }
   }
   function refresh() {

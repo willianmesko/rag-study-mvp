@@ -16,7 +16,8 @@ live activation remain in the [product backlog](backlog.md).
 | --- | --- | --- |
 | Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-06 | 16 |
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08, FE-10 | 5 |
-| Pending implementation | BE-09, BE-13, FE-07, FE-09, FE-11 | 5 |
+| Locally validated; CI and publication pending | FE-07 | 1 |
+| Pending implementation | BE-09, BE-13, FE-09, FE-11 | 4 |
 
 The latest batch is live on the frontend and API at `c72702e`, after all four
 [CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42409070907).
@@ -25,7 +26,8 @@ FE-06 is complete: administrative ownership plus incremental conversation window
 and exclusive execution readers. CI passed 319 UX-suite cases/44 deliberate
 profile skips, 83 PostgreSQL cases, the isolated cutover, 78 architecture fixtures
 and all seven harness checks. Both live source SHAs, health and protected routes
-were verified. FE-07 is next; BE-08/FE-08 retain separate promise/Hook work.
+were verified. FE-07 is implemented and locally validated; exact-source CI and publication
+remain pending. BE-08/FE-08 retain separate promise/Hook work.
 The prior administrative/unused-check slice is recorded in the
 [query-ownership evidence](operations/release-2026-11-07-query-ownership.md).
 The prior `cbd0f67` batch is recorded in the
@@ -369,6 +371,17 @@ feature-owned locations during BE-07's migration.
   repeated stream event IDs, reconnect after terminal state and explicit cancel.
   Idempotent submission retains one ordered conversation/run. Use native unions/
   reducers before evaluating a state-machine library.
+- **Implemented; publication pending:** native correlated chat/delivery unions
+  reject invalid result states, including nine compile-time negative checks.
+  Conversation creation is bound before selection, retries retain their draft ID,
+  and late creation cannot navigate or admit work after a selection/route change.
+  Reader/Stop results require the same execution ID; unconfirmed Stop keeps
+  reading, concurrent completion is retained, and duplicate/replayed SSE IDs do
+  not append twice. Sending and Stop have explicit pending states.
+  Seventy-five focused checks passed across three viewports, preserving all
+  FE-06 window/reader scenarios. The seven-check local harness and 78 architecture
+  fixtures passed. CI/publication must pass before this checkbox is closed.
+  See [lifecycle evidence](operations/release-2026-11-07-chat-lifecycle.md).
 
 ### BE-09 — Dedicated MCP read privileges
 

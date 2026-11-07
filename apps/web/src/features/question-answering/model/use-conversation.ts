@@ -3,7 +3,6 @@ import {
   MAX_PREVIOUS_CHAT_QUESTION_LENGTH,
   MAX_PREVIOUS_CHAT_QUESTIONS,
   type QuestionComparisonInput,
-  type QuestionComparisonResponse,
   type QuestionInput,
   type QuestionResponse,
 } from "@rag-study/contracts";
@@ -14,25 +13,8 @@ import {
 } from "./use-model-comparison";
 import { useSavedConversations } from "./use-saved-conversations";
 
-export type ConversationTurn = {
-  id: string;
-  question: string | null;
-  mode: "answer" | "comparison";
-  status: "pending" | "completed" | "cancelled" | "failed";
-  answer?: QuestionResponse;
-  comparison?: QuestionComparisonResponse;
-  failure?: AnswerOutcome["failure"];
-  error?: unknown;
-  assistantMessageId?: string;
-  feedback?: "up" | "down" | null;
-};
-
-type ActiveTurn = Pick<ConversationTurn, "id" | "question" | "mode"> & {
-  conversationId?: string;
-};
-type SettledTurn = Omit<ConversationTurn, keyof ActiveTurn | "status"> & {
-  status: Exclude<ConversationTurn["status"], "pending">;
-};
+import { transitionChat, type ActiveTurn, type ChatLifecycle, type ChatTransition, type ConversationTurn, type TurnResult } from "./chat-lifecycle";
+export type { ConversationTurn } from "./chat-lifecycle";
 
 export function useConversation({
   accessToken,
@@ -59,53 +41,46 @@ export function useConversation({
     navigation, observed, messagesObserved, readerOwned,
   });
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const active = useRef<ActiveTurn | null>(null);
-  const submittingRef = useRef(false);
+  const [lifecycle, setLifecycle] = useState<ChatLifecycle>({ phase: "idle" });
+  const current = useRef(lifecycle);
+  function readLifecycle(): ChatLifecycle { return current.current; }
+  function transition(event: ChatTransition) {
+    const next = transitionChat(current.current, event);
+    if (next === current.current) return;
+    current.current = next;
+    setLifecycle(next);
+  }
+  useEffect(() => () => { current.current = { phase: "idle" }; }, [scope]);
 
   function addTurn(turn: ActiveTurn) {
-    active.current = turn;
-    setTurns((current) => [...current, { ...turn, status: "pending" }]);
+    transition({ type: "admit", turn });
+    if (current.current.phase !== "running" || current.current.turn.id !== turn.id) return;
+    setTurns((turns) => turns.some((item) => item.id === turn.id) ? turns : [...turns, { ...turn, status: "pending" }]);
   }
 
-  function finishTurn(mode: ActiveTurn["mode"], result: SettledTurn) {
-    const turn = active.current;
-    if (!turn || turn.mode !== mode) return;
-    active.current = null;
-    setTurns((current) =>
-      current.map((item) =>
-        item.id === turn.id ? { ...item, ...result } : item,
-      ),
-    );
-    if (
-      !saved.enabled &&
-      turn.question &&
-      result.answer &&
-      !result.answer.refusalReason
-    ) {
+  function finishTurn(id: string, mode: ActiveTurn["mode"], result: TurnResult) {
+    const state = current.current;
+    if (state.phase !== "running" || state.turn.id !== id || state.turn.mode !== mode) return;
+    const turn = state.turn;
+    transition({ type: "settle", id });
+    setTurns((turns) => turns.map((item): ConversationTurn => {
+      if (item.id !== id) return item;
+      const base = { id: item.id, question: item.question };
+      return result.status === "completed" ? { ...base, ...result } : { ...base, mode: item.mode, ...result };
+    }));
+    if (!saved.enabled && turn.question && result.status === "completed" && result.mode === "answer" && !result.answer.refusalReason)
       onAnswered({ question: turn.question, response: result.answer });
-    }
     if (saved.enabled) saved.refresh();
   }
 
-  function finishAnswer({ answer, cancelled, failure, error }: AnswerOutcome) {
-    finishTurn("answer", {
-      answer,
-      failure,
-      error,
-      status: answer ? "completed" : cancelled ? "cancelled" : "failed",
-    });
+  function finishAnswer(id: string, result: AnswerOutcome) {
+    finishTurn(id, "answer", result.kind === "completed" ? { mode: "answer", answer: result.answer, status: "completed" }
+      : result.kind === "cancelled" ? { status: "cancelled" } : { status: "failed", failure: result.failure, error: result.error });
   }
 
-  function finishComparison(result: ComparisonOutcome) {
-    if ("data" in result)
-      finishTurn("comparison", {
-        comparison: result.data,
-        status: "completed",
-      });
-    else if ("error" in result)
-      finishTurn("comparison", { error: result.error, status: "failed" });
-    else finishTurn("comparison", { status: "cancelled" });
+  function finishComparison(id: string, result: ComparisonOutcome) {
+    finishTurn(id, "comparison", result.kind === "completed" ? { mode: "comparison", comparison: result.data, status: "completed" }
+      : result.kind === "cancelled" ? { status: "cancelled" } : { status: "failed", error: result.error });
   }
 
   const live = useLiveAnswer({
@@ -116,7 +91,7 @@ export function useConversation({
     onReadingChange: setReaderOwned,
     autoRecover: !accessToken || (!saved.enabled && !saved.initializing),
     onRecovered: (id) => {
-      if (!active.current) addTurn({ id, mode: "answer", question: null });
+      if (current.current.phase === "idle") addTurn({ id, mode: "answer", question: null });
     },
   });
   const comparison = useModelComparison(finishComparison, setReaderOwned);
@@ -125,8 +100,8 @@ export function useConversation({
   useEffect(() => {
     if (previousSelection.current === saved.selectedId) return;
     previousSelection.current = saved.selectedId;
-    if (active.current?.conversationId !== saved.selectedId) {
-      active.current = null;
+    if (current.current.phase === "idle" || current.current.turn.conversationId !== saved.selectedId) {
+      transition({ type: "detach" });
       setTurns([]);
       live.detach();
       comparison.detach();
@@ -135,9 +110,9 @@ export function useConversation({
   useEffect(() => {
     if (!saved.enabled || !messagesObserved) return;
     const pending = saved.turns.find(
-      (turn) => turn.status === "queued" || turn.status === "running",
+      (turn) => (turn.status === "queued" || turn.status === "running") && !turns.some((local) => local.id === turn.runId && local.status !== "pending"),
     );
-    if (pending && !active.current && !submitting) {
+    if (pending && current.current.phase === "idle") {
       addTurn({
         id: pending.runId,
         mode: pending.mode,
@@ -158,60 +133,37 @@ export function useConversation({
           { conversationId: pending.conversationId, runId: pending.runId },
         );
     }
-    const completed =
-      active.current &&
-      saved.turns.find(
-        (turn) =>
-          turn.runId === active.current!.id &&
-          turn.status !== "queued" &&
-          turn.status !== "running",
-      );
+    const state = current.current;
+    const completed = state.phase === "running" && saved.turns.find((turn) => turn.runId === state.turn.id && turn.status !== "queued" && turn.status !== "running");
     if (completed && completed.mode === "answer")
-      live.settleSaved({
-        answer: completed.answer ?? undefined,
-        cancelled: completed.status === "cancelled",
-        failure: completed.status === "failed" ? "execution_failed" : undefined,
-      });
+      live.settleSaved(completed.runId, completed.answer ? { kind: "completed", answer: completed.answer }
+        : completed.status === "cancelled" ? { kind: "cancelled" } : { kind: "failed", failure: "execution_failed" });
   }, [
     saved.turns.map(({ runId, status }) => `${runId}:${status}`).join(","),
-    saved.enabled,
-    messagesObserved,
-    submitting,
+    saved.enabled, messagesObserved, lifecycle.phase,
   ]);
 
   async function startSaved(
     input: QuestionInput | QuestionComparisonInput,
     mode: "answer" | "comparison",
   ) {
-    if (active.current || submittingRef.current) return;
-    submittingRef.current = true;
-    setSubmitting(true);
+    if (current.current.phase !== "idle") return;
+    const runId = crypto.randomUUID();
+    transition({ type: "submit", turn: { id: runId, mode, question: input.question, conversationId: saved.selectedId ?? undefined } });
     try {
-      const conversationId = await saved.ensure(),
-        runId = crypto.randomUUID();
-      if (mode === "answer") {
-        if (live.start(input as QuestionInput, { conversationId, runId }))
-          addTurn({
-            id: runId,
-            mode,
-            question: input.question,
-            conversationId,
-          });
-      } else if (
-        comparison.start(
-          input as QuestionComparisonInput,
-          accessToken!,
-          workspaceId!,
-          { conversationId, runId },
-        )
-      )
-        addTurn({ id: runId, mode, question: input.question, conversationId });
+      const conversationId = await saved.ensure((conversationId) => transition({ type: "created", id: runId, conversationId }));
+      const state = readLifecycle();
+      if (state.phase !== "submitting" || state.turn.id !== runId) return;
+      const started = mode === "answer"
+        ? live.start(input as QuestionInput, { conversationId, runId })
+        : comparison.start(input as QuestionComparisonInput, accessToken!, workspaceId!, { conversationId, runId });
+      if (started) addTurn({ id: runId, mode, question: input.question, conversationId });
+      else transition({ type: "settle", id: runId });
       saved.refresh();
     } catch {
-      /* The saved-conversation model displays the recoverable error. */
-    } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
+      // Creation errors are displayed by the saved model; obsolete selections
+      // are discarded there without creating a model execution.
+      transition({ type: "settle", id: runId });
     }
   }
 
@@ -220,7 +172,7 @@ export function useConversation({
       void startSaved(input, "answer");
       return;
     }
-    if (active.current) return;
+    if (current.current.phase !== "idle") return;
     const previousQuestions =
       accessToken && workspaceId
         ? turns
@@ -232,15 +184,16 @@ export function useConversation({
               question.slice(0, MAX_PREVIOUS_CHAT_QUESTION_LENGTH).trim(),
             )
         : [];
+    const runId = crypto.randomUUID();
     if (
       live.start({
         ...input,
         previousQuestions:
           previousQuestions.length > 0 ? previousQuestions : undefined,
-      })
+      }, { runId })
     ) {
       addTurn({
-        id: crypto.randomUUID(),
+        id: runId,
         mode: "answer",
         question: input.question,
       });
@@ -252,10 +205,11 @@ export function useConversation({
       void startSaved(input, "comparison");
       return;
     }
-    if (active.current || !accessToken || !workspaceId) return;
-    if (comparison.start(input, accessToken, workspaceId)) {
+    if (current.current.phase !== "idle" || !accessToken || !workspaceId) return;
+    const runId = crypto.randomUUID();
+    if (comparison.start(input, accessToken, workspaceId, { runId })) {
       addTurn({
-        id: crypto.randomUUID(),
+        id: runId,
         mode: "comparison",
         question: input.question,
       });
@@ -263,26 +217,22 @@ export function useConversation({
   }
 
   function newConversation() {
-    if (!active.current) {
+    if (current.current.phase === "idle") {
       setTurns([]);
       if (saved.enabled) saved.newChat();
     }
   }
 
-  const stored: ConversationTurn[] = saved.turns.map((turn) => ({
-    id: turn.runId,
-    mode: turn.mode,
-    question: turn.question,
-    status:
-      turn.status === "queued" || turn.status === "running"
-        ? "pending"
-        : turn.status,
-    answer: turn.answer ?? undefined,
-    comparison: turn.comparison ?? undefined,
-    assistantMessageId: turn.assistantMessageId,
-    feedback: turn.feedback,
-    failure: turn.status === "failed" ? "execution_failed" : undefined,
-  }));
+  const stored: ConversationTurn[] = saved.turns.map((turn) => {
+    const base = { id: turn.runId, question: turn.question, assistantMessageId: turn.assistantMessageId, feedback: turn.feedback };
+    if (turn.status === "completed") {
+      if (turn.mode === "answer" && turn.answer) return { ...base, mode: "answer", status: "completed", answer: turn.answer };
+      if (turn.mode === "comparison" && turn.comparison) return { ...base, mode: "comparison", status: "completed", comparison: turn.comparison };
+      return { ...base, mode: turn.mode, status: "failed", failure: "execution_failed" };
+    }
+    if (turn.status === "failed") return { ...base, mode: turn.mode, status: "failed", failure: "execution_failed" };
+    return { ...base, mode: turn.mode, status: turn.status === "queued" || turn.status === "running" ? "pending" : turn.status };
+  });
   const merged = new Map(stored.map((turn) => [turn.id, turn]));
   for (const turn of turns) {
     const existing = merged.get(turn.id);
@@ -301,6 +251,6 @@ export function useConversation({
     startComparison,
     newConversation,
     saved,
-    submitting,
+    submitting: lifecycle.phase === "submitting",
   };
 }

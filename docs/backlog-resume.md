@@ -5,7 +5,7 @@ point. The owner subsequently requested the specific BE-15 abstraction follow-up
 that follow-up is now validated and published. General continuation has resumed
 with the FE-06 administrative slice and BE-08 native TypeScript checks below;
 both are published. The remaining FE-06 conversation slice is also validated
-and published. FE-07 is the next implementation ticket.
+and published. FE-07 is locally validated and awaiting CI/publication.
 
 ## Current delivery
 
@@ -76,12 +76,22 @@ records all four exact-source CI gates, both deployments and public checks.
   coalesced comparison Stop races. The
   seven-check local harness passed. Original baselines remain unchanged.
 
-**Next ticket: FE-07.** Introduce explicit chat lifecycle
-transitions for submission, creation/navigation, replayed events, delayed terminal
-results and cancel/reconnect races. Preserve the new reader/window guarantees and
-existing idempotent IDs. Use native unions/reducers before considering another
-library. Broader promise/Hook tooling, least-privilege MCP credentials and the
-other technical tickets retain their own acceptance criteria.
+## Implemented frontend slice: FE-07 (publication pending)
+
+Native unions and correlated transitions now cover submission, delivery,
+reconnection, cancellation and terminal outcomes. Nine type assertions reject
+impossible states. Creation retries reuse the draft ID; navigation/selection
+invalidates a late creation before it selects or admits a model execution.
+Finishing an old run cannot settle a new one. Unconfirmed Stop retains the
+execution, and a concurrent terminal response is reconciled with the Stop result.
+Sending/Stopping states are visible and repeated Stop clicks coalesce.
+
+Seventy-five focused checks passed across desktop/tablet/mobile, including all
+FE-06 history/window guarantees. The seven-check local harness and 78 architecture
+fixtures passed. See the [lifecycle record](operations/release-2026-11-07-chat-lifecycle.md).
+**Exact-source CI and both deployments are pending; FE-07 is not yet closed.**
+Broader promise/Hook tooling, least-privilege MCP credentials and the other
+technical tickets retain their own acceptance criteria.
 
 ## Implemented backend slice: BE-08 native TypeScript checks
 

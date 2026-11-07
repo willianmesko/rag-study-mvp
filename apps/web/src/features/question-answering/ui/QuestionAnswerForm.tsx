@@ -216,8 +216,10 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
           {t("Reconnect", "Reconectar")}
         </button> : isStreaming ? <button className="secondary-button shrink-0 px-2.5 sm:px-4" type="button" onClick={() => void live.stop()} disabled={live.stopping} aria-busy={live.stopping}>
           {live.stopping ? t("Stopping…", "Interrompendo…") : t("Stop answer", "Parar resposta")}
-        </button> : comparison.isPending ? <button className="secondary-button shrink-0 px-2.5 sm:px-4" type="button" onClick={comparison.stop}>
-          {t("Stop comparison", "Parar comparação")}
+        </button> : comparison.isPending ? <button className="secondary-button shrink-0 px-2.5 sm:px-4" type="button" onClick={() => void comparison.stop()} disabled={comparison.stopping} aria-busy={comparison.stopping}>
+          {comparison.stopping ? t("Stopping…", "Interrompendo…") : t("Stop comparison", "Parar comparação")}
+        </button> : conversation.submitting ? <button className="primary-button shrink-0 rounded-2xl px-3" type="button" disabled aria-busy="true">
+          {t("Sending…", "Enviando…")}
         </button> : <button className="primary-button shrink-0 rounded-2xl px-3" disabled={busy || !canAsk || !question.trim()} type="submit"
           aria-label={comparing ? t("Compare answers", "Comparar respostas") : t("Send message", "Enviar mensagem")}>
           <svg aria-hidden="true" className="size-4 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m10 15 0-10m-4 4 4-4 4 4" /></svg>
@@ -227,6 +229,9 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
       {live.phase === "disconnected" && <button className="text-action" type="button" onClick={() => void live.stop()} disabled={live.stopping}>
         {t("Stop answer", "Parar resposta")}
       </button>}
+      {comparison.stopError && <p role="alert" className="text-xs text-rose-200">
+        {t("We could not confirm that the comparison stopped. Check your connection and try again.", "Não foi possível confirmar a interrupção da comparação. Confira sua conexão e tente novamente.")}
+      </p>}
       {invalidInput && <p id={errorId} role="alert" className="text-xs text-rose-200">
         {t("Enter a message of up to 5,000 characters.", "Digite uma mensagem de até 5.000 caracteres.")}
       </p>}

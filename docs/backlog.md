@@ -9,7 +9,7 @@ Last reviewed on 2026-11-07.
 The [resume checkpoint](backlog-resume.md) records FE-06 as complete and published:
 administrative query ownership, conversation readers and incremental history.
 Technology-neutral module assembly and native TypeScript unused checks are also
-published. BE-08/FE-08 still retain promise/Hook work. FE-07 is next. The learning
+published. BE-08/FE-08 still retain promise/Hook work. FE-07 is locally validated; CI and publication are pending. The learning
 walkthrough retains its saved starting point; teaching sessions remain pending.
 
 ## Status guide
@@ -41,7 +41,7 @@ The earlier [observability/resilience release](operations/release-2026-11-07.md)
 is included.
 
 The [technical backlog](technical-backlog.md) records 16 published tickets,
-five partial tickets and five pending tickets. The published
+five partial tickets, FE-07 awaiting CI/publication, and four pending tickets. The published
 batch includes shared success-response schemas, SQL limits, bounded Auth/member
 lookup, frontend composition/Public APIs, provider reservations, safe shutdown
 and NestJS-inspired business-module organization. See the
@@ -59,7 +59,11 @@ read visibility, pagination and transport ownership are now implemented with
 45 passing focused checks and the full local harness. Final CI passed 319 UX-suite
 cases and both live deployments were verified. See the
 [conversation-reader record](operations/release-2026-11-07-conversation-readers.md)
-for exact-source CI/publication status. FE-07 is the next implementation ticket.
+for exact-source CI/publication status. FE-07 now has explicit correlated
+submission/delivery/cancellation states and creation/navigation guards. Its 75
+focused checks, seven-check local harness and 78 architecture fixtures passed;
+exact-source CI/publication are still pending. See the
+[lifecycle record](operations/release-2026-11-07-chat-lifecycle.md).
 Operational activation remains separate.
 
 OAuth extension-parameter compatibility and standard MCP icon metadata are live.

@@ -836,13 +836,15 @@ test("FE-06 comparison polling owns its reader and coalesces repeated Stop click
     expect(heads).toBe(initial);
     const stop = page.getByRole("button", { name: /^(Stop comparison|Parar comparação)$/ });
     await stop.click();
-    await stop.click();
+    const stopping = page.getByRole("button", { name: /^(Stopping…|Interrompendo…)$/ });
+    await expect(stopping).toBeDisabled();
+    await stopping.evaluate((button) => button.click());
     expect(stops).toBe(1);
     // Let the status reader see cancellation before the Stop response arrives.
     Object.assign([...fixture.records.values()][0].turns[0], { status: "cancelled", completedAt: date });
     await page.clock.fastForward(700);
     release();
-    await expect(stop).toHaveCount(0);
+    await expect(messages(page).getByText(/Comparison stopped|Comparação interrompida/)).toBeVisible();
     expect(stops).toBe(1);
     expect(fixture.submissions).toHaveLength(1);
   } finally { release(); }
@@ -906,4 +908,218 @@ test("FE-06 a confirmed HTTP admission is not repeated after a read failure or r
   await expect(messages(page).getByText(response.answer, { exact: true })).toBeVisible();
   expect(row.turns).toHaveLength(1);
   expect(fixture.submissions).toHaveLength(1);
+});
+
+test("FE-07 creation retries reuse the draft ID and rapid submissions admit one ordered turn", async ({ page, context }) => {
+  const fixture = durableFixture();
+  await fixture.attach(context);
+  const ids: string[] = [];
+  await context.route("**/v1/conversations", (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const { id } = route.request().postDataJSON();
+    ids.push(id);
+    const row = fixture.records.get(id) ?? fixture.create(id);
+    return ids.length === 1 ? route.fulfill({ status: 503, json: { error: "Fixture uncertain creation." } })
+      : route.fulfill({ status: 201, json: { conversation: row.summary } });
+  });
+  await page.goto("/ask");
+  await send(page);
+  await expect(page.getByRole("alert")).toBeVisible();
+  await page.getByRole("button", { name: /^(Try again|Tentar novamente)$/ }).click();
+  await composer(page).fill(question);
+  await composer(page).evaluate((input) => { input.closest("form")!.requestSubmit(); input.closest("form")!.requestSubmit(); });
+  await expect(messages(page).getByText(response.answer, { exact: true })).toBeVisible();
+  expect(ids).toHaveLength(2);
+  expect(ids[0]).toBe(ids[1]);
+  expect(fixture.records.size).toBe(1);
+  expect(fixture.submissions).toHaveLength(1);
+  expect([...fixture.records.values()][0].turns.map((turn) => turn.sequence)).toEqual([1]);
+});
+
+test("FE-07 late creation cannot replace a conversation opened during submission", async ({ page, context }) => {
+  const fixture = durableFixture(), existing = fixture.create(undefined, "Existing conversation");
+  fixture.turn(existing.summary.id, "An existing saved message");
+  await fixture.attach(context);
+  let release!: () => void, creates = 0;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await context.route("**/v1/conversations", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    creates++;
+    const row = fixture.create(route.request().postDataJSON().id);
+    await held;
+    return route.fulfill({ status: 201, json: { conversation: row.summary } });
+  });
+  try {
+    await page.goto("/ask");
+    await send(page, "Do not send this after navigating");
+    await expect.poll(() => creates).toBe(1);
+    await page.getByRole("navigation", { name: /Main navigation|Navegação principal/ }).getByRole("button", { name: /^(History|Histórico)$/ }).click();
+    await page.getByRole("button", { name: /^Existing conversation/ }).click();
+    await expect(messages(page).getByText("An existing saved message", { exact: true })).toBeVisible();
+    release();
+    await expect(page).toHaveURL(new RegExp(`conversation=${existing.summary.id}$`));
+    await expect.poll(() => page.getByRole("button", { name: /^(Send message|Enviar mensagem)$/ }).isDisabled()).toBe(true);
+    await send(page, "A deliberate question in the selected conversation");
+    const reply = messages(page).locator("ol > li").filter({ has: page.getByText("A deliberate question in the selected conversation", { exact: true }) });
+    await expect(reply.getByText(response.answer, { exact: true })).toBeVisible();
+    expect(fixture.submissions).toHaveLength(1);
+    expect(fixture.submissions[0]).toMatchObject({ conversationId: existing.summary.id, question: "A deliberate question in the selected conversation" });
+    expect(existing.turns.map((turn) => turn.sequence)).toEqual([1, 2]);
+  } finally { release(); }
+});
+
+test("FE-07 leaving Ask during creation does not navigate back or start the model", async ({ page, context }) => {
+  const fixture = durableFixture();
+  await fixture.attach(context);
+  let release!: () => void, creates = 0, delivered = false;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await context.route("**/v1/conversations", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    creates++;
+    const row = fixture.records.get(route.request().postDataJSON().id) ?? fixture.create(route.request().postDataJSON().id);
+    if (creates === 1) await held;
+    await route.fulfill({ status: 201, json: { conversation: row.summary } });
+    delivered = true;
+  });
+  try {
+    await page.goto("/ask");
+    await send(page);
+    await expect.poll(() => creates).toBe(1);
+    await expect(page.getByRole("button", { name: /^(Sending…|Enviando…)$/ })).toBeDisabled();
+    const nav = page.getByRole("navigation", { name: /Main navigation|Navegação principal/ });
+    await nav.getByRole("button", { name: /^(Search|Buscar)$/ }).click();
+    release();
+    await expect.poll(() => delivered).toBe(true);
+    await expect(page).toHaveURL(/\/search$/);
+    expect(fixture.submissions).toHaveLength(0);
+    await nav.getByRole("button", { name: /^(Ask|Perguntar)$/ }).click();
+    await send(page, "Send only after returning");
+    await expect(messages(page).getByText(response.answer, { exact: true })).toBeVisible();
+    expect(fixture.submissions).toHaveLength(1);
+    expect(fixture.records.size).toBe(1);
+  } finally { release(); }
+});
+
+test("FE-07 duplicate stream IDs do not duplicate tokens and online after completion stays settled", async ({ page, context }) => {
+  const fixture = durableFixture();
+  await fixture.attach(context);
+  const frame = (id: number, type: string, extra = {}) => `id: ${id}\nevent: ${type}\ndata: ${JSON.stringify({ type, ...extra })}\n\n`;
+  await context.route("**/v1/qa/stream", (route) => {
+    const input = route.request().postDataJSON(); fixture.submissions.push(input);
+    Object.assign(fixture.turn(input.conversationId, input.question, input.runId), { status: "running", answer: null, completedAt: null });
+    return route.fulfill({ contentType: "text/event-stream", body: frame(1, "accepted") + frame(2, "token", { delta: "Opening words" }) + frame(2, "token", { delta: "DUPLICATE" }) });
+  });
+  let resumes = 0, release!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await context.route("**/v1/qa/runs/*/events?*", async (route) => {
+    resumes++;
+    expect(new URL(route.request().url()).searchParams.get("after")).toBe("2");
+    await held;
+    const item = [...fixture.records.values()][0].turns[0];
+    Object.assign(item, { status: "completed", answer: response, completedAt: date });
+    return route.fulfill({ contentType: "text/event-stream", body: frame(2, "token", { delta: "DUPLICATE" }) + frame(3, "token", { delta: " finish" }) + frame(4, "citations", { sources: response.sources }) + frame(5, "completed", { response }) });
+  });
+  try {
+    await page.goto("/ask"); await send(page);
+    await expect(messages(page).getByText("Opening words", { exact: true })).toBeVisible();
+    await expect.poll(() => resumes).toBe(1);
+    expect(await messages(page).textContent()).not.toContain("DUPLICATE");
+    release();
+    await expect(messages(page).getByText(response.answer, { exact: true })).toBeVisible();
+    await page.evaluate(() => { for (let i = 0; i < 3; i++) window.dispatchEvent(new Event("online")); });
+    await expect(page.getByRole("button", { name: /^(Reconnect|Reconectar|Stop answer|Parar resposta)$/ })).toHaveCount(0);
+    expect(resumes).toBe(1); expect(fixture.submissions).toHaveLength(1);
+    expect([...fixture.records.values()][0].turns).toHaveLength(1);
+  } finally { release(); }
+});
+
+test("FE-07 an unknown admission retries the same run ID without duplicating the turn", async ({ page, context }) => {
+  const fixture = durableFixture();
+  await fixture.attach(context);
+  const bodies: Record<string, unknown>[] = [];
+  await context.route("**/v1/qa/stream", (route) => {
+    const input = route.request().postDataJSON(); bodies.push(input);
+    if (bodies.length === 1) {
+      Object.assign(fixture.turn(input.conversationId, input.question, input.runId), { status: "running", answer: null, completedAt: null });
+      return route.abort("failed");
+    }
+    const item = [...fixture.records.values()][0].turns[0];
+    Object.assign(item, { status: "completed", answer: response, completedAt: date });
+    return route.fulfill({ contentType: "text/event-stream", body: `id: 1\nevent: completed\ndata: ${JSON.stringify({ type: "completed", response })}\n\n` });
+  });
+  await context.route("**/v1/qa/runs/*/events?*", (route) => route.fulfill({ status: 404, json: { error: "Admission not yet visible." } }));
+  await page.goto("/ask"); await send(page);
+  await expect(messages(page).getByText(response.answer, { exact: true })).toBeVisible();
+  expect(bodies).toHaveLength(2);
+  expect(bodies[0].runId).toBe(bodies[1].runId);
+  expect(bodies[0].conversationId).toBe(bodies[1].conversationId);
+  expect([...fixture.records.values()][0].turns.map((turn) => turn.sequence)).toEqual([1]);
+});
+
+for (const mode of ["answer", "comparison"] as const) {
+  test(`FE-07 unconfirmed ${mode} cancellation keeps the execution and accepts its delayed completion`, async ({ page, context }) => {
+    const fixture = durableFixture();
+    await fixture.attach(context);
+    await context.addInitScript(() => Object.defineProperty(window, "ReadableStream", { value: undefined }));
+    let admitted: ConversationTurn | undefined, completed: ConversationTurn | undefined, stops = 0;
+    await context.route(mode === "answer" ? "**/v1/qa/stream" : "**/v1/qa/compare", (route) => {
+      const input = route.request().postDataJSON(); fixture.submissions.push(input);
+      admitted = fixture.turn(input.conversationId, input.question, input.runId, mode);
+      completed = { ...admitted };
+      Object.assign(admitted, { status: "running", answer: null, comparison: null, completedAt: null });
+      return route.fulfill({ status: 202, json: { turn: admitted } });
+    });
+    await context.route("**/v1/conversations/*/runs/*/cancel", (route) => {
+      stops++;
+      return route.fulfill({ status: 503, json: { error: "Fixture cancellation could not be confirmed." } });
+    });
+    await page.clock.install();
+    await page.goto("/ask");
+    if (mode === "comparison") await page.getByRole("checkbox", { name: /Compare two models|Comparar dois modelos/ }).check();
+    await send(page);
+    const stop = page.getByRole("button", { name: mode === "answer" ? /^(Stop answer|Parar resposta)$/ : /^(Stop comparison|Parar comparação)$/ });
+    await expect(stop).toBeEnabled(); await stop.click();
+    await expect(page.getByRole("alert")).toContainText(/could not confirm|Não foi possível confirmar/);
+    await expect(stop).toBeEnabled();
+    Object.assign(admitted!, completed!);
+    await page.clock.fastForward(700);
+    if (mode === "answer") await expect(messages(page).getByText(response.answer, { exact: true })).toBeVisible();
+    else await expect(messages(page).getByText(response.answer, { exact: true })).toHaveCount(2);
+    await expect(stop).toHaveCount(0);
+    expect(stops).toBe(1); expect(fixture.submissions).toHaveLength(1);
+    expect([...fixture.records.values()][0].turns).toHaveLength(1);
+  });
+}
+
+test("FE-07 completed answer racing Stop uses the authoritative result once", async ({ page, context }) => {
+  const fixture = durableFixture();
+  await fixture.attach(context);
+  await context.addInitScript(() => Object.defineProperty(window, "ReadableStream", { value: undefined }));
+  let item!: ConversationTurn, release!: () => void, stops = 0;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await context.route("**/v1/qa/stream", (route) => {
+    const input = route.request().postDataJSON(); fixture.submissions.push(input);
+    item = fixture.turn(input.conversationId, input.question, input.runId);
+    Object.assign(item, { status: "running", answer: null, completedAt: null });
+    return route.fulfill({ status: 202, json: { turn: item } });
+  });
+  await context.route("**/v1/conversations/*/runs/*/cancel", async (route) => {
+    stops++; await held;
+    return route.fulfill({ json: { turn: item } });
+  });
+  await page.clock.install();
+  try {
+    await page.goto("/ask"); await send(page);
+    await page.getByRole("button", { name: /^(Stop answer|Parar resposta)$/ }).click();
+    const stopping = page.getByRole("button", { name: /^(Stopping…|Interrompendo…)$/ });
+    await expect(stopping).toBeDisabled();
+    Object.assign(item, { status: "completed", answer: response, completedAt: date });
+    await page.clock.fastForward(700);
+    await expect(stopping).toBeDisabled();
+    release();
+    await expect(messages(page).getByText(response.answer, { exact: true })).toBeVisible();
+    await expect(stopping).toHaveCount(0);
+    expect(stops).toBe(1); expect(fixture.submissions).toHaveLength(1);
+    expect([...fixture.records.values()][0].turns).toHaveLength(1);
+  } finally { release(); }
 });
