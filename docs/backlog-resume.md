@@ -4,14 +4,14 @@ Recorded on **2026-11-07** after the owner requested resuming later from the sam
 point. The owner subsequently requested the specific BE-15 abstraction follow-up;
 that follow-up is now validated and published. General continuation has resumed
 with the FE-06 administrative slice and BE-08 native TypeScript checks below;
-both are published. FE-06 conversation readers/pagination are now implemented
-and locally validated; their exact-source CI/publication gates are still pending.
+both are published. The remaining FE-06 conversation slice is also validated
+and published. FE-07 is the next implementation ticket.
 
 ## Current delivery
 
-- Source: `2fcd1215a1f6c8f8cdd10039d23814616d394db6`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42405593398).
-- [Release evidence](operations/release-2026-11-07-query-ownership.md) records
+- Source: `c72702e198064fb9e1ea562ee3a7790c3026c843`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42409070907).
+- [Release evidence](operations/release-2026-11-07-conversation-readers.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -19,7 +19,7 @@ and locally validated; their exact-source CI/publication gates are still pending
   ports and outer adapter bindings now isolate the business factories from
   concrete database, model, graph and tracing implementations.
 - Administrative resource deadlines/polling ownership and API native unused
-  checks are now included. Full FE-06 and BE-08/FE-08 acceptance remains partial.
+  checks are included. FE-06 is complete; BE-08/FE-08 retain promise/Hook work.
 - [Learning walkthrough](learning-walkthrough.md): an 18-chapter plan is saved.
   The teaching sessions and learner outcomes remain pending.
 
@@ -59,7 +59,7 @@ and `usage.ts`, plus the shared API and focused UX tests. No new dependency.
 ## Implemented frontend slice: FE-06 conversations
 
 The [conversation-reader record](operations/release-2026-11-07-conversation-readers.md)
-tracks the latest follow-up independently of the previously published source.
+records all four exact-source CI gates, both deployments and public checks.
 
 - `RagLabPage` passes observation state while durable capability remains available.
   Ask observes messages, History observes names, and Search/admin do not poll an
@@ -76,7 +76,7 @@ tracks the latest follow-up independently of the previously published source.
   coalesced comparison Stop races. The
   seven-check local harness passed. Original baselines remain unchanged.
 
-**Next ticket after release validation: FE-07.** Introduce explicit chat lifecycle
+**Next ticket: FE-07.** Introduce explicit chat lifecycle
 transitions for submission, creation/navigation, replayed events, delayed terminal
 results and cancel/reconnect races. Preserve the new reader/window guarantees and
 existing idempotent IDs. Use native unions/reducers before considering another

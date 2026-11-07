@@ -2,11 +2,20 @@
 
 ## Status
 
-The remaining FE-06 conversation slice is implemented and locally validated
-after `2fcd121`. Exact-source CI and observed deployments are still required
-before calling this version live. FE-07's broader state-transition work remains
-a separate ticket. No package, backend endpoint, SQL migration, provider policy,
+**Frontend and API are live** at `c72702e198064fb9e1ea562ee3a7790c3026c843`.
+The remaining FE-06 slice follows `2fcd121`. All four
+[exact-source CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42409070907)
+passed before publication. FE-06 is complete; FE-07 remains a separate ticket.
+No package, backend endpoint, SQL migration, provider policy,
 checkpoint format, quota or model allowlist changed.
+
+| Service | Deployment | Observed live at UTC |
+| --- | --- | --- |
+| API | `dep-dbnoc5bm8hqs73cp7jeg` | 2026-11-07 20:12:48 |
+| Frontend | `dep-dbnoc6jm8hqs73cp7n4g` | 2026-11-07 20:13:00 |
+
+Both deployment records match the source above. A later documentation-only
+receipt does not change the runtime source.
 
 ## Behavior
 
@@ -69,8 +78,28 @@ message content is added to logs or browser storage.
 - The seven-check local harness passed: typecheck, unit tests, production build,
   injection suite, golden set, replay regression and local Promptfoo with
   telemetry/updates disabled. Both architecture graphs passed with zero violations
-  (439 structural / 438 runtime modules); all 78 guard fixtures passed. Full CI
-  and deployment results are recorded after their gates complete. Baselines and persistence/
+  (439 structural / 438 runtime modules); all 78 guard fixtures passed. Baselines and persistence/
   recovery tests are retained.
+
+## CI and production evidence
+
+The final exact-source CI passed 319 UX-suite cases (including pure window cases),
+with 44 deliberate profile skips; 83 real PostgreSQL cases and one isolated
+embedding cutover with no skips; all 78 architecture fixtures with zero dependency
+violations; and all seven harness checks. No baseline/threshold was relaxed.
+
+Public checks at 20:13:47 UTC confirmed frontend HTTP 200, the new
+`/assets/index-B1YToNBP.js` entry, expected recovery/decoding markers and the
+source-matching Lumora icon. API health returned 200 with OCR, durable workflows
+and conversations active, and server-controlled request correlation. Private
+conversation, MCP and budget routes returned 401 without authentication. OAuth
+resource discovery and S256 remained intact; malformed JSON/unsupported token
+MIME returned sanitized 400/415, and missing resource/PKCE parameters were denied.
+
+The API error/fatal log query from 20:12:48 to 20:13:56 UTC returned no records.
+These checks did not access real conversations, create grants/consent, send
+notifications or invoke paid providers. Authorized conversation behavior is
+covered by fixture-based UX and isolated database tests, rather than a claim of
+manual production account testing.
 
 Previous verified runtime: `2fcd1215a1f6c8f8cdd10039d23814616d394db6`.

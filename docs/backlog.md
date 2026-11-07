@@ -6,13 +6,10 @@ optional study examples.
 
 Last reviewed on 2026-11-07.
 
-The [resume checkpoint](backlog-resume.md) records FE-06 conversation readers and
-pagination as implemented and locally validated, awaiting release gates.
-Technology-neutral module assembly
-(BE-15), FE-06 administrative reads and BE-08 native TypeScript checks are
-implemented, validated and published. The parent FE-06 and BE-08/FE-08 tickets
-were partial at that delivery. The remaining FE-06 slice now has passing focused
-verification; BE-08/FE-08 still retain their promise/Hook work. The learning
+The [resume checkpoint](backlog-resume.md) records FE-06 as complete and published:
+administrative query ownership, conversation readers and incremental history.
+Technology-neutral module assembly and native TypeScript unused checks are also
+published. BE-08/FE-08 still retain promise/Hook work. FE-07 is next. The learning
 walkthrough retains its saved starting point; teaching sessions remain pending.
 
 ## Status guide
@@ -30,11 +27,12 @@ status section where they appear.
 
 ## In progress
 
-The latest application release, `2fcd1215a1f6c8f8cdd10039d23814616d394db6`, is
+The latest application release, `c72702e198064fb9e1ea562ee3a7790c3026c843`, is
 live on the frontend and API after all four
-[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42405593398).
+[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42409070907).
 Both deployments, served features/icon, health and protected routes were verified
-on 2026-11-07. See [query-ownership release evidence](operations/release-2026-11-07-query-ownership.md).
+on 2026-11-07. See [conversation-reader evidence](operations/release-2026-11-07-conversation-readers.md).
+The prior [administrative release](operations/release-2026-11-07-query-ownership.md) remains documented separately.
 The previous [capability-boundary release](operations/release-2026-11-07-capability-boundaries.md)
 remains documented separately.
 The earlier [module-organization release](operations/release-2026-11-07-architecture-phase2.md)
@@ -42,9 +40,8 @@ is retained as historical evidence.
 The earlier [observability/resilience release](operations/release-2026-11-07.md)
 is included.
 
-The [technical backlog](technical-backlog.md) records 15 published tickets,
-FE-06 locally validated and awaiting publication, five partial tickets and five
-pending tickets. The published
+The [technical backlog](technical-backlog.md) records 16 published tickets,
+five partial tickets and five pending tickets. The published
 batch includes shared success-response schemas, SQL limits, bounded Auth/member
 lookup, frontend composition/Public APIs, provider reservations, safe shutdown
 and NestJS-inspired business-module organization. See the
@@ -59,7 +56,8 @@ and native TypeScript checks; its CI passed 274 UX cases and production checks
 passed. See its
 [release record](operations/release-2026-11-07-query-ownership.md). Conversation
 read visibility, pagination and transport ownership are now implemented with
-45 passing focused checks and the full local harness; see the
+45 passing focused checks and the full local harness. Final CI passed 319 UX-suite
+cases and both live deployments were verified. See the
 [conversation-reader record](operations/release-2026-11-07-conversation-readers.md)
 for exact-source CI/publication status. FE-07 is the next implementation ticket.
 Operational activation remains separate.

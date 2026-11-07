@@ -14,20 +14,20 @@ live activation remain in the [product backlog](backlog.md).
 
 | Status | Tickets | Count |
 | --- | --- | --- |
-| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-05 | 15 |
-| Implemented and locally validated; awaiting CI/publication | FE-06 | 1 |
+| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-06 | 16 |
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08, FE-10 | 5 |
 | Pending implementation | BE-09, BE-13, FE-07, FE-09, FE-11 | 5 |
 
-The latest batch is live on the frontend and API at `2fcd121`, after all four
-[CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42405593398).
-See the [query-ownership release evidence](operations/release-2026-11-07-query-ownership.md).
-It delivers the FE-06 administrative slice and BE-08 native unused checks;
-both parent tickets remain partial. CI passed 274 UX cases/44 deliberate profile
-skips, 83 PostgreSQL cases, the isolated cutover, 78 architecture fixtures and
-all seven harness checks. Both live source SHAs, health and protected routes
-were verified. The next FE-06 slice covers conversation visibility/pagination
-and execution readers, as saved in the resume checkpoint.
+The latest batch is live on the frontend and API at `c72702e`, after all four
+[CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42409070907).
+See the [conversation-reader evidence](operations/release-2026-11-07-conversation-readers.md).
+FE-06 is complete: administrative ownership plus incremental conversation windows
+and exclusive execution readers. CI passed 319 UX-suite cases/44 deliberate
+profile skips, 83 PostgreSQL cases, the isolated cutover, 78 architecture fixtures
+and all seven harness checks. Both live source SHAs, health and protected routes
+were verified. FE-07 is next; BE-08/FE-08 retain separate promise/Hook work.
+The prior administrative/unused-check slice is recorded in the
+[query-ownership evidence](operations/release-2026-11-07-query-ownership.md).
 The prior `cbd0f67` batch is recorded in the
 [capability-boundary evidence](operations/release-2026-11-07-capability-boundaries.md).
 The preceding module-organization release at `d045949` is recorded in the
@@ -312,7 +312,7 @@ feature-owned locations during BE-07's migration.
 
 ### FE-06 — Query cancellation and polling ownership
 
-- [x] **P2 · M · Medium risk · Implemented and locally validated; publication pending.** Scope: ingestion/evaluation/usage query functions,
+- [x] **P2 · M · Medium risk · CI verified and published at `c72702e`.** Scope: ingestion/evaluation/usage query functions,
   saved conversation polling and shared request deadlines.
 - **Accept:** all relevant reads consume their AbortSignal; disposed scope requests
   abort; settled inactive surfaces stop short-interval polling. Active durable
@@ -342,7 +342,7 @@ feature-owned locations during BE-07's migration.
   gates and both deployments passed; evidence is in the release record. The full
   gate caught a demo-readiness regression, fixed by an explicit terminal-source
   notification while retaining original tests/baselines. Conversation
-  pagination/transport work below is now implemented and locally validated; its
+  pagination/transport work below is implemented, validated and published; its
   [release record](operations/release-2026-11-07-conversation-readers.md) separates
   exact-source CI and publication from the earlier administrative delivery.
 - **Conversation scope:** keep durable capability independent from read visibility,
@@ -353,6 +353,12 @@ feature-owned locations during BE-07's migration.
   aborts, section navigation, one explicit cancellation and a 75-message history
   that retains older pages while refreshing only the newest. Use existing
   Playwright/clock fixtures and QueryProvider's actual retry setting.
+
+- **Final evidence:** 45 focused model/browser checks preserve 75 visited turns,
+  cursors, old feedback and scroll; pause invisible reads; keep SSE/HTTP/comparison
+  readers exclusive; reconcile exhausted SSE; abort disposed reads; and retain one
+  confirmed admission across read retry/reload. All four exact-source CI gates and
+  both deployments passed. The remaining FE-07 transition work is separate.
 
 ### FE-07 — Explicit chat lifecycle transitions
 
