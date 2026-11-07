@@ -12,14 +12,18 @@ live activation remain in the [product backlog](backlog.md).
 
 | Status | Tickets | Count |
 | --- | --- | --- |
-| Implemented with focused local verification | BE-01, BE-02, BE-04, BE-05, FE-01, FE-03 | 6 |
+| Implemented, CI passed and published | BE-01, BE-02, BE-04, BE-05, FE-01, FE-03 | 6 |
 | Partially implemented | BE-03: idle-pool handling; FE-02: JSON/error transport | 2 |
-| Pending implementation | BE-06–BE-14; FE-04–FE-11 | 17 |
+| In progress in phase 2 | BE-06; FE-04 | 2 |
+| Pending implementation | BE-07–BE-14; FE-05–FE-11 | 15 |
 
-Release CI and frontend/API deployment are pending for this first implementation
-batch. The previously verified application release remains `e25572d` until the
-new release is recorded. A checked slice below does not close the remaining
-portions of a partially implemented ticket.
+The first batch is live on the frontend and API at `a590360`, after all four
+[CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42389555482).
+See the [phase 1 release evidence](operations/release-2026-11-07-architecture-phase1.md).
+A checked slice below does not close the remaining portions of a partial ticket.
+Phase 2 is now implementing BE-03 SQL limits, FE-02 success decoding, BE-06 bounded
+Auth/member lookup and FE-04 application composition. These changes are not yet
+validated or published and do not alter the phase 1 release receipt.
 
 Phase 1 verification includes real PostgreSQL regressions for all four encrypted
 stores under concurrent relocation/rewrite and process loss; repair after 25h

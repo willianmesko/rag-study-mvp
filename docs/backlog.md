@@ -21,21 +21,22 @@ status section where they appear.
 
 ## In progress
 
-The latest application release, `e25572d6118efbdb84190367a039526775fbd0b2`, is
-live on the frontend and API. All three
-[release gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42382954451)
-passed; both deployments, public assets, health and protected-route behavior were
-verified on 2026-11-07. It includes durable conversations, simplified onboarding,
-Usage & costs, observability and resilient integrations. See the
-[release evidence](operations/release-2026-11-07.md) for scope and limits.
+The latest application release, `a59036044e19a4f35d38e4df8c8c18c7573de646`, is
+live on the frontend and API after all four
+[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42389555482).
+Both deployments, served features/icon, health and protected routes were verified
+on 2026-11-07. See [phase 1 evidence](operations/release-2026-11-07-architecture-phase1.md).
+The earlier [observability/resilience release](operations/release-2026-11-07.md)
+is included.
 
-The parallel backend/frontend architecture review is complete and **phase 1 is
-being implemented and validated**. The [technical backlog](technical-backlog.md)
-now distinguishes six implemented tickets, two partial tickets and 17 pending
-tickets. CI and publication of this new batch remain in progress; operational
-activation is separate below. The batch also addresses OAuth extension-parameter
-interoperability and adds Lumora's standard MCP icon metadata. A real completed
-ChatGPT connection still needs client consent/verification.
+The [technical backlog](technical-backlog.md) distinguishes six completed
+technical tickets, two partial tickets, two in progress and 15 pending. **Phase 2
+is in progress:** shared success-response schemas, SQL workload limits, bounded
+Auth/member lookup and frontend application composition. These new source changes
+are not yet published. Operational activation remains separate below.
+
+OAuth extension-parameter compatibility and standard MCP icon metadata are live.
+A real completed ChatGPT connection still needs client consent/verification.
 
 **Approved delivery order**
 
@@ -99,8 +100,9 @@ migration and preserves the existing stack.
 - [x] Implement phase 1 HTTP/JSON transport corrections, credential-free cache
   identity, local section recovery, idle-pool handling, logical key inventory,
   full-window budget repair and a required embedding cutover CI job. Local
-  regressions are recorded in the technical backlog; release CI/deploy are
-  tracked separately. Full success-payload validation and SQL deadlines remain open.
+  regressions and four successful CI jobs are recorded in the phase 1 release
+  evidence. Frontend and API are live at `a590360`. Full success-payload validation
+  and SQL deadlines remain in progress.
 - [ ] Extract cohesive Auth/HTTP/app responsibilities, finish shared wire
   contracts and slice Public APIs, and pilot compatible FSD/correctness gates
   with explicit exceptions (phase 2).

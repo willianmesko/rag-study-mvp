@@ -238,7 +238,7 @@ public/client roles access to these private tables. The demo uses the existing
 backend connection in a separate pool plus explicit read-only transactions;
 it does not claim to have provisioned a separate database principal.
 
-### Published demo verification
+### Initial remote MCP delivery verification
 
 Published on 2026-11-07: API commit `266fdaf` and frontend commit
 `8af43a1`. Both passed their complete GitHub quality gates. The API URL
@@ -263,6 +263,12 @@ advisories are separate hardening work. See the
 [RLS advisor](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy),
 [vector-schema advisor](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public)
 and [password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+The later `a590360` frontend/API release adds extension-parameter compatibility,
+fixed requirement errors and standard MCP product/icon metadata. Four CI gates
+passed; served branding, discovery, health, protected reads and malformed OAuth
+requests were checked live. This is distinct from completing real ChatGPT consent.
+See the [phase 1 release record](operations/release-2026-11-07-architecture-phase1.md).
 
 References: [MCP authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization),
 [SDK serving](https://ts.sdk.modelcontextprotocol.io/v2/serving/fastify.html),

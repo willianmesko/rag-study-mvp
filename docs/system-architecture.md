@@ -691,8 +691,8 @@ inspected window. No production data or schema was rewritten.
 
 ## Next architectural increments
 
-1. Validate and publish the first [technical backlog](technical-backlog.md) batch,
-   then complete the remaining shared response schemas and SQL workload limits.
+1. Complete the next [technical backlog](technical-backlog.md) batch: shared
+   response schemas, SQL workload limits, bounded Auth/member lookup and app composition.
 2. Use a release containing BE-04 for unattended budget delivery; select a
    tracing/metrics receiver and alarm routing under the existing data policy.
 3. Use BE-01's logical-key inventory, then rehearse staged key rotation and backup
@@ -760,6 +760,8 @@ is automatically enabled. Read the [rotation procedure](operations/workflow-key-
 and [effect/recovery policy](operations/integration-recovery.md) before operational
 activation or registering a write-capable action.
 
-The frontend and API are verified live at `e25572d`; the
-[release record](operations/release-2026-11-07.md) distinguishes CI/production
-evidence from still-pending operational activation and architecture fixes.
+The frontend and API are verified live at `a590360`; the
+[phase 1 release record](operations/release-2026-11-07-architecture-phase1.md)
+distinguishes four passing CI gates and production checks from pending operational
+activation and later architecture work. Phase 2 source changes remain unpublished
+until their own verification and release.
