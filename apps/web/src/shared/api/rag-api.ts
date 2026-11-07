@@ -1,3 +1,4 @@
+import { usageResponseSchema } from "@rag-study/contracts";
 import { workflowSnapshotSchema, type WorkflowSnapshot } from "@rag-study/contracts";
 import { chatModelCatalogSchema, demoLibraryCatalogSchema, demoSeedResponseSchema, questionComparisonResponseSchema, workspaceChatModelPolicyResponseSchema, workspaceOnboardingResponseSchema,
   mcpAccessIssuedSchema, mcpAccessStatusSchema,
@@ -55,7 +56,7 @@ type OriginalDocumentFile = { blob: Blob; filename: string; isPdf: boolean };
 export type StoredChunk = { id: string; ordinal: number; content: string; security: SearchResult["security"]; createdAt: string };
 export type Workspace = { tenantId: string; tenantName: string; tenantSlug: string; role: "owner" | "editor" | "viewer" };
 export type WorkspaceMember = { userId: string; email: string | null; role: Workspace["role"]; createdAt: string };
-export type UsageSummary = { requests: number; cacheHits: number; inputTokens: number; outputTokens: number; estimatedCostUsd: number; averageLatencyMs: number; providerFailures: number };
+export type { UsageSummary } from "@rag-study/contracts";
 export type UsageAlert = { thresholdUsd: number; triggered: boolean };
 export type EvaluationRun = {
   id: string;
@@ -211,7 +212,7 @@ export const api = {
     request<IngestionPassagePreview>(`/v1/admin/uploads/${encodeURIComponent(jobId)}/preview`, {
       headers: { authorization: `Bearer ${accessToken}`, "x-workspace-id": workspaceId }, signal, cache: "no-store"
     }),
-  getUsageSummary: (accessToken: string, workspaceId: string, days = 30) => request<{ days: number; summary: UsageSummary; alert: UsageAlert }>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  getUsageSummary: async (accessToken: string, workspaceId: string, days = 30) => usageResponseSchema.parse(await request<unknown>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } })),
   listEvaluationRuns: (accessToken: string, workspaceId: string) => request<{ runs: EvaluationRun[]; workflowAvailable?: boolean; workflows?: WorkflowSnapshot[]; faithfulnessEnabled?: boolean; reference?: DemoSourceState & { ready: boolean } }>("/v1/admin/evaluations?limit=20", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   runEvaluation: (accessToken: string, workspaceId: string, options: { includeFaithfulness?: boolean; modelId?: string; effort?: "compact" | "standard" | "extended" } = {}) =>
     request<{ run: EvaluationRun }>("/v1/admin/evaluations/run", {

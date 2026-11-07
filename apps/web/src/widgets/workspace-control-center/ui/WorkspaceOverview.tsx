@@ -80,7 +80,7 @@ function OwnerBudgetNotice({ workspaceId, token, onOpen }: { workspaceId: string
     <WorkspaceQueryFeedback query={usage} loading={t("Checking usage…", "Consultando o uso…")}
       failure={t("We could not check the budget alert.", "Não foi possível consultar o alerta de orçamento.")} />
     {usage.data?.alert.triggered && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/25 bg-amber-400/5 p-4">
-      <p className="text-sm text-amber-100">{t("Estimated usage reached the budget alert of", "O uso estimado atingiu o alerta de orçamento de")} {currency.format(usage.data.alert.thresholdUsd)}.</p>
+      <p className="text-sm text-amber-100">{t("Recorded cost reached the budget alert of", "O custo registrado atingiu o alerta de orçamento de")} {currency.format(usage.data.alert.thresholdUsd)}.</p>
       <button type="button" className="secondary-button" onClick={onOpen}>{t("Review usage", "Ver uso")}</button>
     </div>}
   </>;

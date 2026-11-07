@@ -14,11 +14,7 @@ export const ingestionJobsQuery = (token: string, workspaceId: string) => queryO
   refetchInterval: 3_000
 });
 
-export const usageQuery = (token: string, workspaceId: string) => queryOptions({
-  queryKey: ["usage-summary", token, workspaceId],
-  queryFn: () => api.getUsageSummary(token, workspaceId),
-  refetchInterval: 30_000
-});
+export { usageQuery } from "../../../entities/workspace/model/usage";
 
 export const evaluationsQuery = (token: string, workspaceId: string) => queryOptions({
   queryKey: ["evaluation-runs", token, workspaceId],

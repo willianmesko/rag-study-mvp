@@ -21,9 +21,10 @@ status section where they appear.
 
 ## In progress
 
-No implementation is currently active. The seven LangGraph workflow capabilities
-were published and verified on 2026-11-07. The pending sections below are the
-remaining product and engineering backlog.
+Granular model-cost analytics is implemented and being validated: model,
+operation, and daily breakdowns; reported/estimated cost coverage; tokens and
+response times; period selection; and safe aggregate export. Publication remains
+pending. The seven LangGraph capabilities are already live.
 
 **Approved delivery order**
 
@@ -76,7 +77,9 @@ implemented.
 - [ ] Add operational dashboards, alarms, and failure runbooks. Evaluate Splunk
   and VictoriaMetrics as backends when operational needs justify them.
 - [ ] Extend provider-native token and cost coverage. Current records distinguish
-  reported usage/cost from configured estimates.
+  reported usage/cost from configured estimates. Extend the answer-only ledger to
+  embeddings, reranking and evidence/evaluation judges; do not backfill fictional
+  historical measurements.
 - [ ] Deliver budget alerts by email or webhook. The owner-only dashboard alert
   is already implemented.
 - [ ] Add Langfuse/Phoenix if selected as the tracing backend. A LangSmith adapter
@@ -310,6 +313,14 @@ See [Durable workflows](durable-workflows.md).
   questions, document contents, and IPs.
 - [x] Owner usage dashboard, cache-hit/failure/latency metrics, reported provider
   usage where available, cost provenance, and dashboard budget alerts.
+- [x] Granular recorded answer costs by provider/model, operation and UTC day;
+  7/30/90-day windows; tokens, average/P95 response times, reuse, skipped
+  generation and failures; reported versus estimated amounts; and aggregate
+  JSON export. A single scoped SQL snapshot reconciles every partition, preserves
+  historical estimates, and honors reported zero costs without double counting.
+  Owner/workspace checks, real PostgreSQL reconciliation and responsive journeys
+  passed locally. Publication remains pending. The answer-only coverage is
+  visible; embeddings, reranking and judge-call billing remain open above.
 
 ### Product UI and current chat behavior
 

@@ -512,9 +512,9 @@ export async function buildApp(dependencies: HttpDependencies) {
     };
   });
   app.get("/v1/admin/usage", async (request, reply) => {
-    const authorization = await authorizeOwner(request);
+    const authorization = await authorizeOwner(request, true);
     if (!authorization.ok) return rejectScope(reply, authorization);
-    const { days } = z.object({ days: z.coerce.number().int().min(1).max(90).default(30) }).parse(request.query);
+    const { days } = z.strictObject({ days: z.coerce.number().int().min(1).max(90).default(30) }).parse(request.query);
     const summary = await dependencies.getUsageSummary(authorization.tenantId, days);
     return { days, summary, alert: { thresholdUsd: config.USAGE_ALERT_THRESHOLD_USD, triggered: (summary.effectiveCostUsd ?? summary.estimatedCostUsd) >= config.USAGE_ALERT_THRESHOLD_USD } };
   });

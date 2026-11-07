@@ -76,6 +76,8 @@ Zod schemas in both applications.
   outcomes, and an export containing measurements rather than conversation text.
 - Authenticated SSE chat with resumable progress, checked citations, and a stop
   action that cancels the provider request. The JSON endpoint remains available.
+- Owner-only recorded answer-cost analytics by provider/model, operation and UTC
+  day, with reported/estimated provenance, token and latency detail, and safe export.
 - Deterministic golden-set and prompt-injection evaluation suites.
 - Workspace-scoped MCP read tools and a separate approval-gated evaluation worker.
 

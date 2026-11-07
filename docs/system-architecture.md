@@ -509,8 +509,42 @@ not committed files. The deployment guide lists the required variables and
 acceptance checks. Supabase RLS policies allow authenticated workspace reads by
 membership, while cache, quota, audit, and usage tables remain backend-only.
 
+## Workspace usage analytics
+
+Owner-only Settings reads the existing private `ai_usage_events` ledger through
+`GET /v1/admin/usage?days=7|30|90`. Every read requires an explicit verified
+workspace. The SQL bounds the scan with the existing `(tenant_id, created_at)`
+index and uses one `GROUPING SETS` snapshot for totals, provider/model pairs,
+operations, and UTC days. Other tenants and dates outside the rolling window
+cannot enter a subtotal. Historical model identity is retained even if a model
+is no longer allowlisted for new questions.
+
+Recorded cost is the sum of each event's reported cost when present, otherwise
+its saved estimate. It is not the sum of both figures. A reported zero is valid;
+reported tokens alone do not imply a reported price. Model details distinguish
+token and cost provenance, reuse, failed operations, average latency, and P95.
+Latency covers the recorded application operation, including its retrieval or
+validation work; it is not pure provider latency. One question may create
+multiple comparison/routing operations. Cache rows have zero generation cost,
+and no hypothetical savings figure is invented.
+
+The interface offers model details, UTC daily amounts and a cost trend, operation
+breakdowns, 7/30/90-day windows, and JSON export of allowlisted aggregate fields.
+No prompts, excerpts, actor IDs, credentials, or individual event records are
+exported. Reading analytics does not call a model. The overview alert uses its
+30-day window; Settings evaluates the same configured threshold for the chosen
+window.
+
+Coverage is currently recorded answer, comparison, and automatic-routing
+operations. Embeddings, reranking, and evidence/evaluation-judge calls are not
+included in this ledger total, although durable workflows reserve their budgets
+separately. Full provider billing capture remains backlog. Existing historical
+amounts are not recalculated with today's prices, and missing measurements are
+not fabricated. These figures do not constitute a complete provider invoice.
+
 ## Next architectural increments
 
-1. Capture provider-native token usage where available.
-2. Add OCR, URL ingestion, language detection, and structure-aware chunking.
-3. Move large ingestion workloads to a dedicated queue worker when required.
+1. Extend the recorded-cost ledger to embeddings, reranking, and judge calls,
+   preferring provider-native measurements where available.
+2. Validate mixed-workload capacity, connection budgets, and tenant fairness.
+3. Move large ingestion workloads to a dedicated queue worker when measurements require it.
