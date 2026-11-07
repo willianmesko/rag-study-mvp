@@ -59,7 +59,7 @@ and native TypeScript checks; its CI passed 274 UX cases and production checks
 passed. See its
 [release record](operations/release-2026-11-07-query-ownership.md). Conversation
 read visibility, pagination and transport ownership are now implemented with
-42 passing focused checks and the full local harness; see the
+45 passing focused checks and the full local harness; see the
 [conversation-reader record](operations/release-2026-11-07-conversation-readers.md)
 for exact-source CI/publication status. FE-07 is the next implementation ticket.
 Operational activation remains separate.

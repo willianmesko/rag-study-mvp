@@ -82,9 +82,12 @@ async function waitForSavedTurn(token:string,workspaceId:string,saved:{conversat
 }
 
 export const api = {
-  savedAnswer: async(input:QuestionInput,token:string,workspaceId:string,saved:{conversationId:string;runId:string},signal:AbortSignal)=>{
+  savedAnswer: async(input:QuestionInput,token:string,workspaceId:string,saved:{conversationId:string;runId:string},signal:AbortSignal,options:{recover?:boolean;onAccepted?:()=>void}={})=>{
     const bounded=AbortSignal.any([signal,AbortSignal.timeout(150000)]);
-    await requestJson(conversationTurnResponseSchema, '/v1/qa/stream',{method:'POST',signal:bounded,body:JSON.stringify({...input,previousQuestions:undefined,...saved}),headers:{accept:'application/json',authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}});
+    if(!options.recover){
+      await requestJson(conversationTurnResponseSchema, '/v1/qa/stream',{method:'POST',signal:bounded,body:JSON.stringify({...input,previousQuestions:undefined,...saved}),headers:{accept:'application/json',authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}});
+      options.onAccepted?.();
+    }
     return waitForSavedTurn(token,workspaceId,saved,bounded);
   },
   savedComparison: async(input:QuestionComparisonInput,token:string,workspaceId:string,saved:{conversationId:string;runId:string},signal:AbortSignal,recover=false):Promise<import('@rag-study/contracts').QuestionComparisonResponse>=>{

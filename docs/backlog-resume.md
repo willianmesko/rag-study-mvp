@@ -70,9 +70,10 @@ tracks the latest follow-up independently of the previously published source.
 - `use-live-answer` and `use-model-comparison` report reader ownership. SSE, HTTP
   fallback or comparison polling suppresses the competing recent-window reader;
   exhaustion hands reconciliation back to metadata without another admission.
-- Forty-two focused checks passed across desktop/tablet/mobile, including 75
+- Forty-five focused checks passed across desktop/tablet/mobile, including 75
   visited turns, old feedback, unpinned scroll, abort/navigation, offline recovery,
-  401/403/429, exact admission counts and coalesced comparison Stop races. The
+  401/403/429, confirmed HTTP reload/read retries, exact admission counts and
+  coalesced comparison Stop races. The
   seven-check local harness passed. Original baselines remain unchanged.
 
 **Next ticket after release validation: FE-07.** Introduce explicit chat lifecycle

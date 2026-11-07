@@ -33,6 +33,10 @@ checkpoint format, quota or model allowlist changed.
   reader. Automatic head/status reconciliation pauses while it works or retries.
   Once SSE exhausts its bounded reconnect attempts, the recent-window reader can
   detect persisted completion without admitting another question.
+- A confirmed HTTP admission is remembered for its local run. Subsequent read
+  failures retry only status reads; recovery from an authorized persisted turn
+  also uses GET only. If admission itself is unknown, the existing stable-ID
+  idempotent retry semantics remain, rather than claiming an unverified receipt.
 - An explicit Stop retains its authorized endpoint and stable run ID. Comparison
   Stop clicks coalesce. A racing status error cannot override the authoritative
   Stop response, which can report either cancellation or an already completed
@@ -47,11 +51,12 @@ message content is added to logs or browser storage.
 
 ## Local evidence
 
-- Five pure window/merge/scope/budget cases and nine browser cases passed across
-  desktop/tablet/mobile: 42 focused checks using synthetic fixtures and no paid
+- Five pure window/merge/scope/budget cases and ten browser cases passed across
+  desktop/tablet/mobile: 45 focused checks using synthetic fixtures and no paid
   providers. They cover 75 visited turns (150 chat messages), cursor order, old
   feedback, unpinned scroll, visibility, SSE ownership, HTTP fallback, comparison
-  Stop races, disposal, offline recovery, 401/403/429 and exhausted-SSE handoff.
+  Stop races, disposal, offline recovery, 401/403/429, exhausted-SSE handoff and
+  confirmed HTTP recovery after a transient read failure plus reload.
 - With 75 turns loaded, initial reads are `head`, `before=51`, `before=26`.
   A periodic refresh makes one head read; old-page read count remains two.
   Search makes no selected-message read in a 45-second controlled window;

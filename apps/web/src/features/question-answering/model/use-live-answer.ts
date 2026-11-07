@@ -22,6 +22,7 @@ type Run = {
   connecting: boolean;
   stopping: boolean;
   conversationId?: string;
+  admitted?: boolean;
 };
 type Connection = "start" | "resume" | "regular";
 
@@ -147,7 +148,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
         try {
           if (mode === "regular" && run.input) {
             if(run.conversationId&&run.durable&&workspace){
-              const turn=await api.savedAnswer(run.input,workspace.accessToken,workspace.workspaceId,{conversationId:run.conversationId,runId:run.durable.id},signal);
+              const turn=await api.savedAnswer(run.input,workspace.accessToken,workspace.workspaceId,{conversationId:run.conversationId,runId:run.durable.id},signal,{recover:run.admitted,onAccepted:()=>{run.admitted=true;}});
               finish(run,{answer:turn.answer??undefined,cancelled:turn.status==='cancelled',failure:turn.status==='failed'?'execution_failed':undefined});
             }else finish(run, { answer: await api.answer({ ...run.input, ...workspace, signal }) });
             return;
@@ -213,7 +214,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
   }
   function recoverSaved(runId:string,input:QuestionInput,conversationId:string) {
     if(active.current||!storageKey)return;
-    const run:Run={controller:new AbortController(),durable:{id:runId,cursor:0,storageKey},input,conversationId,connecting:false,stopping:false};
+    const run:Run={controller:new AbortController(),durable:{id:runId,cursor:0,storageKey},input,conversationId,admitted:true,connecting:false,stopping:false};
     active.current=run;setState({...emptyAnswer,phase:'reconnecting'});void connect(run,typeof ReadableStream==='undefined'?'regular':'resume');
   }
   function settleSaved(result:AnswerOutcome){if(active.current)finish(active.current,result);}

@@ -873,3 +873,37 @@ test("FE-06 an exhausted stream hands reconciliation to the recent window withou
   expect(row.turns).toHaveLength(1);
   expect(resumes).toBe(3);
 });
+
+test("FE-06 a confirmed HTTP admission is not repeated after a read failure or reload", async ({ page, context }) => {
+  const fixture = durableFixture();
+  await fixture.attach(context);
+  await context.addInitScript(() => Object.defineProperty(window, "ReadableStream", { value: undefined }));
+  await context.route("**/v1/qa/stream", (route) => {
+    const input = route.request().postDataJSON();
+    fixture.submissions.push(input);
+    const turn = fixture.turn(input.conversationId, input.question, input.runId);
+    Object.assign(turn, { status: "running", answer: null, completedAt: null });
+    return route.fulfill({ status: 202, json: { turn } });
+  });
+  let reads = 0;
+  await context.route("**/v1/conversations/*/runs/*", (route) => {
+    reads++;
+    return reads === 1 ? route.fulfill({ status: 503, json: { error: "Fixture read failure after admission." } }) : route.fallback();
+  });
+  await page.clock.install();
+  await page.goto("/ask");
+  await send(page);
+  await expect(messages(page).getByText(/Reconnecting to the same answer|Reconectando à mesma resposta/)).toBeVisible();
+  await page.clock.fastForward(450);
+  await expect.poll(() => reads).toBe(2);
+  expect(fixture.submissions).toHaveLength(1);
+  await page.reload();
+  await expect.poll(() => reads).toBeGreaterThanOrEqual(3);
+  expect(fixture.submissions).toHaveLength(1);
+  const row = [...fixture.records.values()][0];
+  Object.assign(row.turns[0], { status: "completed", answer: response, completedAt: date });
+  await page.clock.fastForward(700);
+  await expect(messages(page).getByText(response.answer, { exact: true })).toBeVisible();
+  expect(row.turns).toHaveLength(1);
+  expect(fixture.submissions).toHaveLength(1);
+});
