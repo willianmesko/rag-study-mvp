@@ -68,7 +68,7 @@ export function OnboardingPage({ workspace, workspaces, accessToken, userId, jus
         </p>}
         {workspace
           ? <WorkspaceOnboardingWizard key={workspace.tenantId} workspace={workspace} accessToken={accessToken}
-            progress={progress} onProgress={onProgress} onComplete={onComplete} />
+            scope={`${userId}:${workspace.tenantId}`} progress={progress} onProgress={onProgress} onComplete={onComplete} />
           : <CreateWorkspaceStep key={userId} accessToken={accessToken} onWorkspaceCreated={onWorkspaceCreated} />}
         {workspace && (syncFailed && !syncing
           ? <OnboardingSyncNotice onRetry={onRetrySync} />

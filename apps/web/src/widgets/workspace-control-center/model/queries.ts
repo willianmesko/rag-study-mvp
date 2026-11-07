@@ -24,7 +24,4 @@ export const evaluationsQuery = (token: string, workspaceId: string) => queryOpt
   queryFn: () => api.listEvaluationRuns(token, workspaceId)
 });
 
-export const membersQuery = (token: string, workspaceId: string) => queryOptions({
-  queryKey: ["workspace-members", token, workspaceId],
-  queryFn: () => api.listWorkspaceMembers(workspaceId, token)
-});
+export { membersQuery } from "../../../entities/workspace/model/members";

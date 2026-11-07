@@ -62,6 +62,9 @@ Zod schemas in both applications.
 - Workspaces with `owner`, `editor`, and read-only `viewer` roles.
 - Workspace control center with routed Overview, Knowledge, Processing, Team,
   Evaluations, and Settings sections plus a guided first-run onboarding path.
+- Milo guide with bilingual fictional starter documents, role-aware invitation
+  and upload actions, actual preparation status, a first grounded question,
+  source inspection, and a Help entry that preserves completed setup.
 - Authenticated SSE chat with resumable progress, checked citations, and a stop
   action that cancels the provider request. The JSON endpoint remains available.
 - Deterministic golden-set and prompt-injection evaluation suites.

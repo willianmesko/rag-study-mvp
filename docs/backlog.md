@@ -35,8 +35,11 @@ status section where they appear.
 - [ ] Validate the creation, ingestion, question, and source-inspection journey
   for a new non-technical user.
 
-This is the next approved milestone. Workspace simplification and the larger
-Ask layout were validated and published on 2026-11-07.
+Implementation and local responsive/accessibility journeys are complete.
+Publication and the release quality gates are pending. Automated journeys use
+isolated API fixtures; delivery of real invitation emails remains a separate
+operational validation below. Workspace simplification and the larger Ask
+layout were validated and published on 2026-11-07.
 
 ## Pending implementation
 

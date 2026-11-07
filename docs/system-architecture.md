@@ -70,10 +70,48 @@ The desktop Ask surface fills its content column and the remaining viewport
 height. The message thread keeps a readable line width inside that surface.
 
 Onboarding is organized around goals such as finding team knowledge, supporting
-others, and learning from documents. A goal selects suggested examples and
-guidance. All goals use the same workspace permissions and accept documents
-from any sector. Starter libraries and reusable templates remain in the product
-backlog.
+others, and learning from documents. Each goal offers a reusable fictional
+Markdown starter in English or Portuguese, a download/preview, and grounded
+suggested questions. Uploading a starter is an explicit action through the same
+authorized ingestion endpoint as a personal file; choosing a goal alone never
+uploads content or calls a provider. Broader demonstration libraries remain in
+the backlog.
+
+The guide retains the three persisted phases (`purpose`, `knowledge`, `answer`)
+so earlier progress and concurrent-device completion remain compatible. Its
+document phase follows actual queued/processing/completed records and refreshes
+the document list after preparation. Owners can use the shared invitation
+feature; editors can upload; viewers inspect available documents and ask questions.
+Naming guidance, data-handling notes, and expandable plain-language definitions
+explain passages, embeddings, retrieval, citations, and similarity.
+
+```mermaid
+flowchart LR
+  A[Create workspace] --> B[Choose a goal]
+  B --> C{Workspace role}
+  C -->|Owner or editor| D[Upload an approved file or fictional starter]
+  C -->|Viewer| E[Read available documents]
+  D --> F[Follow actual preparation status]
+  F --> G[Ask a real question]
+  E --> G
+  G --> H[Inspect checked citations and excerpts]
+  H --> I[Open the workspace]
+  I --> J[Help: revisit Milo's guide]
+```
+
+The practice question uses the existing workspace Q&A, model allowlist, SSE,
+quota, cancellation, and citation-validation paths. Guide runs have a distinct
+browser replay scope so opening Help cannot attach the main chat to the same
+run. Navigation/closing is blocked during an active guide upload or answer,
+with the existing Stop control available for answers. Successful practice
+answers join the existing browser-local recent-answer history; this does not
+implement durable product conversations.
+
+Help opens a local replay of the guide without resetting the saved goal,
+furthest phase, or completion. It clearly identifies uploads, questions, and
+invitations as real actions. Finishing setup early is supported, with a visible
+reminder that the guide remains available from Help. Live invitation delivery
+still depends on the configured authentication sender.
 
 Milo's onboarding state belongs to the authenticated workspace membership.
 The API stores the selected goal, furthest step, and completion. Database

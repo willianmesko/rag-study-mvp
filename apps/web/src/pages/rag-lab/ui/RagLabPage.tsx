@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Session } from "@supabase/supabase-js";
-import type { QuestionHistoryEntry } from "../../../entities/question/model/history";
+import type { WorkspaceOnboardingProgress } from "@rag-study/contracts";
+import { createQuestionHistoryEntry, readQuestionHistory } from "../../../entities/question/model/history";
 import { DocumentIngestionForm } from "../../../features/document-ingestion/ui/DocumentIngestionForm";
 import { useConversation } from "../../../features/question-answering/model/use-conversation";
 import { QuestionAnswerForm } from "../../../features/question-answering/ui/QuestionAnswerForm";
@@ -23,6 +24,7 @@ import { WorkspaceSwitcher } from "../../../widgets/lab-layout/ui/WorkspaceSwitc
 
 const OnboardingPage = lazy(() => import("../../onboarding/ui/OnboardingPage").then(({ OnboardingPage }) => ({ default: OnboardingPage })));
 const WorkspaceControlCenter = lazy(() => import("../../../widgets/workspace-control-center/ui/WorkspaceControlCenter").then(({ WorkspaceControlCenter }) => ({ default: WorkspaceControlCenter })));
+const WorkspaceGuideHelp = lazy(() => import("../../../widgets/workspace-onboarding/ui/WorkspaceGuideHelp").then(({ WorkspaceGuideHelp }) => ({ default: WorkspaceGuideHelp })));
 const overviewPath = "/workspace/overview";
 const publicDemo = import.meta.env.VITE_DEMO_MODE === "true";
 const canIndexDemo = import.meta.env.DEV && !publicDemo;
@@ -44,15 +46,6 @@ function readLocal(key: string): string | null {
 
 function saveLocal(key: string, value: string): void {
   try { window.localStorage.setItem(key, value); } catch { /* Storage is optional. */ }
-}
-
-function readQuestionHistory(key: string): QuestionHistoryEntry[] {
-  try {
-    const entries: unknown = JSON.parse(readLocal(key) ?? "[]");
-    return Array.isArray(entries) ? entries as QuestionHistoryEntry[] : [];
-  } catch {
-    return [];
-  }
 }
 
 function StatusScreen({ message, onRetry, onSignOut }: { message: string; onRetry?: () => void; onSignOut?: () => void }) {
@@ -219,7 +212,7 @@ export function RagLabPage() {
   const lab = route.kind === "private" && canViewRoute(route.lab, activeWorkspace.role) ? route.lab : { tab: "admin", workspaceSection: "overview" } as const;
   const scope = `${userId}:${activeWorkspace.tenantId}`;
   return <LabExperience key={scope} scope={scope} lab={lab}
-    privateArea={{ token, workspace: activeWorkspace, workspaces, onWorkspaceChange: selectWorkspace, onWorkspaceCreated: workspaceCreated }}
+    privateArea={{ token, workspace: activeWorkspace, workspaces, guideProgress: onboarding.progress, onWorkspaceChange: selectWorkspace, onWorkspaceCreated: workspaceCreated }}
     accountAction={{ label: signingOut ? t("Signing out…", "Saindo…") : t("Sign out", "Sair"), onClick: () => void signOut(), disabled: signingOut }}
     accountError={signOutMessage} onboardingSyncing={onboarding.syncing}
     onRetryOnboardingSync={onboarding.syncFailed && !onboarding.syncing ? onboarding.retry : undefined} />;
@@ -227,6 +220,7 @@ export function RagLabPage() {
 
 type PrivateArea = {
   token: string;
+  guideProgress: WorkspaceOnboardingProgress;
   workspace: Workspace;
   workspaces: Workspace[];
   onWorkspaceChange: (workspaceId: string) => void;
@@ -246,6 +240,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
   const demo = !privateArea;
   const historyKey = `lumora-question-history-v2:${scope}`;
   const [history, setHistory] = useState(() => readQuestionHistory(historyKey));
+  const [guideOpen, setGuideOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState<QuestionSource | null>(null);
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 30_000 });
   const activeTab = lab.tab;
@@ -264,10 +259,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
   useEffect(() => { saveLocal(historyKey, JSON.stringify(history)); }, [history, historyKey]);
 
   function addAnswer({ question, response }: { question: string; response: { answer: string; sources: QuestionSource[] } }) {
-    setHistory((items) => [{
-      id: crypto.randomUUID(), question, answer: response.answer, sources: response.sources,
-      createdAt: new Date().toISOString(), feedback: null
-    }, ...items].slice(0, 20));
+    setHistory((items) => [createQuestionHistoryEntry({ question, response }), ...items].slice(0, 20));
   }
 
   function setFeedback(id: string, feedback: "up" | "down") {
@@ -280,7 +272,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
       <div className="ambient-glow ambient-glow--blue" aria-hidden="true" />
       <div className="relative grid min-h-screen w-full content-start grid-cols-[minmax(0,1fr)] lg:content-stretch lg:grid-cols-[17rem_minmax(0,1fr)]">
         <LabNavigation activeTab={activeTab} onTabChange={(tab) => navigateTo(pathForTab(tab, lab.workspaceSection, demo))}
-          publicDemo={demo} canIndex={demo && canIndexDemo}
+          publicDemo={demo} canIndex={demo && canIndexDemo} onHelp={privateArea ? () => setGuideOpen(true) : undefined}
           workspaceControl={privateArea ? <WorkspaceSwitcher workspaces={privateArea.workspaces} selectedId={privateArea.workspace.tenantId}
             onChange={privateArea.onWorkspaceChange} compact={isChat}
             creation={{ accessToken: privateArea.token, onWorkspaceCreated: privateArea.onWorkspaceCreated }} /> : undefined} />
@@ -309,6 +301,10 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
           </div>
         </section>
       </div>
+      {guideOpen && privateArea && <Suspense fallback={<p className="sr-only" role="status">{t("Opening Milo’s guide…", "Abrindo o guia do Milo…")}</p>}>
+        <WorkspaceGuideHelp workspace={privateArea.workspace} token={privateArea.token} scope={scope} progress={privateArea.guideProgress}
+          onClose={() => setGuideOpen(false)} onAnswered={addAnswer} />
+      </Suspense>}
     </main>
   );
 }

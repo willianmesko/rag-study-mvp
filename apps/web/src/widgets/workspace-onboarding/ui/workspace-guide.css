@@ -21,7 +21,7 @@
   gap: clamp(0.5rem, 3vw, 1.5rem);
 }
 
-.workspace-guide__hero h1 {
+.workspace-guide__hero :is(h1, h2) {
   margin-block: 0.25rem 0.5rem;
   color: #f8fafc;
   font-size: clamp(1.45rem, 4vw, 2.3rem);

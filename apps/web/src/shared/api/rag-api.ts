@@ -164,7 +164,7 @@ export const api = {
     if (!saved) throw new Error("The guide progress was not saved.");
     return saved;
   },
-  listWorkspaceMembers: (workspaceId: string, accessToken: string) => request<{ members: WorkspaceMember[] }>(`/v1/workspaces/${workspaceId}/members`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listWorkspaceMembers: (workspaceId: string, accessToken: string, signal?: AbortSignal) => request<{ members: WorkspaceMember[] }>(`/v1/workspaces/${workspaceId}/members`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   inviteWorkspaceMember: (input: { workspaceId: string; email: string; role: "editor" | "viewer"; accessToken: string }) => request<{ member: Omit<WorkspaceMember, "createdAt"> }>(`/v1/workspaces/${input.workspaceId}/invitations`, { method: "POST", body: JSON.stringify({ email: input.email, role: input.role }), headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
   changeWorkspaceMemberRole: (input: { workspaceId: string; userId: string; role: "editor" | "viewer"; accessToken: string }) => requestVoid(`/v1/workspaces/${input.workspaceId}/members/${input.userId}`, { method: "PATCH", body: JSON.stringify({ role: input.role }), headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
   removeWorkspaceMember: (input: { workspaceId: string; userId: string; accessToken: string }) => requestVoid(`/v1/workspaces/${input.workspaceId}/members/${input.userId}`, { method: "DELETE", headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
@@ -195,7 +195,7 @@ export const api = {
       method: "POST", signal, body: JSON.stringify(input),
       headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
     })),
-  listUploads: (accessToken: string, workspaceId?: string) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
+  listUploads: (accessToken: string, workspaceId?: string, signal?: AbortSignal) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { signal, headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
   listUploadEvents: (jobId: string, accessToken: string, workspaceId?: string) => request<{ events: IngestionEvent[] }>(`/v1/admin/uploads/${jobId}/events`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   previewUploadPassages: (jobId: string, accessToken: string, workspaceId: string, signal: AbortSignal) =>
     request<IngestionPassagePreview>(`/v1/admin/uploads/${encodeURIComponent(jobId)}/preview`, {
@@ -208,7 +208,7 @@ export const api = {
       method: "POST", body: JSON.stringify(options), headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
     }),
   retryUpload: (jobId: string, accessToken: string, workspaceId?: string) => request<{ jobId: string; status: string }>(`/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
-  listDocuments: (accessToken: string, workspaceId?: string) => request<{ documents: ManagedDocument[] }>("/v1/admin/documents", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listDocuments: (accessToken: string, workspaceId?: string, signal?: AbortSignal) => request<{ documents: ManagedDocument[] }>("/v1/admin/documents", { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   getOriginalDocument: async (input: { documentId: string; accessToken: string; workspaceId: string; signal: AbortSignal }): Promise<OriginalDocumentFile> => {
     const response = await fetch(`${apiBaseUrl}/v1/admin/documents/${encodeURIComponent(input.documentId)}/original`, {
       headers: { authorization: `Bearer ${input.accessToken}`, "x-workspace-id": input.workspaceId },
@@ -234,9 +234,9 @@ export const api = {
       headers: { authorization: `Bearer ${input.accessToken}`, "x-workspace-id": input.workspaceId },
       body: JSON.stringify({ url: input.url, title: input.title })
     }),
-  uploadDocument: async (input: { file: File; source: string; title?: string; accessToken: string; workspaceId?: string }) => {
+  uploadDocument: async (input: { file: File; source: string; title?: string; accessToken: string; workspaceId?: string; signal?: AbortSignal }) => {
     const body = new FormData(); body.append("file", input.file);
-    const response = await fetch(`${apiBaseUrl}/v1/admin/uploads`, { method: "POST", body, headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId), "x-document-source": input.source, ...(input.title ? { "x-document-title": input.title } : {}) } });
+    const response = await fetch(`${apiBaseUrl}/v1/admin/uploads`, { method: "POST", body, signal: input.signal, headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId), "x-document-source": input.source, ...(input.title ? { "x-document-title": input.title } : {}) } });
     if (!response.ok) { const error = await response.json().catch(() => ({})) as ErrorBody; throw new ApiError(error.error ?? "The file could not be uploaded.", response.status); }
     return response.json() as Promise<{ job: UploadJob }>;
   }

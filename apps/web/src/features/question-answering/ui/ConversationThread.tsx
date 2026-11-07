@@ -60,11 +60,12 @@ function TurnReply({ turn, live }: { turn: ConversationTurn; live: ReturnType<ty
   </div>;
 }
 
-export function ConversationThread({ turns, live, demo, onSuggestion }: {
+export function ConversationThread({ turns, live, demo, onSuggestion, suggestions: customSuggestions }: {
   turns: ConversationTurn[];
   live: ReturnType<typeof useConversation>["live"];
   demo: boolean;
   onSuggestion: (message: string) => void;
+  suggestions?: string[];
 }) {
   const { t } = useLocale();
   const transcript = useRef<HTMLDivElement>(null);
@@ -99,7 +100,7 @@ export function ConversationThread({ turns, live, demo, onSuggestion }: {
     setShowLatest(!pinned.current);
   }
 
-  const suggestions = [
+  const suggestions = customSuggestions ?? [
     t("Summarize the main points", "Resuma os pontos principais"),
     t("What can I learn from these documents?", "O que posso aprender com estes documentos?")
   ];

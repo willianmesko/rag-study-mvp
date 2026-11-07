@@ -1,14 +1,13 @@
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api, type WorkspaceMember } from "../../../shared/api/rag-api";
+import { InviteMemberDialog } from "../../../features/invite-workspace-member/ui/InviteMemberDialog";
 import { useLocale, type Translate } from "../../../shared/i18n/locale";
 import { workspaceRequestError } from "../../../shared/lib/request-error";
-import { SelectField } from "../../../shared/ui/SelectField";
 import { ActionMenu } from "../../../shared/ui/ActionMenu";
-import { Overlay } from "../../../shared/ui/Overlay";
 import { workspaceRoleLabel } from "../model/labels";
 import { membersQuery } from "../model/queries";
-import { MemberAccessDialog, type MemberEdit, type MemberRole } from "./MemberAccessDialog";
+import { MemberAccessDialog, type MemberEdit } from "./MemberAccessDialog";
 import { WorkspaceQueryFeedback } from "./WorkspaceQueryFeedback";
 import { WorkspacePageHeader } from "./WorkspacePageHeader";
 
@@ -16,43 +15,16 @@ function memberName(member: WorkspaceMember, t: Translate) {
   return member.email ?? t("Email unavailable", "E-mail indisponível");
 }
 
-function inviteError(error: unknown, t: Translate) {
-  if (error instanceof ApiError) {
-    switch (error.status) {
-      case 400: return t("Check the email address and try again.", "Confira o endereço de e-mail e tente novamente.");
-      case 409: return t("The invitation could not be sent. Check whether this person already has a Lumora account.",
-        "O convite não pôde ser enviado. Verifique se a pessoa já tem uma conta no Lumora.");
-      case 503: return t("Email invitations are currently unavailable for this workspace.",
-        "Os convites por e-mail estão indisponíveis neste espaço no momento.");
-    }
-  }
-  return workspaceRequestError(error, t, t("We couldn’t send the invitation. Try again in a moment.",
-    "Não foi possível enviar o convite. Tente novamente em instantes."));
-}
-
 export function WorkspaceTeam({ workspaceId, token }: { workspaceId: string; token: string }) {
   const { locale, t } = useLocale();
   const queryClient = useQueryClient();
   const memberOptions = membersQuery(token, workspaceId);
   const members = useQuery(memberOptions);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<MemberRole>("viewer");
+  const [invitedEmail, setInvitedEmail] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [selection, setSelection] = useState<{ type: MemberEdit["type"]; member: WorkspaceMember } | null>(null);
-  const emailInput = useRef<HTMLInputElement>(null);
   const membersHeading = useRef<HTMLHeadingElement>(null);
-  const inviteHintId = useId();
-  const inviteErrorId = useId();
   const refreshMembers = () => queryClient.invalidateQueries({ queryKey: memberOptions.queryKey, exact: true });
-  const invite = useMutation({
-    mutationFn: ({ email, role }: { email: string; role: MemberRole }) =>
-      api.inviteWorkspaceMember({ workspaceId, email, role, accessToken: token }),
-    onSuccess: () => {
-      setInviteEmail("");
-      setInviteOpen(false);
-      void refreshMembers();
-    }
-  });
   const editMember = useMutation({
     mutationFn: ({ action, member }: { action: MemberEdit; member: WorkspaceMember }) => {
       const input = { workspaceId, userId: member.userId, accessToken: token };
@@ -81,21 +53,11 @@ export function WorkspaceTeam({ workspaceId, token }: { workspaceId: string; tok
     label: workspaceRoleLabel(value, t),
     description: roleDetails[value]
   }));
-  const email = inviteEmail.trim().toLowerCase();
-  const existingMember = members.data?.members.some((member) => member.email?.toLowerCase() === email);
-  const invitationProblem = existingMember
-    ? t("This person already has access. Review their role in the member list.", "Esta pessoa já tem acesso. Confira o perfil dela na lista de pessoas.")
-    : invite.isError ? inviteError(invite.error, t) : null;
   const count = members.data?.members.length;
   const formattedCount = count === undefined ? null : new Intl.NumberFormat(locale).format(count);
   const countLabel = count === undefined ? null : count === 1
     ? t("1 member", "1 pessoa")
     : t(`${formattedCount} members`, `${formattedCount} pessoas`);
-
-  function submitInvitation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (email && !invite.isPending && !existingMember) invite.mutate({ email, role: inviteRole });
-  }
 
   function openMemberDialog(type: MemberEdit["type"], member: WorkspaceMember) {
     editMember.reset();
@@ -120,36 +82,14 @@ export function WorkspaceTeam({ workspaceId, token }: { workspaceId: string; tok
   return (
     <div className="space-y-6">
       <WorkspacePageHeader title={t("Workspace members", "Pessoas no espaço")} description={countLabel ?? undefined} headingRef={membersHeading}>
-        <button className="primary-button" type="button" aria-haspopup="dialog" onClick={() => { invite.reset(); setInviteOpen(true); }}>
+        <button className="primary-button" type="button" aria-haspopup="dialog" onClick={() => { setInvitedEmail(null); setInviteOpen(true); }}>
           {t("Invite a teammate", "Convidar pessoa")}
         </button>
       </WorkspacePageHeader>
-      {inviteOpen && <Overlay title={t("Invite a teammate", "Convidar pessoa")} pending={invite.isPending} initialFocusRef={emailInput}
-        description={t("Send an email invitation and choose their access.", "Envie um convite por e-mail e escolha o tipo de acesso.")} onClose={() => setInviteOpen(false)}>
-        <form className="space-y-4" onSubmit={submitInvitation} aria-busy={invite.isPending}>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)]">
-            <label className="grid min-w-0 gap-1.5 text-xs font-medium text-slate-300">
-              {t("Email address", "Endereço de e-mail")}
-              <input ref={emailInput} className="field" type="email" inputMode="email" autoComplete="email" spellCheck={false}
-                maxLength={320} value={inviteEmail} onChange={(event) => { setInviteEmail(event.target.value); invite.reset(); }}
-                placeholder={t("name@example.com", "nome@exemplo.com")} readOnly={invite.isPending} required
-                aria-invalid={existingMember || (invite.error instanceof ApiError && invite.error.status === 400) || undefined}
-                aria-describedby={invitationProblem ? inviteErrorId : undefined} />
-            </label>
-            <SelectField label={t("Access role", "Tipo de acesso")} value={inviteRole} options={roleOptions} disabled={invite.isPending}
-              onValueChange={(role) => { if (role === "editor" || role === "viewer") { setInviteRole(role); invite.reset(); } }} />
-          </div>
-          <p id={inviteHintId} className="text-sm text-slate-300">{roleDetails[inviteRole]}</p>
-          {invitationProblem && <p className="error-message" id={inviteErrorId} role="alert">{invitationProblem}</p>}
-          <div className="flex flex-wrap gap-2">
-            <button type="submit" className="primary-button" disabled={invite.isPending || !email || existingMember}
-              aria-describedby={inviteHintId}>{invite.isPending ? t("Sending invitation…", "Enviando convite…") : t("Send invitation", "Enviar convite")}</button>
-            <button type="button" className="secondary-button" disabled={invite.isPending} onClick={() => setInviteOpen(false)}>{t("Cancel", "Cancelar")}</button>
-          </div>
-        </form>
-      </Overlay>}
-      {invite.isSuccess && <p className="success-message break-words" role="status">{t(`Invitation sent to ${invite.data.member.email}.`,
-        `Convite enviado para ${invite.data.member.email}.`)}</p>}
+      {inviteOpen && <InviteMemberDialog token={token} workspaceId={workspaceId} onClose={() => setInviteOpen(false)}
+        onInvited={(email) => { setInvitedEmail(email); setInviteOpen(false); }} />}
+      {invitedEmail && <p className="success-message break-words" role="status">{t(`Invitation sent to ${invitedEmail}.`,
+        `Convite enviado para ${invitedEmail}.`)}</p>}
       <section className="space-y-4" aria-label={t("Members", "Pessoas")}>
         <WorkspaceQueryFeedback query={members} loading={t("Loading workspace members…", "Carregando pessoas do espaço…")}
           failure={t("We couldn’t load the member list.", "Não foi possível carregar a lista de pessoas.")} />

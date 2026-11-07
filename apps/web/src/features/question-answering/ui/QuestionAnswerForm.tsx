@@ -8,12 +8,14 @@ import { SelectField } from "../../../shared/ui/SelectField";
 import type { useConversation } from "../model/use-conversation";
 import { ConversationThread } from "./ConversationThread";
 
-export function QuestionAnswerForm({ conversation, accessToken, workspaceId, workspaceName, scope }: {
+export function QuestionAnswerForm({ conversation, accessToken, workspaceId, workspaceName, scope, embedded = false, suggestions }: {
   conversation: ReturnType<typeof useConversation>;
   accessToken?: string | null;
   workspaceId?: string;
   workspaceName?: string;
   scope: string;
+  embedded?: boolean;
+  suggestions?: string[];
 }) {
   const { t } = useLocale();
   const [question, setQuestion] = useState("");
@@ -44,6 +46,8 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
   const autoSelected = autoAvailable && !comparing && preferredModelId === "auto";
   const isStreaming = live.phase !== null;
   const busy = isStreaming || comparison.isPending || turns.some((turn) => turn.status === "pending");
+  const Heading = embedded ? "h3" : "h1";
+
   const modelOptions = (available: typeof models) => available.map(({ id, label, isDefault }) => ({
     value: id, label, description: isDefault ? t("Workspace default", "Padrão do espaço") : undefined
   }));
@@ -84,14 +88,14 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
     composer.current?.focus({ preventScroll: true });
   }
 
-  return <section aria-labelledby={titleId} className="flex h-[clamp(31rem,76svh,49rem)] w-full min-w-0 flex-col rounded-2xl border border-slate-700/80 bg-slate-950/65 shadow-2xl shadow-slate-950/40 sm:rounded-3xl lg:h-[calc(100svh-7rem)] lg:min-h-[31rem]">
+  return <section aria-labelledby={titleId} className={`flex w-full min-w-0 flex-col rounded-2xl border border-slate-700/80 bg-slate-950/65 shadow-2xl shadow-slate-950/40 sm:rounded-3xl ${embedded ? "h-[38rem] max-h-[85svh] min-h-[30rem]" : "h-[clamp(31rem,76svh,49rem)] lg:h-[calc(100svh-7rem)] lg:min-h-[31rem]"}`}>
     <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-3 py-3 sm:px-5 sm:py-4">
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 sm:size-12">
           <Mascot decorative size="sm" className="size-9 sm:size-10" />
         </div>
         <div className="min-w-0">
-          <h1 id={titleId} className="text-base font-semibold tracking-tight text-white sm:text-lg">{t("Chat with Milo", "Converse com o Milo")}</h1>
+          <Heading id={titleId} className="text-base font-semibold tracking-tight text-white sm:text-lg">{t("Chat with Milo", "Converse com o Milo")}</Heading>
           <p className="flex min-w-0 items-center gap-1.5 text-xs leading-5 text-slate-300">
             <span className="size-1.5 shrink-0 rounded-full bg-cyan-300" aria-hidden="true" />
             <span className="truncate" title={workspaceName}>{workspaceName ?? t("Demo workspace", "Espaço de demonstração")}</span>
@@ -105,7 +109,7 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
         <span className="sr-only min-[375px]:not-sr-only">{t("New chat", "Nova conversa")}</span>
       </button>
     </header>
-    <ConversationThread turns={turns} live={live} demo={!accessToken} onSuggestion={(message) => {
+    <ConversationThread turns={turns} live={live} demo={!accessToken} suggestions={suggestions} onSuggestion={(message) => {
       updateQuestion(message);
       composer.current?.focus();
     }} />

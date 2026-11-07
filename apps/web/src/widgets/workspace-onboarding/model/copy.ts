@@ -30,7 +30,7 @@ export const guideCopy: Record<"en" | "pt-BR", GuideCopy> = {
     steps: {
       purpose: { label: "Your goal", title: "What will you use Lumora for?", description: "Choose a starting point for your team. Milo will suggest a document and show how to find an answer." },
       knowledge: { label: "Documents", title: "Start with a document you trust", description: "A current guide, policy, or checklist gives your team a good place to start." },
-      answer: { label: "Answers and sources", title: "See how an answer comes together", description: "Try an example, then check the source before relying on the answer." }
+      answer: { label: "Answers and sources", title: "Ask your first question", description: "Use a prepared document, then open the source to check what supports the answer." }
     },
     paths: {
       knowledge: {
@@ -77,7 +77,7 @@ export const guideCopy: Record<"en" | "pt-BR", GuideCopy> = {
     steps: {
       purpose: { label: "Seu objetivo", title: "Como você quer usar o Lumora?", description: "Escolha um ponto de partida para sua equipe. O Milo vai sugerir um documento e mostrar como encontrar uma resposta." },
       knowledge: { label: "Documentos", title: "Comece com um documento confiável", description: "Um guia, uma política ou um checklist atualizado já é um bom ponto de partida para sua equipe." },
-      answer: { label: "Respostas e fontes", title: "Veja como uma resposta é construída", description: "Experimente o exemplo e confira a fonte antes de usar a resposta." }
+      answer: { label: "Respostas e fontes", title: "Faça sua primeira pergunta", description: "Use um documento pronto e abra a fonte para conferir o que sustenta a resposta." }
     },
     paths: {
       knowledge: {

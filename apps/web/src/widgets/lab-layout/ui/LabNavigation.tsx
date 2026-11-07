@@ -11,12 +11,13 @@ const tabs = [
   ["admin", "Workspace", "Espaço de trabalho", "05"]
 ] as const;
 
-export function LabNavigation({ activeTab, onTabChange, publicDemo, canIndex, workspaceControl }: {
+export function LabNavigation({ activeTab, onTabChange, publicDemo, canIndex, workspaceControl, onHelp }: {
   activeTab: LabRoute["tab"];
   onTabChange: (tab: LabRoute["tab"]) => void;
   publicDemo: boolean;
   canIndex: boolean;
   workspaceControl?: ReactNode;
+  onHelp?: () => void;
 }) {
   const { t } = useLocale();
   const visibleTabs = tabs.filter(([id]) => (id !== "ingest" || canIndex) && (id !== "admin" || !publicDemo));
@@ -41,6 +42,11 @@ export function LabNavigation({ activeTab, onTabChange, publicDemo, canIndex, wo
             <span className="font-medium">{t(english, portuguese)}</span>
           </button>
         ))}
+        {onHelp && <button type="button" onClick={onHelp} aria-haspopup="dialog"
+          className="flex min-h-11 shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-300 transition-colors hover:bg-slate-800 hover:text-slate-100 lg:py-3">
+          <span aria-hidden="true" className="font-mono text-[11px] text-slate-400">?</span>
+          <span className="font-medium">{t("Help", "Ajuda")}</span>
+        </button>}
       </nav>
       <div className="mt-7 hidden rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-xs leading-5 text-slate-400 lg:block">
         <p className="font-medium text-slate-300">{t("How Lumora works", "Como o Lumora funciona")}</p>
