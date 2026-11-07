@@ -4,8 +4,8 @@ import { DemoLibraryDialog } from "../../../features/demo-libraries/ui/DemoLibra
 import { DocumentFilters } from "../../../features/filter-documents/ui/DocumentFilters";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { OriginalDocumentAction } from "../../../features/open-original-document/ui/OriginalDocumentAction";
-import { UrlImportForm } from "../../../features/workspace-source-upload/ui/UrlImportForm";
-import { WorkspaceFileUpload } from "../../../features/workspace-source-upload/ui/WorkspaceFileUpload";
+import { WorkspaceSourceDialog } from "../../../features/workspace-source-upload/ui/WorkspaceSourceDialog";
+import { knowledgeStatusQuery } from "../../../entities/workspace/model/knowledge";
 import { api, type ManagedDocument, type Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { workspaceRequestError } from "../../../shared/lib/request-error";
@@ -27,8 +27,6 @@ export function WorkspaceKnowledge({ workspace, token, onAsk }: { workspace: Wor
   const heading = useRef<HTMLHeadingElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [sourceType, setSourceType] = useState<"file" | "url">("file");
-  const [uploading, setUploading] = useState(false);
   const [added, setAdded] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>({});
@@ -48,12 +46,7 @@ export function WorkspaceKnowledge({ workspace, token, onAsk }: { workspace: Wor
   function refreshKnowledge() {
     void queryClient.invalidateQueries({ queryKey: documentsQuery(token, workspaceId).queryKey });
     void queryClient.invalidateQueries({ queryKey: ingestionJobsQuery(token, workspaceId).queryKey });
-  }
-
-  function materialAdded() {
-    refreshKnowledge();
-    setAdding(false);
-    setAdded(true);
+    void queryClient.invalidateQueries({ queryKey: knowledgeStatusQuery(token, workspaceId).queryKey });
   }
 
   const action = useMutation({
@@ -81,22 +74,14 @@ export function WorkspaceKnowledge({ workspace, token, onAsk }: { workspace: Wor
     <div className="space-y-6">
       <WorkspacePageHeader title={t("Documents", "Documentos")} description={t("Your team’s searchable source library.", "Os materiais que sua equipe pode consultar.")} headingRef={heading}>
         <button type="button" className="secondary-button" aria-haspopup="dialog" onClick={() => setDemoOpen(true)}>{t("Demo libraries", "Bibliotecas de exemplo")}</button>
-        {canManage && <button type="button" className="primary-button" aria-haspopup="dialog" onClick={() => { setUploading(false); setAdded(false); setAdding(true); }}>
+        {canManage && <button type="button" className="primary-button" aria-haspopup="dialog" onClick={() => { setAdded(false); setAdding(true); }}>
           {t("Add documents", "Adicionar documentos")}
         </button>}
       </WorkspacePageHeader>
       {demoOpen && <DemoLibraryDialog token={token} workspaceId={workspaceId} role={workspace.role} onClose={() => setDemoOpen(false)} onImported={refreshKnowledge}
         onAsk={onAsk ? (question) => { setDemoOpen(false); onAsk(question); } : undefined}
         onInspectDocument={(documentId) => { setDemoOpen(false); setFilters({ documentId }); setSelectedId(documentId); }} />}
-      {adding && canManage && <Overlay title={t("Add documents", "Adicionar documentos")} pending={uploading} onClose={() => setAdding(false)}>
-        <div className="flex gap-2" role="group" aria-label={t("Source type", "Tipo de material")}>
-          <button type="button" className={sourceType === "file" ? "primary-button" : "secondary-button"} aria-pressed={sourceType === "file"} disabled={uploading} onClick={() => setSourceType("file")}>{t("File", "Arquivo")}</button>
-          <button type="button" className={sourceType === "url" ? "primary-button" : "secondary-button"} aria-pressed={sourceType === "url"} disabled={uploading} onClick={() => setSourceType("url")}>{t("Web page", "Página da web")}</button>
-        </div>
-        {sourceType === "file"
-          ? <WorkspaceFileUpload token={token} workspaceId={workspaceId} onUploaded={materialAdded} onPendingChange={setUploading} />
-          : <UrlImportForm accessToken={token} workspaceId={workspaceId} onImported={materialAdded} onPendingChange={setUploading} />}
-      </Overlay>}
+      {adding && canManage && <WorkspaceSourceDialog token={token} workspaceId={workspaceId} onClose={() => setAdding(false)} onAdded={() => setAdded(true)} />}
       {added && <p className="success-message" role="status">{t("Material received. Follow its progress in Processing.", "Material recebido. Acompanhe o andamento em Processamento.")}</p>}
       <div className="space-y-3">
         <DocumentFilters value={filters} documents={availableDocuments} onChange={setFilters} />

@@ -1,4 +1,5 @@
 import { usageResponseSchema } from "@rag-study/contracts";
+import { knowledgeStatusSchema } from "@rag-study/contracts";
 import { workflowSnapshotSchema, type WorkflowSnapshot } from "@rag-study/contracts";
 import { chatModelCatalogSchema, demoLibraryCatalogSchema, demoSeedResponseSchema, questionComparisonResponseSchema, workspaceChatModelPolicyResponseSchema, workspaceOnboardingResponseSchema,
   mcpAccessIssuedSchema, mcpAccessStatusSchema,
@@ -180,6 +181,11 @@ export const api = {
   changeWorkspaceMemberRole: (input: { workspaceId: string; userId: string; role: "editor" | "viewer"; accessToken: string }) => requestVoid(`/v1/workspaces/${input.workspaceId}/members/${input.userId}`, { method: "PATCH", body: JSON.stringify({ role: input.role }), headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
   removeWorkspaceMember: (input: { workspaceId: string; userId: string; accessToken: string }) => requestVoid(`/v1/workspaces/${input.workspaceId}/members/${input.userId}`, { method: "DELETE", headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
   health: () => request<Health>("/health"),
+  knowledgeStatus: async (accessToken?: string | null, workspaceId?: string, signal?: AbortSignal) => knowledgeStatusSchema.parse(
+    await request<unknown>("/v1/knowledge/status", { signal, headers: {
+      ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}), ...workspaceHeaders(workspaceId)
+    } })
+  ),
   ingest: (input: DocumentInput) =>
     request<IngestResponse>("/v1/documents", { method: "POST", body: JSON.stringify(input) }),
   search: (input: SearchInput & { accessToken?: string; workspaceId?: string }) =>

@@ -1,14 +1,5 @@
 export function BrandMark({ compact = false }: { compact?: boolean }) {
   return <span aria-hidden="true" className={`brand-mark ${compact ? "brand-mark--compact" : ""}`}>
-    <svg viewBox="0 0 48 48" role="presentation">
-      <defs>
-        <linearGradient id="lumora-mark" x1="8" x2="40" y1="4" y2="44" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#67e8f9" />
-          <stop offset="1" stopColor="#818cf8" />
-        </linearGradient>
-      </defs>
-      <path fill="url(#lumora-mark)" d="M24 3.5c11.3 0 20.5 9.2 20.5 20.5S35.3 44.5 24 44.5 3.5 35.3 3.5 24 12.7 3.5 24 3.5Z" />
-      <path fill="#0b1220" d="M17.2 16.4c0-1.7 1.8-2.7 3.2-1.8l10.3 6.2c1.4.9 1.4 2.9 0 3.8l-10.3 6.2c-1.4.9-3.2-.1-3.2-1.8v-2.2l7.2-4.1-7.2-4.1v-2.2Z" />
-    </svg>
+    <img src="/brand/lumora-mark.svg?v=2" alt="" width="48" height="48" draggable={false} />
   </span>;
 }

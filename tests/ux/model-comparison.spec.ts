@@ -102,6 +102,7 @@ test("the public demo keeps its default model and existing stream", async ({ pag
     await route.fulfill({ status: 401, json: { error: "Missing session." } });
   });
   await context.route("**/health", (route) => route.fulfill({ json: { status: "ok" } }));
+  await context.route("**/v1/knowledge/status", (route) => route.fulfill({ json: { indexedDocuments: 1, passages: 2, processingJobs: 0, failedJobs: 0 } }));
   await context.route("**/v1/qa/stream", async (route) => {
     expect(route.request().postDataJSON()).toEqual({ question, topK: 5 });
     expect(route.request().headers().authorization).toBeUndefined();

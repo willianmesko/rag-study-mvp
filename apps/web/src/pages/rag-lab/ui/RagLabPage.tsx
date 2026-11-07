@@ -25,7 +25,9 @@ import { WorkspaceSwitcher } from "../../../widgets/lab-layout/ui/WorkspaceSwitc
 const OnboardingPage = lazy(() => import("../../onboarding/ui/OnboardingPage").then(({ OnboardingPage }) => ({ default: OnboardingPage })));
 const WorkspaceControlCenter = lazy(() => import("../../../widgets/workspace-control-center/ui/WorkspaceControlCenter").then(({ WorkspaceControlCenter }) => ({ default: WorkspaceControlCenter })));
 const WorkspaceGuideHelp = lazy(() => import("../../../widgets/workspace-onboarding/ui/WorkspaceGuideHelp").then(({ WorkspaceGuideHelp }) => ({ default: WorkspaceGuideHelp })));
+const WorkspaceSourceDialog = lazy(() => import("../../../features/workspace-source-upload/ui/WorkspaceSourceDialog").then(({ WorkspaceSourceDialog }) => ({ default: WorkspaceSourceDialog })));
 const overviewPath = "/workspace/overview";
+const askPath = "/ask";
 const publicDemo = import.meta.env.VITE_DEMO_MODE === "true";
 const canIndexDemo = import.meta.env.DEV && !publicDemo;
 const demoAvailable = publicDemo || import.meta.env.DEV;
@@ -35,7 +37,7 @@ function canViewRoute(lab: LabRoute, role: Workspace["role"]): boolean {
 }
 
 function accessibleWorkspacePath(path: string | null, role: Workspace["role"]): string {
-  if (!path) return overviewPath;
+  if (!path) return askPath;
   const route = readAppRoute(path);
   return route.kind === "private" && canViewRoute(route.lab, role) ? path : overviewPath;
 }
@@ -155,7 +157,7 @@ export function RagLabPage() {
     onboarding.update({ completed: true });
     setCreatedSetup(null);
     returnPath.current = null;
-    navigateTo(overviewPath, { replace: true });
+    navigateTo(askPath, { replace: true });
   }
 
   async function signOut() {
@@ -189,7 +191,7 @@ export function RagLabPage() {
   if (!authReady) return <StatusScreen message={loadingText} />;
   if (!session || !token || !userId) {
     return <SignInPage demoAvailable={demoAvailable} onSuccess={setSession}
-      onDemo={() => navigateTo(canIndexDemo ? "/demo/index" : "/demo")} />;
+      onDemo={() => navigateTo("/demo")} />;
   }
   if (workspaceQuery.isError) {
     return <StatusScreen message={signOutMessage ?? t("We could not load your workspaces.", "Não conseguimos carregar seus espaços de trabalho.")}
@@ -209,7 +211,7 @@ export function RagLabPage() {
     </Suspense>;
   }
 
-  const lab = route.kind === "private" && canViewRoute(route.lab, activeWorkspace.role) ? route.lab : { tab: "admin", workspaceSection: "overview" } as const;
+  const lab = route.kind === "private" && canViewRoute(route.lab, activeWorkspace.role) ? route.lab : { tab: "answer" } as const;
   const scope = `${userId}:${activeWorkspace.tenantId}`;
   return <LabExperience key={scope} scope={scope} lab={lab}
     privateArea={{ token, workspace: activeWorkspace, workspaces, guideProgress: onboarding.progress, onWorkspaceChange: selectWorkspace, onWorkspaceCreated: workspaceCreated }}
@@ -241,6 +243,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
   const historyKey = `lumora-question-history-v2:${scope}`;
   const [history, setHistory] = useState(() => readQuestionHistory(historyKey));
   const [guideOpen, setGuideOpen] = useState(false);
+  const [addingDocuments, setAddingDocuments] = useState(false);
   const [suggestion, setSuggestion] = useState<{ id: string; text: string } | null>(null);
   const [selectedSource, setSelectedSource] = useState<QuestionSource | null>(null);
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 30_000 });
@@ -290,7 +293,9 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
               {activeTab === "ingest" && <DocumentIngestionForm />}
               {activeTab === "search" && <SemanticSearchForm accessToken={privateArea?.token} workspaceId={workspaceId} workspaceName={workspaceName} />}
               {activeTab === "answer" && <QuestionAnswerForm scope={scope} accessToken={privateArea?.token} workspaceId={workspaceId}
-                workspaceName={workspaceName} conversation={conversation} suggestion={suggestion} onSuggestionUsed={() => setSuggestion(null)} />}
+                workspaceName={workspaceName} workspaceRole={privateArea?.workspace.role}
+                onAddDocuments={privateArea && privateArea.workspace.role !== "viewer" ? () => setAddingDocuments(true) : undefined}
+                conversation={conversation} suggestion={suggestion} onSuggestionUsed={() => setSuggestion(null)} />}
               {activeTab === "history" && <QuestionHistoryPanel history={history} onClear={() => setHistory([])} onFeedback={setFeedback} onInspectSource={setSelectedSource} />}
               {lab.tab === "admin" && privateArea && <Suspense fallback={<p role="status" className="empty-state">{t("Opening workspace…", "Abrindo o espaço…")}</p>}>
                 <WorkspaceControlCenter section={lab.workspaceSection} workspace={privateArea.workspace} token={privateArea.token}
@@ -306,6 +311,9 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
       {guideOpen && privateArea && <Suspense fallback={<p className="sr-only" role="status">{t("Opening Milo’s guide…", "Abrindo o guia do Milo…")}</p>}>
         <WorkspaceGuideHelp workspace={privateArea.workspace} token={privateArea.token} scope={scope} progress={privateArea.guideProgress}
           onClose={() => setGuideOpen(false)} onAnswered={addAnswer} />
+      </Suspense>}
+      {addingDocuments && privateArea && privateArea.workspace.role !== "viewer" && <Suspense fallback={<p className="sr-only" role="status">{t("Opening document upload…", "Abrindo envio de documentos…")}</p>}>
+        <WorkspaceSourceDialog token={privateArea.token} workspaceId={privateArea.workspace.tenantId} onClose={() => setAddingDocuments(false)} />
       </Suspense>}
     </main>
   );

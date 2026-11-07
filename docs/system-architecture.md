@@ -69,6 +69,49 @@ and expandable model and assistant controls.
 The desktop Ask surface fills its content column and the remaining viewport
 height. The message thread keeps a readable line width inside that surface.
 
+Ask is the first navigation destination. Page links use descriptive labels and
+icons without step numbers. Normal sign-in and completed onboarding open `/ask`;
+an authorized explicit deep link still returns to its own section. The public
+`/demo` entry opens Ask, with search available at `/demo/search`. The app mark
+and favicon share one SVG asset: open pages with a point of light.
+
+Before enabling a fresh question, chat reads `GET /v1/knowledge/status`. The
+application read-model port returns counts from the actual workspace index and
+all ingestion jobs in a single PostgreSQL snapshot, independently of paginated
+admin lists. Empty document rows do not unlock chat. The response contains only
+indexed-document, passage, pending-job and failed-job counts. Private requests
+must provide an explicit workspace, verified membership, and a valid session;
+viewers can read readiness. Anonymous demo requests are limited to the configured
+public corpus and cannot supply a tenant override. The existing API rate limit
+and no-store headers apply. No new tables, grants or RLS exceptions are required.
+
+An empty index shows Milo's document-first guidance instead of a composer or
+unsupported question suggestions. Owners/editors can explicitly add a file or
+public URL through the same protected intake dialog used by Knowledge. Selecting
+a file does not enqueue it; submitting does. Viewers are directed to an owner or
+editor. Processing is polled every three seconds while visible; indexed content
+unlocks the composer automatically without submitting a question. Ready indexes
+refresh every 15 seconds, and local upload/delete/reindex actions invalidate the
+scoped query. Each chat entry waits for a fresh status so cached counts cannot
+briefly unlock a deleted library. A readiness error offers retry and blocks new submission. Existing
+messages and active-run cancellation survive an availability change. These UI
+guards complement server authorization and evidence checks; an available index
+does not guarantee relevant evidence or a factually correct answer.
+
+```mermaid
+flowchart TD
+  Open[Open Ask] --> Check[Check indexed workspace passages]
+  Check -->|Available| Chat[Ask and inspect the answer's sources]
+  Check -->|Empty| Guide[Milo's first-document guidance]
+  Guide -->|Owner or editor| Add[Explicitly submit a file or public URL]
+  Guide -->|Viewer| Team[Ask an owner or editor to add documents]
+  Add --> Prepare[Extract, check, embed and index]
+  Check -->|Processing| Prepare
+  Prepare --> Check
+  Check -->|Status unavailable| Retry[Retry the status check]
+  Retry --> Check
+```
+
 Onboarding is organized around goals such as finding team knowledge, supporting
 others, and learning from documents. Each goal offers a reusable fictional
 Markdown starter in English or Portuguese, a download/preview, and grounded

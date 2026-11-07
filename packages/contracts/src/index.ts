@@ -3,6 +3,7 @@ import { z } from "zod";
 export * from "./mcp.js";
 export * from "./discovery.js";
 export * from "./usage.js";
+export * from "./knowledge.js";
 
 export const chatPromptVariantIdSchema = z.enum(["balanced", "concise", "explanatory"]);
 export type ChatPromptVariantId = z.infer<typeof chatPromptVariantIdSchema>;

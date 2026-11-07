@@ -67,7 +67,7 @@ export const guideCopy: Record<"en" | "pt-BR", GuideCopy> = {
     similarity: "A similarity score shows how closely a passage matches your question. Check what the passage actually says.",
     back: "Back",
     next: "Continue",
-    finish: "Finish and open workspace"
+    finish: "Finish and open chat"
   },
   "pt-BR": {
     guideLabel: "Configuração do espaço",
@@ -114,6 +114,6 @@ export const guideCopy: Record<"en" | "pt-BR", GuideCopy> = {
     similarity: "A pontuação de similaridade mostra o quanto um trecho combina com a pergunta. Leia o próprio trecho para conferir o que ele diz.",
     back: "Voltar",
     next: "Continuar",
-    finish: "Concluir e abrir espaço"
+    finish: "Concluir e abrir conversa"
   }
 };

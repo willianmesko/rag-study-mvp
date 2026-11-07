@@ -57,6 +57,7 @@ import { OllamaAnswerGenerator } from "./infrastructure/ollama/ollama-answer-gen
 import { OpenRouterAnswerGenerator } from "./infrastructure/openrouter/openrouter-answer-generator.js";
 import { OpenRouterFaithfulnessJudge } from "./infrastructure/openrouter/openrouter-faithfulness-judge.js";
 import { PgDocumentRepository } from "./infrastructure/postgres/pg-document-repository.js";
+import { PgKnowledgeStatusRepository } from "./infrastructure/postgres/pg-knowledge-status-repository.js";
 import { PgDemoLibraryRepository } from "./infrastructure/postgres/pg-demo-library-repository.js";
 import type { DocumentFilters } from "@rag-study/contracts";
 import { PgIngestionJobRepository } from "./infrastructure/postgres/pg-ingestion-job-repository.js";
@@ -642,6 +643,7 @@ export function createApplication() {
         limit: number,
         filters?: DocumentFilters,
       ) => documents.list(tenantId, limit, filters),
+      knowledgeStatus: new PgKnowledgeStatusRepository(pool),
       listDocumentChunks: (
         tenantId: string,
         documentId: string,

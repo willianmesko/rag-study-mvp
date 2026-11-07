@@ -21,8 +21,8 @@
   .panel { @apply rounded-2xl border border-slate-800/90 bg-slate-900/55 p-5 shadow-2xl shadow-slate-950/20 backdrop-blur sm:p-6; }
   .brand-mark { @apply grid size-10 shrink-0 place-items-center rounded-2xl bg-slate-900 shadow-lg shadow-cyan-950/30 ring-1 ring-cyan-300/20; }
   .brand-mark--compact { @apply size-8 rounded-xl; }
-  .brand-mark svg { @apply size-7; }
-  .brand-mark--compact svg { @apply size-5; }
+  .brand-mark img { @apply size-10; }
+  .brand-mark--compact img { @apply size-8; }
   .lumora-mascot { display: block; object-fit: contain; filter: drop-shadow(0 16px 28px rgb(34 211 238 / .13)); }
   .lumora-mascot--sm { width: 4.5rem; height: 4.5rem; }
   .lumora-mascot--md { width: 8rem; height: 8rem; }

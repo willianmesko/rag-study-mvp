@@ -54,6 +54,7 @@ export function GuidePractice({ workspace, token, scope, goal, onPendingChange, 
       <p>{t("Choose a suggested question or ask your own. This is a real workspace answer and counts toward your question limit. Open ‘Read sources and passages’ below the reply to check its evidence.",
         "Escolha uma sugestão ou faça sua pergunta. Esta é uma resposta real do espaço e conta no limite de perguntas. Abra ‘Ler fontes e trechos’ abaixo da resposta para conferir as evidências.")}</p>
       <QuestionAnswerForm embedded scope={`${scope}:guide`} accessToken={token} workspaceId={workspace.tenantId}
+        workspaceRole={workspace.role}
         workspaceName={workspace.tenantName} conversation={conversation} suggestions={suggestions} />
     </>}
     <GuideConcepts />

@@ -24,7 +24,7 @@ const team: Member[] = [
   { userId: "44444444-4444-4444-a444-444444444444", email: "knowledge.reviewer.with.a.long.address@example.test", role: "viewer", createdAt: date }
 ];
 
-export function workspaceFixture(initialProgress: GuideProgress | null = { goal: "it", step: "answer", completed: true }) {
+export function workspaceFixture(initialProgress: GuideProgress | null = { goal: "it", step: "answer", completed: true }, role: "owner" | "editor" | "viewer" = "owner") {
   let progress = initialProgress;
   let members = [...team];
   const changes = { deleted: [] as string[], updated: [] as string[], invitations: [] as string[] };
@@ -44,8 +44,11 @@ export function workspaceFixture(initialProgress: GuideProgress | null = { goal:
         const method = request.method();
         const headers = request.headers();
         if (headers.authorization !== `Bearer ${token}`) return route.fulfill({ status: 401, json: { error: "Missing fixture session." } });
-        if (pathname === "/v1/workspaces" && method === "GET") return route.fulfill({ json: { workspaces: [workspace] } });
+        if (pathname === "/v1/workspaces" && method === "GET") return route.fulfill({ json: { workspaces: [{ ...workspace, role }] } });
         if (headers["x-workspace-id"] !== workspaceId) return route.fulfill({ status: 403, json: { error: "Wrong fixture workspace." } });
+        // Chat tests start with a small indexed corpus. Empty-library journeys
+        // override this endpoint, independently of paginated admin fixtures.
+        if (pathname === "/v1/knowledge/status") return route.fulfill({ json: { indexedDocuments: 1, passages: 2, processingJobs: 0, failedJobs: 0 } });
 
         if (pathname === `${root}/onboarding`) {
           if (method === "PATCH") progress = request.postDataJSON() as GuideProgress;

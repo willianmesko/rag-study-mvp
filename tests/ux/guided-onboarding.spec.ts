@@ -92,7 +92,7 @@ test("a new team can create a workspace, prepare a sample, ask a real question, 
   await page.getByRole("button", { name: /^(Continue|Continuar)$/ }).click();
   await page.getByRole("button", { name: question, exact: true }).click();
   await page.getByRole("button", { name: /^(Send message|Enviar mensagem)$/ }).click();
-  const finish = page.getByRole("button", { name: /Finish and open workspace|Concluir e abrir espaço/ });
+  const finish = page.getByRole("button", { name: /Finish and open chat|Concluir e abrir conversa/ });
   await expect(finish).toBeDisabled();
   await expect(page.getByRole("button", { name: /^(Back|Voltar)$/ })).toBeDisabled();
   releaseAnswer();
@@ -110,7 +110,7 @@ test("a new team can create a workspace, prepare a sample, ask a real question, 
   expect(audit.violations.map(({ id, nodes }) => ({ id, elements: nodes.map(({ target }) => target) }))).toEqual([]);
   expect(questions).toBe(1);
   await finish.click();
-  await expect(page).toHaveURL(/\/workspace\/overview$/);
+  await expect(page).toHaveURL(/\/ask$/);
   await page.getByRole("navigation", { name: /Main navigation|Navegação principal/ }).getByRole("button", { name: /^(History|Histórico)$/ }).click();
   await expect(page.getByText(answer, { exact: true }).first()).toBeVisible();
 });
@@ -175,7 +175,7 @@ test("the guide gives editors and viewers the actions allowed by their role", as
       await expect(page.locator('input[type="file"]')).toHaveCount(role === "editor" ? 1 : 0);
       await expect(page.getByRole("button", { name: "Use sample document", exact: true })).toHaveCount(role === "editor" ? 1 : 0);
       await page.getByRole("button", { name: "Finish for now", exact: true }).click();
-      await expect(page).toHaveURL(/\/workspace\/overview$/);
+      await expect(page).toHaveURL(/\/ask$/);
       await expect(page.getByRole("button", { name: "Help", exact: true })).toBeVisible();
     } finally { await context.close(); }
   }

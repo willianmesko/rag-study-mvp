@@ -21,9 +21,10 @@ status section where they appear.
 
 ## In progress
 
-No implementation is currently active. Granular answer-cost analytics and the
-seven LangGraph capabilities were published and verified on 2026-11-07. The
-pending sections below contain the remaining work.
+The chat-first navigation, document-aware entry, shared upload dialog and
+refreshed logo are implemented and locally validated. Release quality gates
+and frontend/backend publication are in progress. Completed behavior is listed
+under [Product UI and current chat behavior](#product-ui-and-current-chat-behavior).
 
 **Approved delivery order**
 
@@ -327,6 +328,22 @@ See [Durable workflows](durable-workflows.md).
 
 ### Product UI and current chat behavior
 
+- [x] Ask-first navigation without numbered page labels; normal sign-in and
+  completed onboarding open chat while authorized private deep links remain.
+- [x] Document-aware chat entry: loading, empty, preparing, failed and ready
+  states use actual indexed passages and all workspace jobs, independently of
+  paginated admin lists. Empty document rows do not unlock questions.
+- [x] Protected file/URL intake from chat and Knowledge uses one shared dialog.
+  Owners/editors can add documents; viewers get team guidance and anonymous
+  demo visitors get a sign-in action. File selection alone never uploads.
+- [x] No new question/comparison is submitted while knowledge is unavailable.
+  Visible preparation is polled and the composer unlocks automatically when
+  ready. Re-entering chat rechecks cached availability after source deletion.
+  Existing messages and active cancellation controls remain accessible.
+- [x] One refreshed open-book/light SVG asset for the app mark and favicon.
+  Readiness authorization and 24 real PostgreSQL integration checks pass;
+  responsive upload/readiness/cache and accessibility journeys are validated.
+  Publication is in progress; release evidence will be recorded after verification.
 - [x] One section heading/action, compact workspace navigation, lean Overview,
   document/member lists with action menus, invitation dialog, on-demand
   document/timeline side panels, and divided/collapsible Settings.

@@ -20,8 +20,8 @@ export function readAppRoute(pathname: string): AppRoute {
   const normalized = pathname.replace(/\/+$/, "") || "/";
   if (normalized === "/sign-in") return { kind: "sign-in" };
   if (normalized === "/onboarding") return { kind: "onboarding" };
-  if (normalized === "/demo" || normalized === "/demo/search") return { kind: "demo", lab: { tab: "search" } };
-  if (normalized === "/demo/ask") return { kind: "demo", lab: { tab: "answer" } };
+  if (normalized === "/demo/search") return { kind: "demo", lab: { tab: "search" } };
+  if (normalized === "/demo" || normalized === "/demo/ask") return { kind: "demo", lab: { tab: "answer" } };
   if (normalized === "/demo/history") return { kind: "demo", lab: { tab: "history" } };
   if (normalized === "/demo/index" || normalized === "/index") return { kind: "demo", lab: { tab: "ingest" } };
   const workspaceMatch = normalized.match(/^\/workspace(?:\/([^/]+))?$/);
@@ -38,7 +38,7 @@ export function readAppRoute(pathname: string): AppRoute {
 export function pathForTab(tab: LabRoute["tab"], workspaceSection: WorkspaceSection = "overview", demo = false): string {
   if (tab === "admin") return `/workspace/${workspaceSection}`;
   const prefix = demo ? "/demo" : "";
-  if (tab === "search") return demo ? "/demo" : "/search";
+  if (tab === "search") return demo ? "/demo/search" : "/search";
   if (tab === "answer") return `${prefix}/ask`;
   if (tab === "history") return `${prefix}/history`;
   return "/demo/index";

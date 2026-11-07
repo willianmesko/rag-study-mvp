@@ -177,11 +177,11 @@ test("the Milo guide resumes in a second browser context", async ({ page, browse
     await expect(second.getByText("A handbook with your team's request and approval process")).toBeVisible();
     await second.getByRole("button", { name: "Continue" }).click();
     const completed = second.waitForResponse((response) => response.request().method() === "PATCH" && response.url().endsWith("/onboarding") && response.request().postDataJSON().completed === true);
-    await second.getByRole("button", { name: "Finish and open workspace" }).click();
+    await second.getByRole("button", { name: "Finish and open chat" }).click();
     expect((await completed).ok()).toBe(true);
-    await expect(second).toHaveURL(/\/workspace\/overview$/);
+    await expect(second).toHaveURL(/\/ask$/);
     await page.reload();
-    await expect(page).toHaveURL(/\/workspace\/overview$/);
+    await expect(page).toHaveURL(/\/ask$/);
   } finally {
     await secondContext.close();
   }
@@ -207,9 +207,9 @@ test("earlier guide choices resume with generic examples and preserve progress",
       await expect(page.getByText("Step 2 of 3")).toBeVisible();
       await page.getByRole("button", { name: "Continue", exact: true }).click();
       const finished = page.waitForRequest((request) => request.method() === "PATCH" && request.url().endsWith("/onboarding") && request.postDataJSON().completed === true);
-      await page.getByRole("button", { name: "Finish and open workspace" }).click();
+      await page.getByRole("button", { name: "Finish and open chat" }).click();
       expect((await finished).postDataJSON()).toEqual({ goal, step: "answer", completed: true });
-      await expect(page).toHaveURL(/\/workspace\/overview$/);
+      await expect(page).toHaveURL(/\/ask$/);
     } finally {
       await context.close();
     }

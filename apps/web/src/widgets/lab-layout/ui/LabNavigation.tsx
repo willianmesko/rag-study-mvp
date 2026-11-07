@@ -4,11 +4,11 @@ import { BrandMark } from "../../../shared/ui/BrandMark";
 import type { LabRoute } from "../../../shared/lib/app-route";
 
 const tabs = [
-  ["ingest", "Index", "Indexar", "01"],
-  ["search", "Search", "Buscar", "02"],
-  ["answer", "Ask", "Perguntar", "03"],
-  ["history", "History", "Histórico", "04"],
-  ["admin", "Workspace", "Espaço de trabalho", "05"]
+  ["answer", "Ask", "Perguntar", "M5 4h14v10H9l-4 4V4Z"],
+  ["search", "Search", "Buscar", "M15 15l5 5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"],
+  ["history", "History", "Histórico", "M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"],
+  ["admin", "Workspace", "Espaço de trabalho", "M4 5h6v6H4V5Zm10 0h6v6h-6V5ZM4 15h6v6H4v-6Zm10 0h6v6h-6v-6Z"],
+  ["ingest", "Add documents", "Adicionar documentos", "M12 5v14M5 12h14"]
 ] as const;
 
 export function LabNavigation({ activeTab, onTabChange, publicDemo, canIndex, workspaceControl, onHelp }: {
@@ -35,16 +35,16 @@ export function LabNavigation({ activeTab, onTabChange, publicDemo, canIndex, wo
       {workspaceControl && <div className={compact ? "sm:mt-5" : "mt-5"}>{workspaceControl}</div>}
       <nav className={`flex gap-2 overflow-x-auto p-1.5 lg:mt-10 lg:grid lg:overflow-visible ${compact ? "sm:mt-7" : "mt-7"}`}
         aria-label={t("Main navigation", "Navegação principal")}>
-        {visibleTabs.map(([id, english, portuguese, number]) => (
+        {visibleTabs.map(([id, english, portuguese, icon]) => (
           <button key={id} type="button" onClick={() => onTabChange(id)} aria-current={activeTab === id ? "page" : undefined}
             className={`group flex min-h-11 shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors lg:py-3 ${activeTab === id ? "bg-cyan-400/10 text-cyan-100 shadow-inner shadow-cyan-400/5 hover:bg-cyan-400/15" : "text-slate-300 hover:bg-slate-800 hover:text-slate-100"}`}>
-            <span aria-hidden="true" className={`font-mono text-[11px] ${activeTab === id ? "text-cyan-300" : "text-slate-400"}`}>{number}</span>
+            <svg aria-hidden="true" className={`size-4 shrink-0 ${activeTab === id ? "text-cyan-300" : "text-slate-400"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d={icon} /></svg>
             <span className="font-medium">{t(english, portuguese)}</span>
           </button>
         ))}
         {onHelp && <button type="button" onClick={onHelp} aria-haspopup="dialog"
           className="flex min-h-11 shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-300 transition-colors hover:bg-slate-800 hover:text-slate-100 lg:py-3">
-          <span aria-hidden="true" className="font-mono text-[11px] text-slate-400">?</span>
+          <svg aria-hidden="true" className="size-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5m0 3h.01" /></svg>
           <span className="font-medium">{t("Help", "Ajuda")}</span>
         </button>}
       </nav>

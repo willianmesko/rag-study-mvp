@@ -34,6 +34,7 @@ import type { DeleteDocumentUseCase } from "../../application/use-cases/delete-d
 import type { GetDocumentOriginalUseCase } from "../../application/use-cases/get-document-original.js";
 import type { IngestionJob, IngestionJobEvent, IngestionJobRepository } from "../../application/ports/ingestion-job-repository.js";
 import type { ManagedDocument, StoredChunk } from "../../application/ports/document-repository.js";
+import type { KnowledgeStatusRepository } from "../../application/ports/knowledge-status-repository.js";
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
 import type { QuotaResult } from "../../application/ports/quota-repository.js";
 import type { UsageSummary } from "../../application/ports/usage-metrics-repository.js";
@@ -101,6 +102,7 @@ type HttpDependencies = {
   removeWorkspaceMember: (input: { tenantId: string; userId: string }) => Promise<boolean>;
   recordWorkspaceInvitation: (input: { tenantId: string; email: string; role: Exclude<TenantRole, "owner">; invitedBy: string; invitedUserId: string }) => Promise<void>;
   listDocuments: (tenantId: string, limit: number, filters?: DocumentFilters) => Promise<ManagedDocument[]>;
+  knowledgeStatus: KnowledgeStatusRepository;
   demoLibraryRepository?: DemoLibraryRepository;
   listDocumentChunks: (tenantId: string, documentId: string, limit: number) => Promise<StoredChunk[]>;
   getDocumentOriginal: Pick<GetDocumentOriginalUseCase, "execute">;
@@ -280,6 +282,15 @@ export async function buildApp(dependencies: HttpDependencies) {
     return { ok: true as const, tenantId: config.DEFAULT_TENANT_ID, actorKey: anonymousActorKey(request), authenticated: false };
   }
   const globalChatModels = dependencies.chatModels ?? new Map<string, ComparisonModel & { answerQuestion: AnswerQuestionUseCase }>();
+  app.get("/v1/knowledge/status", async (request, reply) => {
+    z.strictObject({}).parse(request.query);
+    // Private requests always name their workspace. Anonymous demo requests
+    // can only inspect the configured public corpus, never a supplied tenant.
+    const privateRequest = request.headers.authorization !== undefined || request.headers["x-workspace-id"] !== undefined;
+    const scope = await resolveQueryScope(request, privateRequest);
+    if (!scope.ok) return rejectScope(reply, scope);
+    return dependencies.knowledgeStatus.get(scope.tenantId);
+  });
   const defaultChatPolicy = defaultWorkspaceChatPolicy(globalChatModels);
   async function workspaceChatModels(tenantId?: string) {
     const policy = tenantId ? await dependencies.workspaceModelPolicies?.get(tenantId) : null;

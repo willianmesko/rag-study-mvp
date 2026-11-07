@@ -1,19 +1,23 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { questionComparisonInputSchema, questionInputSchema } from "@rag-study/contracts";
-import { ApiError, api } from "../../../shared/api/rag-api";
+import { ApiError, api, type Workspace } from "../../../shared/api/rag-api";
+import { knowledgeStatusQuery } from "../../../entities/workspace/model/knowledge";
 import { useLocale } from "../../../shared/i18n/locale";
 import { Mascot } from "../../../shared/ui/Mascot";
 import { SelectField } from "../../../shared/ui/SelectField";
 import type { useConversation } from "../model/use-conversation";
 import { promptVariantLabel } from "../model/prompt-variants";
 import { ConversationThread } from "./ConversationThread";
+import { KnowledgeChatState } from "./KnowledgeChatState";
 
-export function QuestionAnswerForm({ conversation, accessToken, workspaceId, workspaceName, scope, embedded = false, suggestions, suggestion, onSuggestionUsed }: {
+export function QuestionAnswerForm({ conversation, accessToken, workspaceId, workspaceName, workspaceRole, onAddDocuments, scope, embedded = false, suggestions, suggestion, onSuggestionUsed }: {
   conversation: ReturnType<typeof useConversation>;
   accessToken?: string | null;
   workspaceId?: string;
   workspaceName?: string;
+  workspaceRole?: Workspace["role"];
+  onAddDocuments?: () => void;
   scope: string;
   embedded?: boolean;
   suggestions?: string[];
@@ -36,6 +40,11 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
   const errorId = useId();
   const titleId = useId();
   const comparisonHint = useId();
+  const knowledge = useQuery(knowledgeStatusQuery(accessToken, workspaceId));
+  // A cached ready state must not briefly unlock a workspace whose last
+  // document was deleted while the user was on another page/device.
+  const canAsk = knowledge.isFetchedAfterMount && knowledge.isSuccess && !knowledge.isError && knowledge.data.passages > 0;
+  const canAdd = Boolean(accessToken && workspaceId && (workspaceRole === "owner" || workspaceRole === "editor"));
   const catalog = useQuery({
     queryKey: ["chat-models", scope],
     queryFn: ({ signal }) => api.chatModels(accessToken!, workspaceId!, signal),
@@ -80,7 +89,7 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !question.trim()) return;
+    if (busy || !canAsk || !question.trim()) return;
     if (comparing && selectedModel && accessToken && workspaceId) {
       const parsed = questionComparisonInputSchema.safeParse({ question: question.trim(), topK,
         modelIds: [selectedModel.id, comparingPrompts ? selectedModel.id : alternateModel?.id],
@@ -125,18 +134,23 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
           </p>
         </div>
       </div>
-      <button className="secondary-button min-w-11 shrink-0 px-2.5 sm:px-3" type="button" disabled={busy} onClick={newChat} title={t("New chat", "Nova conversa")}>
+      <button className="secondary-button min-w-11 shrink-0 px-2.5 sm:px-3" type="button" disabled={busy || turns.length === 0} onClick={newChat} title={t("New chat", "Nova conversa")}>
         <svg aria-hidden="true" className="size-4 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 4.5H5a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 5 16.5h9a1.5 1.5 0 0 0 1.5-1.5v-4m-7 1 .5-3.5L14.2 3.3a1.4 1.4 0 0 1 2 2L11 10.5 8.5 12Z" />
         </svg>
         <span className="sr-only min-[375px]:not-sr-only">{t("New chat", "Nova conversa")}</span>
       </button>
     </header>
-    <ConversationThread turns={turns} live={live} demo={!accessToken} suggestions={suggestions} onSuggestion={(message) => {
+    {(canAsk || busy || turns.length > 0) && <ConversationThread turns={turns} live={live} demo={!accessToken} suggestions={suggestions} onSuggestion={(message) => {
       updateQuestion(message);
       composer.current?.focus();
-    }} />
-    <form className="shrink-0 space-y-2 rounded-b-2xl border-t border-slate-800 bg-slate-900/70 p-3 sm:space-y-3 sm:rounded-b-3xl sm:p-4" onSubmit={submit}>
+    }} />}
+    {!canAsk && !busy && <KnowledgeChatState data={knowledge.data} loading={knowledge.isPending || (!knowledge.isFetchedAfterMount && !knowledge.isError)} failed={knowledge.isError}
+      demo={!accessToken} canAdd={canAdd} onAdd={onAddDocuments} onRetry={() => void knowledge.refetch()} compact={turns.length > 0} />}
+    {(canAsk || busy) && <form className="shrink-0 space-y-2 rounded-b-2xl border-t border-slate-800 bg-slate-900/70 p-3 sm:space-y-3 sm:rounded-b-3xl sm:p-4" onSubmit={submit}>
+      {canAsk && knowledge.data.processingJobs > 0 && <p className="text-xs leading-5 text-slate-300" role="status">
+        {t("More documents are being prepared. You can chat using the sources that are already ready.", "Mais documentos estão sendo preparados. Você já pode conversar usando as fontes disponíveis.")}
+      </p>}
       {selectedModel && (models.length === 1 && !autoAvailable && !comparisonAvailable
         ? <p className="text-xs text-slate-300 [overflow-wrap:anywhere]">{t("Workspace answer model", "Modelo de resposta do espaço")} · {selectedModel.label}</p>
         : <fieldset className={`grid min-w-0 items-end gap-2.5 sm:flex sm:flex-wrap sm:gap-3 ${comparisonAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
@@ -172,11 +186,15 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
         {t("Model options are unavailable. Milo will use the workspace default.", "As opções de modelo estão indisponíveis. O Milo vai usar o padrão do espaço.")}
       </p>}
       <div className="flex items-end gap-2">
+        {canAdd && onAddDocuments && <button className="secondary-button min-w-11 shrink-0 px-3" type="button" onClick={onAddDocuments} disabled={busy}
+          aria-label={t("Add documents", "Adicionar documentos")} title={t("Add documents to this workspace", "Adicionar documentos a este espaço")} aria-haspopup="dialog">
+          <svg aria-hidden="true" className="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="m7 11 6-6a2.1 2.1 0 0 1 3 3l-7.5 7.5a3.5 3.5 0 0 1-5-5L11 3a2.1 2.1 0 0 1 3 0" /></svg>
+        </button>}
         <div className="min-w-0 flex-1">
           <label htmlFor={composerId} className="sr-only">{t("What would you like to know?", "O que você gostaria de saber?")}</label>
           <textarea id={composerId} ref={composer} value={question} maxLength={5000} rows={1}
             aria-invalid={invalidInput || undefined} aria-describedby={invalidInput ? `${hintId} ${errorId}` : hintId}
-            onChange={(event) => updateQuestion(event.target.value)} onKeyDown={handleComposerKey}
+            onChange={(event) => updateQuestion(event.target.value)} onKeyDown={handleComposerKey} disabled={!canAsk}
             className="field block min-h-11 max-h-24 resize-none rounded-2xl py-3 [field-sizing:content]"
             placeholder={accessToken && turns.length ? t("Write a follow-up…", "Continue a conversa…") : t("Message Milo…", "Escreva para o Milo…")} />
         </div>
@@ -186,7 +204,7 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
           {live.stopping ? t("Stopping…", "Interrompendo…") : t("Stop answer", "Parar resposta")}
         </button> : comparison.isPending ? <button className="secondary-button shrink-0 px-2.5 sm:px-4" type="button" onClick={comparison.stop}>
           {t("Stop comparison", "Parar comparação")}
-        </button> : <button className="primary-button shrink-0 rounded-2xl px-3" disabled={busy || !question.trim()} type="submit"
+        </button> : <button className="primary-button shrink-0 rounded-2xl px-3" disabled={busy || !canAsk || !question.trim()} type="submit"
           aria-label={comparing ? t("Compare answers", "Comparar respostas") : t("Send message", "Enviar mensagem")}>
           <svg aria-hidden="true" className="size-4 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m10 15 0-10m-4 4 4-4 4 4" /></svg>
           <span className="hidden sm:inline">{comparing ? t("Compare", "Comparar") : t("Send", "Enviar")}</span>
@@ -209,6 +227,6 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
             options={["3", "5", "8"].map((value) => ({ value, label: value }))} />
         </details>
       </div>
-    </form>
+    </form>}
   </section>;
 }
