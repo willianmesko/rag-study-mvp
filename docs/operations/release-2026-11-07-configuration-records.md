@@ -2,11 +2,10 @@
 
 ## Status
 
-The bounded increment is validated locally; exact-source CI and publication are
-pending. BE-12 remains **partial**: this is not a claim that every repository,
-provider transport or older singleton-based fixture has been migrated. The prior
-verified runtime is `d63a4b1d28bcfd372e79ae6b4475867ad892a708`. FE-11's validated
-navigation changes will be published with this increment after all gates pass.
+The bounded increment is **published on frontend and API** at `2e6a4281fecb8fa55d6aa69e589d48a62999599a` after
+all four [exact-source gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42421393271) passed. BE-12 remains **partial**: not every
+repository, provider transport or older singleton-based fixture is migrated.
+FE-11 is included in this same verified runtime. The previous runtime was `d63a4b1`.
 
 ## Delivered
 
@@ -39,13 +38,47 @@ passed **85 checks with zero skips**, and the isolated embedding cutover passed
 **one case with zero skips**. All seven local evaluation-harness checks passed.
 
 The source dependency graphs have zero violations: **448 structural modules /
-1,761 edges**, **447 runtime / 1,267**. CI still requires all 78 architecture
-fixtures, the full UX suite, native route-state/payload cases and both database
-jobs. No CI requirement is waived because a focused check passed locally.
+1,761 edges**, **447 runtime / 1,267**. All 78 architecture fixtures, the complete UX suite, native route-state/payload cases and both database jobs subsequently passed in CI.
 
 No dependency, migration, credential, grant, environment setting, model price,
 provider policy or screenshot baseline changed. Tests use synthetic data and a
 disposable local database; no paid provider or real email was used.
+
+## Exact-source CI and production
+
+Frontend and API are **live at `2e6a4281fecb8fa55d6aa69e589d48a62999599a`**, after all four
+[release gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42421393271) passed. The source skipped automatic publication; fresh
+remote-head/queue checks preceded the manual triggers. Both records match the
+same source.
+
+| Service | Deployment | Observed live at UTC |
+| --- | --- | --- |
+| API | `dep-dbnqjkm417fc73efp330` | 2026-11-07 22:46:39 |
+| Frontend | `dep-dbnqjlqjnfac73d3sem0` | 2026-11-07 22:45:28 |
+
+CI passed **410 UX-suite checks / 46 intentional profile skips**, **85 PostgreSQL
+checks / zero skips**, the isolated cutover / zero skips, all 78 architecture
+fixtures, the seven-check harness, four native route-state cases and three
+frontend-budget cases. Both production dependency graphs remained clean. Build
+and browser measurement artifacts uploaded successfully.
+
+The CI default build measured gzip entry 125,974 bytes, all JavaScript 260,331,
+CSS 14,317 and largest chunk 125,974, with no budget failure or exception. These
+are payload measurements, not field LCP or a claimed provider speedup.
+
+Public checks at **22:48:00 UTC** confirmed frontend 200, entry
+`/assets/index-B-Qgg-J_.js`, application chunk
+`/assets/WorkspaceSwitcher-OP4Wzwjj.js`, semantic stylesheet
+`/assets/index-CS2-Q0PU.css` and the unchanged original 256-pixel icon bytes.
+API health returned 200 with OCR/durable workflows/conversations enabled and a
+server-owned correlation ID. Private MCP, conversations and administrative alerts
+returned 401. OAuth resource/S256 discovery and sanitized malformed JSON 400,
+unsupported XML 415 and missing-parameter rejection remained intact.
+
+The API error/fatal query for **22:46:39–22:48:23 UTC** returned no records. This
+is a bounded inspection. These public checks did not access real private user
+data, invoke a paid provider, send email or complete third-party consent.
+Authorized flows are covered by synthetic browser and isolated database suites.
 
 ## Rollback
 

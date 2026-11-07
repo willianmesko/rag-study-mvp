@@ -5,13 +5,13 @@ point. The owner subsequently requested the specific BE-15 abstraction follow-up
 that follow-up is now validated and published. General continuation has resumed
 with the FE-06 administrative slice and BE-08 native TypeScript checks below;
 both are published. The remaining FE-06 conversation slice is also validated
-and published. FE-07 and FE-09 are also complete and published.
+and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `d63a4b1d28bcfd372e79ae6b4475867ad892a708`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42417537601).
-- [Release evidence](operations/release-2026-11-07-frontend-performance.md) records
+- Source: `2e6a4281fecb8fa55d6aa69e589d48a62999599a`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42421393271).
+- [Release evidence](operations/release-2026-11-07-configuration-records.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -28,18 +28,21 @@ Their [release record](operations/release-2026-11-07-query-ownership.md) records
 all four green CI gates, both live deployments and production checks. No conversation
 transport or pagination refactor has been bundled into the administrative slice.
 
-## Current validated candidate
+## Completed bounded delivery and next work
 
-FE-11 navigation/draft handling and the bounded BE-12 configuration/record
-increment are locally validated and awaiting final exact-source CI/publication.
-The native route tests run outside Playwright's module transform. An old route
-fixture now distinguishes a real saved UUID from an invalid placeholder; no
-visual baseline was changed. BE-12's full local PostgreSQL suite passed 85 cases,
-the cutover passed one case, and all seven harness checks passed. Continue from
-these release records rather than treating this candidate as live:
+FE-11 and the bounded BE-12 configuration/record increment are now validated and
+published together. The native route tests run outside Playwright's transform;
+valid saved UUIDs and invalid/private query fields have explicit coverage. No
+visual baseline changed. Full CI passed 410 UX checks, 85 PostgreSQL checks and
+the remaining recorded gates. The receipts distinguish public smoke checks from
+synthetic authorized flows and remaining BE-12 scope:
 
 - [FE-11](operations/release-2026-11-07-url-state.md)
 - [BE-12 increment](operations/release-2026-11-07-configuration-records.md)
+
+Automatic continuation is validating BE-14's production/test-artifact separation.
+Real image-level OCR remains mandatory; dependency versions are unchanged. This
+next candidate is not yet live and must pass its own gates and publication checks.
 
 ## Completed explicit follow-up: BE-15
 

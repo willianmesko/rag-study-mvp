@@ -14,24 +14,25 @@ live activation remain in the [product backlog](backlog.md).
 
 | Status | Tickets | Count |
 | --- | --- | --- |
-| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-07, FE-09–FE-10 | 19 |
+| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-07, FE-09–FE-11 | 20 |
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08 | 4 |
-| Pending implementation | BE-09, BE-13, FE-11 | 3 |
+| Pending implementation | BE-09, BE-13 | 2 |
 
-The latest batch is live on the frontend and API at `d63a4b1d28bcfd372e79ae6b4475867ad892a708`,
-after all four [CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42417537601). See the
-[frontend performance evidence](operations/release-2026-11-07-frontend-performance.md).
-FE-10's measurement track is complete: versioned build/browser baselines,
-request/payload gates, per-commit artifacts and a measured one-read reduction.
-CI passed 389 UX-suite cases/46 deliberate profile skips, 83 PostgreSQL cases,
-the isolated cutover, 78 architecture fixtures, all seven harness checks and the
-three native frontend-budget cases. Both live SHAs, served assets, health and
-protected routes were verified. Field LCP and provider-speed gains are not claimed.
-The prior [FE-09 primitive release](operations/release-2026-11-07-ui-primitives.md),
-[FE-07 lifecycle release](operations/release-2026-11-07-chat-lifecycle.md) and
-[FE-06 reader release](operations/release-2026-11-07-conversation-readers.md)
-retain separate evidence. Automatic continuation proceeds with FE-11. BE-08/FE-08
-retain promise/Hook work; BE-09 retains its minimum-privilege activation gate.
+The latest batch is live on frontend and API at `2e6a4281fecb8fa55d6aa69e589d48a62999599a` after all four
+[CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42421393271) passed. FE-11 is complete and the bounded BE-12 configuration/
+stored-record increment is published. BE-12 retains explicit remaining work.
+CI passed 410 UX-suite checks/46 deliberate profile skips, 85 PostgreSQL checks,
+the isolated cutover, 78 architecture fixtures, seven harness checks, four native
+route-state and three payload-budget cases. Both live SHAs, assets, health,
+protected routes and a bounded error-log window were verified.
+
+See the [FE-11 receipt](operations/release-2026-11-07-url-state.md) and
+[BE-12 receipt](operations/release-2026-11-07-configuration-records.md).
+FE-10's [measurement release](operations/release-2026-11-07-frontend-performance.md),
+FE-09's [primitive release](operations/release-2026-11-07-ui-primitives.md) and earlier
+conversation/lifecycle records retain their evidence. Automatic continuation is
+validating BE-14's runtime/test-artifact separation, preserving real native OCR.
+BE-08/FE-08 retain promise/Hook work; BE-09 retains minimum-privilege activation.
 The prior administrative/unused-check slice is recorded in the
 [query-ownership evidence](operations/release-2026-11-07-query-ownership.md).
 The prior `cbd0f67` batch is recorded in the
@@ -271,7 +272,7 @@ feature-owned locations during BE-07's migration.
 - [x] FE-02b: shared schemas decode every migrated successful JSON response before
   cache insertion; fixed invalid-response diagnostics retain no received payload.
   Typechecking and malformed-data browser cases pass locally.
-- [x] BE-12 bounded increment, locally validated and publication pending: pure environment parsing, explicit root/HTTP configuration, independent-instance tests, checked evaluation and semantic-cache records. Nine unit cases, 85 PostgreSQL checks, the isolated cutover and seven harness checks passed. See the [boundary guide](backend-configuration-and-records.md) and [release record](operations/release-2026-11-07-configuration-records.md).
+- [x] BE-12 bounded increment, CI verified and published: pure environment parsing, explicit root/HTTP configuration, independent-instance tests, checked evaluation and semantic-cache records. Nine unit cases, 85 PostgreSQL checks, the isolated cutover and seven harness checks passed. See the [boundary guide](backend-configuration-and-records.md) and [release record](operations/release-2026-11-07-configuration-records.md).
 - [ ] Remaining BE-12: remove the provider transport's singleton deadline read; migrate older shared-config fixtures incrementally; inventory/decode remaining externally influenced repository JSON and unchecked row assumptions. The two migrated families do not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
@@ -537,14 +538,14 @@ feature-owned locations during BE-07's migration.
 
 ### FE-11 — Focused form and URL-state normalization
 
-- [ ] **P3 · M across small flows · Medium risk.** Scope: native route subscriptions,
+- [x] **P3 · M across small flows · Medium risk · CI verified and published.** Scope: native route subscriptions,
   safe section/conversation/filter serialization and repeated form conventions.
 - **Accept:** back/forward restores the intended safe state once; question text,
   tokens and sensitive drafts never enter URLs. Accessible field errors and drafts
   survive recoverable failures in PT/EN. Keep simple forms native; evaluate a form
   library only for demonstrated complexity.
 
-- **Validated implementation, publication pending:** one native history subscription, canonical UUID/metadata codecs, workspace scope cleanup, recoverable answer/comparison drafts and accessible filter/import errors. All 21 browser profile cases and four native state cases passed; the release record retains local/CI limitations. No form/router dependency was added. See the [state guide](frontend-url-state.md) and [evidence](operations/release-2026-11-07-url-state.md).
+- **Published implementation:** one native history subscription, canonical UUID/metadata codecs, workspace scope cleanup, recoverable answer/comparison drafts and accessible filter/import errors. All 21 browser profile cases and four native state cases passed; the release record retains local/CI limitations. No form/router dependency was added. See the [state guide](frontend-url-state.md) and [evidence](operations/release-2026-11-07-url-state.md).
 
 ## Parallel execution and release rules
 

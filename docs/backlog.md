@@ -27,51 +27,24 @@ status section where they appear.
 
 ## In progress
 
-The latest application release, `d63a4b1d28bcfd372e79ae6b4475867ad892a708`, is
-live on the frontend and API after all four
-[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42417537601).
-Both deployments, served features/icon, health and protected routes were verified
-on 2026-11-07. See [frontend performance evidence](operations/release-2026-11-07-frontend-performance.md).
-The prior [administrative release](operations/release-2026-11-07-query-ownership.md) remains documented separately.
-The previous [capability-boundary release](operations/release-2026-11-07-capability-boundaries.md)
-remains documented separately.
-The earlier [module-organization release](operations/release-2026-11-07-architecture-phase2.md)
-is retained as historical evidence.
-The earlier [observability/resilience release](operations/release-2026-11-07.md)
-is included.
+Frontend and API are live at `2e6a4281fecb8fa55d6aa69e589d48a62999599a` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42421393271) passed. Publication, assets, icon, health, private-route protection
+and a bounded error-log window were verified on 2026-11-07.
 
-The [technical backlog](technical-backlog.md) records 19 published tickets,
-four partial tickets and three pending tickets. The published
-batch includes shared success-response schemas, SQL limits, bounded Auth/member
-lookup, frontend composition/Public APIs, provider reservations, safe shutdown
-and NestJS-inspired business-module organization. See the
-[module guide](backend-modules.md) and [ADR 0002](decisions/0002-business-modules.md).
-**BE-15 now separates tool-neutral feature assembly from concrete database,
-provider, workflow and tracing selection.** It is included in the live SHA above.
-Its [release evidence](operations/release-2026-11-07-capability-boundaries.md)
-records 78 architecture fixtures, 83 real PostgreSQL checks, the cutover and the
-complete harness. That prior CI also passed 247 UX cases with 44 deliberate
-profile skips. The latest bounded delivery improves administrative query ownership
-and native TypeScript checks; its CI passed 274 UX cases and production checks
-passed. See its
-[release record](operations/release-2026-11-07-query-ownership.md). Conversation
-read visibility, pagination and transport ownership are now implemented with
-45 passing focused checks and the full local harness. Final CI passed 319 UX-suite
-cases and both live deployments were verified. See the
-[conversation-reader record](operations/release-2026-11-07-conversation-readers.md)
-for exact-source CI/publication status. FE-07 now has explicit correlated
-submission/delivery/cancellation states and creation/navigation guards. Its 75
-focused checks, seven-check local harness and 78 architecture fixtures passed;
-exact-source CI passed 349 UX-suite cases/44 deliberate profile skips, and both
-services are live. FE-09 is complete and published; its CI passed 374 UX-suite cases/46 profile
-skips. FE-10 measurements and deterministic budgets are complete and published, with
-389 CI UX cases/46 intentional profile skips and the new payload gate passed.
-Automatic continuation proceeds with FE-11. See the [performance guide](frontend-performance.md). See the
-[lifecycle record](operations/release-2026-11-07-chat-lifecycle.md).
-The next validated candidate includes FE-11 and a bounded BE-12 configuration/
-stored-record increment. It is awaiting final CI/publication, and BE-12 retains
-explicit provider/fixture/repository work. See its [boundary guide](backend-configuration-and-records.md).
-Operational activation remains separate.
+- **Complete and published:** FE-11 native history, safe conversation/filter
+  URLs and recoverable drafts. See the [release receipt](operations/release-2026-11-07-url-state.md).
+- **Published increment, ticket partial:** BE-12 explicit typed configuration and
+  checked evaluation/cache records. See the [boundary guide](backend-configuration-and-records.md)
+  and [receipt](operations/release-2026-11-07-configuration-records.md).
+- **In validation:** BE-14 production/test-artifact separation with mandatory
+  real OCR. No dependency upgrade has been installed.
+
+The [technical backlog](technical-backlog.md) now records **20 published tickets,
+four partial tickets and two pending tickets**. The current CI passed 410 UX
+checks/46 intentional skips, 85 PostgreSQL checks, the isolated cutover, 78
+architecture fixtures, the full harness, four native route-state and three
+payload-budget cases. Prior releases remain in their dated operational records.
+Operational activation and the learning walkthrough retain separate status.
 
 OAuth extension-parameter compatibility and standard MCP icon metadata are live.
 A real completed ChatGPT connection still needs client consent/verification.

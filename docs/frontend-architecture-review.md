@@ -222,7 +222,7 @@ LCP or provider-speed improvement is asserted.
 
 **Acceptance and verification.** Back/forward restores the correct safe section/conversation/filter state without duplicate subscriptions. Sensitive drafts do not enter URLs or browser diagnostics. Invalid form inputs show accessible field-level errors and preserve drafts after a recoverable request failure. English/Portuguese, owner/editor/viewer permissions, keyboard submission and loading/disabled states retain behavior tests.
 
-**Implementation follow-up:** FE-11 now has native location ownership, canonical metadata/conversation URLs and recoverable composer drafts, with focused three-profile checks. See the [state guide](frontend-url-state.md) and [release evidence](operations/release-2026-11-07-url-state.md). Publication remains a separate gate.
+**Implementation follow-up:** FE-11 now has native location ownership, canonical metadata/conversation URLs and recoverable composer drafts, with focused three-profile checks. See the [state guide](frontend-url-state.md) and [release evidence](operations/release-2026-11-07-url-state.md). Both services are now published with all four CI gates passed; see the receipt.
 
 ## Tooling compatibility and adoption decisions
 
