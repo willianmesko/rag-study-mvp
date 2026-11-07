@@ -1,10 +1,41 @@
+import { createClient } from "@supabase/supabase-js";
 import { config } from "./config.js";
 import { createApplication } from "./bootstrap.js";
 import { buildApp } from "./interfaces/http/app.js";
 
+async function allowHtmlOriginals(): Promise<void> {
+  const { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: key, SUPABASE_UPLOAD_BUCKET: name } = config;
+  if (!url || !key) throw new Error("Private storage is not configured.");
+  const signal = AbortSignal.timeout(8_000);
+  const { storage } = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: (input, init) => fetch(input, { ...init, signal }) }
+  });
+  const { data: bucket, error } = await storage.getBucket(name);
+  if (error || !bucket || bucket.public !== false || !Number.isSafeInteger(bucket.file_size_limit)) {
+    throw new Error("Could not verify the private originals bucket and its limit.");
+  }
+  const allowedMimeTypes = bucket.allowed_mime_types;
+  if (!allowedMimeTypes || allowedMimeTypes.includes("text/html")) return;
+  const updated = await storage.updateBucket(name, {
+    public: false,
+    fileSizeLimit: bucket.file_size_limit,
+    allowedMimeTypes: [...allowedMimeTypes, "text/html"]
+  });
+  if (updated.error) throw new Error("Could not update the originals bucket.");
+}
+
 async function main(): Promise<void> {
   const application = createApplication();
   const app = await buildApp(application.useCases);
+  if (process.env.LUMORA_ALLOW_HTML_ORIGINALS === "true") {
+    try {
+      await allowHtmlOriginals();
+      app.log.info("The private originals bucket permits HTML.");
+    } catch {
+      app.log.error("Could not configure HTML uploads in private storage.");
+    }
+  }
   let processing = false;
   const worker = setInterval(() => {
     if (processing) return;

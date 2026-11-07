@@ -28,7 +28,12 @@ Fastify API on Render
    ```
 
 4. Create a private bucket called `rag-originals` if administrative uploads are
-   enabled. Never expose the service-role key to the frontend.
+   enabled. If the bucket has a content-type allowlist, include
+   `application/pdf`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
+   `text/plain`, `text/markdown`, and `text/html`. URL imports save the
+   downloaded page as HTML before queueing ingestion. Set the bucket size
+   limit to cover the API upload limit. Never expose the service-role key to
+   the frontend.
 
 Apply `016_chat_runs.sql` before releasing the resumable chat API. This adds
 server-only replay tables. Confirm both tables have RLS enabled and that
