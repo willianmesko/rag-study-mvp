@@ -3,8 +3,14 @@ import { z } from "zod";
 import type { AnswerControls, AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
 import { maxProviderResponseBytes, defaultProviderHttpClient, type ProviderHttpClient } from "../../../../platform/http/provider-client.js";
+import { IntegrationFailure } from "../../../../platform/integrations/retry-policy.js";
 
-const responseSchema = z.object({ choices: z.array(z.object({ message: z.object({ content: z.string().nullable() }) })).min(1), usage: z.unknown().optional() });
+const responseEnvelope = z.object({ choices: z.unknown().optional(), usage: z.unknown().optional(), error: z.unknown().optional() });
+const answerChoice = z.object({ message: z.object({ content: z.string().nullable() }) });
+const streamChoice = z.object({
+  delta: z.object({ content: z.string().nullable().optional() }).optional(),
+  finish_reason: z.string().nullable().optional()
+});
 const usageSchema = z.object({
   prompt_tokens: z.number().int().min(0).max(2_147_483_647),
   completion_tokens: z.number().int().min(0).max(2_147_483_647),
@@ -40,9 +46,14 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
         ]
       })
     });
-    const parsed = responseSchema.parse(json);
-    publishUsage(parsed.usage, onUsage);
-    const answer = parsed.choices[0]?.message.content?.trim();
+    const envelope = responseEnvelope.safeParse(json);
+    if (!envelope.success) throw new IntegrationFailure("invalid_response");
+    publishUsage(envelope.data.usage, onUsage);
+    if (!Array.isArray(envelope.data.choices) || envelope.data.choices.length !== 1)
+      throw new IntegrationFailure("invalid_response");
+    const parsed = answerChoice.safeParse(envelope.data.choices[0]);
+    if (!parsed.success || envelope.data.error) throw new IntegrationFailure("invalid_response");
+    const answer = parsed.data.message.content?.trim();
     if (!answer) throw new Error("OpenRouter returned an empty chat response.");
     return answer;
   }
@@ -81,10 +92,21 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
         completed = true;
         return;
       }
-      const parsed = JSON.parse(payload) as { error?: unknown; usage?: unknown; choices?: Array<{ delta?: { content?: string | null }; finish_reason?: string }> };
-      publishUsage(parsed.usage, onUsage);
-      if (parsed.error || parsed.choices?.[0]?.finish_reason === "error") throw new Error("OpenRouter could not finish streaming the answer.");
-      const delta = parsed.choices?.[0]?.delta?.content ?? "";
+      let value: unknown;
+      try { value = JSON.parse(payload); }
+      catch { throw new IntegrationFailure("invalid_response"); }
+      const envelope = responseEnvelope.safeParse(value);
+      if (!envelope.success) throw new IntegrationFailure("invalid_response");
+      publishUsage(envelope.data.usage, onUsage);
+      if (envelope.data.error) throw new Error("OpenRouter could not finish streaming the answer.");
+      const choices = envelope.data.choices;
+      if (choices !== undefined && (!Array.isArray(choices) || choices.length > 1))
+        throw new IntegrationFailure("invalid_response");
+      if (!choices?.length) return;
+      const parsed = streamChoice.safeParse(choices[0]);
+      if (!parsed.success) throw new IntegrationFailure("invalid_response");
+      if (parsed.data.finish_reason === "error") throw new Error("OpenRouter could not finish streaming the answer.");
+      const delta = parsed.data.delta?.content ?? "";
       if (!delta) return;
       answer += delta;
       await onDelta(delta);
