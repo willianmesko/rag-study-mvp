@@ -1,9 +1,13 @@
+import { z } from "zod";
+import { decodeEmbeddingVector } from "../embeddings/embedding-response.js";
+import { IntegrationFailure } from "../../../../platform/integrations/retry-policy.js";
 import type {ProviderUsageObserver} from "../../application/ports/answer-generator.js";
 import { InvokeModelCommand, type BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
 import type { EmbeddingProvider } from "../../application/ports/embedding-provider.js";
-import { providerRequestSignal } from "../../../../platform/http/provider-client.js";
+import { maxProviderResponseBytes, providerRequestSignal } from "../../../../platform/http/provider-client.js";
 
-type TitanEmbeddingResponse = { embedding?: number[];inputTextTokenCount?:number };
+const embeddingResponse = z.object({ embedding: z.unknown() });
+const nativeUsage = z.object({ inputTextTokenCount: z.number().int().min(0).max(2_147_483_647) });
 
 export class TitanEmbeddingProvider implements EmbeddingProvider {
   constructor(
@@ -23,12 +27,17 @@ export class TitanEmbeddingProvider implements EmbeddingProvider {
       }),
       { abortSignal: this.requestSignal(signal) }
     );
-    const payload = JSON.parse(new TextDecoder().decode(response.body)) as TitanEmbeddingResponse;
-    if(Number.isSafeInteger(payload.inputTextTokenCount)&&payload.inputTextTokenCount!>=0)onUsage?.({inputTokens:payload.inputTextTokenCount!,outputTokens:0});
-    if (!payload.embedding || payload.embedding.length !== this.dimensions) {
-      throw new Error(`Bedrock returned an invalid embedding. Expected ${this.dimensions} dimensions.`);
-    }
-    return payload.embedding;
+    if (!(response.body instanceof Uint8Array) || response.body.byteLength > maxProviderResponseBytes)
+      throw new IntegrationFailure("invalid_response");
+    let payload: unknown;
+    try { payload = JSON.parse(new TextDecoder().decode(response.body)); }
+    catch { throw new IntegrationFailure("invalid_response"); }
+    // A valid native usage receipt still matters when the vector is unusable.
+    const usage = nativeUsage.safeParse(payload);
+    if (usage.success) onUsage?.({ inputTokens: usage.data.inputTextTokenCount, outputTokens: 0 });
+    const parsed = embeddingResponse.safeParse(payload);
+    if (!parsed.success) throw new IntegrationFailure("invalid_response");
+    return decodeEmbeddingVector(parsed.data.embedding, this.dimensions);
   }
 }
 
