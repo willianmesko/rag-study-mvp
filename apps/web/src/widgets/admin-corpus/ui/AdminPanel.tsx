@@ -9,6 +9,7 @@ import { WorkspaceOverview } from "../../workspace-control-center/ui/WorkspaceOv
 import { OcrEventDetails } from "./OcrEventDetails";
 import { OriginalDocumentAction } from "./OriginalDocumentAction";
 import { UrlImportForm } from "./UrlImportForm";
+import { IngestionPassagePreview } from "./IngestionPassagePreview";
 
 type Translate = ReturnType<typeof useLocale>["t"];
 
@@ -127,6 +128,9 @@ function PipelineVisualization({ job, events }: { job: UploadJob; events: Ingest
                   : active ? t("in progress", "em andamento")
                   : t("recorded", "registrado")}
                 {count && " · " + count}
+              </p>}
+              {stage === "chunking" && complete && <p className="mt-2 pl-9 leading-relaxed">
+                {t("One document can become several searchable passages.", "Um documento pode gerar vários trechos pesquisáveis.")}
               </p>}
               {stage === "ocr" && event && <OcrEventDetails event={event} />}
             </li>
@@ -500,7 +504,7 @@ export function AdminPanel({ section, workspace, token, onSectionChange }: {
                 {chunks.data?.chunks.map((chunk) => (
                   <article key={chunk.id} className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
                     <div className="flex items-center justify-between gap-4">
-                      <p className="font-mono text-xs text-cyan-300">{t("Passage", "Trecho")} {String(chunk.ordinal).padStart(2, "0")}</p>
+                      <p className="font-mono text-xs text-cyan-300">{t("Passage", "Trecho")} {number.format(chunk.ordinal + 1)}</p>
                       <p className={"text-xs " + (chunk.security.promptInjectionRisk === "high" ? "text-rose-300" : chunk.security.promptInjectionRisk === "medium" ? "text-amber-300" : "text-emerald-300")}>{t("Risk", "Risco")} · {riskLabel[chunk.security.promptInjectionRisk]}</p>
                     </div>
                     <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">{chunk.content}</p>
@@ -544,6 +548,8 @@ export function AdminPanel({ section, workspace, token, onSectionChange }: {
                   <span className="shrink-0 font-mono text-xs text-cyan-300">{statusLabel(job.status, t)} · {number.format(job.progress)}%</span>
                 </div>
                 <p className="mt-1 break-words text-xs text-slate-500">{job.source}{job.chunkCount !== null && " · " + number.format(job.chunkCount) + " " + (job.chunkCount === 1 ? t("passage", "trecho") : t("passages", "trechos"))}</p>
+                {!readOnly && job.status === "completed" && <IngestionPassagePreview key={job.updatedAt} jobId={job.id}
+                  documentName={job.title ?? job.filename} accessToken={token} workspaceId={workspaceId} />}
                 {job.error && <p className="mt-2 text-xs text-rose-300">{t("Processing failed.", "Falha no processamento.")}</p>}
                 {workspace && !readOnly && job.status === "failed" && <button type="button" className="mt-3 text-xs font-medium text-cyan-300 hover:text-cyan-100" onClick={() => retry.mutate(job.id)} disabled={retry.isPending}>{retry.isPending ? t("Queueing again…", "Colocando na fila…") : t("Try again", "Tentar novamente")}</button>}
               </article>

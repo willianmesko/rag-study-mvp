@@ -3,7 +3,9 @@ import type { Citation } from "../../domain/document.js";
 export type AnswerQuestionResult = {
   answer: string;
   sources: Citation[];
+  contextSources?: Citation[];
   citedChunkIds?: string[];
+  cacheHit?: boolean;
   structuredOutput?: boolean;
   refusalReason?: string;
 };

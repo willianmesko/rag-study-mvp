@@ -24,6 +24,8 @@ export function SemanticSearchForm({ accessToken, workspaceId, workspaceName }: 
   }
 
   const results = search.data?.results;
+  const hasRankFusion = results?.some((result) => result.retrieval !== undefined);
+  const hasReranking = results?.some((result) => result.reranker !== undefined);
   const error = invalidInput ? t("Enter a search of up to 5,000 characters.", "Digite uma busca de até 5.000 caracteres.")
     : search.error ? getRequestErrorMessage(search.error, locale) : null;
 
@@ -62,6 +64,12 @@ export function SemanticSearchForm({ accessToken, workspaceId, workspaceName }: 
             <p className="text-sm text-slate-400">{results.length.toLocaleString(locale)} {results.length === 1 ? t("result", "resultado") : t("results", "resultados")}</p>
             <span className="status-pill">{t("Meaning + exact terms", "Significado + termos exatos")}</span>
           </div>
+          {results.length > 0 && <aside aria-label={t("How to read the scores", "Como interpretar os scores")} className="space-y-1 rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-xs leading-5 text-slate-300">
+            <p>{t("A document can contain several passages. Cosine similarity ranges from −1 to 1. Higher values indicate a closer match in meaning. A close match can still contain an error.",
+              "Um documento pode ter vários trechos. A similaridade cosseno vai de −1 a 1. Valores mais altos indicam maior proximidade de significado. Mesmo um trecho muito semelhante pode conter um erro.")}</p>
+            {hasRankFusion && <p>{t("Rank fusion (RRF) combines the positions from the meaning and keyword searches.", "A fusão de rankings (RRF) combina as posições das buscas por significado e por palavras-chave.")}</p>}
+            {hasReranking && <p>{t("A separate reranker assigns its own relevance score and can change the order of results.", "Um modelo separado atribui seu próprio score de relevância e pode mudar a ordem dos resultados.")}</p>}
+          </aside>}
           {results.length === 0 ? <p className="empty-state">{t("No close matches yet. Try a broader phrase or add another source.", "Nenhum resultado próximo. Tente uma busca mais ampla ou adicione outra fonte.")}</p>
             : results.map((result, index) => <SearchResultCard key={result.chunkId} result={result} index={index} />)}
         </div>

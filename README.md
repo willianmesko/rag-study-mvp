@@ -132,6 +132,20 @@ An explicit title takes precedence. HTML, Markdown, and Word headings guide
 passage boundaries, while PDF extraction preserves page boundaries. The original
 is available as a private download and processing appears in **Processing**.
 
+### Review how an answer used your documents
+
+In **Ask**, compare **Validated citations** with **Passages sent to the model**
+to see which references appear in the answer and which passages helped draft it.
+Cached answers show their saved passages. Cosine similarity runs from −1 to 1
+and measures how closely a passage matches the question. Read the passage to
+verify the facts behind an answer.
+
+In **Processing**, owners and editors can request a sample of up to three
+passages from the current indexed revision of a completed job. Search and
+answer previews are limited to 600 characters after masking personal data
+matched by the redaction rules. Search and processing previews hide passages
+flagged as high risk.
+
 ## Common commands
 
 ```bash

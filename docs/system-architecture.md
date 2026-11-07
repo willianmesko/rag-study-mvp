@@ -261,6 +261,12 @@ step. Structured answers must include a valid citation, and refusals are not
 cached. Plain-text local models remain available as an unstructured fallback
 that production can disable.
 
+Fresh successful answers return separate lists for validated citations and
+the passages included in the model's context. The workflow redacts full
+passages before applying the context budget. HTTP and SSE use the same
+600-character excerpt policy for the UI. Reused answers show saved passages,
+and the new context list is excluded from the semantic cache and tracing.
+
 ### Agent safety boundary
 
 The current workflow is still a bounded RAG agent rather than a general-purpose

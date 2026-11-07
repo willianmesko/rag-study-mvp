@@ -98,6 +98,7 @@ export function createApplication() {
       retryIngestionJob: new RetryIngestionJobUseCase(jobs),
       listIngestionJobs: (tenantId: string, limit: number) => jobs.list(tenantId, limit),
       listIngestionEvents: (jobId: string, tenantId: string, limit: number) => jobs.listEvents(jobId, tenantId, limit),
+      previewIngestionPassages: jobs.previewPassages.bind(jobs),
       findPrimaryMembership: memberships.findPrimaryByUserId.bind(memberships),
       listMemberships: memberships.listByUserId.bind(memberships),
       findMembership: memberships.findByUserAndTenant.bind(memberships),

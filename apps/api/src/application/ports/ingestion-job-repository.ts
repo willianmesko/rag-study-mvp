@@ -1,3 +1,5 @@
+import type { PromptInjectionAssessment } from "../../domain/security/prompt-injection.js";
+
 export type IngestionJobStatus = "queued" | "processing" | "completed" | "failed";
 export type IngestionEventStatus = "started" | "completed" | "failed" | "info";
 
@@ -32,6 +34,11 @@ export type IngestionJob = {
 
 export type IndexedOriginal = Pick<IngestionJob, "filename" | "mimeType" | "payload" | "storagePath">;
 
+export type IngestionPassagePreview = {
+  totalChunks: number;
+  passages: Array<{ chunkId: string; ordinal: number; content: string; security: PromptInjectionAssessment }>;
+};
+
 export interface IngestionJobRepository {
   enqueue(input: Omit<IngestionJob, "id" | "documentId" | "status" | "progress" | "error" | "chunkCount" | "highRiskChunks" | "createdAt" | "updatedAt">): Promise<IngestionJob>;
   claimNext(): Promise<IngestionJob | null>;
@@ -39,6 +46,7 @@ export interface IngestionJobRepository {
   fail(id: string, error: string): Promise<void>;
   retry(id: string, tenantId: string): Promise<boolean>;
   list(tenantId: string, limit: number): Promise<Omit<IngestionJob, "payload">[]>;
+  previewPassages(input: { jobId: string; tenantId: string }): Promise<IngestionPassagePreview | null>;
   findIndexedOriginal(input: { documentId: string; tenantId: string }): Promise<IndexedOriginal | null>;
   requeueDocument(documentId: string, tenantId: string): Promise<IngestionJob | null>;
   listStoragePathsForDocument(documentId: string, tenantId: string): Promise<string[]>;

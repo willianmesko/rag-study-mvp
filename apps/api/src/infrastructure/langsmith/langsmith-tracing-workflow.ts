@@ -12,7 +12,13 @@ export class LangSmithTracingWorkflow implements QuestionAnsweringWorkflow {
 
     const traced = traceable(
       async (payload: { question: string; topK?: number; tenantId?: string; queryEmbedding?: number[] }) => this.workflow.answer(payload),
-      { name: "rag-question-workflow", run_type: "chain", project_name: this.options.projectName, tracingEnabled: true }
+      {
+        name: "rag-question-workflow",
+        run_type: "chain",
+        project_name: this.options.projectName,
+        tracingEnabled: true,
+        processOutputs: ({ contextSources: _contextSources, ...traceOutput }) => traceOutput
+      }
     );
     return traced(input);
   }

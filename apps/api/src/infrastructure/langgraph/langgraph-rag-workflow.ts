@@ -122,12 +122,14 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
     if (parsed.refusalReason) {
       return { answer: parsed.answer, sources: [], citedChunkIds: [], structuredOutput: parsed.structured, refusalReason: parsed.refusalReason };
     }
+    const contextSources = [...context.sourcesByReference.values()];
     const sources = parsed.structured
       ? [...new Set(parsed.citedChunkIds)].flatMap((reference) => context.sourcesByReference.get(reference) ?? [])
-      : [...context.sourcesByReference.values()];
+      : contextSources;
     return {
       answer: parsed.answer,
       sources,
+      contextSources,
       citedChunkIds: parsed.structured ? sources.map((source) => source.chunkId) : [],
       structuredOutput: parsed.structured
     };

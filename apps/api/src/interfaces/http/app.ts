@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { documentInputSchema, questionInputSchema, workspaceMemberRoleSchema } from "@rag-study/contracts";
 import { ZodError, z } from "zod";
 import type { AnswerQuestionUseCase } from "../../application/use-cases/answer-question.js";
-import type { AnswerWorkflowEvent } from "../../application/ports/question-answering-workflow.js";
+import type { AnswerQuestionResult, AnswerWorkflowEvent } from "../../application/ports/question-answering-workflow.js";
 import type { IngestDocumentUseCase } from "../../application/use-cases/ingest-document.js";
 import type { SearchDocumentsUseCase } from "../../application/use-cases/search-documents.js";
 import type { QueueDocumentUploadUseCase } from "../../application/use-cases/queue-document-upload.js";
@@ -15,7 +15,7 @@ import type { RetryIngestionJobUseCase } from "../../application/use-cases/retry
 import type { ReindexDocumentUseCase } from "../../application/use-cases/reindex-document.js";
 import type { DeleteDocumentUseCase } from "../../application/use-cases/delete-document.js";
 import type { GetDocumentOriginalUseCase } from "../../application/use-cases/get-document-original.js";
-import type { IngestionJob, IngestionJobEvent } from "../../application/ports/ingestion-job-repository.js";
+import type { IngestionJob, IngestionJobEvent, IngestionJobRepository } from "../../application/ports/ingestion-job-repository.js";
 import type { ManagedDocument, StoredChunk } from "../../application/ports/document-repository.js";
 import type { AuditEventRepository } from "../../application/ports/audit-event-repository.js";
 import type { QuotaResult } from "../../application/ports/quota-repository.js";
@@ -26,10 +26,12 @@ import type { TenantMembership, TenantRole, WorkspaceMember } from "../../applic
 import { PublicHtmlFetchError, type PublicHtmlFetchErrorCode, type PublicHtmlFetcher } from "../../application/ports/public-html-fetcher.js";
 import { config } from "../../config.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
+import { isSafeForAnswer, type PromptInjectionAssessment } from "../../domain/security/prompt-injection.js";
 
 const searchSchema = z.object({ q: z.string().min(1).max(5_000), topK: z.coerce.number().int().min(1).max(20).optional() });
 const invitationSchema = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: workspaceMemberRoleSchema });
 const memberRoleSchema = z.object({ role: workspaceMemberRoleSchema });
+const maxPassageExcerptChars = 600;
 const urlImportSchema = z.object({ url: z.string().trim().min(1).max(1_000).url(), title: z.string().trim().min(1).max(500).optional() });
 const urlImportStatus: Record<PublicHtmlFetchErrorCode, number> = {
   invalid_url: 400,
@@ -53,6 +55,7 @@ type HttpDependencies = {
   retryIngestionJob: RetryIngestionJobUseCase;
   listIngestionJobs: (tenantId: string, limit: number) => Promise<Omit<IngestionJob, "payload">[]>;
   listIngestionEvents: (jobId: string, tenantId: string, limit: number) => Promise<IngestionJobEvent[]>;
+  previewIngestionPassages: IngestionJobRepository["previewPassages"];
   findPrimaryMembership: (userId: string) => Promise<TenantMembership | null>;
   listMemberships: (userId: string) => Promise<TenantMembership[]>;
   findMembership: (userId: string, tenantId: string) => Promise<TenantMembership | null>;
@@ -319,6 +322,28 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { jobId } = z.object({ jobId: z.string().uuid() }).parse(request.params);
     return { events: (await dependencies.listIngestionEvents(jobId, authorization.tenantId, 100)).map(serializeIngestionEvent) };
   });
+  app.get("/v1/admin/uploads/:jobId/preview", { exposeHeadRoute: false }, async (request, reply) => {
+    const authorization = await authorizeAdmin(request, true);
+    if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
+    const { jobId } = z.object({ jobId: z.string().uuid() }).parse(request.params);
+    const preview = await dependencies.previewIngestionPassages({ jobId, tenantId: authorization.tenantId });
+    if (!preview) return reply.code(404).send({ error: "The current indexed passages are not available for this job." });
+    await dependencies.recordAuditEvent({
+      tenantId: authorization.tenantId,
+      actorUserId: authorization.userId,
+      action: "ingestion.preview_read",
+      resourceType: "ingestion_job",
+      resourceId: jobId,
+      requestId: request.id,
+      metadata: {}
+    });
+    return {
+      totalChunks: preview.totalChunks,
+      passages: preview.passages.map(({ chunkId, ordinal, content, security }) => ({
+        chunkId, chunk: ordinal, ...restrictedPassagePreview(content, security)
+      }))
+    };
+  });
   app.get("/v1/admin/usage", async (request, reply) => {
     const authorization = await authorizeOwner(request);
     if (!authorization.ok) return reply.code(authorization.status).send({ error: authorization.error });
@@ -459,7 +484,11 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { q, topK } = searchSchema.parse(request.query);
     const scope = await resolveQueryScope(request);
     if (!scope.ok) return reply.code(scope.status).send({ error: scope.error });
-    return { results: await dependencies.searchDocuments.execute({ query: q, topK, tenantId: scope.tenantId }) };
+    const results = await dependencies.searchDocuments.execute({ query: q, topK, tenantId: scope.tenantId });
+    return { results: results.map(({ content, ...result }) => {
+      const { excerpt, excerptTruncated, previewBlocked } = restrictedPassagePreview(content, result.security);
+      return { ...result, content: excerpt, previewTruncated: excerptTruncated, previewBlocked };
+    }) };
   });
   app.post("/v1/qa", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
     const { question, topK } = questionInputSchema.parse(request.body);
@@ -469,21 +498,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
     const result = await dependencies.answerQuestion.execute({ question, topK, tenantId, actorKey });
-    return {
-      answer: result.answer,
-      citedChunkIds: result.citedChunkIds ?? [],
-      structuredOutput: result.structuredOutput ?? false,
-      refusalReason: result.refusalReason ?? null,
-      sources: result.sources.map(({ chunkId, documentId, source, title, ordinal, score, content }) => ({
-        chunkId,
-        documentId,
-        source,
-        title,
-        chunk: ordinal,
-        score,
-        excerpt: redactPii(content.slice(0, 1_200)).text
-      }))
-    };
+    return serializeQuestionAnswer(result);
   });
   app.post("/v1/qa/stream", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
     const { question, topK } = questionInputSchema.parse(request.body);
@@ -552,21 +567,31 @@ function serializeStoredChunk(chunk: StoredChunk) {
   return { id: chunk.id, ordinal: chunk.ordinal, content: chunk.content, security: chunk.security, createdAt: chunk.createdAt.toISOString() };
 }
 
-function serializeQuestionAnswer(result: { answer: string; citedChunkIds?: string[]; structuredOutput?: boolean; refusalReason?: string; sources: Array<{ chunkId: string; documentId: string; source: string; title: string | null; ordinal: number; score: number; content: string }> }) {
+function passageExcerpt(content: string) {
+  const safeText = redactPii(content).text;
+  const excerpt = safeText.slice(0, maxPassageExcerptChars).replace(/[\uD800-\uDBFF]$/u, "");
+  return { excerpt, excerptTruncated: excerpt.length < safeText.length };
+}
+
+function restrictedPassagePreview(content: string, security: PromptInjectionAssessment) {
+  return isSafeForAnswer(security)
+    ? { ...passageExcerpt(content), previewBlocked: false }
+    : { excerpt: "", excerptTruncated: false, previewBlocked: true };
+}
+
+function serializeAnswerSource({ chunkId, documentId, source, title, ordinal, score, content }: AnswerQuestionResult["sources"][number]) {
+  return { chunkId, documentId, source, title, chunk: ordinal, score, ...passageExcerpt(content) };
+}
+
+function serializeQuestionAnswer(result: AnswerQuestionResult) {
   return {
     answer: result.answer,
     citedChunkIds: result.citedChunkIds ?? [],
     structuredOutput: result.structuredOutput ?? false,
     refusalReason: result.refusalReason ?? null,
-    sources: result.sources.map(({ chunkId, documentId, source, title, ordinal, score, content }) => ({
-      chunkId,
-      documentId,
-      source,
-      title,
-      chunk: ordinal,
-      score,
-      excerpt: redactPii(content.slice(0, 1_200)).text
-    }))
+    sources: result.sources.map(serializeAnswerSource),
+    contextSources: result.contextSources?.map(serializeAnswerSource) ?? [],
+    cacheHit: result.cacheHit ?? false
   };
 }
 

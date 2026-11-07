@@ -86,8 +86,20 @@ test("valid existing cached answers remain usable", async () => {
   const { answer, sources } = groundedAnswer;
   const useCase = makeUseCase({ cached: { answer, sources, similarity: 1 }, generated: groundedAnswer });
 
-  assert.deepEqual(await useCase.execute(), { answer, sources });
+  assert.deepEqual(await useCase.execute(), { answer, sources, contextSources: [], cacheHit: true });
   assert.equal(useCase.generations, 0);
   assert.deepEqual(useCase.events.map(({ type }) => type), ["cached", "validating"]);
   assert.deepEqual(useCase.usageCacheHits, [true]);
+});
+
+test("fresh model context is returned without being stored in the answer cache", async () => {
+  const generated = {
+    ...groundedAnswer,
+    contextSources: [groundedAnswer.sources[0]!, { ...groundedAnswer.sources[0]!, chunkId: "uncited-chunk" }]
+  };
+  const useCase = makeUseCase({ cached: null, generated });
+
+  assert.deepEqual(await useCase.execute(), generated);
+  assert.deepEqual(useCase.writes[0]?.sources, groundedAnswer.sources);
+  assert.equal("contextSources" in useCase.writes[0]!, false);
 });

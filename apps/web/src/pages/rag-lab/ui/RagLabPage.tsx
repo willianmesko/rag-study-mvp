@@ -257,7 +257,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError }:
               {activeTab === "ingest" && <DocumentIngestionForm />}
               {activeTab === "search" && <SemanticSearchForm accessToken={privateArea?.token} workspaceId={workspaceId} workspaceName={workspaceName} />}
               {activeTab === "answer" && <QuestionAnswerForm accessToken={privateArea?.token} workspaceId={workspaceId}
-                workspaceName={workspaceName} onAnswered={addAnswer} onInspectSource={setSelectedSource} />}
+                workspaceName={workspaceName} onAnswered={addAnswer} />}
               {activeTab === "history" && <QuestionHistoryPanel history={history} onClear={() => setHistory([])} onFeedback={setFeedback} onInspectSource={setSelectedSource} />}
               {lab.tab === "admin" && privateArea && <Suspense fallback={<p role="status" className="empty-state">{t("Opening workspace…", "Abrindo o espaço…")}</p>}>
                 <WorkspaceControlCenter section={lab.workspaceSection} workspace={privateArea.workspace} token={privateArea.token}

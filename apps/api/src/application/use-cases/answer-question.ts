@@ -24,7 +24,7 @@ export class AnswerQuestionUseCase {
       await input.onEvent?.({ type: "cached" });
       await input.onEvent?.({ type: "validating" });
       await this.recordUsage(input, safeQuestion, cached.answer, startedAt, true, false);
-      return { answer: cached.answer, sources: redactSources(cached.sources) };
+      return { answer: cached.answer, sources: redactSources(cached.sources), contextSources: [], cacheHit: true };
     }
     const estimatedInputTokens = Math.ceil(safeQuestion.length / 4);
     const worstCaseCostUsd = (estimatedInputTokens / 1_000) * this.options.inputCostPer1kUsd

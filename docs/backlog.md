@@ -35,6 +35,10 @@ product decision, credentials, or additional operational cost.
   content type, redirect limits, and byte and time budgets.
 - Ingestion pipeline visualization: file received, extraction, chunking,
   security scan, embeddings, and vector persistence.
+- RAG evidence visualization: validated citations and model context are shown
+  separately. Ask and Search explain cosine similarity. Search and Processing
+  offer bounded, redacted previews, and Processing samples only the current
+  indexed revision for owners and editors.
 - Persisted ingestion timeline: stage start/end events, durations, safe counts,
   and errors are available to the protected administration UI without storing
   document content in the event stream.
@@ -70,7 +74,8 @@ product decision, credentials, or additional operational cost.
 
 1. Advanced ingestion — complete for scanned PDF OCR, static public HTTPS
    pages, HTML uploads, metadata, language detection, and structured chunking.
-2. RAG visualization — controlled passage previews and score interpretation.
+2. RAG visualization — complete for citation and context separation, controlled
+   previews, and score interpretation.
 3. UX quality — responsive visual tests, contrast, accessibility, and team flows.
 4. Workspace Control Center — finish extracting independent section widgets
    and expose additional workspace creation in the signed-in app.
@@ -102,9 +107,9 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      and selective retries remain part of the LangGraph workflow expansion.
 
 3. **RAG pipeline visualization**
-   - Add a limited, explicitly approved chunk preview to the existing timeline.
-   - Keep the UI clear that a retrieval score is similarity, not factual
-     certainty, and that a document can produce many chunks.
+   - The current UI shows passage counts and offers a bounded preview from a
+     completed ingestion. Claim-to-source verification remains in the LangGraph
+     workflow expansion.
 
 4. **Retrieval quality and observability**
    - Evaluate Jina reranking against the golden set before enabling it.

@@ -1,4 +1,5 @@
 import type { Citation, RetrievedChunk } from "../../domain/document.js";
+import { redactPii } from "../../domain/security/pii-redaction.js";
 
 export type GroundedContext = {
   text: string;
@@ -28,7 +29,8 @@ export function formatUntrustedContext(matches: RetrievedChunk[], maxChars: numb
   const passages: string[] = [];
   for (const { chunkId, documentId, source, title, ordinal, score, content } of matches) {
     if (remaining <= 0) break;
-    const excerpt = content.slice(0, remaining);
+    // Redact the whole passage so a character cutoff cannot leave part of an identifier.
+    const excerpt = redactPii(content).text.slice(0, remaining);
     if (!excerpt.trim()) continue;
     remaining -= excerpt.length;
     const reference = `S${sourcesByReference.size + 1}`;

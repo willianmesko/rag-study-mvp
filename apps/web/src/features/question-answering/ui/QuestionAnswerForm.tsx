@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { questionInputSchema } from "@rag-study/contracts";
-import { api, type AnswerStreamEvent, type QuestionResponse, type QuestionSource } from "../../../shared/api/rag-api";
+import { api, type AnswerStreamEvent, type QuestionResponse } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { getRequestErrorMessage } from "../../../shared/lib/request-error";
 import { InputLabel } from "../../../shared/ui/InputLabel";
@@ -35,9 +35,8 @@ function getRefusalCopy(reason: QuestionResponse["refusalReason"]): [string, str
   }
 }
 
-export function QuestionAnswerForm({ onAnswered, onInspectSource, accessToken, workspaceId, workspaceName }: {
+export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, workspaceName }: {
   onAnswered: (input: { question: string; response: QuestionResponse }) => void;
-  onInspectSource: (source: QuestionSource) => void;
   accessToken?: string | null;
   workspaceId?: string;
   workspaceName?: string;
@@ -69,12 +68,14 @@ export function QuestionAnswerForm({ onAnswered, onInspectSource, accessToken, w
     controllerRef.current = controller;
     const input = { ...parsed.data, accessToken: accessToken ?? undefined, workspaceId, signal: controller.signal };
     let receivedEvent = false;
+    let reusedAnswer = false;
 
     function handleStreamEvent(update: AnswerStreamEvent) {
       receivedEvent = true;
       if (controller.signal.aborted) return;
+      if (update.type === "cached") reusedAnswer = true;
       if (update.type === "token") setStreamedAnswer((value) => value + update.delta);
-      else if (update.type !== "completed" && update.type !== "error") setStreamStatus(update.type);
+      else if (update.type !== "completed" && update.type !== "error") setStreamStatus(reusedAnswer ? "cached" : update.type);
     }
 
     try {
@@ -86,6 +87,7 @@ export function QuestionAnswerForm({ onAnswered, onInspectSource, accessToken, w
         response = await api.answer(input);
       }
       if (controller.signal.aborted) return;
+      if (reusedAnswer && response.cacheHit === undefined) response = { ...response, cacheHit: true };
       setAnswer(response);
       if (!response.refusalReason) onAnswered({ question: input.question, response });
     } catch (error) {
@@ -102,6 +104,7 @@ export function QuestionAnswerForm({ onAnswered, onInspectSource, accessToken, w
   const error = invalidInput ? t("Enter a question of up to 5,000 characters.", "Digite uma pergunta de até 5.000 caracteres.")
     : streamError ? getRequestErrorMessage(streamError, locale) : null;
   const refusalCopy = getRefusalCopy(answer?.refusalReason);
+  const citations = answer && !answer.cacheHit ? answer.sources.filter((source) => answer.citedChunkIds?.includes(source.chunkId)) : [];
 
   return (
     <form className="space-y-7" onSubmit={submit} aria-busy={isStreaming}>
@@ -149,21 +152,16 @@ export function QuestionAnswerForm({ onAnswered, onInspectSource, accessToken, w
       {answer && <>
         <div className="panel animate-fade-up border-cyan-500/20 bg-cyan-500/5">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="eyebrow">{t("Your answer", "Sua resposta")}</p>
-              {!refusalCopy && answer.sources.length > 0 && <p className="mt-1 text-xs text-slate-400">
-                {answer.sources.length.toLocaleString(locale)} {answer.sources.length === 1 ? t("supporting passage", "trecho de referência") : t("supporting passages", "trechos de referência")}
-              </p>}
-            </div>
+            <p className="eyebrow">{t("Your answer", "Sua resposta")}</p>
             {refusalCopy ? <span className="status-pill status-pill--warning">{t("Answer unavailable", "Resposta indisponível")}</span>
-              : Boolean(answer.citedChunkIds?.length) ? <span className="status-pill status-pill--success">{t("Citations checked", "Citações conferidas")}</span>
-              : answer.sources.length > 0 && <span className="status-pill status-pill--success">{t("Sources included", "Fontes incluídas")}</span>}
+              : answer.cacheHit ? <span className="status-pill">{t("Saved answer reused", "Resposta salva reutilizada")}</span>
+              : citations.length > 0 && <span className="status-pill status-pill--success">{t("Citations checked", "Citações conferidas")}</span>}
           </div>
           <p role={refusalCopy ? "status" : undefined} className="mt-5 whitespace-pre-wrap text-sm leading-7 text-slate-200">
             {refusalCopy ? t(...refusalCopy) : answer.answer}
           </p>
         </div>
-        {!refusalCopy && <RagEvidencePanel sources={answer.sources} onInspectSource={onInspectSource} />}
+        {!refusalCopy && <RagEvidencePanel response={answer} citations={citations} />}
       </>}
       {error && !isStreaming && <p role="alert" className="error-message">{error}</p>}
     </form>

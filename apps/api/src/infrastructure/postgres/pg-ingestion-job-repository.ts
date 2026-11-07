@@ -1,12 +1,17 @@
 import type { Pool } from "pg";
-import type { IndexedOriginal, IngestionJob, IngestionJobEvent, IngestionJobRepository } from "../../application/ports/ingestion-job-repository.js";
+import type { IndexedOriginal, IngestionJob, IngestionJobEvent, IngestionJobRepository, IngestionPassagePreview } from "../../application/ports/ingestion-job-repository.js";
 import { indexedOriginalPredicate } from "./indexed-original.js";
+import { readStoredChunkSecurity } from "./stored-chunk-security.js";
 
 type Row = { id: string; tenant_id: string; document_id: string | null; source: string; title: string | null; filename: string; mime_type: string; payload: Buffer | null; storage_path: string | null; status: IngestionJob["status"]; progress: number; error: string | null; chunk_count: number | null; high_risk_chunks: number | null; created_at: Date; updated_at: Date };
 const columns = "id, tenant_id, document_id, source, title, filename, mime_type, payload, storage_path, status, progress, error, chunk_count, high_risk_chunks, created_at, updated_at";
 const map = (row: Row): IngestionJob => ({ id: row.id, tenantId: row.tenant_id, documentId: row.document_id, source: row.source, title: row.title, filename: row.filename, mimeType: row.mime_type, payload: row.payload, storagePath: row.storage_path, status: row.status, progress: row.progress, error: row.error, chunkCount: row.chunk_count, highRiskChunks: row.high_risk_chunks, createdAt: row.created_at, updatedAt: row.updated_at });
 type EventRow = { id: string; job_id: string; stage: string; status: IngestionJobEvent["status"]; duration_ms: number | null; details: Record<string, unknown>; created_at: Date };
 const mapEvent = (row: EventRow): IngestionJobEvent => ({ id: row.id, jobId: row.job_id, stage: row.stage, status: row.status, durationMs: row.duration_ms, details: row.details, createdAt: row.created_at });
+type PassagePreviewRow = { total_chunks: number } & (
+  { chunk_id: null; ordinal: null; content: null; metadata: null }
+  | { chunk_id: string; ordinal: number; content: string; metadata: unknown }
+);
 
 export class PgIngestionJobRepository implements IngestionJobRepository {
   constructor(private readonly pool: Pool) {}
@@ -33,6 +38,37 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
     return result.rowCount === 1;
   }
   async list(tenantId: string, limit: number) { const result = await this.pool.query<Row>(`SELECT ${columns.replace("payload, ", "")} FROM ingestion_jobs WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT $2`, [tenantId, limit]); return result.rows.map(({ payload: _payload, ...row }) => map({ ...row, payload: null })); }
+  async previewPassages(input: { jobId: string; tenantId: string }): Promise<IngestionPassagePreview | null> {
+    const result = await this.pool.query<PassagePreviewRow>(
+      `SELECT COALESCE(j.chunk_count, (SELECT COUNT(*)::int FROM chunks WHERE document_id = d.id)) AS total_chunks,
+              c.id AS chunk_id, c.ordinal, c.content, c.metadata
+       FROM ingestion_jobs j
+       JOIN documents d ON d.id = j.document_id AND d.tenant_id = j.tenant_id AND d.source = j.source
+         AND d.metadata ->> 'ingestionJobId' = j.id::text
+       LEFT JOIN LATERAL (
+         SELECT id, ordinal, content, metadata
+         FROM chunks
+         WHERE document_id = d.id
+         ORDER BY ordinal
+         LIMIT 3
+       ) c ON TRUE
+       WHERE j.id = $1 AND j.tenant_id = $2 AND j.status = 'completed'
+       ORDER BY c.ordinal`,
+      [input.jobId, input.tenantId]
+    );
+    const first = result.rows[0];
+    if (!first) return null;
+    return {
+      totalChunks: first.total_chunks,
+      passages: result.rows.flatMap((row) => row.chunk_id === null ? [] : [{
+        chunkId: row.chunk_id,
+        ordinal: row.ordinal,
+        content: row.content,
+        security: readStoredChunkSecurity(row.metadata)
+      }])
+    };
+  }
+
   async findIndexedOriginal(input: { documentId: string; tenantId: string }): Promise<IndexedOriginal | null> {
     const result = await this.pool.query<Pick<Row, "filename" | "mime_type" | "payload" | "storage_path">>(
       `SELECT j.filename, j.mime_type, j.payload, j.storage_path

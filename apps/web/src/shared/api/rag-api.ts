@@ -8,6 +8,8 @@ export type SearchResult = {
   source: string;
   title: string | null;
   score: number;
+  previewTruncated?: boolean;
+  previewBlocked?: boolean;
   security: {
     promptInjectionRisk: "low" | "medium" | "high";
     signals: string[];
@@ -25,13 +27,15 @@ export type SearchResult = {
 
 export type SearchResponse = { results: SearchResult[] };
 export type IngestResponse = { documentId: string; chunkCount: number; highRiskChunks: number };
-export type QuestionSource = { chunkId: string; documentId: string; source: string; title: string | null; chunk: number; score: number; excerpt: string };
+export type QuestionSource = { chunkId: string; documentId: string; source: string; title: string | null; chunk: number; score: number; excerpt: string; excerptTruncated?: boolean };
 export type QuestionResponse = {
   answer: string;
   citedChunkIds?: string[];
   structuredOutput?: boolean;
   refusalReason?: string | null;
   sources: QuestionSource[];
+  contextSources?: QuestionSource[];
+  cacheHit?: boolean;
 };
 export type AnswerStreamEvent =
   | { type: "accepted" | "retrieving" | "generating" | "validating" | "cached"; status: string }
@@ -40,6 +44,10 @@ export type AnswerStreamEvent =
   | { type: "error"; error: string };
 export type UploadJob = { id: string; source: string; title: string | null; filename: string; mimeType: string; status: "queued" | "processing" | "completed" | "failed"; progress: number; error: string | null; chunkCount: number | null; highRiskChunks: number | null; createdAt: string; updatedAt: string };
 export type IngestionEvent = { id: string; stage: string; status: "started" | "completed" | "failed" | "info"; durationMs: number | null; details: Record<string, unknown>; createdAt: string };
+type IngestionPassagePreview = {
+  totalChunks: number;
+  passages: Array<{ chunkId: string; chunk: number; excerpt: string; excerptTruncated: boolean; previewBlocked: boolean }>;
+};
 export type ManagedDocument = {
   id: string;
   source: string;
@@ -188,6 +196,10 @@ export const api = {
   },
   listUploads: (accessToken: string, workspaceId?: string) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
   listUploadEvents: (jobId: string, accessToken: string, workspaceId?: string) => request<{ events: IngestionEvent[] }>(`/v1/admin/uploads/${jobId}/events`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  previewUploadPassages: (jobId: string, accessToken: string, workspaceId: string, signal: AbortSignal) =>
+    request<IngestionPassagePreview>(`/v1/admin/uploads/${encodeURIComponent(jobId)}/preview`, {
+      headers: { authorization: `Bearer ${accessToken}`, "x-workspace-id": workspaceId }, signal, cache: "no-store"
+    }),
   getUsageSummary: (accessToken: string, workspaceId: string, days = 30) => request<{ days: number; summary: UsageSummary; alert: UsageAlert }>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listEvaluationRuns: (accessToken: string, workspaceId: string) => request<{ runs: EvaluationRun[] }>("/v1/admin/evaluations?limit=20", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   runEvaluation: (accessToken: string, workspaceId: string) => request<{ run: EvaluationRun }>("/v1/admin/evaluations/run", { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
