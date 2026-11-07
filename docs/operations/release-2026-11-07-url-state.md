@@ -26,7 +26,7 @@ See the [state ownership guide](../frontend-url-state.md).
 
 ## Validation
 
-All **33 new FE-11 profile cases** passed locally, including bounded schema parity,
+All **21 new browser profile cases** and **four native state cases** passed locally, including bounded schema parity,
 listener ownership, browser history, workspace scope, retry and draft privacy.
 The broader selection passed **128 checks** with ten existing profile skips.
 Three existing screenshot cases stopped on differences between native macOS Chrome
@@ -47,14 +47,14 @@ private end-to-end session.
 
 ## Test-environment correction
 
-The first CI attempt at `f9cfcff` stopped before collecting tests: the browser
-image's Node 26 runtime exposed a named-export interop difference when an ESM
-codec test imported application TypeScript. The test now uses the same transform
-as existing native application-model tests and reads the already-built contract
-module explicitly. The UX job also selects the project's supported Node 24,
-matching the other jobs. No runtime application workaround or golden-image
-change is involved. The corrected Linux pilot and final CI retain separate
-results below.
+Two initial CI attempts stopped before browser collection on ESM/CommonJS loader
+interop in a pure codec test. The local macOS and cached Linux pilots had not
+reproduced the clean-checkout loader path. These failures did not publish code.
+The four environment-independent codec/store/parity cases now run with Node 24's
+native test runner and type stripping, outside Playwright's transform. The seven
+browser journeys still run on all three profiles. No assertion or visual baseline
+was removed. The UX job explicitly selects the supported Node 24 rather than
+inheriting the image's Node 26. Final exact-source CI remains required.
 
 ## Rollback
 
