@@ -21,40 +21,18 @@ status section where they appear.
 
 ## In progress
 
-### Demonstration libraries, document filters, and prompt comparisons
-
-The discovery milestone is implemented and locally validated: explicit,
-workspace-scoped demo imports, suggested questions and sources, server-side
-filters, controlled prompt variants, safety outcomes, and clearer evaluation
-reference requirements. The quality harness and disposable PostgreSQL isolation
-checks passed; responsive UX validation passed. Release checks and publication
-are still required, so its completion checklist remains open.
+No milestone is currently recorded as in progress. The demonstration and
+discovery delivery was validated and published on 2026-11-07.
 
 **Approved delivery order**
 
-1. [Demonstration libraries and document discovery](#1-demonstration-libraries-and-document-discovery):
-   realistic synthetic materials, suggested questions with sources,
-   document/source/language/date/type filters, and controlled prompt comparisons
-   with safety outcomes.
-2. [LangGraph workflow expansion](#2-langgraph-workflow-expansion): adaptive
+1. **Completed:** [Demonstration libraries and document discovery](#1-demonstration-libraries-and-document-discovery).
+2. **Next:** [LangGraph workflow expansion](#2-langgraph-workflow-expansion): adaptive
    retrieval, claim verification and citation repair, checkpointed ingestion,
    unified evaluations, durable approvals, execution budgets/cancellation, and
-   restart recovery. Start after the demonstration and discovery milestone is
-   completed and validated.
-
-The discovery milestone is in progress. LangGraph expansion remains next in the approved queue.
+   restart recovery.
 
 ## Pending implementation
-
-### 1. Demonstration libraries and document discovery
-
-- [ ] Seed reusable demonstration libraries with realistic synthetic handbooks,
-  procedures, FAQs, product guides, and project materials.
-- [ ] Include suggested questions and supporting sources so teams can explore
-  the product and compare separate workspaces.
-- [ ] Add document filters for source/document, language, date range, and file
-  type. Name/source text filtering already exists.
-- [ ] Extend answer comparison to controlled prompt variants and safety outcomes.
 
 ### 2. LangGraph workflow expansion
 
@@ -233,6 +211,41 @@ CloudWatch → metrics and alarms
   collaborative product flow requires them. Current chat uses SSE.
 
 ## Completed and validated
+
+### 1. Demonstration libraries and document discovery
+
+- [x] Three reusable bilingual demonstration libraries for knowledge, support,
+  and learning, each with five realistic fictional handbooks, procedures, FAQs,
+  product guides, and project materials. Preview/download is provider-free;
+  owner/editor imports are explicit, workspace-scoped, quota-limited, audited,
+  and replay-safe. Concurrent requests preserve existing documents and jobs.
+- [x] Suggested questions name their supporting sources, become available after
+  indexing, and open an editable draft in Ask. Members can inspect added
+  documents. Viewers can preview and ask without gaining upload rights.
+- [x] Server-side document/source text, exact document, language, file type,
+  and inclusive UTC updated-date filters, applied before the 100-result cap.
+  Invalid dates and scope overrides are rejected; SQL parameters are bound.
+- [x] Controlled Balanced/Concise/Explanatory prompt comparisons with one allowed
+  model, or model comparisons with one shared prompt. Both use identical
+  prepared evidence and bounded execution. Results record prompt version,
+  provider/model, tokens, latency, cost provenance, citations, and safety outcome.
+  Measurement exports exclude conversation/excerpt text and free-form refusals.
+- [x] Explicit preparation of the fixed RAG reference benchmark, preflight
+  rejection when its source is absent, and clearer separation of retrieval,
+  scored-case coverage, public faithfulness examples, and judge calibration.
+  Historical results remain unchanged. Private-corpus datasets remain pending.
+- [x] Dialog-safe dropdowns, mobile header wrapping, readable date controls,
+  responsive screenshot references, and request logs excluding filter values,
+  addresses, headers, and upstream error text.
+
+The quality harness, all three
+[release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42354260305),
+75 responsive browser checks, and 14 real PostgreSQL integration checks passed.
+Browser journeys use isolated API fixtures. Backend and frontend commit
+`f9bdd41` were confirmed live on Render on 2026-11-07, with health,
+authentication boundaries, page routes, and deployed feature assets verified.
+No production workspace was automatically seeded and no new provider was
+activated. See [Demonstration and discovery](demonstration-discovery.md).
 
 ### RAG and ingestion
 
