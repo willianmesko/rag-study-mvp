@@ -50,8 +50,10 @@ administration screen:
 /workspace/settings       → workspace identity, usage, and policies (owner)
 ```
 
-The global header lets signed-in users switch workspaces or create another one.
-A newly created workspace starts its own onboarding. Each route mounts the
+Global navigation places the active workspace above the page links, in the
+desktop sidebar and the compact top navigation on smaller screens. Its menu
+lets signed-in users switch workspaces or create another one. A newly created
+workspace starts its own onboarding. Each route mounts the
 section that owns its data, actions, and loading and error states. The
 onboarding guide explains concepts in plain language and links directly to
 the next action.

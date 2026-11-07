@@ -1,16 +1,10 @@
-import type { Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { Mascot } from "../../../shared/ui/Mascot";
-import { WorkspaceSwitcher, type WorkspaceCreation } from "./WorkspaceSwitcher";
 
-export function LabHeader({ online, loading, publicDemo, workspaces, workspaceId, onWorkspaceChange, workspaceCreation, accountAction, compact = false }: {
+export function LabHeader({ online, loading, publicDemo, accountAction, compact = false }: {
   online: boolean;
   loading: boolean;
   publicDemo: boolean;
-  workspaces: Workspace[];
-  workspaceId: string;
-  onWorkspaceChange: (workspaceId: string) => void;
-  workspaceCreation?: WorkspaceCreation;
   accountAction: { label: string; onClick: () => void; disabled?: boolean };
   compact?: boolean;
 }) {
@@ -42,7 +36,6 @@ export function LabHeader({ online, loading, publicDemo, workspaces, workspaceId
         </div>
       </div>}
       <div className={`flex min-w-0 flex-wrap items-end 2xl:shrink-0 ${compact ? "justify-end gap-2 sm:gap-3" : "gap-3"}`}>
-        <WorkspaceSwitcher workspaces={workspaces} selectedId={workspaceId} onChange={onWorkspaceChange} creation={workspaceCreation} compact={compact} />
         <div role="status" className={`status-pill mb-1.5 ${online ? "status-pill--success" : loading ? "" : "status-pill--warning"}`}>
           <span aria-hidden="true" className={`size-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-amber-400"}`} />
           {status}

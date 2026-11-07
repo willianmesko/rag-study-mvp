@@ -71,6 +71,9 @@ IT and legal scenarios remain optional study examples.
   Team actions explain roles and require confirmation for removal.
 - The main app uses the full viewport width, with desktop navigation aligned
   to the left screen edge and responsive navigation on smaller screens.
+- Workspace selection sits above the main navigation in the desktop sidebar
+  and compact mobile navigation. One menu shows the current name and role,
+  workspace choices, and the action to create another workspace.
 - Milo gives a short greeting on sign-in after the image loads. The greeting
   respects the device's reduced-motion preference.
 - Milo floats on the shared loading screen while Lumora opens a session,
@@ -201,7 +204,7 @@ and update this backlog after validating each shipped capability.
      `Processing`, `Team`, `Evaluations`, and `Settings`. Each section has a
      stable route and independent data loading. Overview links to the full
      sections from summary cards.
-   - **New workspace** in the signed-in header opens workspace creation and
+   - **New workspace** in the global workspace menu opens workspace creation and
      starts a separate setup guide. Switching preserves the current section
      when the role in the destination workspace can access it.
    - Viewers can open Overview, Knowledge, and Processing. Editors can manage

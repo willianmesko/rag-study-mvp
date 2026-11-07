@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useLocale } from "../../../shared/i18n/locale";
 import { BrandMark } from "../../../shared/ui/BrandMark";
 import type { LabRoute } from "../../../shared/lib/app-route";
@@ -10,11 +11,12 @@ const tabs = [
   ["admin", "Workspace", "Espaço de trabalho", "05"]
 ] as const;
 
-export function LabNavigation({ activeTab, onTabChange, publicDemo, canIndex }: {
+export function LabNavigation({ activeTab, onTabChange, publicDemo, canIndex, workspaceControl }: {
   activeTab: LabRoute["tab"];
   onTabChange: (tab: LabRoute["tab"]) => void;
   publicDemo: boolean;
   canIndex: boolean;
+  workspaceControl?: ReactNode;
 }) {
   const { t } = useLocale();
   const visibleTabs = tabs.filter(([id]) => (id !== "ingest" || canIndex) && (id !== "admin" || !publicDemo));
@@ -29,6 +31,7 @@ export function LabNavigation({ activeTab, onTabChange, publicDemo, canIndex }: 
           <p className="text-xs text-slate-400">{t("Team knowledge", "Conhecimento da equipe")}</p>
         </div>
       </div>
+      {workspaceControl && <div className={compact ? "sm:mt-5" : "mt-5"}>{workspaceControl}</div>}
       <nav className={`flex gap-2 overflow-x-auto p-1.5 lg:mt-10 lg:grid lg:overflow-visible ${compact ? "sm:mt-7" : "mt-7"}`}
         aria-label={t("Main navigation", "Navegação principal")}>
         {visibleTabs.map(([id, english, portuguese, number]) => (
