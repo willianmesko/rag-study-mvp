@@ -1,7 +1,7 @@
 # ADR 0002: Organize the backend around business modules
 
 - Date: 2026-11-07
-- Status: accepted; implemented and locally verified, publication pending
+- Status: accepted; implemented, CI verified and published at `d045949`
 - Scope: backend source organization and composition
 
 ## Problem

@@ -6,6 +6,12 @@ optional study examples.
 
 Last reviewed on 2026-11-07.
 
+The [resume checkpoint](backlog-resume.md) preserves the next general FE-06 and
+BE-08 slices; both were inspected and stopped before edits. The owner then added
+the specific BE-15 priority: technology-neutral module assembly. That follow-up
+is active; general backlog work and the learning walkthrough retain their saved
+starting points.
+
 ## Status guide
 
 | Status | Meaning |
@@ -21,22 +27,23 @@ status section where they appear.
 
 ## In progress
 
-The latest application release, `a59036044e19a4f35d38e4df8c8c18c7573de646`, is
+The latest application release, `d0459492862a181d77860a1aa26a18e3385f1caa`, is
 live on the frontend and API after all four
-[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42389555482).
+[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42398683215).
 Both deployments, served features/icon, health and protected routes were verified
-on 2026-11-07. See [phase 1 evidence](operations/release-2026-11-07-architecture-phase1.md).
+on 2026-11-07. See [phase 2 evidence](operations/release-2026-11-07-architecture-phase2.md).
 The earlier [observability/resilience release](operations/release-2026-11-07.md)
 is included.
 
-The [technical backlog](technical-backlog.md) separates the six published tickets
-from locally verified work, partial acceptance criteria and pending work.
-**The next batch is in progress:** shared success-response schemas, SQL limits,
-bounded Auth/member lookup, frontend composition/Public APIs, provider reservations
-and safe shutdown. The backend is also moving to NestJS-inspired business modules,
-with native Fastify factories/controllers and a shared technical platform. See the
+The [technical backlog](technical-backlog.md) records 14 published tickets,
+BE-15 in progress, five partial tickets and six pending tickets. The published
+batch includes shared success-response schemas, SQL limits, bounded Auth/member
+lookup, frontend composition/Public APIs, provider reservations, safe shutdown
+and NestJS-inspired business-module organization. See the
 [module guide](backend-modules.md) and [ADR 0002](decisions/0002-business-modules.md).
-These source changes are not yet published. Operational activation remains separate.
+**BE-15 now separates tool-neutral feature assembly from concrete database,
+provider, workflow and tracing selection.** It is not yet part of that live SHA.
+Operational activation remains separate.
 
 OAuth extension-parameter compatibility and standard MCP icon metadata are live.
 A real completed ChatGPT connection still needs client consent/verification.
@@ -106,15 +113,22 @@ migration and preserves the existing stack.
   regressions and four successful CI jobs are recorded in the phase 1 release
   evidence. Frontend and API are live at `a590360`. Full success-payload validation
   and SQL deadlines remain in progress.
-- [ ] Extract cohesive Auth/HTTP/app responsibilities, finish shared wire
-  contracts and slice Public APIs, and pilot compatible FSD/correctness gates
-  with explicit exceptions (phase 2).
-- [ ] Complete feature-owned backend modules for Identity, Workspaces, Knowledge,
+- [x] Extract cohesive Auth/HTTP/app responsibilities, decode successful JSON
+  resources, add slice Public APIs and a proven FSD/module graph gate. CI and
+  both deployments passed at `d045949`. Broader promise/Hook checks remain partial.
+- [x] Complete feature-owned backend modules for Identity, Workspaces, Knowledge,
   Ingestion, Chat, AI, Evaluations, MCP, Usage and product Workflows. Group each
   capability's controllers, services/use cases, ports and adapters; keep technical
   facilities under `platform` and global composition under `app`. Preserve the
   current framework, public API and resource ownership, and validate module
   exports/dependencies automatically before deployment.
+- [ ] **BE-15, current explicit priority:** make feature factories depend on
+  repository/service/workflow/tracing/provider ports and plain options. Select
+  PostgreSQL, Supabase, LangGraph, LangSmith, Ollama/OpenRouter/Bedrock and optional
+  reranker adapters in outer composition. Add alternate-adapter contract tests
+  and architecture gates; preserve transaction, budget and compatibility behavior.
+- [ ] Finish BE-12 typed feature configuration and SQL row decoding; shared wire
+  schemas alone do not close that backend work.
 - [ ] Standardize query/stream transitions, cancellation, least-privilege MCP
   credentials, reranker reservations, shutdown and dependency/build hygiene
   (phase 3).

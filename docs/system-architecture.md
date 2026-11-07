@@ -221,8 +221,9 @@ Type sharing does not make the browser a trusted source.
 
 Parallel source reviews of frontend and backend at `e25572d` support retaining
 the current stack and modular API. They do not establish throughput or complete
-FSD enforcement. The [technical backlog](technical-backlog.md) contains 25
-implementation tickets with current progress, evidence and alternatives in the
+FSD enforcement. The [technical backlog](technical-backlog.md) contains the original
+25 implementation tickets plus the owner's BE-15 abstraction follow-up, with
+current progress, evidence and alternatives in the
 [frontend review](frontend-architecture-review.md) and
 [backend review](backend-architecture-review.md).
 
@@ -244,6 +245,11 @@ The backend is being organized by business modules following
 → features → entities → narrow shared segments. Not every slice needs every
 segment. The approved graph checker is a development tool; application frameworks
 and runtime dependencies are preserved.
+
+[ADR 0003](decisions/0003-technology-neutral-modules.md) records the next explicit
+request: module assembly receives tool-neutral capability ports, while outer
+composition selects PostgreSQL/provider/graph/tracing adapters. Its implementation
+and release status are separate from the first module-organization delivery.
 
 ## API architecture
 

@@ -14,20 +14,24 @@ live activation remain in the [product backlog](backlog.md).
 
 | Status | Tickets | Count |
 | --- | --- | --- |
-| Implemented, CI passed and published | BE-01, BE-02, BE-04, BE-05, FE-01, FE-03 | 6 |
-| Implemented with local release checks; CI/publication pending | BE-03, BE-06, BE-07, BE-10, BE-11, FE-02, FE-04, FE-05 | 8 |
+| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, FE-01–FE-05 | 14 |
+| New explicit architecture follow-up in progress | BE-15 | 1 |
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08, FE-10 | 5 |
 | Pending implementation | BE-09, BE-13, FE-06, FE-07, FE-09, FE-11 | 6 |
 
-The first batch is live on the frontend and API at `a590360`, after all four
-[CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42389555482).
-See the [phase 1 release evidence](operations/release-2026-11-07-architecture-phase1.md).
+The latest batch is live on the frontend and API at `d045949`, after all four
+[CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42398683215).
+See the [phase 2 release evidence](operations/release-2026-11-07-architecture-phase2.md).
+The earlier six-ticket batch at `a590360` remains documented in the
+[phase 1 record](operations/release-2026-11-07-architecture-phase1.md).
 A checked slice below does not close the remaining portions of a partial ticket.
-Local phase 2/3 checks cover SQL limits, success decoding, bounded Auth/member
+Phase 2/3 checks cover SQL limits, success decoding, bounded Auth/member
 lookup, application composition, conservative reranking and shutdown. The full
 pre-migration API suite passed 308 tests with one intentionally optional database
 skip; frontend response/session/navigation checks passed 105 profile cases. This
-source is not yet published and does not alter the phase 1 release receipt.
+source is published; CI also passed 81 PostgreSQL cases, the isolated cutover,
+61 architecture fixtures, the harness and 247 UX cases with 44 intentional profile
+skips. The new BE-15 follow-up remains separate and is not in that deployed SHA.
 
 The owner requested NestJS-style business-module organization. BE-07 includes
 the [module migration](decisions/0002-business-modules.md): `modules`, `platform`
@@ -40,6 +44,11 @@ See the [current directory guide](backend-modules.md) and
 [candidate evidence](operations/release-2026-11-07-architecture-phase2.md).
 The guided learning walkthrough is separately planned in the product backlog;
 writing its 18-chapter plan does not complete the teaching sessions.
+
+The original review defined 25 tickets. The owner's subsequent request adds
+BE-15: technology-neutral feature factories. It is a separate follow-up to the
+published module organization, not a claim that grouping directories made all
+integrations replaceable.
 
 Phase 1 verification includes real PostgreSQL regressions for all four encrypted
 stores under concurrent relocation/rewrite and process loss; repair after 25h
@@ -123,7 +132,7 @@ feature-owned locations during BE-07's migration.
 - [x] **P1 idle-pool listener implemented · S · Medium risk.** Scope:
   `infrastructure/postgres/pool.ts`, a fixed reason-code counter/log, and unit/
   actual PostgreSQL disconnect/replacement tests.
-- [x] **P2 SQL limits implemented and locally verified · M.** Inventory actual connection/role
+- [x] **P2 SQL limits implemented, CI verified and published · M.** Inventory actual connection/role
   defaults and apply workload-specific query/statement/lock limits and cleanup.
 - **Accept:** an idle-client disconnect emits a safe fixed reason and does not
   terminate the service; a replacement connection works. Retrieval sleep/lock
@@ -133,7 +142,7 @@ feature-owned locations during BE-07's migration.
 - **Evidence:** native session/local profiles preserve stricter effective settings;
   real PostgreSQL tests cover statement/lock/idle limits, rollback, aborted checkout,
   cancelled retrieval/MCP admission and clean replacement. Pool defaults use
-  30s/3s/30s; retrieval 2s/500ms/2s; maintenance 10m/10s/60s. Final CI is pending.
+  30s/3s/30s; retrieval 2s/500ms/2s; maintenance 10m/10s/60s. Final CI passed.
 
 ### FE-01 — Credential-free cache identity and auth transitions
 
@@ -183,7 +192,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-06 — Bounded authentication and scoped member lookup
 
-- [x] **P2 · M · High risk · Locally verified, unpublished.** Scope: workspace/member authorization in
+- [x] **P2 · M · High risk · CI verified and published.** Scope: workspace/member authorization in
   `interfaces/http/app.ts`, new small Auth ports and existing Supabase adapters.
 - **Accept:** one verified request principal, bounded SDK transport and separate
   public/admin clients; membership-ID-first directory lookup works for a project
@@ -197,7 +206,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-07 — Cohesive Fastify route plugins and composition
 
-- [x] **P2 · L, split by capability · High risk · Locally verified, unpublished.** Scope:
+- [x] **P2 · L, split by capability · High risk · CI verified and published.** Scope:
   `interfaces/http/app.ts`, `bootstrap.ts`, route modules and typed factories.
 - **Accept:** HTTP plugins receive narrow typed dependencies; vendor calls stay
   in adapters; application policies use ports; composition owns resources once.
@@ -216,7 +225,7 @@ feature-owned locations during BE-07's migration.
 
 ### FE-04 — Application-owned routes, session and workspace orchestration
 
-- [x] **P2 · L, incremental · High risk · Locally verified, unpublished.** Scope: `app/App.tsx`,
+- [x] **P2 · L, incremental · High risk · CI verified and published.** Scope: `app/App.tsx`,
   `pages/rag-lab/ui/RagLabPage.tsx`, shell composition and native route adapter.
 - **Accept:** pages no longer import other pages; `app` owns routing/auth/workspace
   composition. Sign-in, invitation, incomplete onboarding, MCP consent, browser
@@ -246,7 +255,7 @@ feature-owned locations during BE-07's migration.
 
 ### FE-05 — Public APIs and a proven FSD gate
 
-- [x] **P2 · M–L · Medium risk · Locally verified, unpublished.** Scope: consumed slices across `app`, `pages`,
+- [x] **P2 · M–L · Medium risk · CI verified and published.** Scope: consumed slices across `app`, `pages`,
   `widgets`, `features`, `entities`, narrow `shared` segments and CI.
 - **Accept:** external consumers use explicit Public APIs; internal imports stay
   relative; no unnecessary segments or global barrel. Pilot **one** FSD checker
@@ -263,15 +272,15 @@ feature-owned locations during BE-07's migration.
   by 83 bytes. This does not establish field performance.
 - **Evidence:** 61 architecture fixtures and zero current structural/runtime
   violations. Shared contracts build before graph resolution on a clean checkout.
-  CI and deployment remain the release-stage requirements for this local batch.
+  All four CI jobs and both deployment receipts are recorded in the release evidence.
 
 ### BE-08 + FE-08 — Incremental correctness, architecture and test gates
 
 - [ ] **P2 · M per track · Medium risk.** Scope: workspace scripts, TypeScript,
   selected lint/graph configuration, CI and focused frontend test helpers.
 - **Accept:** a pinned compatible pilot catches meaningful promise/Hook/import
-  defects; local and CI checks agree. Resolve nine extra backend unused-symbol
-  diagnostics before enabling those options. Add focused session/cache/decoder/
+  defects; local and CI checks agree. Resolve the remaining backend unused-symbol
+  diagnostics (six at `d045949`) before enabling those options. Add focused session/cache/decoder/
   chat transition tests; retain current API/PostgreSQL/Playwright/axe gates.
 - **Preserve:** reviewed exceptions and existing visual baselines. Do not install
   a bundle of overlapping lint/FSD/test tools, mass-format the repository or add
@@ -328,7 +337,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-10 — Conservative paid-reranker reservations
 
-- [x] **P2 · M · Medium risk · Locally verified, unpublished. Activation gate: paid reranker.** Scope:
+- [x] **P2 · M · Medium risk · CI verified and published. Activation gate: paid reranker.** Scope:
   `infrastructure/security/workflow-provider-guards.ts` and independent reranker rate config.
 - **Accept:** reservation reflects bounded candidate/input size and approved
   rates rather than a fixed 1,000 micros. Insufficient budget prevents invocation;
@@ -341,7 +350,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-11 — Single-flight bounded shutdown
 
-- [x] **P2 · M · High risk · Locally verified, unpublished.** Scope: `server.ts`, legacy ingestion execution,
+- [x] **P2 · M · High risk · CI verified and published.** Scope: `server.ts`, legacy ingestion execution,
   resource lifecycle and supported worker-mode documentation.
 - **Accept:** repeated signals stop admission once, propagate cancellation,
   drain within a deadline and close resources in `finally`. Provider/OCR/SQL
@@ -373,6 +382,32 @@ feature-owned locations during BE-07's migration.
   compatible update and separate verified runtime/smoke artifacts are pending.
 
 ## Phase 4 — Consistency and evidence-led performance
+
+### BE-15 — Technology-neutral modules and replaceable capabilities
+
+- [ ] **P2 · L, incremental · High risk · Owner's current explicit priority.**
+  Scope: module factories and application ports, `app/composition`, provider
+  registry bindings and architecture checks. See
+  [ADR 0003](decisions/0003-technology-neutral-modules.md).
+- **Problem at `d045949`:** module factories accept `pg.Pool`, construct vendor
+  adapters, create LangGraph/LangSmith workflows or branch on provider SDK names.
+  Some feature configuration types also expose vendor environment keys.
+- **Implement:** inject feature-specific repository/service ports, plain workflow
+  factories/decorators and backend-owned provider capabilities. Outer composition
+  selects current concrete adapters. Keep real policy/use-case assembly in
+  modules; avoid pass-through service/factory wrappers and generic SQL/CRUD APIs.
+- **Accept:** application/domain/module factories import no vendor SDK, concrete
+  infrastructure, `Pool`, LangGraph state/saver or LangSmith type. Alternate typed
+  fake repositories/workflows/no-op tracing and a newly registered fake provider
+  work without new business-policy branches. Architecture fixtures prevent both
+  runtime and type-only regressions; current configured-adapter suites still pass.
+- **Preserve:** HTTP contracts, server allowlists, redaction, dimensions/index
+  versions, cache/checkpoint/fingerprint identities, usage provenance, budgets,
+  tenant scope, authorization, fenced transactions and resource ownership. No
+  schema/package/framework migration is needed for the boundary refactor.
+- **Limits:** replacing persistent state engines/databases and embedding models
+  requires compatibility/migration evidence. Capability equivalence is verified,
+  not assumed from matching method names. Live activation remains explicit.
 
 ### FE-09 — Semantic tokens and existing primitive consolidation
 

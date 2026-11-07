@@ -1,11 +1,20 @@
 # Architecture phase 2 and module delivery
 
-## Candidate status
+## Published status
 
-**Local verification complete; CI and deployment pending.** The prior live
-application release remains `a59036044e19a4f35d38e4df8c8c18c7573de646`.
-This record will be updated with the new source SHA, CI and exact deployment
-receipts only after they are observed.
+**Frontend and API are live** at source
+`d0459492862a181d77860a1aa26a18e3385f1caa`.
+All four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42398683215)
+passed before the deployment was triggered.
+
+| Service | Observed deployment | Live at UTC |
+| --- | --- | --- |
+| API | `dep-dbnmenbbc2fs73fi6g30` | 2026-11-07 18:03:31 |
+| Frontend | `dep-dbnmep49v7es73d627pg` | 2026-11-07 18:02:24 |
+
+Both Render records report the exact source SHA above. The prior application
+release was `a59036044e19a4f35d38e4df8c8c18c7573de646`. A later documentation-only
+receipt does not change the deployed runtime SHA.
 
 ## Scope
 
@@ -55,8 +64,27 @@ The harness passed seven checks. Its live latency/cost performance gate remains
 conditional and unconfigured; this release does not claim measured production
 capacity or real provider quality/cost comparisons.
 
-The full UX CI run is still required after the fixture correction. The local
-combined evidence must not be described as one already-green complete Linux run.
+The complete corrected UX CI run passed **247 cases**, with **44 intentional
+profile skips**, in four minutes. PostgreSQL CI passed **81 cases with zero skips**;
+the dedicated cutover passed **one with zero skips**. Verify ran all **61
+architecture fixtures** and the complete seven-check harness successfully.
+
+## Production verification
+
+At 18:06 UTC, public checks confirmed frontend HTTP 200 and entry asset
+`/assets/index-D0WsjGJB.js`, including safe diagnostics, local section recovery and
+the new successful-response decoding boundary. The public Lumora icon is a source-
+matching 256×256 PNG. API health is 200 with OCR, durable workflows and durable
+conversations active; server-generated correlation IDs override supplied IDs.
+
+Unauthenticated MCP, budget-alert and conversation routes return 401. OAuth
+resource discovery, Lumora naming and S256 advertisement are correct; malformed
+JSON and unsupported token MIME return sanitized 400/415, and missing resource/
+PKCE parameters are denied. No registration, consent, provider call, user data or
+real grant was created. Real third-party client consent remains separate.
+
+The API error/fatal log query from 18:03:31 to 18:08:23 UTC returned no records.
+This is the inspected interval, not a claim of perpetual absence of errors.
 
 ## Operational limits
 
@@ -82,7 +110,12 @@ Require all four GitHub CI jobs to pass for the exact source SHA, inspect Render
 deploy history to avoid duplicate builds, and verify both resulting source SHAs,
 health, protected routes and served frontend assets. The current public-Git-URL
 Render services need a manual trigger after CI; their auto-deploy metadata is not
-proof of a connected Git-provider trigger.
+proof of a connected Git-provider trigger. This source-mode limitation is documented
+by [Render](https://render.com/docs/web-services#deploy-your-own-code).
+
+The owner subsequently requested BE-15's technology-neutral module factories.
+That follow-up is in progress and is **not** claimed as part of this deployed
+organization delivery. See [ADR 0003](../decisions/0003-technology-neutral-modules.md).
 
 No schema rollback is needed. A rollback should revert the reviewed source
 change through a new commit/CI run and deploy the compatible frontend/API pair.

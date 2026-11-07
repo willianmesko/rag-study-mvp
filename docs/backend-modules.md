@@ -6,6 +6,13 @@ the existing Fastify plugin/composition model. The application root wires the
 providers explicitly. See [ADR 0002](decisions/0002-business-modules.md) for the
 decision and trade-offs.
 
+The organization delivery is live at `d045949`. The owner's subsequent
+[BE-15 decision](decisions/0003-technology-neutral-modules.md) is in progress:
+module factories receive capability ports/plain options, while `app/composition`
+selects actual database, provider, workflow and tracing adapters. The first
+organization delivery still contains vendor construction in factories; its
+presence must not be described as the completed abstraction follow-up.
+
 ## Where to find a capability
 
 | Module | Responsibility |
