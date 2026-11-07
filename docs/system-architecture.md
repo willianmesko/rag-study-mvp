@@ -47,7 +47,8 @@ administration screen:
 /workspace/processing     → ingestion timeline, retries, and stage errors
 /workspace/team           → invitations, members, and roles (owner)
 /workspace/evaluations    → golden-set quality and safety runs (owner)
-/workspace/settings       → workspace identity, usage, and policies (owner)
+/workspace/usage          → model-level usage and recorded costs (owner)
+/workspace/settings       → workspace identity and policies (owner)
 ```
 
 Global navigation places the active workspace above the page links, in the
@@ -613,7 +614,7 @@ membership, while cache, quota, audit, and usage tables remain backend-only.
 
 ## Workspace usage analytics
 
-Owner-only Settings reads the existing private `ai_usage_events` ledger through
+The owner-only Usage & costs page reads the existing private `ai_usage_events` ledger through
 `GET /v1/admin/usage?days=7|30|90`. Every read requires an explicit verified
 workspace. The SQL bounds the scan with the existing `(tenant_id, created_at)`
 index and uses one `GROUPING SETS` snapshot for totals, provider/model pairs,
@@ -634,7 +635,7 @@ The interface offers model details, UTC daily amounts and a cost trend, operatio
 breakdowns, 7/30/90-day windows, and JSON export of allowlisted aggregate fields.
 No prompts, excerpts, actor IDs, credentials, or individual event records are
 exported. Reading analytics does not call a model. The overview alert uses its
-30-day window; Settings evaluates the same configured threshold for the chosen
+30-day window; Usage & costs evaluates the same configured threshold for the chosen
 window.
 
 Coverage is currently recorded answer, comparison, and automatic-routing
@@ -661,3 +662,15 @@ inspected window. No production data or schema was rewritten.
    preferring provider-native measurements where available.
 2. Validate mixed-workload capacity, connection budgets, and tenant fairness.
 3. Move large ingestion workloads to a dedicated queue worker when measurements require it.
+
+
+### Simplified guided setup
+
+The three persisted phases are unchanged. Each has one primary task. Upload is
+shown first; the fictional sample is disclosed only on request. Actual progress
+replaces the upload form, then one confirmation replaces progress. The first
+question has one suggestion and a composer. Model/prompt comparisons stay in the
+main chat; the complete glossary is in Help. Owners can invite teammates after a
+grounded reply. Completing the guide passes its authorized conversation UUID to
+Ask so the user can continue the same thread. Explicitly deferring setup saves a
+valid goal/final-step completion record and leaves Help available.

@@ -21,10 +21,14 @@ status section where they appear.
 
 ## In progress
 
-Durable conversations are implemented and have passed database, API, evaluation,
-and focused responsive/browser checks. The final complete browser regression
-and production publication are in progress; the release evidence will be added
-below when both deployments are confirmed.
+Durable conversations, simplified onboarding, and the owner-only Usage & costs
+route have passed 139 responsive browser checks (44 transport-only repetitions
+are intentionally skipped). Final CI and publication are pending.
+
+Observability, security, and cost controls are now being implemented: versioned
+workflow keys and staged rotation, safe OpenTelemetry, extended provider usage,
+operational monitoring and durable budget notifications. Items remain open below
+until their implementation and activation evidence is recorded.
 
 **Approved delivery order**
 
@@ -411,6 +415,15 @@ Final CI and frontend/backend publication are pending.
 - [x] PostgreSQL run/event replay for 24 hours, checked citations before fresh
   answer deltas, safe terminal failures, JSON fallback, and transient public demo.
   Replay excludes raw questions and provider drafts.
+
+- [x] One main onboarding task per phase, upload first with an optional sample,
+  processing replacing the upload form, and one ready confirmation. Model and
+  prompt controls remain in the main chat; the glossary is in Help. Owner
+  invitations follow the first grounded reply.
+- [x] Finishing the guide opens the same saved conversation in the main chat.
+  Continue later records valid resumable setup state without requiring a file.
+- [x] Separate owner-only `/workspace/usage` route with independent cost queries;
+  Settings retains workspace profile and policies. Publication is pending.
 
 ### Models, evaluations, and delivery
 

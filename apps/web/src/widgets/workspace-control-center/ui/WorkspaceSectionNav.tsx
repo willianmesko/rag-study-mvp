@@ -10,6 +10,7 @@ export function WorkspaceSectionNav({ activeSection, role, onChange }: { activeS
     { id: "processing", label: t("Processing", "Processamento") },
     { id: "team", label: t("Team", "Equipe") },
     { id: "evaluations", label: t("Evaluations", "Avaliações") },
+    { id: "usage", label: t("Usage & costs", "Uso e custos") },
     { id: "settings", label: t("Settings", "Configurações") }
   ];
 

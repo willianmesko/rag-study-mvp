@@ -60,7 +60,7 @@ test("Milo animates while workspaces load and respects reduced motion", async ({
 test("Milo's setup guide fits the viewport and meets automated accessibility checks", async ({ page, context }, testInfo) => {
   await workspaceFixture(null).attach(context);
   await page.goto("/onboarding");
-  await expect(page.getByRole("heading", { level: 1, name: /Milo/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /What will you use|Como você quer usar/ })).toBeVisible();
   await expect(page.getByRole("radio", { name: /^(Knowledge and processes|Conhecimento e processos)/ })).toBeVisible();
   await checkLayout(page, testInfo);
   await matchReference(page, testInfo, "mobile-pt", "milo-setup.png");
@@ -164,7 +164,7 @@ test("the Milo guide resumes in a second browser context", async ({ page, browse
   await knowledge.click();
   await expect(knowledge).toBeChecked();
   const saved = page.waitForResponse((response) => response.request().method() === "PATCH" && response.url().endsWith("/onboarding") && response.request().postDataJSON().step === "knowledge");
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Continue", exact:true }).click();
   expect((await saved).ok()).toBe(true);
   await expect(page.getByText("Step 2 of 3")).toBeVisible();
 
@@ -175,9 +175,9 @@ test("the Milo guide resumes in a second browser context", async ({ page, browse
     await second.goto("/onboarding");
     await expect(second.getByText("Step 2 of 3")).toBeVisible();
     await expect(second.getByText("A handbook with your team's request and approval process")).toBeVisible();
-    await second.getByRole("button", { name: "Continue" }).click();
+    await expect(second.getByRole("button", { name: "Continue",exact:true })).toBeDisabled();
     const completed = second.waitForResponse((response) => response.request().method() === "PATCH" && response.url().endsWith("/onboarding") && response.request().postDataJSON().completed === true);
-    await second.getByRole("button", { name: "Finish and open chat" }).click();
+    await second.getByRole("button", { name: "Continue later" }).click();
     expect((await completed).ok()).toBe(true);
     await expect(second).toHaveURL(/\/ask$/);
     await page.reload();
@@ -205,9 +205,9 @@ test("earlier guide choices resume with generic examples and preserve progress",
       await expect(page.getByRole("radio", { name: new RegExp(`^${label}`) })).toBeChecked();
       await page.getByRole("button", { name: "Continue", exact: true }).click();
       await expect(page.getByText("Step 2 of 3")).toBeVisible();
-      await page.getByRole("button", { name: "Continue", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
       const finished = page.waitForRequest((request) => request.method() === "PATCH" && request.url().endsWith("/onboarding") && request.postDataJSON().completed === true);
-      await page.getByRole("button", { name: "Finish and open chat" }).click();
+      await page.getByRole("button", { name: "Continue later" }).click();
       expect((await finished).postDataJSON()).toEqual({ goal, step: "answer", completed: true });
       await expect(page).toHaveURL(/\/ask$/);
     } finally {

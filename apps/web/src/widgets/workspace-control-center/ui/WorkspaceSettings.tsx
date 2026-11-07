@@ -1,4 +1,3 @@
-import { WorkspaceUsage } from "../../../features/workspace-usage/ui/WorkspaceUsage";
 import { WorkspaceChatPolicy } from "../../../features/workspace-model-policy/ui/WorkspaceChatPolicy";
 import { WorkspaceMcpConnection } from "../../../features/workspace-mcp/ui/WorkspaceMcpConnection";
 import type { Workspace } from "../../../shared/api/rag-api";
@@ -30,7 +29,6 @@ export function WorkspaceSettings({ workspace, token }: { workspace: Workspace; 
       </section>
       <WorkspaceChatPolicy token={token} workspaceId={workspace.tenantId} />
       <WorkspaceMcpConnection key={workspace.tenantId} token={token} workspaceId={workspace.tenantId} />
-      <WorkspaceUsage key={workspace.tenantId} workspaceId={workspace.tenantId} token={token} />
     </div>
   );
 }

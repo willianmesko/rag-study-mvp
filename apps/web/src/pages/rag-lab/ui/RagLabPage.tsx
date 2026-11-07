@@ -159,12 +159,12 @@ export function RagLabPage() {
     setCreatedSetup(`${userId}:${workspace.tenantId}`);
   }
 
-  function finishOnboarding() {
+  function finishOnboarding(conversationId?:string) {
     if (!activeSetup) return;
-    onboarding.update({ completed: true });
+    onboarding.update({ goal:onboarding.progress.goal??"knowledge", step:"answer", completed: true });
     setCreatedSetup(null);
     returnPath.current = null;
-    navigateTo(askPath, { replace: true });
+    navigateTo(conversationId?`${askPath}?conversation=${encodeURIComponent(conversationId)}`:askPath, { replace: true });
   }
 
   async function signOut() {

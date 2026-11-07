@@ -66,7 +66,7 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
   const otherPrompts = prompts.filter(({ id }) => id !== firstPrompt?.id);
   const secondPrompt = otherPrompts.find(({ id }) => id === alternatePrompt) ?? otherPrompts[0];
   const autoAvailable = Boolean(catalog.data?.autoAvailable && !catalog.isError);
-  const comparing = compareMode && comparisonAvailable;
+  const comparing = !embedded && compareMode && comparisonAvailable;
   const comparingPrompts = comparing && kind === "prompts";
   const autoSelected = autoAvailable && !comparing && preferredModelId === "auto";
   const isStreaming = live.phase !== null;
@@ -122,14 +122,15 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
     composer.current?.focus({ preventScroll: true });
   }
 
-  return <section aria-labelledby={titleId} className={`flex w-full min-w-0 flex-col rounded-2xl border border-slate-700/80 bg-slate-950/65 shadow-2xl shadow-slate-950/40 sm:rounded-3xl ${embedded ? "h-[38rem] max-h-[85svh] min-h-[30rem]" : "h-[clamp(31rem,76svh,49rem)] lg:h-[calc(100svh-7rem)] lg:min-h-[31rem]"}`}>
-    <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-3 py-3 sm:px-5 sm:py-4">
+  return <section aria-labelledby={titleId} className={`flex w-full min-w-0 flex-col rounded-2xl border border-slate-700/80 bg-slate-950/65 shadow-2xl shadow-slate-950/40 sm:rounded-3xl ${embedded ? (turns.length===0&&!busy?"h-auto":"h-[min(36rem,75svh)] min-h-[24rem]") : "h-[clamp(31rem,76svh,49rem)] lg:h-[calc(100svh-7rem)] lg:min-h-[31rem]"}`}>
+    {embedded&&<h3 id={titleId} className="sr-only">{t("Chat with Milo", "Converse com o Milo")}</h3>}
+    {!embedded&&<header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-3 py-3 sm:px-5 sm:py-4">
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 sm:size-12">
           <Mascot decorative size="sm" className="size-9 sm:size-10" />
         </div>
         <div className="min-w-0">
-          <Heading id={titleId} className="truncate text-base font-semibold tracking-tight text-white sm:text-lg">{conversation.saved.conversation?.title??t("Chat with Milo", "Converse com o Milo")}</Heading>
+          <Heading id={titleId} className={`${conversation.saved.enabled?"truncate ":""}text-base font-semibold tracking-tight text-white sm:text-lg`}>{conversation.saved.conversation?.title??t("Chat with Milo", "Converse com o Milo")}</Heading>
           <p className="flex min-w-0 items-center gap-1.5 text-xs leading-5 text-slate-300">
             <span className="size-1.5 shrink-0 rounded-full bg-cyan-300" aria-hidden="true" />
             <span className="truncate" title={workspaceName}>{workspaceName ?? t("Demo workspace", "Espaço de demonstração")}</span>
@@ -146,21 +147,22 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
         </svg>
         <span className={conversation.saved.enabled?"sr-only sm:not-sr-only":"sr-only min-[375px]:not-sr-only"}>{t("New chat", "Nova conversa")}</span>
       </button>
-    </header>
-    {conversation.saved.enabled&&<p className="px-4 pt-2 text-xs text-slate-400">{t('Private to you · saved across devices','Privada para você · salva entre dispositivos')}</p>}
+    </header>}
+    {!embedded&&conversation.saved.enabled&&<p className="px-4 pt-2 text-xs text-slate-400">{t('Private to you · saved across devices','Privada para você · salva entre dispositivos')}</p>}
     {conversation.saved.enabled&&conversation.saved.error&&<p role="alert" className="error-message mx-3 mt-3">{t('We could not load or save this conversation. Try again before sending a message.','Não conseguimos carregar ou salvar esta conversa. Tente novamente antes de enviar uma mensagem.')} <button type="button" className="text-action" onClick={conversation.saved.retry}>{t('Try again','Tentar novamente')}</button> <button type="button" className="text-action" onClick={newChat}>{t('New chat','Nova conversa')}</button></p>}
     {conversation.saved.loading&&<p role="status" className="p-4 text-sm text-slate-300">{t('Opening your conversation…','Abrindo sua conversa…')}</p>}
-    {(canAsk || busy || turns.length > 0) && <ConversationThread turns={turns} live={live} demo={!accessToken} saved={conversation.saved} suggestions={suggestions} onSuggestion={(message) => {
+    {(canAsk || busy || turns.length > 0) && (!embedded||turns.length>0||busy) && <ConversationThread turns={turns} live={live} demo={!accessToken} saved={conversation.saved} suggestions={suggestions} onSuggestion={(message) => {
       updateQuestion(message);
       composer.current?.focus();
     }} />}
     {!canAsk && !busy && !conversation.saved.loading && <KnowledgeChatState data={knowledge.data} loading={conversation.saved.initializing || knowledge.isPending || (!knowledge.isFetchedAfterMount && !knowledge.isError)} failed={knowledge.isError}
       demo={!accessToken} canAdd={canAdd} onAdd={onAddDocuments} onRetry={() => void knowledge.refetch()} compact={turns.length > 0} />}
+    {embedded&&canAsk&&turns.length===0&&suggestions?.[0]&&<button type="button" className="text-action mx-3 my-4 text-left" disabled={busy} onClick={()=>{updateQuestion(suggestions[0]);composer.current?.focus();}}>{suggestions[0]}</button>}
     {(canAsk || busy) && <form className="shrink-0 space-y-2 rounded-b-2xl border-t border-slate-800 bg-slate-900/70 p-3 sm:space-y-3 sm:rounded-b-3xl sm:p-4" onSubmit={submit}>
       {canAsk && knowledge.data.processingJobs > 0 && <p className="text-xs leading-5 text-slate-300" role="status">
         {t("More documents are being prepared. You can chat using the sources that are already ready.", "Mais documentos estão sendo preparados. Você já pode conversar usando as fontes disponíveis.")}
       </p>}
-      {selectedModel && (models.length === 1 && !autoAvailable && !comparisonAvailable
+      {!embedded && selectedModel && (models.length === 1 && !autoAvailable && !comparisonAvailable
         ? <p className="text-xs text-slate-300 [overflow-wrap:anywhere]">{t("Workspace answer model", "Modelo de resposta do espaço")} · {selectedModel.label}</p>
         : <fieldset className={`grid min-w-0 items-end gap-2.5 sm:flex sm:flex-wrap sm:gap-3 ${comparisonAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
           <legend className="sr-only">{t("Answer models", "Modelos de resposta")}</legend>
@@ -185,7 +187,7 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
               options={otherPrompts.map(({ id }) => ({ value: id, label: promptVariantLabel(id, t) }))} />
           </>}
         </fieldset>)}
-      {comparisonAvailable && <p id={comparisonHint} className={comparing ? "text-xs leading-5 text-slate-300" : "sr-only"}>
+      {!embedded && comparisonAvailable && <p id={comparisonHint} className={comparing ? "text-xs leading-5 text-slate-300" : "sr-only"}>
         {comparingPrompts ? t("The same model answers twice using the same passages and two approved prompts. This counts as two questions.",
           "O mesmo modelo responde duas vezes com os mesmos trechos e dois prompts aprovados. A comparação conta como duas perguntas.")
           : t("Both models use the same passages. This counts as two questions toward your daily limit.",
@@ -229,12 +231,12 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
         <p id={hintId} className="sr-only text-xs text-slate-400 sm:not-sr-only">
           {t("Enter to send · Shift + Enter for a new line", "Enter para enviar · Shift + Enter para quebrar a linha")}
         </p>
-        <details className="group text-xs text-slate-300">
+        {!embedded&&<details className="group text-xs text-slate-300">
           <summary className="min-h-8 rounded-md px-1 py-2 text-slate-300 hover:text-white">{t("Search options", "Opções de busca")}</summary>
           <SelectField className="mb-1 w-44" label={t("Passages to consider", "Trechos para consultar")}
             value={String(topK)} onValueChange={(value) => setTopK(Number(value))} disabled={busy}
             options={["3", "5", "8"].map((value) => ({ value, label: value }))} />
-        </details>
+        </details>}
       </div>
     </form>}
     {libraryOpen&&<ConversationLibrary saved={conversation.saved} onOpen={conversation.saved.open} onClose={()=>setLibraryOpen(false)}/>}

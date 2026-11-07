@@ -73,12 +73,12 @@ async function checkPage(page: Page) {
 
 test("workspace sections have one page heading and compact navigation", async ({ page, context }, info) => {
   await contentFixture(context);
-  for (const section of ["overview", "knowledge", "processing", "team", "evaluations", "settings"]) {
+  for (const section of ["overview", "knowledge", "processing", "team", "evaluations", "usage", "settings"]) {
     await page.goto(`/workspace/${section}`);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     await expect(page.getByRole("navigation", { name: /Main navigation|Navegação principal/ }).getByRole("button", { name: /^(Help|Ajuda)$/ })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: /Workspace sections|Seções do espaço de trabalho/ }).getByRole("button")).toHaveCount(6);
+    await expect(page.getByRole("navigation", { name: /Workspace sections|Seções do espaço de trabalho/ }).getByRole("button")).toHaveCount(7);
     await checkPage(page);
     if (process.platform === "linux" && process.arch === "x64" &&
       ((info.project.name === "desktop-en" && section === "knowledge") || (info.project.name === "mobile-pt" && section === "overview"))) {

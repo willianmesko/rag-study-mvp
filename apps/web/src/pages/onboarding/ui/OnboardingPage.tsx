@@ -21,7 +21,7 @@ type OnboardingPageProps = {
   onWorkspaceChange: (workspaceId: string) => void;
   onProgress: (changes: Partial<WorkspaceOnboardingProgress>) => void;
   onRetrySync: () => void;
-  onComplete: () => void;
+  onComplete: (conversationId?:string) => void;
   onSignOut: () => void;
 };
 
@@ -55,7 +55,7 @@ export function OnboardingPage({ workspace, workspaces, accessToken, userId, jus
     <main className="app-shell min-h-dvh">
       <div className="ambient-glow ambient-glow--cyan" aria-hidden="true" />
       <div className="ambient-glow ambient-glow--blue" aria-hidden="true" />
-      <div className="relative mx-auto grid max-w-4xl gap-6 px-4 py-5 sm:gap-10 sm:px-8 sm:py-8">
+      <div className="relative mx-auto grid max-w-3xl gap-6 px-4 py-5 sm:gap-6 sm:px-8 sm:py-8">
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
           <div className="flex min-h-11 items-center gap-3 font-semibold text-white"><BrandMark compact /> Lumora</div>
           <div className="flex min-w-0 flex-wrap items-end gap-3">
@@ -63,9 +63,6 @@ export function OnboardingPage({ workspace, workspaces, accessToken, userId, jus
             <button type="button" className="secondary-button min-h-11" onClick={onSignOut}>{t("Sign out", "Sair")}</button>
           </div>
         </header>
-        {workspace && justCreated && <p className="success-message" role="status">
-          {t(`Workspace created. Let’s set up ${workspace.tenantName}.`, `Espaço criado. Vamos configurar ${workspace.tenantName}.`)}
-        </p>}
         {workspace
           ? <WorkspaceOnboardingWizard key={workspace.tenantId} workspace={workspace} accessToken={accessToken}
             scope={`${userId}:${workspace.tenantId}`} progress={progress} onProgress={onProgress} onComplete={onComplete} />

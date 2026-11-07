@@ -126,8 +126,8 @@ test("creating a workspace from the menu opens its separate onboarding", async (
   await dialog.getByRole("button", { name: /Create workspace and continue|Criar espaço e continuar/ }).click();
   await expect(dialog).toBeHidden();
   await expect(page).toHaveURL(/\/onboarding$/);
-  await expect(page.getByRole("heading", { level: 1, name: /Milo/ })).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: workspace.tenantName })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /What will you use|Como você quer usar/ })).toBeVisible();
+  await expect(page.getByRole("button",{name:/^(Workspace|Espaço de trabalho): Customer Support/})).toBeVisible();
   await expect(page.getByRole("radio", { name: /^(Knowledge and processes|Conhecimento e processos)/ })).toBeVisible();
   expect(created).toBe(true);
 });

@@ -3,6 +3,68 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { workspaceFixture } from "./workspace-fixture";
 const workspaceId = "11111111-1111-4111-a111-111111111111";
+test("usage has its own owner-only route and settings does not load the cost ledger", async ({
+  page,
+  context,
+  browser,
+  baseURL,
+}, info) => {
+  test.skip(
+    info.project.name !== "desktop-en",
+    "Routing and role checks are shared across viewport profiles.",
+  );
+  await workspaceFixture().attach(context);
+  let reads = 0;
+  await context.route("**/v1/admin/usage?*", (route) => {
+    reads++;
+    return route.fulfill({ json: response(30) });
+  });
+  await page.goto("/workspace/settings");
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  expect(reads).toBe(0);
+  await expect(
+    page.getByRole("region", { name: "AI usage", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("navigation", { name: "Workspace sections" })
+    .getByRole("button", { name: "Usage & costs", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/workspace\/usage$/);
+  await expect(
+    page.getByRole("heading", { name: "Usage & costs", exact: true }),
+  ).toBeVisible();
+  await expect.poll(() => reads).toBe(1);
+  const viewer = await browser.newContext({
+    baseURL,
+    locale: "en-US",
+    timezoneId: "UTC",
+  });
+  try {
+    await workspaceFixture(
+      { goal: "knowledge", step: "answer", completed: true },
+      "viewer",
+    ).attach(viewer);
+    let privateReads = 0;
+    await viewer.route("**/v1/admin/usage?*", (route) => {
+      privateReads++;
+      return route.fulfill({
+        status: 403,
+        json: { error: "Owner access required." },
+      });
+    });
+    const other = await viewer.newPage();
+    await other.goto("/workspace/usage");
+    await expect(other).toHaveURL(/\/workspace\/overview$/);
+    await expect(
+      other.getByRole("button", { name: "Usage & costs", exact: true }),
+    ).toHaveCount(0);
+    expect(privateReads).toBe(0);
+  } finally {
+    await viewer.close();
+  }
+});
 const totals = {
   requests: 8,
   cacheHits: 1,
@@ -128,7 +190,7 @@ test("cost by model shows provenance, supports periods, and exports only aggrega
     }
     return route.fulfill({ json: response(days) });
   });
-  await page.goto("/workspace/settings");
+  await page.goto("/workspace/usage");
   const panel = page.getByRole("region", { name: /^(AI usage|Uso de IA)$/ });
   await expect(
     panel.getByText("openai/gpt-4o-mini", { exact: true }),

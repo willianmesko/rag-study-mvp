@@ -55,7 +55,9 @@ const models = [
 const date = "2026-11-07T12:00:00.000Z";
 
 /** A product API fixture shared by independent browser contexts, never browser storage. */
-function durableFixture() {
+function durableFixture(
+  progress?: import("@rag-study/contracts").WorkspaceOnboardingProgress,
+) {
   const records = new Map<
     string,
     { summary: ConversationSummary; turns: ConversationTurn[] }
@@ -126,7 +128,7 @@ function durableFixture() {
     return item;
   }
   async function attach(context: BrowserContext) {
-    await workspaceFixture().attach(context);
+    await workspaceFixture(progress).attach(context);
     await context.route("**/health", (route) =>
       route.fulfill({
         json: { status: "ok", capabilities: { durableConversations: true } },
@@ -371,6 +373,10 @@ test("private conversations reopen across devices with names, checked citations,
   await expect(
     page.getByRole("heading", { name: "Team access", exact: true }),
   ).toBeVisible();
+  await messages(page).evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await composer(page).focus();
   await expect(page).toHaveScreenshot("private-conversation-chat.png", {
     fullPage: true,
   });
@@ -395,14 +401,18 @@ test("private conversations reopen across devices with names, checked citations,
       messages(other).getByText(question, { exact: true }),
     ).toBeVisible();
     await expect(
-      messages(other).getByRole("button", { name: /👍 Helpful|👍 Útil/ }).first(),
+      messages(other)
+        .getByRole("button", { name: /👍 Helpful|👍 Útil/ })
+        .first(),
     ).toHaveAttribute("aria-pressed", "true");
     await messages(other)
       .getByRole("button", { name: /👎 Needs work|👎 Precisa melhorar/ })
       .first()
       .click();
     await expect(
-      messages(other).getByRole("button", { name: /👎 Needs work|👎 Precisa melhorar/ }).first(),
+      messages(other)
+        .getByRole("button", { name: /👎 Needs work|👎 Precisa melhorar/ })
+        .first(),
     ).toHaveAttribute("aria-pressed", "true");
     await page.reload();
     await expect(
@@ -550,6 +560,50 @@ test("the HTTP fallback still saves the same conversation and stable execution I
     messages(page).getByText(response.answer, { exact: true }),
   ).toBeVisible();
   await page.reload();
+  await expect(
+    messages(page).getByText(question, { exact: true }),
+  ).toBeVisible();
+  expect(fixture.submissions.length).toBe(1);
+});
+
+test("finishing the guide continues the same saved conversation in the main chat", async ({
+  page,
+  context,
+}, info) => {
+  test.skip(
+    info.project.name !== "desktop-en",
+    "The conversation handoff is shared across viewport profiles.",
+  );
+  const fixture = durableFixture({
+    goal: "knowledge",
+    step: "answer",
+    completed: false,
+  });
+  await fixture.attach(context);
+  await context.route("**/v1/admin/documents", (route) =>
+    route.fulfill({
+      json: {
+        documents: [
+          {
+            id: "guide-doc",
+            source: "team-handbook.md",
+            title: "Team handbook",
+            chunkCount: 2,
+            createdAt: date,
+            updatedAt: date,
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/onboarding");
+  await send(page);
+  await expect(
+    messages(page).getByText(response.answer, { exact: true }),
+  ).toBeVisible();
+  const id = [...fixture.records.keys()][0];
+  await page.getByRole("button", { name: "Finish and open chat" }).click();
+  await expect(page).toHaveURL(new RegExp(`/ask\\?conversation=${id}$`));
   await expect(
     messages(page).getByText(question, { exact: true }),
   ).toBeVisible();

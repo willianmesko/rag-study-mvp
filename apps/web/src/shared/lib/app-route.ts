@@ -1,6 +1,6 @@
 import type { Workspace } from "../api/rag-api";
 
-export type WorkspaceSection = "overview" | "knowledge" | "processing" | "team" | "evaluations" | "settings";
+export type WorkspaceSection = "overview" | "knowledge" | "processing" | "team" | "evaluations" | "usage" | "settings";
 export type LabRoute =
   | { tab: "ingest" | "search" | "answer" | "history" | "connections"; workspaceSection?: never }
   | { tab: "admin"; workspaceSection: WorkspaceSection };
@@ -10,7 +10,7 @@ export type AppRoute =
   | { kind: "mcp-consent"; requestId: string | null }
   | { kind: "demo" | "private"; lab: LabRoute };
 
-const workspaceSections = new Set<WorkspaceSection>(["overview", "knowledge", "processing", "team", "evaluations", "settings"]);
+const workspaceSections = new Set<WorkspaceSection>(["overview", "knowledge", "processing", "team", "evaluations", "usage", "settings"]);
 
 export function canAccessWorkspaceSection(section: WorkspaceSection, role: Workspace["role"]): boolean {
   return role === "owner" || ((role === "editor" || role === "viewer") &&

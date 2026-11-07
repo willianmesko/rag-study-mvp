@@ -66,7 +66,7 @@ Zod schemas in both applications.
   index passages using document headings or PDF page boundaries.
 - Workspaces with `owner`, `editor`, and read-only `viewer` roles.
 - Workspace control center with routed Overview, Knowledge, Processing, Team,
-  Evaluations, and Settings sections plus a guided first-run onboarding path.
+  Evaluations, Usage & costs, and Settings sections plus a guided first-run onboarding path.
 - Milo guide with bilingual fictional starter documents, role-aware invitation
   and upload actions, actual preparation status, a first grounded question,
   source inspection, and a Help entry that preserves completed setup.
@@ -183,6 +183,11 @@ another. Each Control Center section loads its own data.
 Milo saves your selected goal and the furthest setup step for each workspace.
 Sign in with the same account on another device to continue. If this browser
 already had progress from an earlier release, Lumora syncs it when you return.
+
+The guide has one main task per step: choose a goal, upload the first document,
+and ask a question. A sample is optional. Invitations follow the first answer,
+the glossary stays in Help, and model controls are available in the main chat.
+Finishing the guide continues the same saved conversation.
 
 ### Chat with Milo
 

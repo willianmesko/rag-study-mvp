@@ -49,7 +49,7 @@ export function WorkspaceOverview({ workspace, token, onNavigate }: { workspace:
         : t(`${number.format(failedJobs)} files need another processing attempt.`, `${number.format(failedJobs)} arquivos precisam de uma nova tentativa de processamento.`)}</p>
       <button className="secondary-button" type="button" onClick={() => onNavigate("processing")}>{t("Review files", "Revisar arquivos")}</button>
     </div>}
-    {workspace.role === "owner" && <OwnerBudgetNotice workspaceId={workspace.tenantId} token={token} onOpen={() => onNavigate("settings")} />}
+    {workspace.role === "owner" && <OwnerBudgetNotice workspaceId={workspace.tenantId} token={token} onOpen={() => onNavigate("usage")} />}
     <section aria-labelledby="workspace-recent-activity" className="space-y-3">
       <h2 id="workspace-recent-activity" className="text-base font-semibold text-slate-100">{t("Recent activity", "Atividades recentes")}</h2>
       {activity.length > 0 && <ul className="divide-y divide-slate-800 border-y border-slate-800">
