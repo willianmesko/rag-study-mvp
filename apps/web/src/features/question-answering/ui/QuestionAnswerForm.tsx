@@ -1,12 +1,17 @@
-import { useState, type FormEvent } from "react";
-import { questionInputSchema, type QuestionResponse } from "@rag-study/contracts";
+import { useId, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { questionComparisonInputSchema, questionInputSchema, type QuestionResponse } from "@rag-study/contracts";
+import { ApiError, api } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { getRequestErrorMessage } from "../../../shared/lib/request-error";
 import { InputLabel } from "../../../shared/ui/InputLabel";
 import { SectionTitle } from "../../../shared/ui/SectionTitle";
 import { RagEvidencePanel, ValidatedCitations } from "../../../shared/ui/RagEvidencePanel";
 import { SelectField } from "../../../shared/ui/SelectField";
+import { getRefusalCopy } from "../model/refusal-copy";
 import { useLiveAnswer, type AnswerPhase } from "../model/use-live-answer";
+import { useModelComparison } from "../model/use-model-comparison";
+import { ModelComparisonResult } from "./ModelComparisonResult";
 
 const statusCopy: Record<AnswerPhase, [string, string]> = {
   accepted: ["Request accepted", "Pergunta recebida"],
@@ -19,23 +24,6 @@ const statusCopy: Record<AnswerPhase, [string, string]> = {
   disconnected: ["Connection lost. Reconnect to pick up where you left off.", "A conexão caiu. Reconecte para retomar de onde parou."]
 };
 
-function getRefusalCopy(reason: QuestionResponse["refusalReason"]): [string, string] | null {
-  switch (reason) {
-    case "insufficient_context":
-      return ["I could not find enough information in the workspace documents to answer. Try a more specific question or check that the relevant document is indexed.",
-        "Não encontrei informações suficientes nos documentos deste espaço para responder. Faça uma pergunta mais específica ou verifique se o documento relevante foi indexado."];
-    case "invalid_citations":
-      return ["I could not match the answer’s citations to the passages I found. Try again or make your question more specific.",
-        "Não consegui vincular as citações da resposta aos trechos encontrados. Tente novamente ou faça uma pergunta mais específica."];
-    case "unstructured_model_output":
-      return ["I could not prepare an answer with sources this time. Try again or make your question more specific.",
-        "Desta vez, não consegui preparar uma resposta com fontes. Tente novamente ou faça uma pergunta mais específica."];
-    default:
-      return reason ? ["I could not answer this question. Try asking it a different way.",
-        "Não consegui responder a essa pergunta. Tente perguntar de outra forma."] : null;
-  }
-}
-
 export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, workspaceName, scope }: {
   onAnswered: (input: { question: string; response: QuestionResponse }) => void;
   accessToken?: string | null;
@@ -47,13 +35,42 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
   const [question, setQuestion] = useState("");
   const [topK, setTopK] = useState(5);
   const [invalidInput, setInvalidInput] = useState(false);
+  const [preferredModelId, setPreferredModelId] = useState<string>();
+  const [alternateModelId, setAlternateModelId] = useState<string>();
+  const [compareMode, setCompareMode] = useState(false);
+  const comparisonName = useId();
+  const comparisonHint = useId();
+  const catalog = useQuery({
+    queryKey: ["chat-models", scope],
+    queryFn: ({ signal }) => api.chatModels(accessToken!, workspaceId!, signal),
+    enabled: Boolean(accessToken && workspaceId), retry: false, staleTime: 60_000
+  });
   const live = useLiveAnswer({ accessToken, workspaceId, scope, onAnswered });
-  const { answer, phase } = live;
+  const comparison = useModelComparison();
+  const models = catalog.isError ? [] : catalog.data?.models ?? [];
+  const selectedModel = models.find(({ id }) => id === preferredModelId) ?? models.find(({ isDefault }) => isDefault) ?? models[0];
+  const alternates = models.filter(({ id }) => id !== selectedModel?.id);
+  const alternateModel = alternates.find(({ id }) => id === alternateModelId) ?? alternates[0];
+  const comparisonAvailable = Boolean(catalog.data?.comparisonAvailable && selectedModel && alternateModel);
+  const comparing = compareMode && comparisonAvailable;
+  const { phase } = live;
+  const answer = comparing ? undefined : live.answer;
   const isStreaming = phase !== null;
+  const busy = isStreaming || comparison.isPending;
+  const modelOptions = (available: typeof models) => available.map(({ id, label, isDefault }) => ({
+    value: id, label, description: isDefault ? t("Workspace default", "Padrão do espaço") : undefined
+  }));
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const parsed = questionInputSchema.safeParse({ question: question.trim(), topK });
+    if (busy) return;
+    if (comparing && selectedModel && alternateModel && accessToken && workspaceId) {
+      const input = questionComparisonInputSchema.safeParse({ question: question.trim(), topK, modelIds: [selectedModel.id, alternateModel.id] });
+      setInvalidInput(!input.success);
+      if (input.success) comparison.start(input.data, accessToken, workspaceId);
+      return;
+    }
+    const parsed = questionInputSchema.safeParse({ question: question.trim(), topK, modelId: selectedModel?.id });
     setInvalidInput(!parsed.success);
     if (parsed.success) live.start(parsed.data);
   }
@@ -63,8 +80,9 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
     execution_failed: t("Lumora could not finish the answer. Try asking again.", "O Lumora não conseguiu concluir a resposta. Tente perguntar novamente."),
     execution_interrupted: t("This answer stopped before it finished. Ask again to start a new one.", "A resposta foi interrompida. Faça a pergunta novamente para iniciar outra.")
   };
+  const requestError = comparing ? comparison.error : live.error;
   const error = invalidInput ? t("Enter a question of up to 5,000 characters.", "Digite uma pergunta de até 5.000 caracteres.")
-    : live.failure ? failureCopy[live.failure] : live.error ? getRequestErrorMessage(live.error, locale) : null;
+    : !comparing && live.failure ? failureCopy[live.failure] : requestError ? getRequestErrorMessage(requestError, locale) : null;
   const refusalCopy = getRefusalCopy(answer?.refusalReason);
   const citations = answer && !answer.cacheHit ? answer.sources.filter((source) => answer.citedChunkIds?.includes(source.chunkId)) : [];
 
@@ -84,26 +102,54 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
           <span className="ml-auto text-xs text-slate-400">{accessToken ? t("Private documents", "Documentos privados") : t("Public demo", "Demonstração pública")}</span>
         </div>
         <InputLabel label={t("What would you like to know?", "O que você gostaria de saber?")}>
-          <textarea aria-describedby="question-hint" value={question} maxLength={5000} readOnly={isStreaming}
+          <textarea aria-describedby="question-hint" value={question} maxLength={5000} readOnly={busy}
             onChange={(event) => { setQuestion(event.target.value); setInvalidInput(false); }}
             className="field min-h-32 resize-y" placeholder={t("For example, what does our policy say about access requests?", "Por exemplo, o que a nossa política diz sobre pedidos de acesso?")} />
           <span id="question-hint" className="text-xs font-normal text-slate-400">
             {t("A focused question usually leads to a clearer answer.", "Uma pergunta específica costuma gerar uma resposta mais clara.")}
           </span>
         </InputLabel>
+        {selectedModel && (models.length === 1 ? <div className="rounded-xl border border-slate-700 px-3 py-2.5">
+          <p className="text-xs text-slate-300">{t("Workspace answer model", "Modelo de resposta do espaço")}</p>
+          <p className="mt-1 text-sm font-semibold text-slate-100 [overflow-wrap:anywhere]">{selectedModel.label}</p>
+        </div> : <fieldset className="grid min-w-0 gap-3">
+          <legend className="sr-only">{t("Answer models", "Modelos de resposta")}</legend>
+          {comparisonAvailable && <label className={`flex min-h-11 items-start gap-3 rounded-xl border border-slate-700 px-3 py-2.5 text-sm ${busy ? "cursor-not-allowed" : "cursor-pointer hover:bg-slate-800"}`}>
+            <input type="checkbox" className="mt-1 size-4 shrink-0 accent-cyan-300" checked={comparing} disabled={busy}
+              aria-labelledby={comparisonName} aria-describedby={comparisonHint} onChange={(event) => setCompareMode(event.target.checked)} />
+            <span>
+              <span id={comparisonName} className="block font-semibold text-slate-100">{t("Compare two models", "Comparar dois modelos")}</span>
+              <span id={comparisonHint} className="mt-1 block text-xs leading-5 text-slate-300">
+                {t("Use the same question and passages for both models. Each comparison uses two questions from your daily limit.",
+                  "Os dois modelos recebem a mesma pergunta e os mesmos trechos. Cada comparação usa duas perguntas do seu limite diário.")}
+              </span>
+            </span>
+          </label>}
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <SelectField label={comparing ? t("First model", "Primeiro modelo") : t("Answer model", "Modelo de resposta")}
+              value={selectedModel.id} onValueChange={setPreferredModelId} disabled={busy} options={modelOptions(models)} />
+            {comparing && alternateModel && <SelectField label={t("Second model", "Segundo modelo")}
+              value={alternateModel.id} onValueChange={setAlternateModelId} disabled={busy} options={modelOptions(alternates)} />}
+          </div>
+        </fieldset>)}
+        {catalog.isError && !(catalog.error instanceof ApiError && catalog.error.status === 404) && <p className="text-xs text-slate-300" role="status">
+          {t("Model options are unavailable. Ask will use the workspace default.", "As opções de modelo estão indisponíveis. As perguntas usam o modelo padrão do espaço.")}
+        </p>}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <SelectField className="w-44" label={t("Passages to consider", "Trechos para consultar")}
-            value={String(topK)} onValueChange={(value) => setTopK(Number(value))} disabled={isStreaming}
+            value={String(topK)} onValueChange={(value) => setTopK(Number(value))} disabled={busy}
             options={["3", "5", "8"].map((value) => ({ value, label: value }))} />
           <div className="flex flex-wrap gap-2">
             {isStreaming && <button className="secondary-button" type="button" onClick={() => void live.stop()} disabled={live.stopping} aria-busy={live.stopping}>
               {live.stopping ? t("Stopping…", "Interrompendo…") : t("Stop answer", "Parar resposta")}
             </button>}
+            {comparison.isPending && <button className="secondary-button" type="button" onClick={comparison.stop}>{t("Stop comparison", "Parar comparação")}</button>}
             {phase === "disconnected"
               ? <button className="primary-button" type="button" onClick={live.resume} disabled={live.stopping}>{t("Reconnect", "Reconectar")}</button>
-              : <button className="primary-button" disabled={isStreaming || question.trim().length === 0} type="submit" aria-busy={isStreaming}>
-                {isStreaming && <span className="spinner" aria-hidden="true" />}
-                {isStreaming ? t("Working…", "Preparando…") : t("Ask Lumora", "Perguntar ao Lumora")}
+              : <button className="primary-button" disabled={busy || question.trim().length === 0} type="submit" aria-busy={busy}>
+                {busy && <span className="spinner" aria-hidden="true" />}
+                {comparing ? comparison.isPending ? t("Comparing…", "Comparando…") : t("Compare answers", "Comparar respostas")
+                  : isStreaming ? t("Working…", "Preparando…") : t("Ask Lumora", "Perguntar ao Lumora")}
               </button>}
           </div>
         </div>
@@ -117,10 +163,13 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
         {live.draft && <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-200">{live.draft}</p>}
         {live.citations.length > 0 && <div className="mt-5"><ValidatedCitations citations={live.citations} /></div>}
       </section>}
-      {live.stopError && <p role="alert" className="error-message">
+      {!comparing && live.stopError && <p role="alert" className="error-message">
         {t("We could not confirm that the answer stopped. Check your connection and try again.", "Não foi possível confirmar a interrupção. Confira sua conexão e tente novamente.")}
       </p>}
-      {live.cancelled && <p role="status" className="panel text-sm text-slate-200">{t("Answer stopped.", "Resposta interrompida.")}</p>}
+      {!comparing && live.cancelled && <p role="status" className="panel text-sm text-slate-200">{t("Answer stopped.", "Resposta interrompida.")}</p>}
+      {comparing && comparison.isPending && <p role="status" className="stream-status-card text-sm text-slate-200">{t("Preparing both answers from the same passages…", "Preparando as duas respostas com os mesmos trechos…")}</p>}
+      {comparing && comparison.stopped && <p role="status" className="panel text-sm text-slate-200">{t("Comparison stopped.", "Comparação interrompida.")}</p>}
+      {comparing && comparison.data && <ModelComparisonResult comparison={comparison.data} />}
       {answer && <>
         <div className="panel animate-fade-up border-cyan-500/20 bg-cyan-500/5">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -129,13 +178,14 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
               : answer.cacheHit ? <span className="status-pill">{t("Saved answer reused", "Resposta salva reutilizada")}</span>
               : citations.length > 0 && <span className="status-pill status-pill--success">{t("Citations checked", "Citações conferidas")}</span>}
           </div>
+          {answer.model && <p className="mt-2 text-xs text-slate-300 [overflow-wrap:anywhere]">{t("Answer model", "Modelo de resposta")} · {answer.model.label}</p>}
           <p role={refusalCopy ? "status" : undefined} className="mt-5 whitespace-pre-wrap text-sm leading-7 text-slate-200">
             {refusalCopy ? t(...refusalCopy) : answer.answer}
           </p>
         </div>
         {!refusalCopy && <RagEvidencePanel response={answer} citations={citations} />}
       </>}
-      {error && !isStreaming && <p role="alert" className="error-message">{error}</p>}
+      {error && !busy && <p role="alert" className="error-message">{error}</p>}
     </form>
   );
 }

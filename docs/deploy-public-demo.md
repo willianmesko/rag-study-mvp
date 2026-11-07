@@ -41,6 +41,10 @@ The new table is restricted to the API and stores one progress record per
 workspace membership. Verify API health and the onboarding route before
 deploying the web client.
 
+Apply `019_semantic_cache_models.sql` before publishing model selection. The
+model-scoped cache is separate from the legacy cache to keep a previous API
+build from reading alternate-model answers during rollback.
+
 ## 2. Render API
 
 The API is built from the repository root using `apps/api/Dockerfile`. Set at
@@ -65,6 +69,13 @@ USAGE_ALERT_THRESHOLD_USD=1
 
 Keep `RERANKER_PROVIDER=none` and `LANGSMITH_TRACING=false` for the lowest-cost
 demo. Verify `GET /health` returns HTTP 200 after deployment.
+
+Configure `CHAT_ADDITIONAL_MODELS` with at least one reviewed model and its
+input/output price estimates to enable signed-in comparisons. Keep the
+combined per-request budget configured. `EVAL_FAITHFULNESS_JUDGE_MODEL` enables
+an owner-triggered evaluation of bundled public cases. Regular evaluation and
+CI do not call the judge. Run the [Jina benchmark](../apps/api/evals/README.md)
+with synthetic data before enabling external reranking for workspace retrieval.
 
 Both API Dockerfiles install Poppler and Tesseract with English and Portuguese
 language data and enable PDF OCR. Verify `capabilities.pdfOcr` in the health

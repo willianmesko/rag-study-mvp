@@ -1,6 +1,8 @@
 import type { Citation, RetrievedChunk } from "../../domain/document.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 
+export const groundedPromptVersion = "grounded-v1";
+
 export type GroundedContext = {
   text: string;
   sourcesByReference: ReadonlyMap<string, Citation>;
@@ -45,4 +47,9 @@ export function createGroundedAnswerPrompt(question: string, context: string): {
     system: systemInstructions,
     user: `<user_question>\n${escapePromptData(question)}\n</user_question>\n\n<retrieved_reference_material>\n${context}\n</retrieved_reference_material>`
   };
+}
+
+export function estimateGroundedPromptTokens(question: string, context: string): number {
+  const { system, user } = createGroundedAnswerPrompt(question, context);
+  return Math.ceil((system.length + user.length) / 4);
 }

@@ -1,8 +1,9 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import type { AnswerGenerator } from "../../application/ports/answer-generator.js";
-import type { AnswerQuestionResult, AnswerWorkflowEvent, AnswerWorkflowInput, QuestionAnsweringWorkflow } from "../../application/ports/question-answering-workflow.js";
-import { formatUntrustedContext, type GroundedContext } from "../../application/policies/grounded-answer-policy.js";
+import type { AnswerQuestionResult, AnswerWorkflowEvent, AnswerWorkflowInput, PreparedAnswerContext, PreparedAnswerWorkflow, QuestionAnsweringWorkflow } from "../../application/ports/question-answering-workflow.js";
+import { estimateGroundedPromptTokens, formatUntrustedContext, type GroundedContext } from "../../application/policies/grounded-answer-policy.js";
 import { assertStepBudget, withExecutionTimeout } from "../../application/policies/agent-execution-policy.js";
+import { ChatBudgetExceededError } from "../../application/policies/chat-cost.js";
 import { parseGroundedAnswer, validateGroundedAnswer } from "../../application/policies/structured-answer.js";
 import type { RetrievedChunk } from "../../domain/document.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
@@ -17,6 +18,7 @@ const RagState = Annotation.Root({
   topK: Annotation<number | undefined>,
   tenantId: Annotation<string | undefined>,
   queryEmbedding: Annotation<number[] | undefined>,
+  maxEstimatedInputTokens: Annotation<number | undefined>,
   matches: Annotation<RetrievedChunk[]>(),
   context: Annotation<GroundedContext>(),
   result: Annotation<AnswerQuestionResult>(),
@@ -31,7 +33,7 @@ const insufficientContext: AnswerQuestionResult = {
   refusalReason: "insufficient_context"
 };
 
-export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
+export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, PreparedAnswerWorkflow {
   private readonly graph;
   private readonly options: { maxContextChars: number; minimumScore: number; maxSteps: number; timeoutMs: number; requireStructuredOutput: boolean };
 
@@ -55,6 +57,28 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
     return output.result;
   }
 
+  async prepare(input: AnswerWorkflowInput): Promise<PreparedAnswerContext | null> {
+    assertStepBudget(1, this.options);
+    const matches = await this.retriever.execute({
+      query: input.question, topK: input.topK, tenantId: input.tenantId, queryEmbedding: input.queryEmbedding, signal: input.signal
+    });
+    input.signal?.throwIfAborted();
+    const safeMatches = matches.filter((match) => isSafeForAnswer(match.security));
+    if (!this.hasRelevantSource(safeMatches)) return null;
+    assertStepBudget(2, this.options);
+    const context = formatUntrustedContext(safeMatches, this.options.maxContextChars);
+    if (!this.hasRelevantSource(context.sourcesByReference.values())) return null;
+    return this.prepared(input.question, context, input.maxEstimatedInputTokens);
+  }
+
+  async answerPrepared(prepared: PreparedAnswerContext | null, generator: AnswerGenerator, signal?: AbortSignal): Promise<AnswerQuestionResult> {
+    if (!prepared) return insufficientContext;
+    assertStepBudget(3, this.options);
+    const rawAnswer = await generator.generate(prepared.question, prepared.context.text, signal);
+    signal?.throwIfAborted();
+    return this.resolveAnswer(rawAnswer, prepared);
+  }
+
   answerStream(input: AnswerWorkflowInput, onEvent: (event: AnswerWorkflowEvent) => void | Promise<void>): Promise<AnswerQuestionResult> {
     return withExecutionTimeout(async (signal) => {
       const emit = async (event: AnswerWorkflowEvent) => {
@@ -63,21 +87,18 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
         signal.throwIfAborted();
       };
       await emit({ type: "retrieving" });
-      const matches = await this.retriever.execute({
-        query: input.question, topK: input.topK, tenantId: input.tenantId, queryEmbedding: input.queryEmbedding, signal
-      });
-      signal.throwIfAborted();
-      const context = formatUntrustedContext(matches.filter((match) => isSafeForAnswer(match.security)), this.options.maxContextChars);
-      if (!this.hasRelevantSource(context.sourcesByReference.values())) {
+      const prepared = await this.prepare({ ...input, signal });
+      if (!prepared) {
         await emit({ type: "validating" });
         return insufficientContext;
       }
       await emit({ type: "generating" });
+      assertStepBudget(3, this.options);
       const rawAnswer = this.answerGenerator.stream
-        ? await this.answerGenerator.stream(input.question, context.text, () => undefined, signal)
-        : await this.answerGenerator.generate(input.question, context.text, signal);
+        ? await this.answerGenerator.stream(prepared.question, prepared.context.text, () => undefined, signal)
+        : await this.answerGenerator.generate(prepared.question, prepared.context.text, signal);
       await emit({ type: "validating" });
-      const result = this.resolveAnswer(rawAnswer, context);
+      const result = this.resolveAnswer(rawAnswer, prepared);
       // Only publish deltas after the structured answer and its source references are checked.
       if (!result.refusalReason && result.structuredOutput && result.sources.length > 0) {
         await emit({ type: "citations", sources: result.sources });
@@ -104,8 +125,8 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
       }))
       .addNode("generate_answer", async (state, runtime) => {
         const stepCount = assertStepBudget(state.stepCount + 1, this.options);
-        const rawAnswer = await this.answerGenerator.generate(state.question, state.context.text, runtime.signal);
-        return { result: this.resolveAnswer(rawAnswer, state.context), stepCount };
+        const prepared = this.prepared(state.question, state.context, state.maxEstimatedInputTokens);
+        return { result: await this.answerPrepared(prepared, this.answerGenerator, runtime.signal), stepCount };
       })
       .addNode("no_context", () => ({ result: insufficientContext }))
       .addEdge(START, "retrieve")
@@ -127,13 +148,20 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
     return false;
   }
 
-  private resolveAnswer(rawAnswer: string, context: GroundedContext): AnswerQuestionResult {
+  private prepared(question: string, context: GroundedContext, maxEstimatedInputTokens?: number): PreparedAnswerContext {
+    const estimatedInputTokens = estimateGroundedPromptTokens(question, context.text);
+    if (maxEstimatedInputTokens !== undefined && estimatedInputTokens > maxEstimatedInputTokens) throw new ChatBudgetExceededError();
+    return { question, context, estimatedInputTokens };
+  }
+
+  private resolveAnswer(rawAnswer: string, { context, estimatedInputTokens }: PreparedAnswerContext): AnswerQuestionResult {
+    const usage = { estimatedInputTokens, estimatedOutputTokens: Math.ceil(rawAnswer.length / 4) };
     const parsed = validateGroundedAnswer(parseGroundedAnswer(rawAnswer), new Set(context.sourcesByReference.keys()));
     if (this.options.requireStructuredOutput && !parsed.structured) {
-      return { answer: "I could not validate the model's structured response, so I am declining to answer.", sources: [], citedChunkIds: [], structuredOutput: false, refusalReason: "unstructured_model_output" };
+      return { answer: "I could not validate the model's structured response, so I am declining to answer.", sources: [], citedChunkIds: [], structuredOutput: false, refusalReason: "unstructured_model_output", ...usage };
     }
     if (parsed.refusalReason) {
-      return { answer: redactPii(parsed.answer).text, sources: [], citedChunkIds: [], structuredOutput: parsed.structured, refusalReason: redactPii(parsed.refusalReason).text };
+      return { answer: redactPii(parsed.answer).text, sources: [], citedChunkIds: [], structuredOutput: parsed.structured, refusalReason: redactPii(parsed.refusalReason).text, ...usage };
     }
     const contextSources = [...context.sourcesByReference.values()];
     const sources = parsed.structured
@@ -144,7 +172,8 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow {
       sources,
       contextSources,
       citedChunkIds: parsed.structured ? sources.map((source) => source.chunkId) : [],
-      structuredOutput: parsed.structured
+      structuredOutput: parsed.structured,
+      ...usage
     };
   }
 }

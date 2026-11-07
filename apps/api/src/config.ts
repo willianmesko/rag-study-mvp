@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
+import { chatModelIdSchema } from "@rag-study/contracts";
 import { z } from "zod";
 
 // Keep the developer-facing .env at the monorepo root while the API runs from
@@ -9,6 +10,21 @@ dotenv.config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) }
 const provider = z.enum(["ollama", "openrouter", "bedrock"]);
 const rerankerProvider = z.enum(["none", "jina"]);
 const booleanEnvironment = z.enum(["true", "false"]).transform((value) => value === "true");
+const modelName = z.string().trim().min(1).max(200).regex(/^[A-Za-z0-9][A-Za-z0-9._/:@-]*$/);
+const additionalChatModels = z.string().default("[]").transform((raw, ctx): unknown => {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    ctx.addIssue({ code: "custom", message: "Expected a JSON array of additional models." });
+    return z.NEVER;
+  }
+}).pipe(z.array(z.strictObject({
+  id: chatModelIdSchema.refine((id) => id !== "default", { message: "The default alias is reserved." }),
+  label: z.string().trim().min(1).max(80),
+  model: modelName,
+  inputCostPer1kUsd: z.number().min(0).max(10),
+  outputCostPer1kUsd: z.number().min(0).max(10)
+})).max(5).refine((models) => new Set(models.map(({ id }) => id)).size === models.length, { message: "Model aliases must be unique." }));
 
 const environment = z.object({
   DATABASE_URL: z.string().url().default("postgresql://rag:rag@localhost:5433/rag"),
@@ -16,6 +32,9 @@ const environment = z.object({
   AWS_PROFILE: z.string().min(1).optional(),
   EMBEDDING_PROVIDER: provider.default("ollama"),
   CHAT_PROVIDER: provider.default("ollama"),
+  CHAT_DEFAULT_MODEL_LABEL: z.string().trim().min(1).max(80).optional(),
+  CHAT_ADDITIONAL_MODELS: additionalChatModels,
+  EVAL_FAITHFULNESS_JUDGE_MODEL: modelName.optional(),
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1024),
   BEDROCK_EMBEDDING_MODEL_ID: z.string().min(1).default("amazon.titan-embed-text-v2:0"),
   BEDROCK_CHAT_MODEL_ID: z.string().min(1).default("global.anthropic.claude-haiku-4-5-20251001-v1:0"),
@@ -103,7 +122,7 @@ if (config.EMBEDDING_DIMENSIONS !== 1024) {
   );
 }
 
-if ((config.EMBEDDING_PROVIDER === "openrouter" || config.CHAT_PROVIDER === "openrouter") && !config.OPENROUTER_API_KEY) {
+if ((config.EMBEDDING_PROVIDER === "openrouter" || config.CHAT_PROVIDER === "openrouter" || config.EVAL_FAITHFULNESS_JUDGE_MODEL) && !config.OPENROUTER_API_KEY) {
   throw new Error("OPENROUTER_API_KEY is required when OPENROUTER is the selected provider.");
 }
 

@@ -6,22 +6,27 @@ type UsageRow = { qa_requests: number; uploaded_bytes: string | number };
 export class PgQuotaRepository implements QuotaRepository {
   constructor(private readonly pool: Pool) {}
 
-  async consumeQuestion(input: { tenantId: string; actorKey: string; tenantLimit: number; actorLimit: number }): Promise<QuotaResult> {
+  async consumeQuestion(input: Parameters<QuotaRepository["consumeQuestion"]>[0]): Promise<QuotaResult> {
+    const units = input.units ?? 1;
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
       const tenant = await client.query<UsageRow>(
-        `INSERT INTO tenant_daily_usage (tenant_id, actor_key, qa_requests) VALUES ($1, '__tenant__', 1)
-         ON CONFLICT (tenant_id, actor_key, usage_date) DO UPDATE SET qa_requests = tenant_daily_usage.qa_requests + 1, updated_at = NOW()
-         WHERE tenant_daily_usage.qa_requests < $2 RETURNING qa_requests, uploaded_bytes`,
-        [input.tenantId, input.tenantLimit]
+        `INSERT INTO tenant_daily_usage (tenant_id, actor_key, qa_requests)
+         SELECT $1, '__tenant__', $2::INTEGER WHERE $2::INTEGER <= $3
+         ON CONFLICT (tenant_id, actor_key, usage_date) DO UPDATE
+         SET qa_requests = tenant_daily_usage.qa_requests + EXCLUDED.qa_requests, updated_at = NOW()
+         WHERE tenant_daily_usage.qa_requests + EXCLUDED.qa_requests <= $3 RETURNING qa_requests, uploaded_bytes`,
+        [input.tenantId, units, input.tenantLimit]
       );
       if (tenant.rowCount !== 1) { await client.query("ROLLBACK"); return { allowed: false, used: null, limit: input.tenantLimit }; }
       const actor = await client.query<UsageRow>(
-        `INSERT INTO tenant_daily_usage (tenant_id, actor_key, qa_requests) VALUES ($1, $2, 1)
-         ON CONFLICT (tenant_id, actor_key, usage_date) DO UPDATE SET qa_requests = tenant_daily_usage.qa_requests + 1, updated_at = NOW()
-         WHERE tenant_daily_usage.qa_requests < $3 RETURNING qa_requests, uploaded_bytes`,
-        [input.tenantId, input.actorKey, input.actorLimit]
+        `INSERT INTO tenant_daily_usage (tenant_id, actor_key, qa_requests)
+         SELECT $1, $2, $3::INTEGER WHERE $3::INTEGER <= $4
+         ON CONFLICT (tenant_id, actor_key, usage_date) DO UPDATE
+         SET qa_requests = tenant_daily_usage.qa_requests + EXCLUDED.qa_requests, updated_at = NOW()
+         WHERE tenant_daily_usage.qa_requests + EXCLUDED.qa_requests <= $4 RETURNING qa_requests, uploaded_bytes`,
+        [input.tenantId, input.actorKey, units, input.actorLimit]
       );
       if (actor.rowCount !== 1) { await client.query("ROLLBACK"); return { allowed: false, used: null, limit: input.actorLimit }; }
       await client.query("COMMIT");

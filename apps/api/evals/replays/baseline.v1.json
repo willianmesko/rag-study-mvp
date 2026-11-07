@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "replay": {
+    "version": "1.0",
+    "digest": "82058c98a7ffa83eba9036ece2df2732d2e7e88039652487c1f01417b5004f91",
+    "total": 6,
+    "topK": 2,
+    "metrics": {
+      "hitRate": 0.8333333333333334,
+      "meanReciprocalRank": 0.75,
+      "recallAtK": 0.6666666666666666,
+      "precisionAtK": 0.4166666666666667,
+      "contextPrecision": 0.5833333333333334
+    }
+  },
+  "security": {
+    "version": "1.0",
+    "digest": "ca1f735cbd992bf13abc89e5f530e7bb4d1a1fcc3e1a67393dc8d34373b94c7d",
+    "total": 6,
+    "screening": {
+      "detectionRecall": 1,
+      "detectionPrecision": 1,
+      "falsePositiveRate": 0
+    }
+  }
+}

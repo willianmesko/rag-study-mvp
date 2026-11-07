@@ -17,6 +17,7 @@ const checks = [
   { id: "production-build", command: "npm run build" },
   { id: "prompt-injection", command: "npm run eval:security -- evals/security/prompt-injection.v1.json" },
   { id: "golden-set", command: "npm run eval:golden:ci" },
+  { id: "replay-regression", command: "npm run eval:regression" },
   { id: "promptfoo", command: "npm run eval:promptfoo" }
 ];
 const selectedChecks = skipPromptfoo ? checks.filter((check) => check.id !== "promptfoo") : checks;
@@ -55,7 +56,7 @@ function parseJsonReport(output) {
 }
 
 function summarize(id, result) {
-  const parsed = id === "golden-set" || id === "prompt-injection" ? parseJsonReport(result.stdout) : null;
+  const parsed = ["golden-set", "prompt-injection", "replay-regression"].includes(id) ? parseJsonReport(result.stdout) : null;
   return {
     id,
     passed: result.passed,
@@ -71,6 +72,11 @@ function summarize(id, result) {
       total: parsed.total,
       failureCount: parsed.failures?.length ?? null,
       qualityGatePassed: parsed.passed
+    } : {}),
+    ...(id === "replay-regression" && parsed ? {
+      replay: parsed.replay,
+      screening: parsed.security?.screening,
+      comparison: parsed.comparison
     } : {})
   };
 }

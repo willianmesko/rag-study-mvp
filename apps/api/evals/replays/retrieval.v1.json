@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "topK": 2,
+  "cases": [
+    {
+      "id": "case-01",
+      "provenance": "synthetic",
+      "question": "When does the trial workspace delete exported support notes?",
+      "candidates": [
+        { "id": "passage-a", "relevant": false, "text": "Exported support notes can be downloaded from the trial workspace. Owners choose a file format before exporting." },
+        { "id": "passage-b", "relevant": true, "text": "The trial workspace deletes exported support notes seven days after the export completes." },
+        { "id": "passage-c", "relevant": false, "text": "The workspace keeps account invoices for a separate accounting period." },
+        { "id": "passage-d", "relevant": false, "text": "The full product keeps a local export history on the device that created it." }
+      ]
+    },
+    {
+      "id": "case-02",
+      "provenance": "synthetic",
+      "question": "Quem precisa aprovar o acesso de um fornecedor externo ao espaço de suporte?",
+      "candidates": [
+        { "id": "passage-a", "relevant": false, "text": "O formulário de acesso de fornecedor externo lista o espaço de suporte e o período do contrato." },
+        { "id": "passage-b", "relevant": true, "text": "O proprietário do espaço de suporte precisa aprovar o acesso de cada fornecedor externo." },
+        { "id": "passage-c", "relevant": true, "text": "A equipe de segurança aprova o acesso de fornecedor externo quando o espaço de suporte inclui documentos restritos." },
+        { "id": "passage-d", "relevant": false, "text": "O atendimento interno acompanha o prazo de resposta de cada chamado." }
+      ]
+    },
+    {
+      "id": "case-03",
+      "provenance": "synthetic",
+      "question": "Why are neighboring passages allowed to repeat part of the source text?",
+      "candidates": [
+        { "id": "passage-a", "relevant": false, "text": "Passages from the same source use the source text language when displayed in the library." },
+        { "id": "passage-b", "relevant": false, "text": "A preview may repeat source text already shown in a citation list. The preview layout can collapse duplicates." },
+        { "id": "passage-c", "relevant": true, "text": "A chunking overlap copies boundary sentences into adjacent chunks to preserve context for retrieval." },
+        { "id": "passage-d", "relevant": false, "text": "The extraction pipeline saves page numbers for citations in scanned documents." }
+      ]
+    },
+    {
+      "id": "case-04",
+      "provenance": "synthetic",
+      "question": "Como conferir se uma resposta do Lumora está apoiada nos documentos?",
+      "candidates": [
+        { "id": "passage-a", "relevant": false, "text": "O painel do Lumora mostra quantos documentos estão prontos e quantas respostas foram geradas." },
+        { "id": "passage-b", "relevant": true, "text": "Abra as citações de uma resposta do Lumora e compare cada afirmação com os trechos dos documentos." },
+        { "id": "passage-c", "relevant": true, "text": "Uma pontuação alta indica semelhança com a pergunta. Leia a fonte para confirmar o que ela realmente sustenta." },
+        { "id": "passage-d", "relevant": false, "text": "O administrador pode remover documentos do espaço antes de iniciar uma nova busca." }
+      ]
+    },
+    {
+      "id": "case-05",
+      "provenance": "synthetic",
+      "question": "Which migration step is required before changing embedding dimensions?",
+      "candidates": [
+        { "id": "passage-a", "relevant": false, "text": "Changing the chat model controls how the system phrases an answer. The embedding model remains fixed." },
+        { "id": "passage-b", "relevant": true, "text": "Changing embedding dimensions requires a schema migration and regeneration of every indexed vector before activation." },
+        { "id": "passage-c", "relevant": false, "text": "A reranker only changes the order of candidate passages after retrieval." },
+        { "id": "passage-d", "relevant": false, "text": "Changing the migration display format does not change the order of migration records." }
+      ]
+    },
+    {
+      "id": "case-06",
+      "provenance": "synthetic",
+      "question": "O que acontece quando o navegador reconecta durante a mesma resposta?",
+      "candidates": [
+        { "id": "passage-a", "relevant": false, "text": "O navegador mostra as fontes da resposta no final da conversa e permite abrir os documentos." },
+        { "id": "passage-b", "relevant": true, "text": "Se o navegador reconecta durante a mesma resposta, ele pede os eventos depois do último recebido e continua a execução existente." },
+        { "id": "passage-c", "relevant": false, "text": "O histórico de perguntas fica no navegador e pode ser apagado a qualquer momento." },
+        { "id": "passage-d", "relevant": false, "text": "Uma nova resposta consome uma pergunta da cota diária do espaço." }
+      ]
+    }
+  ]
+}

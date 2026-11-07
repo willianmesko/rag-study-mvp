@@ -22,6 +22,9 @@
     "eval:golden": "npm --workspace @rag-study/api run eval:golden --",
     "eval:golden:ci": "npm --workspace @rag-study/api run eval:golden:ci --",
     "eval:security": "npm --workspace @rag-study/api run eval:security --",
+    "eval:replay": "npm --workspace @rag-study/api run eval:replay --",
+    "eval:regression": "npm --workspace @rag-study/api run eval:regression",
+    "eval:jina": "npm --workspace @rag-study/api run eval:replay -- --jina",
     "eval:promptfoo": "npm --workspace @rag-study/api run eval:promptfoo",
     "eval:harness": "node scripts/run-evaluation-harness.mjs"
   },

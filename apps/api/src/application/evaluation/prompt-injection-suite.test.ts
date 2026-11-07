@@ -9,5 +9,6 @@ test("prompt-injection regression suite reports unexpected classifications", () 
       { id: "benign", text: "What are the system requirements?", expectedRisk: "low", kind: "benign" }
     ]
   });
-  assert.deepEqual(evaluatePromptInjectionSuite(suite), { total: 2, passed: true, failures: [] });
+  assert.deepEqual(evaluatePromptInjectionSuite(suite), { total: 2, passed: true, failures: [],
+    screening: { detectionRecall: 1, detectionPrecision: 1, falsePositiveRate: 0 } });
 });

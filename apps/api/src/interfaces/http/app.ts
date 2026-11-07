@@ -3,9 +3,11 @@ import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createClient } from "@supabase/supabase-js";
-import { chatRunIdSchema, documentInputSchema, questionInputSchema, questionStreamInputSchema, workspaceMemberRoleSchema, workspaceOnboardingProgressSchema, type ChatRunEvent } from "@rag-study/contracts";
+import { chatModelIdSchema, chatRunIdSchema, documentInputSchema, questionComparisonInputSchema, questionInputSchema, questionStreamInputSchema, workspaceMemberRoleSchema, workspaceOnboardingProgressSchema, type ChatModelDescriptor, type ChatRunEvent } from "@rag-study/contracts";
 import { ZodError, z } from "zod";
 import type { AnswerQuestionUseCase } from "../../application/use-cases/answer-question.js";
+import type { CompareAnswersUseCase, ComparisonModel } from "../../application/use-cases/compare-answers.js";
+import { ChatBudgetExceededError } from "../../application/policies/chat-cost.js";
 import { StreamAnswerRuns } from "../../application/use-cases/stream-answer-runs.js";
 import type { ChatRunRepository } from "../../application/ports/chat-run-repository.js";
 import type { WorkspaceOnboardingRepository } from "../../application/ports/workspace-onboarding-repository.js";
@@ -24,7 +26,7 @@ import type { AuditEventRepository } from "../../application/ports/audit-event-r
 import type { QuotaResult } from "../../application/ports/quota-repository.js";
 import type { UsageSummary } from "../../application/ports/usage-metrics-repository.js";
 import type { EvaluationRun } from "../../application/ports/evaluation-repository.js";
-import type { RunEvaluationUseCase } from "../../application/use-cases/run-evaluation.js";
+import { EvaluationRunError, type RunEvaluationUseCase } from "../../application/use-cases/run-evaluation.js";
 import type { TenantMembership, TenantRole, WorkspaceMember } from "../../application/ports/tenant-membership-repository.js";
 import { PublicHtmlFetchError, type PublicHtmlFetchErrorCode, type PublicHtmlFetcher } from "../../application/ports/public-html-fetcher.js";
 import { config } from "../../config.js";
@@ -39,6 +41,8 @@ const workspaceIdSchema = z.string().uuid();
 const workspaceRequired = { ok: false, status: 400, error: "Select a workspace.", code: "workspace_required" } as const;
 const chatRunParams = z.object({ runId: chatRunIdSchema });
 const chatRunCursor = z.object({ after: z.coerce.number().int().min(0).max(2_147_483_647).default(0) });
+const evaluationInput = z.strictObject({ includeFaithfulness: z.boolean().optional(), modelId: chatModelIdSchema.optional() });
+const modelUnavailable = { code: "model_unavailable", error: "Select an available chat model." } as const;
 const maxPassageExcerptChars = 600;
 const urlImportSchema = z.object({ url: z.string().trim().min(1).max(1_000).url(), title: z.string().trim().min(1).max(500).optional() });
 const urlImportStatus: Record<PublicHtmlFetchErrorCode, number> = {
@@ -57,6 +61,8 @@ type HttpDependencies = {
   ingestDocument: IngestDocumentUseCase;
   searchDocuments: SearchDocumentsUseCase;
   answerQuestion: AnswerQuestionUseCase;
+  chatModels: ReadonlyMap<string, ComparisonModel & { answerQuestion: AnswerQuestionUseCase }>;
+  compareAnswers: CompareAnswersUseCase;
   chatRuns: ChatRunRepository;
   workspaceOnboarding: WorkspaceOnboardingRepository;
   queueDocumentUpload: QueueDocumentUploadUseCase;
@@ -79,7 +85,7 @@ type HttpDependencies = {
   getDocumentOriginal: Pick<GetDocumentOriginalUseCase, "execute">;
   reindexDocument: ReindexDocumentUseCase;
   deleteDocument: DeleteDocumentUseCase;
-  consumeQuestionQuota: (tenantId: string, actorKey: string) => Promise<QuotaResult>;
+  consumeQuestionQuota: (tenantId: string, actorKey: string, units?: 1 | 2) => Promise<QuotaResult>;
   consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => Promise<QuotaResult>;
   getUsageSummary: (tenantId: string, days: number) => Promise<UsageSummary>;
   listEvaluationRuns: (tenantId: string, limit: number) => Promise<EvaluationRun[]>;
@@ -169,6 +175,11 @@ export async function buildApp(dependencies: HttpDependencies) {
   });
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError) return reply.code(400).send({ error: "Invalid request", details: error.flatten() });
+    if (error instanceof ChatBudgetExceededError) return reply.code(422).send({ code: "chat_budget_exceeded", error: error.message });
+    if (error instanceof EvaluationRunError) {
+      const status = { evaluation_in_progress: 409, judge_unavailable: 503, model_unavailable: 400 }[error.code];
+      return reply.code(status).send({ code: error.code, error: error.message });
+    }
     if (typeof error === "object" && error !== null && "statusCode" in error && error.statusCode === 429) {
       return reply.code(429).send({ error: "Too many requests. Try again later." });
     }
@@ -214,9 +225,9 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (authorization.role !== "owner") return { ok: false as const, status: 403, error: "Only the workspace owner can manage members." };
     return authorization;
   };
-  async function resolveQueryScope(request: FastifyRequest) {
-    if (typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer ")) {
-      const membership = await authorizeMember(request);
+  async function resolveQueryScope(request: FastifyRequest, requireExplicitWorkspace = false) {
+    if (requireExplicitWorkspace || (typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer "))) {
+      const membership = await authorizeMember(request, requireExplicitWorkspace);
       if (!membership.ok) return membership;
       return { ok: true as const, tenantId: membership.tenantId, actorKey: `user:${membership.userId}` };
     }
@@ -228,6 +239,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     }
     return { ok: true as const, tenantId: config.DEFAULT_TENANT_ID, actorKey: anonymousActorKey(request) };
   }
+  const selectChatModel = (modelId?: string) => dependencies.chatModels?.get(modelId ?? "default");
   app.get("/v1/workspaces", async (request, reply) => {
     if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return reply.code(503).send({ error: "Workspace access is not configured." });
     const authorization = request.headers.authorization;
@@ -409,12 +421,14 @@ export async function buildApp(dependencies: HttpDependencies) {
     const authorization = await authorizeOwner(request);
     if (!authorization.ok) return rejectScope(reply, authorization);
     const { limit } = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20) }).parse(request.query);
-    return { runs: (await dependencies.listEvaluationRuns(authorization.tenantId, limit)).map(serializeEvaluationRun) };
+    return { runs: (await dependencies.listEvaluationRuns(authorization.tenantId, limit)).map(serializeEvaluationRun), faithfulnessEnabled: dependencies.runEvaluation.supportsFaithfulness };
   });
-  app.post("/v1/admin/evaluations/run", async (request, reply) => {
+  app.post("/v1/admin/evaluations/run", { config: { rateLimit: { max: 2 } } }, async (request, reply) => {
     const authorization = await authorizeOwner(request);
     if (!authorization.ok) return rejectScope(reply, authorization);
-    return reply.code(201).send({ run: serializeEvaluationRun(await dependencies.runEvaluation.execute({ tenantId: authorization.tenantId })) });
+    const input = evaluationInput.parse(request.body ?? {});
+    if (input.modelId && !selectChatModel(input.modelId)) return reply.code(400).send(modelUnavailable);
+    return reply.code(201).send({ run: serializeEvaluationRun(await dependencies.runEvaluation.execute({ tenantId: authorization.tenantId, ...input })) });
   });
   app.post("/v1/admin/uploads/:jobId/retry", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
@@ -544,45 +558,67 @@ export async function buildApp(dependencies: HttpDependencies) {
       return { ...result, content: excerpt, previewTruncated: excerptTruncated, previewBlocked };
     }) };
   });
+  app.get("/v1/qa/models", { exposeHeadRoute: false }, async (request, reply) => {
+    const membership = await authorizeMember(request, true);
+    if (!membership.ok) return rejectScope(reply, membership);
+    const models = Array.from(dependencies.chatModels.values(), ({ descriptor }) => descriptor);
+    return { models, comparisonAvailable: models.length >= 2 };
+  });
+  app.post("/v1/qa/compare", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
+    const { question, topK, modelIds } = questionComparisonInputSchema.parse(request.body);
+    const membership = await authorizeMember(request, true);
+    if (!membership.ok) return rejectScope(reply, membership);
+    const [left, right] = modelIds.map(selectChatModel);
+    if (!left || !right) return reply.code(400).send(modelUnavailable);
+    const { tenantId, userId } = membership;
+    const actorKey = `user:${userId}`;
+    const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey, 2);
+    if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
+    return withReplySignal(reply, streamShutdown.signal, async (signal) => {
+      const results = await dependencies.compareAnswers.execute({ question, topK, tenantId, actorKey, models: [left, right], signal });
+      return { results: results.map(({ model, response, ...result }) => ({
+        ...result, model, response: response ? serializeQuestionAnswer(response, model) : null
+      })) };
+    });
+  });
   app.post("/v1/qa", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
-    const { question, topK } = questionInputSchema.parse(request.body);
-    const scope = await resolveQueryScope(request);
+    const { question, topK, modelId } = questionInputSchema.parse(request.body);
+    const scope = await resolveQueryScope(request, modelId !== undefined);
     if (!scope.ok) return rejectScope(reply, scope);
+    const selected = selectChatModel(modelId);
+    if (modelId && !selected) return reply.code(400).send(modelUnavailable);
+    const useCase = selected?.answerQuestion ?? dependencies.answerQuestion;
     const { tenantId, actorKey } = scope;
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
-    const controller = new AbortController();
-    const disconnect = () => controller.abort();
-    reply.raw.once("close", disconnect);
-    try {
-      const signal = AbortSignal.any([controller.signal, streamShutdown.signal]);
-      const result = await dependencies.answerQuestion.execute({ question, topK, tenantId, actorKey, signal });
-      return serializeQuestionAnswer(result);
-    } finally {
-      reply.raw.off("close", disconnect);
-    }
+    return withReplySignal(reply, streamShutdown.signal, async (signal) =>
+      serializeQuestionAnswer(await useCase.execute({ question, topK, tenantId, actorKey, signal }), selected?.descriptor));
   });
   app.post("/v1/qa/stream", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
-    const { question, topK, runId } = questionStreamInputSchema.parse(request.body);
+    const { question, topK, runId, modelId } = questionStreamInputSchema.parse(request.body);
+    const selected = selectChatModel(modelId);
+    const useCase = selected?.answerQuestion ?? dependencies.answerQuestion;
     if (runId) {
       const membership = await authorizeMember(request, true);
       if (!membership.ok) return rejectScope(reply, membership);
+      if (modelId && !selected) return reply.code(400).send(modelUnavailable);
       const { tenantId, userId } = membership;
       const actorKey = `user:${userId}`;
       const scope = { runId, tenantId, actorId: userId };
       await answerRuns.start(scope, {
         reserveQuota: async () => (await dependencies.consumeQuestionQuota(tenantId, actorKey)).allowed,
-        answer: async ({ signal, publish }) => serializeQuestionAnswer(await dependencies.answerQuestion.execute({
+        answer: async ({ signal, publish }) => serializeQuestionAnswer(await useCase.execute({
           question, topK, tenantId, actorKey, signal,
           onEvent: (event) => publish(serializeWorkflowEvent(event))
-        })),
+        }), selected?.descriptor),
         reportFailure: (error) => request.log.warn({ errorType: error instanceof Error ? error.name : typeof error, runId }, "Answer run execution failed")
       });
       return replayAnswerStream(request, reply, dependencies.chatRuns, scope, 0, streamShutdown.signal);
     }
 
-    const scope = await resolveQueryScope(request);
+    const scope = await resolveQueryScope(request, modelId !== undefined);
     if (!scope.ok) return rejectScope(reply, scope);
+    if (modelId && !selected) return reply.code(400).send(modelUnavailable);
     const { tenantId, actorKey } = scope;
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
@@ -590,14 +626,14 @@ export async function buildApp(dependencies: HttpDependencies) {
     const stream = openAnswerStream(request, reply, streamShutdown.signal);
     try {
       await stream.event("accepted", { status: "accepted" });
-      const result = await dependencies.answerQuestion.execute({
+      const result = await useCase.execute({
         question, topK, tenantId, actorKey, signal: stream.signal,
         onEvent: (event) => {
           const serialized = serializeWorkflowEvent(event);
           return stream.event(serialized.type, "sources" in serialized || "delta" in serialized ? serialized : { status: serialized.type });
         }
       });
-      await stream.event("completed", serializeQuestionAnswer(result));
+      await stream.event("completed", serializeQuestionAnswer(result, selected?.descriptor));
     } catch (error) {
       if (!stream.signal.aborted) {
         request.log.warn({ errorType: error instanceof Error ? error.name : typeof error }, "Transient answer stream failed");
@@ -666,7 +702,18 @@ function serializeAnswerSource({ chunkId, documentId, source, title, ordinal, sc
   return { chunkId, documentId, source, title, chunk: ordinal, score, ...passageExcerpt(content) };
 }
 
-function serializeQuestionAnswer(result: AnswerQuestionResult) {
+async function withReplySignal<T>(reply: FastifyReply, shutdown: AbortSignal, task: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const disconnect = () => controller.abort();
+  reply.raw.once("close", disconnect);
+  try {
+    return await task(AbortSignal.any([controller.signal, shutdown]));
+  } finally {
+    reply.raw.off("close", disconnect);
+  }
+}
+
+function serializeQuestionAnswer(result: AnswerQuestionResult, model?: ChatModelDescriptor) {
   return {
     answer: result.answer,
     citedChunkIds: result.citedChunkIds ?? [],
@@ -674,7 +721,8 @@ function serializeQuestionAnswer(result: AnswerQuestionResult) {
     refusalReason: result.refusalReason ?? null,
     sources: result.sources.map(serializeAnswerSource),
     contextSources: result.contextSources?.map(serializeAnswerSource) ?? [],
-    cacheHit: result.cacheHit ?? false
+    cacheHit: result.cacheHit ?? false,
+    ...(model ? { model } : {})
   };
 }
 

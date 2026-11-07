@@ -174,6 +174,14 @@ citations before releasing the citations and answer text. A provider's ability
 to stop upstream processing after an HTTP abort depends on its cancellation
 support.
 
+### Choose and compare chat models
+
+Signed-in users can choose from the API's configured model list in Ask. With
+two or more models, **Compare models** runs both over the same retrieved
+passages and prompt version. It uses two question-quota units and shows each
+answer, checked citations, generation latency, and estimated cost separately.
+Embeddings stay fixed. The public demo uses the configured default chat model.
+
 ## Common commands
 
 ```bash
@@ -185,6 +193,7 @@ npm test                  # run unit tests
 npm run db:migrate        # apply API migrations
 npm run eval:golden       # run the retrieval golden set
 npm run eval:security     # run prompt-injection regression cases
+npm run eval:regression   # compare reviewed replays and screening metrics against the reference
 ```
 
 ## Frontend quality checks
@@ -218,9 +227,11 @@ put a secret in a `VITE_` variable, because it becomes browser-visible code.
 
 ## Evaluation and safety
 
-The API has a deterministic golden set for retrieval and a prompt-injection
-suite for the document scanner. See [API evaluations](apps/api/evals/README.md)
-for commands, quality gates, Promptfoo, and the Ragas integration path.
+The API has a deterministic golden set for retrieval, a prompt-injection
+suite, and a versioned replay baseline for ranking and screening metrics.
+Owners can evaluate context precision and optionally score public-fixture
+faithfulness with a calibrated judge. See [API evaluations](apps/api/evals/README.md)
+for methods, replay privacy rules, and the optional live Jina comparison.
 
 The prompt-injection classifier is a defense-in-depth signal, not a complete
 security boundary. Retrieved text is treated as untrusted data and cannot grant

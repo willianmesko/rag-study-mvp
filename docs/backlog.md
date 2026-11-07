@@ -71,15 +71,20 @@ product decision, credentials, or additional operational cost.
   progress. Existing browser-only progress syncs when the user returns.
 - CI quality gates for every push and pull request: typecheck, unit tests,
   production builds, prompt-injection regression, deterministic golden-set
-  retrieval, and Promptfoo security checks.
+  retrieval, versioned replay regression, and Promptfoo security checks.
 - Bounded agent safety baseline: structured answer parsing with Zod, retrieved
   citation validation, read-only tool allowlist definitions, step and timeout
   guards, configurable output-token limits, and an estimated per-request cost
   ceiling.
-- Evaluation dashboard MVP: owner-only persisted evaluation runs with hit rate,
-  MRR, injection pass rate, provider/model metadata, pass/fail thresholds, and
-  historical run comparison. Faithfulness and context precision remain
-  explicitly pending until an LLM judge or Ragas evaluator is connected.
+- Owner-only evaluation runs show hit rate, MRR, injection pass rate, reviewed
+  context precision, and optional public-fixture faithfulness with judge
+  calibration, model metadata, coverage, and historical runs.
+- Signed-in chat supports server-allowlisted model selection and side-by-side
+  comparisons using one retrieved context and a combined budget. The results
+  show citations, generation latency, and estimated cost for each model.
+- Offline replay tooling validates reviewed anonymized fixtures and gates
+  ranking and screening regressions. The bundled synthetic suite can compare
+  candidate ranking with Jina through an explicit, credentialed command.
 
 ## Delivery sequence
 
@@ -92,7 +97,7 @@ product decision, credentials, or additional operational cost.
 4. Workspace Control Center — complete for independent sections, additional
    workspace creation, explicit API selection, and tenant isolation checks.
 5. Product expansion — demo datasets, backend history and feedback, invites,
-   filters, and faithfulness evaluation.
+   and filters.
 6. Real-time chat — complete for connection recovery, persisted run state,
    provider cancellation, and streaming validated citations.
 7. Portuguese and English — verify automatic UI locale and evaluate retrieval in
@@ -100,15 +105,14 @@ product decision, credentials, or additional operational cost.
 8. Onboarding — standalone Milo flow and cross-device sync complete. Starter
    templates and a Help entry point remain in the guided onboarding backlog.
 9. Project-owned MCP — workspace-scoped read tools.
+10. Models and evaluations — selection, comparisons, quality metrics, replay
+    tooling, and the regression gate are implemented. Live Jina measurements
+    and reviewed cases from real production workflows remain pending.
 
 Run independent tasks within a milestone in parallel, integrate in this order,
 and update this backlog after validating each shipped capability.
 
 ## Backlog by area
-
-**Next product priority.** Add chat-model selection from a backend-owned
-allowlist (item 9). Start with an explicitly configured workspace default and
-make model availability, cost estimates, and quota behavior visible in Ask.
 
 1. **Security and cost controls**
    - Capture provider-native token usage where each provider exposes it; current
@@ -126,7 +130,8 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      workflow expansion.
 
 4. **Retrieval quality and observability**
-   - Evaluate Jina reranking against the golden set before enabling it.
+   - Run the implemented synthetic Jina benchmark with an API key and review
+     its measured quality and latency before enabling workspace reranking.
    - Add LangSmith or Langfuse/Phoenix traces under an approved data policy.
    - Add OpenTelemetry spans by workflow stage, request correlation IDs,
      reason-coded logs and metrics, tool-call telemetry, alarms, and runbooks.
@@ -186,35 +191,30 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      the tenant switcher can be demonstrated immediately.
    - Persist question history and thumbs-up/thumbs-down feedback in the backend,
      scoped by workspace and user, instead of keeping it only in the browser.
-   - Extend the evaluation dashboard with faithfulness and context precision
-     from an approved LLM judge or Ragas evaluation job.
    - Verify invitation delivery and onboarding with the existing Supabase Auth
      invitation endpoint. Configure a transactional sender if needed.
    - Add document filters for source, language, date range, and file type.
-   - Add side-by-side model/prompt comparison for answer quality, latency, cost,
-     citations, and safety outcomes.
+   - Extend model comparisons to controlled prompt variants and safety outcomes.
 
 9. **Model routing and comparative evaluation**
-   - Add a backend-owned allowlist of chat models. The frontend may select only
-     models exposed by the active workspace configuration; it must never submit
-     an arbitrary provider model identifier.
-   - Add chat-model selection per question and per evaluation run, with provider,
-     model, prompt version, latency, token usage, estimated cost, citation
-     validity, and injection pass rate recorded for every result.
-   - Add side-by-side answer comparison for two allowlisted chat models, using
-     the same retrieved context and prompt version so the comparison is fair.
+   - Ask and public-fixture faithfulness runs accept server-allowlisted model
+     aliases. Side-by-side Ask comparisons share the same retrieved context
+     and prompt version. The browser shows each answer, citations, latency,
+     and estimated cost. Provider-reported token usage remains a follow-up.
    - Keep the embedding model fixed per index/workspace. Changing it requires an
      explicit embedding-version migration, dimension validation, semantic-cache
      invalidation, and a full document reindex before activation.
-   - Configure reranking as an independent second-stage model. Evaluate Jina or
-     another approved reranker against the golden set before enabling it.
+   - Jina remains an optional independent reranker. Run the implemented
+     comparison with the bundled synthetic golden cases before enabling it.
    - Add model-routing policies for simple versus complex questions and provider
      fallback, with hard token, latency, and spend budgets enforced in code.
-   - Add regression reports that compare the current run with the previous
-     baseline and fail release gates when recall, precision, safety, latency, or
-     cost crosses a configured threshold.
-   - Add anonymized production replays and calibrate a judge against reviewed
-     examples. Compare model and effort settings, including false-positive rates.
+   - CI compares versioned ranking and screening metrics with a reference.
+     Add provider-specific performance and cost regression gates once there
+     are enough live measurements for a stable baseline.
+   - Add manually reviewed, anonymized cases derived from production usage
+     to the implemented offline replay workflow. Extend judge calibration
+     beyond the bundled supported and unsupported examples. Compare effort
+     settings as a separate experiment.
 
 10. **LangGraph workflow expansion**
    - Add adaptive RAG: retrieve, apply a relevance gate, rewrite the query when

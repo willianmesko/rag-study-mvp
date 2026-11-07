@@ -1,12 +1,25 @@
+import type { ReactNode } from "react";
+import { z } from "zod";
 import type { EvaluationRun } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
+
+const qualityDetailsSchema = z.object({
+  contextPrecision: z.object({ method: z.literal("reviewed-passage-ap"), version: z.string(), scoredCases: z.number() }),
+  faithfulness: z.object({
+    method: z.literal("public-claim-evidence-judge"), version: z.string(),
+    status: z.enum(["not_requested", "unavailable", "calibration_failed", "incomplete", "completed"]),
+    judgeModel: z.string().nullable(), scoredCases: z.number(), totalCases: z.number()
+  })
+});
 
 function metricTone(value: number | null, threshold: number) {
   if (value === null) return "text-slate-400";
   return value >= threshold ? "text-emerald-300" : "text-rose-300";
 }
 
-export function EvaluationPanel({ runs, isLoading, isRunning, onRun }: { runs: EvaluationRun[]; isLoading: boolean; isRunning: boolean; onRun: () => void }) {
+export function EvaluationPanel({ runs, isLoading, isRunning, canRun, onRun, runOptions }: {
+  runs: EvaluationRun[]; isLoading: boolean; isRunning: boolean; canRun: boolean; onRun: () => void; runOptions?: ReactNode;
+}) {
   const { locale, t } = useLocale();
   const number = new Intl.NumberFormat(locale);
   const percent = new Intl.NumberFormat(locale, { style: "percent" });
@@ -14,9 +27,17 @@ export function EvaluationPanel({ runs, isLoading, isRunning, onRun }: { runs: E
   const percentage = (value: number | null) => value === null ? t("Unavailable", "Indisponível") : percent.format(value);
   const result = (passed: boolean) => passed ? t("Passed", "Aprovado") : t("Failed", "Falhou");
   const latest = runs[0];
+  const quality = qualityDetailsSchema.safeParse(latest?.failureDetails.quality).data;
+  const judgeStatus = {
+    not_requested: t("Optional judge not requested", "Avaliador opcional não solicitado"),
+    unavailable: t("Optional judge not configured", "Avaliador opcional não configurado"),
+    calibration_failed: t("Judge calibration did not pass", "O avaliador não passou na calibração"),
+    incomplete: t("Some public cases could not be scored", "Alguns casos públicos não puderam ser avaliados"),
+    completed: t("Public cases scored", "Casos públicos avaliados")
+  };
   const columns = [
     t("Run", "Execução"), t("Hit rate", "Taxa de acerto"), "MRR",
-    t("Injection defense", "Defesa contra injeção"), t("Judge metrics", "Métricas do avaliador"), t("Status", "Status")
+    t("Injection defense", "Defesa contra injeção"), t("Faithfulness", "Fidelidade"), t("Context precision", "Precisão do contexto"), t("Status", "Status")
   ];
 
   return (
@@ -26,11 +47,12 @@ export function EvaluationPanel({ runs, isLoading, isRunning, onRun }: { runs: E
           <p className="eyebrow">{t("Evaluation suite", "Suíte de avaliação")}</p>
           <h3 className="mt-2 font-medium">{t("RAG quality dashboard", "Painel de qualidade das respostas")}</h3>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">
-            {t("Retrieval and prompt-injection tests run against reference cases. Faithfulness and context precision require a model-based judge or Ragas.", "Os testes de busca e de injeção de instruções usam casos de referência. A fidelidade e a precisão do contexto dependem de um modelo avaliador ou do Ragas.")}
+            {t("Run the reference tests for this workspace. Context precision checks the rank of reviewed passages. The optional judge measures faithfulness on separate public cases.", "Execute os testes de referência deste espaço. A precisão do contexto verifica a ordem dos trechos revisados. O avaliador opcional mede a fidelidade em casos públicos separados.")}
           </p>
         </div>
-        <button className="primary-button" type="button" onClick={onRun} disabled={isRunning}>{isRunning ? t("Running…", "Avaliando…") : t("Run evaluation", "Executar avaliação")}</button>
+        <button className="primary-button" type="button" onClick={onRun} disabled={isRunning || isLoading || !canRun}>{isRunning ? t("Running…", "Avaliando…") : t("Run evaluation", "Executar avaliação")}</button>
       </div>
+      {runOptions}
       {isLoading && <div className="mt-5 grid gap-3 sm:grid-cols-3" role="status" aria-label={t("Loading evaluations", "Carregando avaliações")}><div className="skeleton h-20" /><div className="skeleton h-20" /><div className="skeleton h-20" /></div>}
       {!isLoading && latest && (
         <>
@@ -41,6 +63,12 @@ export function EvaluationPanel({ runs, isLoading, isRunning, onRun }: { runs: E
             <Metric label={t("Context precision", "Precisão do contexto")} value={percentage(latest.contextPrecision)} tone="text-slate-400" />
             <Metric label={t("Injection defense", "Defesa contra injeção")} value={percentage(latest.injectionPassRate)} tone={metricTone(latest.injectionPassRate, 1)} />
           </div>
+          {quality && <div className="mt-4 grid gap-2 text-xs text-slate-400">
+            <p>{t("Context precision", "Precisão do contexto")} · {t("Reviewed passages", "Trechos revisados")} v{quality.contextPrecision.version} · {quality.contextPrecision.scoredCases}/{latest.totalCases} {t("cases", "casos")}</p>
+            <p>{t("Faithfulness", "Fidelidade")} · {judgeStatus[quality.faithfulness.status]} · {quality.faithfulness.scoredCases}/{quality.faithfulness.totalCases} {t("public cases", "casos públicos")}
+              {quality.faithfulness.judgeModel && quality.faithfulness.status !== "not_requested" && <> · {t("Judge", "Avaliador")} <span className="font-mono">{quality.faithfulness.judgeModel}</span> · {t("Answer model", "Modelo de resposta")} <span className="font-mono">{latest.chatModel}</span></>}
+            </p>
+          </div>}
           <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
             <span className={"status-pill " + (latest.passed ? "status-pill--success" : "border-rose-400/30 bg-rose-400/10 text-rose-300")}>{result(latest.passed)}</span>
             <span>{latest.datasetName} v{latest.datasetVersion}</span>
@@ -73,9 +101,8 @@ export function EvaluationPanel({ runs, isLoading, isRunning, onRun }: { runs: E
                   <td className={"px-3 py-3 font-mono " + metricTone(run.hitRate, 0.8)}>{percentage(run.hitRate)}</td>
                   <td className={"px-3 py-3 font-mono " + metricTone(run.meanReciprocalRank, 0.7)}>{percentage(run.meanReciprocalRank)}</td>
                   <td className={"px-3 py-3 font-mono " + metricTone(run.injectionPassRate, 1)}>{percentage(run.injectionPassRate)}</td>
-                  <td className="px-3 py-3 text-slate-400">
-                    {run.faithfulness === null && run.contextPrecision === null ? t("Awaiting judge", "Aguardando avaliador") : [percentage(run.faithfulness), percentage(run.contextPrecision)].join(" / ")}
-                  </td>
+                  <td className="px-3 py-3 text-slate-400">{percentage(run.faithfulness)}</td>
+                  <td className="px-3 py-3 text-slate-400">{percentage(run.contextPrecision)}</td>
                   <td className={"px-3 py-3 " + (run.passed ? "text-emerald-300" : "text-rose-300")}>{result(run.passed)}</td>
                 </tr>
               ))}

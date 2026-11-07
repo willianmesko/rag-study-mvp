@@ -1,4 +1,5 @@
-import { workspaceOnboardingResponseSchema, type WorkspaceOnboardingProgress } from "@rag-study/contracts";
+import { chatModelCatalogSchema, questionComparisonResponseSchema, workspaceOnboardingResponseSchema,
+  type QuestionComparisonInput, type WorkspaceOnboardingProgress } from "@rag-study/contracts";
 
 export type Health = { status: string };
 
@@ -151,7 +152,19 @@ export const api = {
     request<IngestResponse>("/v1/documents", { method: "POST", body: JSON.stringify(input) }),
   search: (input: SearchInput & { accessToken?: string; workspaceId?: string }) =>
     request<SearchResponse>(`/v1/search?${new URLSearchParams({ q: input.query, topK: String(input.topK ?? 5) })}`, { headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) } }),
-  answer: (input: QuestionInput & { accessToken?: string; workspaceId?: string; signal?: AbortSignal }) => request<QuestionResponse>("/v1/qa", { method: "POST", signal: input.signal, body: JSON.stringify({ question: input.question, topK: input.topK ?? 5 }), headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) } }),
+  answer: (input: QuestionInput & { accessToken?: string; workspaceId?: string; signal?: AbortSignal }) => request<QuestionResponse>("/v1/qa", {
+    method: "POST", signal: input.signal, body: JSON.stringify({ question: input.question, topK: input.topK ?? 5, modelId: input.modelId }),
+    headers: { ...(input.accessToken ? { authorization: `Bearer ${input.accessToken}` } : {}), ...workspaceHeaders(input.workspaceId) }
+  }),
+  chatModels: async (accessToken: string, workspaceId: string, signal: AbortSignal) => chatModelCatalogSchema.parse(await request<unknown>("/v1/qa/models", {
+    headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) },
+    signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)])
+  })),
+  compareAnswers: async (input: QuestionComparisonInput, accessToken: string, workspaceId: string, signal: AbortSignal) =>
+    questionComparisonResponseSchema.parse(await request<unknown>("/v1/qa/compare", {
+      method: "POST", signal, body: JSON.stringify(input),
+      headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
+    })),
   listUploads: (accessToken: string, workspaceId?: string) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
   listUploadEvents: (jobId: string, accessToken: string, workspaceId?: string) => request<{ events: IngestionEvent[] }>(`/v1/admin/uploads/${jobId}/events`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   previewUploadPassages: (jobId: string, accessToken: string, workspaceId: string, signal: AbortSignal) =>
@@ -159,8 +172,11 @@ export const api = {
       headers: { authorization: `Bearer ${accessToken}`, "x-workspace-id": workspaceId }, signal, cache: "no-store"
     }),
   getUsageSummary: (accessToken: string, workspaceId: string, days = 30) => request<{ days: number; summary: UsageSummary; alert: UsageAlert }>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
-  listEvaluationRuns: (accessToken: string, workspaceId: string) => request<{ runs: EvaluationRun[] }>("/v1/admin/evaluations?limit=20", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
-  runEvaluation: (accessToken: string, workspaceId: string) => request<{ run: EvaluationRun }>("/v1/admin/evaluations/run", { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listEvaluationRuns: (accessToken: string, workspaceId: string) => request<{ runs: EvaluationRun[]; faithfulnessEnabled?: boolean }>("/v1/admin/evaluations?limit=20", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  runEvaluation: (accessToken: string, workspaceId: string, options: { includeFaithfulness?: boolean; modelId?: string } = {}) =>
+    request<{ run: EvaluationRun }>("/v1/admin/evaluations/run", {
+      method: "POST", body: JSON.stringify(options), headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
+    }),
   retryUpload: (jobId: string, accessToken: string, workspaceId?: string) => request<{ jobId: string; status: string }>(`/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listDocuments: (accessToken: string, workspaceId?: string) => request<{ documents: ManagedDocument[] }>("/v1/admin/documents", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   getOriginalDocument: async (input: { documentId: string; accessToken: string; workspaceId: string; signal: AbortSignal }): Promise<OriginalDocumentFile> => {

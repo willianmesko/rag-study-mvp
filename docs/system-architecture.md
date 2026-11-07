@@ -250,6 +250,13 @@ membership. An account with several memberships must select one explicitly.
 Routes that allow implicit selection use it only when exactly one membership
 exists. Creating a workspace assigns its creator the `owner` role there.
 
+Model selection and comparison require a verified membership and explicit
+workspace. The API resolves client model aliases from its configured list.
+Comparison reserves two quota units atomically, prepares a single set of
+passages, and checks the combined generation budget before contacting either
+model. Semantic answer cache entries are isolated by workspace, model,
+prompt version, and retrieval limit. Comparison does not reuse cached answers.
+
 - **owner**: manage members, invitations, the corpus, and workspace settings.
 - **editor**: manage the workspace corpus.
 - **viewer**: browse documents and processing, search, and ask questions.

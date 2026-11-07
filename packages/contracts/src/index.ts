@@ -12,9 +12,32 @@ export const searchInputSchema = z.object({
   topK: z.coerce.number().int().min(1).max(20).optional()
 });
 
+export const chatModelIdSchema = z.string().regex(/^[a-z][a-z0-9-]{0,39}$/);
+
+export const chatModelDescriptorSchema = z.object({
+  id: chatModelIdSchema,
+  label: z.string().min(1).max(80),
+  provider: z.enum(["openrouter", "ollama", "bedrock"]),
+  isDefault: z.boolean()
+});
+
+export const chatModelCatalogSchema = z.object({
+  models: z.array(chatModelDescriptorSchema).min(1),
+  comparisonAvailable: z.boolean()
+});
+
 export const questionInputSchema = z.object({
   question: z.string().min(1).max(5_000),
-  topK: z.coerce.number().int().min(1).max(20).optional()
+  topK: z.coerce.number().int().min(1).max(20).optional(),
+  modelId: chatModelIdSchema.optional()
+});
+
+export const questionComparisonInputSchema = z.strictObject({
+  question: questionInputSchema.shape.question,
+  topK: questionInputSchema.shape.topK,
+  modelIds: z.tuple([chatModelIdSchema, chatModelIdSchema]).refine(([left, right]) => left !== right, {
+    message: "Choose two different chat models."
+  })
 });
 
 export const chatRunIdSchema = z.uuid();
@@ -38,7 +61,20 @@ const questionResponseSchema = z.object({
   refusalReason: z.string().nullable().optional(),
   sources: z.array(questionSourceSchema),
   contextSources: z.array(questionSourceSchema).optional(),
-  cacheHit: z.boolean().optional()
+  cacheHit: z.boolean().optional(),
+  model: chatModelDescriptorSchema.optional()
+});
+
+const questionComparisonResultSchema = z.object({
+  model: chatModelDescriptorSchema,
+  latencyMs: z.number().int().nonnegative(),
+  estimatedCostUsd: z.number().nonnegative(),
+  response: questionResponseSchema.nullable(),
+  error: z.literal("generation_failed").nullable()
+});
+
+export const questionComparisonResponseSchema = z.object({
+  results: z.tuple([questionComparisonResultSchema, questionComparisonResultSchema])
 });
 
 export const chatRunEventSchema = z.discriminatedUnion("type", [
@@ -66,6 +102,10 @@ export const workspaceOnboardingResponseSchema = z.object({ progress: workspaceO
 export type DocumentInput = z.infer<typeof documentInputSchema>;
 export type SearchInput = z.infer<typeof searchInputSchema>;
 export type QuestionInput = z.infer<typeof questionInputSchema>;
+export type ChatModelDescriptor = z.infer<typeof chatModelDescriptorSchema>;
+export type ChatModelCatalog = z.infer<typeof chatModelCatalogSchema>;
+export type QuestionComparisonInput = z.infer<typeof questionComparisonInputSchema>;
+export type QuestionComparisonResponse = z.infer<typeof questionComparisonResponseSchema>;
 export type QuestionSource = z.infer<typeof questionSourceSchema>;
 export type QuestionResponse = z.infer<typeof questionResponseSchema>;
 export type ChatRunEvent = z.infer<typeof chatRunEventSchema>;

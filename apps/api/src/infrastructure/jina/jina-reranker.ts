@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Reranker, RerankInput } from "../../application/ports/reranker.js";
 import type { RetrievedChunk } from "../../domain/document.js";
+import { redactPii } from "../../domain/security/pii-redaction.js";
 import { requestProviderJson } from "../http/provider-client.js";
 
 const responseSchema = z.object({
@@ -28,8 +29,8 @@ export class JinaReranker implements Reranker {
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
       body: JSON.stringify({
         model: this.model,
-        query: input.query,
-        documents: input.candidates.map((candidate) => candidate.content),
+        query: redactPii(input.query).text,
+        documents: input.candidates.map((candidate) => redactPii(candidate.content).text),
         top_n: Math.min(input.limit, input.candidates.length),
         return_documents: false
       })

@@ -1,4 +1,5 @@
 import { AnswerQuestionUseCase } from "./application/use-cases/answer-question.js";
+import { CompareAnswersUseCase } from "./application/use-cases/compare-answers.js";
 import { IngestDocumentUseCase } from "./application/use-cases/ingest-document.js";
 import { SearchDocumentsUseCase } from "./application/use-cases/search-documents.js";
 import { QueueDocumentUploadUseCase } from "./application/use-cases/queue-document-upload.js";
@@ -21,6 +22,7 @@ import { OllamaAnswerGenerator } from "./infrastructure/ollama/ollama-answer-gen
 import { OllamaEmbeddingProvider } from "./infrastructure/ollama/ollama-embedding-provider.js";
 import { OpenRouterAnswerGenerator } from "./infrastructure/openrouter/openrouter-answer-generator.js";
 import { OpenRouterEmbeddingProvider } from "./infrastructure/openrouter/openrouter-embedding-provider.js";
+import { OpenRouterFaithfulnessJudge } from "./infrastructure/openrouter/openrouter-faithfulness-judge.js";
 import { PgDocumentRepository } from "./infrastructure/postgres/pg-document-repository.js";
 import { PgIngestionJobRepository } from "./infrastructure/postgres/pg-ingestion-job-repository.js";
 import { PgQuotaRepository } from "./infrastructure/postgres/pg-quota-repository.js";
@@ -44,7 +46,6 @@ import { RunEvaluationUseCase } from "./application/use-cases/run-evaluation.js"
 export function createApplication() {
   const pool = createPostgresPool(config.DATABASE_URL);
   const embeddings = new RedactingEmbeddingProvider(createEmbeddingProvider());
-  const answerGenerator = new RedactingAnswerGenerator(createAnswerGenerator());
   const reranker = createReranker();
   const documents = new PgDocumentRepository(pool, config.EMBEDDING_DIMENSIONS);
   const jobs = new PgIngestionJobRepository(pool);
@@ -68,16 +69,63 @@ export function createApplication() {
     rerankerCandidateMultiplier: config.RERANKER_CANDIDATE_MULTIPLIER,
     defaultTenantId: config.DEFAULT_TENANT_ID
   });
-  const ragWorkflow = new LangGraphRagWorkflow(searchDocuments, answerGenerator, {
+  const workflowOptions = {
     maxContextChars: 12_000,
     minimumScore: config.RAG_MINIMUM_SCORE,
     maxSteps: config.AGENT_MAX_STEPS,
     timeoutMs: config.AGENT_TIMEOUT_MS,
     requireStructuredOutput: config.REQUIRE_STRUCTURED_ANSWER
-  });
-  const answerWorkflow = new LangSmithTracingWorkflow(ragWorkflow, {
-    enabled: config.LANGSMITH_TRACING,
-    projectName: config.LANGSMITH_PROJECT
+  };
+  const defaultModel = {
+    ollama: config.OLLAMA_CHAT_MODEL, openrouter: config.OPENROUTER_CHAT_MODEL, bedrock: config.BEDROCK_CHAT_MODEL_ID
+  }[config.CHAT_PROVIDER];
+  const embeddingModel = {
+    ollama: config.OLLAMA_EMBEDDING_MODEL, openrouter: config.OPENROUTER_EMBEDDING_MODEL, bedrock: config.BEDROCK_EMBEDDING_MODEL_ID
+  }[config.EMBEDDING_PROVIDER];
+  const cacheVariant = JSON.stringify([
+    config.EMBEDDING_PROVIDER, embeddingModel, config.RERANKER_PROVIDER,
+    config.RERANKER_PROVIDER === "jina" ? config.JINA_RERANKER_MODEL : null,
+    config.RETRIEVAL_TOP_K, config.RAG_MINIMUM_SCORE, config.REQUIRE_STRUCTURED_ANSWER, config.CHAT_MAX_OUTPUT_TOKENS
+  ]);
+  const modelConfigs = [{
+    id: "default",
+    label: config.CHAT_DEFAULT_MODEL_LABEL ?? defaultModel.slice(0, 80),
+    model: defaultModel,
+    inputCostPer1kUsd: config.ESTIMATED_INPUT_COST_PER_1K_USD,
+    outputCostPer1kUsd: config.ESTIMATED_OUTPUT_COST_PER_1K_USD
+  }, ...config.CHAT_ADDITIONAL_MODELS];
+  if (new Set(modelConfigs.map(({ model }) => model)).size !== modelConfigs.length) {
+    throw new Error("Chat model IDs must be distinct, including the default model.");
+  }
+  const chatModels = new Map(modelConfigs.map(({ id, label, model, inputCostPer1kUsd, outputCostPer1kUsd }) => {
+    const descriptor = { id, label, provider: config.CHAT_PROVIDER, isDefault: id === "default" };
+    const generator = new RedactingAnswerGenerator(createAnswerGenerator(model));
+    const workflow = new LangGraphRagWorkflow(searchDocuments, generator, workflowOptions);
+    const answerWorkflow = new LangSmithTracingWorkflow(workflow, {
+      enabled: config.LANGSMITH_TRACING,
+      projectName: config.LANGSMITH_PROJECT
+    });
+    const answerQuestion = new AnswerQuestionUseCase(answerWorkflow, embeddings, semanticCache, usageMetrics, {
+      cacheTtlSeconds: config.SEMANTIC_CACHE_TTL_SECONDS,
+      cacheMinimumSimilarity: config.SEMANTIC_CACHE_MINIMUM_SIMILARITY,
+      cacheVariant,
+      provider: descriptor.provider,
+      model,
+      maxOutputTokens: config.CHAT_MAX_OUTPUT_TOKENS,
+      maxEstimatedCostUsd: config.MAX_ESTIMATED_COST_USD_PER_REQUEST,
+      inputCostPer1kUsd,
+      outputCostPer1kUsd
+    });
+    return [id, { descriptor, model, generator, workflow, answerQuestion, inputCostPer1kUsd, outputCostPer1kUsd }] as const;
+  }));
+  const defaultChat = chatModels.get("default")!;
+  const judge = config.EVAL_FAITHFULNESS_JUDGE_MODEL
+    ? new OpenRouterFaithfulnessJudge(config.OPENROUTER_BASE_URL, config.OPENROUTER_API_KEY as string, config.EVAL_FAITHFULNESS_JUDGE_MODEL)
+    : undefined;
+  const compareAnswers = new CompareAnswersUseCase(defaultChat.workflow, usageMetrics, {
+    timeoutMs: config.AGENT_TIMEOUT_MS,
+    maxOutputTokens: config.CHAT_MAX_OUTPUT_TOKENS,
+    maxEstimatedCostUsd: config.MAX_ESTIMATED_COST_USD_PER_REQUEST
   });
 
   const ingestDocument = new IngestDocumentUseCase(embeddings, documents, {
@@ -115,31 +163,30 @@ export function createApplication() {
       getDocumentOriginal: new GetDocumentOriginalUseCase(jobs, originals),
       reindexDocument: new ReindexDocumentUseCase(jobs),
       deleteDocument: new DeleteDocumentUseCase(documents, jobs, originals),
-      consumeQuestionQuota: (tenantId: string, actorKey: string) => quotas.consumeQuestion({ tenantId, actorKey, tenantLimit: config.DAILY_TENANT_QA_LIMIT, actorLimit: config.DAILY_USER_QA_LIMIT }),
+      consumeQuestionQuota: (tenantId: string, actorKey: string, units?: 1 | 2) => quotas.consumeQuestion({ tenantId, actorKey, units, tenantLimit: config.DAILY_TENANT_QA_LIMIT, actorLimit: config.DAILY_USER_QA_LIMIT }),
       consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => quotas.consumeUpload({ tenantId, actorKey, bytes, limit: config.DAILY_ADMIN_UPLOAD_BYTES_LIMIT }),
       getUsageSummary: (tenantId: string, days: number) => usageMetrics.summarize({ tenantId, days }),
       listEvaluationRuns: (tenantId: string, limit: number) => evaluations.list(tenantId, limit),
       runEvaluation: new RunEvaluationUseCase(searchDocuments, evaluations, {
         embeddingProvider: config.EMBEDDING_PROVIDER,
-        embeddingModel: config.EMBEDDING_PROVIDER === "openrouter" ? config.OPENROUTER_EMBEDDING_MODEL : config.EMBEDDING_PROVIDER === "bedrock" ? config.BEDROCK_EMBEDDING_MODEL_ID : config.OLLAMA_EMBEDDING_MODEL,
+        embeddingModel,
         chatProvider: config.CHAT_PROVIDER,
-        chatModel: config.CHAT_PROVIDER === "openrouter" ? config.OPENROUTER_CHAT_MODEL : config.CHAT_PROVIDER === "bedrock" ? config.BEDROCK_CHAT_MODEL_ID : config.OLLAMA_CHAT_MODEL
-      }),
+        chatModel: defaultModel
+      }, judge ? {
+        judge,
+        resolveModel(modelId = "default") {
+          const model = chatModels.get(modelId);
+          return model ? { provider: model.descriptor.provider, model: model.model, generator: model.generator } : undefined;
+        }
+      } : undefined),
       invalidateSemanticCache: (tenantId: string) => semanticCache.invalidateTenant(tenantId),
       recordAuditEvent: auditEvents.record.bind(auditEvents),
       searchDocuments,
       chatRuns,
       workspaceOnboarding: new PgWorkspaceOnboardingRepository(pool),
-      answerQuestion: new AnswerQuestionUseCase(answerWorkflow, embeddings, semanticCache, usageMetrics, {
-        cacheTtlSeconds: config.SEMANTIC_CACHE_TTL_SECONDS,
-        cacheMinimumSimilarity: config.SEMANTIC_CACHE_MINIMUM_SIMILARITY,
-        provider: config.CHAT_PROVIDER,
-        model: config.CHAT_PROVIDER === "openrouter" ? config.OPENROUTER_CHAT_MODEL : config.CHAT_PROVIDER === "bedrock" ? config.BEDROCK_CHAT_MODEL_ID : config.OLLAMA_CHAT_MODEL,
-        maxOutputTokens: config.CHAT_MAX_OUTPUT_TOKENS,
-        maxEstimatedCostUsd: config.MAX_ESTIMATED_COST_USD_PER_REQUEST,
-        inputCostPer1kUsd: config.ESTIMATED_INPUT_COST_PER_1K_USD,
-        outputCostPer1kUsd: config.ESTIMATED_OUTPUT_COST_PER_1K_USD
-      })
+      chatModels,
+      compareAnswers,
+      answerQuestion: defaultChat.answerQuestion
     },
     close: () => pool.end()
   };
@@ -178,20 +225,20 @@ function createEmbeddingProvider(): EmbeddingProvider {
   }
 }
 
-function createAnswerGenerator(): AnswerGenerator {
+function createAnswerGenerator(model: string): AnswerGenerator {
   switch (config.CHAT_PROVIDER) {
     case "ollama":
-      return new OllamaAnswerGenerator(config.OLLAMA_BASE_URL, config.OLLAMA_CHAT_MODEL, config.CHAT_MAX_OUTPUT_TOKENS);
+      return new OllamaAnswerGenerator(config.OLLAMA_BASE_URL, model, config.CHAT_MAX_OUTPUT_TOKENS);
     case "openrouter":
       return new OpenRouterAnswerGenerator(
         config.OPENROUTER_BASE_URL,
         config.OPENROUTER_API_KEY as string,
-        config.OPENROUTER_CHAT_MODEL,
+        model,
         config.CHAT_MAX_OUTPUT_TOKENS
       );
     case "bedrock": {
       const bedrock = createBedrockClient(config.AWS_REGION);
-      return new BedrockAnswerGenerator(bedrock, config.BEDROCK_CHAT_MODEL_ID, config.CHAT_MAX_OUTPUT_TOKENS);
+      return new BedrockAnswerGenerator(bedrock, model, config.CHAT_MAX_OUTPUT_TOKENS);
     }
   }
 }
