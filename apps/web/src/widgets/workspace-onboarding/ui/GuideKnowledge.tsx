@@ -33,7 +33,7 @@ export function GuideKnowledge({ workspace, token, goal, onPendingChange }: {
     ?? jobs.data?.jobs.find(({ status }) => status === "queued" || status === "processing")
     ?? jobs.data?.jobs[0];
   const sampleExists = documents.data?.documents.some(({ source }) => source === templateSource)
-    || jobs.data?.jobs.some(({ source, status }) => source === templateSource && status !== "failed");
+    || jobs.data?.jobs.some(({ source, status }) => source === templateSource && (status === "queued" || status === "processing"));
   const upload = useMutation({
     mutationFn: ({ document, source }: { document: File; source: string }) => api.uploadDocument({
       file: document, source, accessToken: token, workspaceId: workspace.tenantId, signal: AbortSignal.timeout(60_000)
@@ -50,6 +50,7 @@ export function GuideKnowledge({ workspace, token, goal, onPendingChange }: {
       if (fileInput.current) fileInput.current.value = "";
     }
   });
+  const sampleUnavailable = sampleExists || (upload.isSuccess && upload.variables?.source === templateSource && activeJob?.status !== "failed");
 
   useEffect(() => {
     onPendingChange(upload.isPending);
@@ -74,7 +75,8 @@ export function GuideKnowledge({ workspace, token, goal, onPendingChange }: {
     window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
   }
 
-  return <div className="workspace-guide__detail">
+  return <div className="workspace-guide__detail" role="region" aria-label={t("Document setup", "Configuração de documentos")}
+    aria-busy={documents.isPending || jobs.isPending}>
     <p>{workspace.role === "owner"
       ? t("You manage this workspace. Add a trusted document and invite teammates when you are ready.", "Você gerencia este espaço. Adicione um documento confiável e convide a equipe quando quiser.")
       : workspace.role === "editor"
@@ -85,11 +87,11 @@ export function GuideKnowledge({ workspace, token, goal, onPendingChange }: {
         <strong>{t("No file handy? Try a safe sample", "Sem arquivo agora? Use um exemplo seguro")}</strong>
         <p>{template.title}. {t("Fictional content for practice. It does not describe your team's policies. Adding it counts as a document upload.", "Conteúdo fictício para praticar. Ele não descreve as políticas da sua equipe. Adicioná-lo conta como um envio de documento.")}</p>
         <div className="flex flex-wrap gap-2">
-          <button className="secondary-button" type="button" disabled={upload.isPending || sampleExists}
+          <button className="secondary-button" type="button" disabled={upload.isPending || sampleUnavailable}
             onClick={() => upload.mutate({ document: new File([template.content], template.filename, { type: "text/markdown" }), source: templateSource })}>
             {upload.isPending && upload.variables?.source === templateSource
               ? t("Adding sample…", "Adicionando exemplo…")
-              : sampleExists ? t("Sample already added", "Exemplo já adicionado") : t("Use sample document", "Usar documento de exemplo")}
+              : sampleUnavailable ? t("Sample already added", "Exemplo já adicionado") : t("Use sample document", "Usar documento de exemplo")}
           </button>
           <button className="text-action min-h-11" type="button" onClick={downloadSample}>{t("Download sample", "Baixar exemplo")}</button>
         </div>
@@ -120,7 +122,7 @@ export function GuideKnowledge({ workspace, token, goal, onPendingChange }: {
       {upload.isError && <p className="error-message" role="alert">{getRequestErrorMessage(upload.error, locale)}</p>}
       {upload.isPending && <p role="status">{t("Uploading your document. Preparation starts after the file is received…", "Enviando seu documento. O processamento começa após o recebimento do arquivo…")}</p>}
     </>}
-    {activeJob && <section className="w-full space-y-2 border-b border-slate-700 py-3" aria-label={t("Document preparation", "Preparação do documento")}>
+    {activeJob && (activeJob.status !== "completed" || documents.data?.documents.some(({ source }) => source === activeJob.source)) && <section className="w-full space-y-2 border-b border-slate-700 py-3" aria-label={t("Document preparation", "Preparação do documento")}>
       <h3 className="break-words text-sm font-medium text-slate-100">{activeJob.filename}</h3>
       <p role="status">{activeJob.status === "completed"
         ? t(`Ready to use · ${activeJob.chunkCount ?? 0} passages`, `Pronto para usar · ${activeJob.chunkCount ?? 0} trechos`)

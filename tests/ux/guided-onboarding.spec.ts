@@ -120,6 +120,11 @@ test("Help reopens the guide, supports a real owner invitation, and preserves co
   await workspaceFixture().attach(context);
   let progressWrites = 0;
   let invitations = 0;
+  await context.route("**/v1/admin/uploads", (route) => route.fulfill({ json: { jobs: [{
+    id: "old-starter-job", source: "onboarding/templates/sample-request-checklist.md", filename: "sample-request-checklist.md",
+    title: "Sample request checklist", mimeType: "text/markdown", status: "completed", progress: 100,
+    error: null, chunkCount: 4, highRiskChunks: 0, createdAt: date, updatedAt: date
+  }] } }));
   await context.route(`**/v1/workspaces/${workspaceId}/onboarding`, async (route) => {
     if (route.request().method() === "PATCH") progressWrites++;
     await route.fallback();
@@ -137,6 +142,9 @@ test("Help reopens the guide, supports a real owner invitation, and preserves co
   await expect(guide.getByText("Step 1 of 3")).toBeVisible();
   await guide.getByRole("radio", { name: /^Knowledge and processes/ }).check();
   await guide.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(guide.getByRole("region", { name: "Document setup", exact: true })).toHaveAttribute("aria-busy", "false");
+  await expect(guide.getByRole("button", { name: "Use sample document", exact: true })).toBeEnabled();
+  await expect(guide.getByRole("region", { name: "Document preparation", exact: true })).toHaveCount(0);
   await guide.getByText("Bring your team (optional)", { exact: true }).click();
   await guide.getByRole("button", { name: "Invite a teammate", exact: true }).click();
   const invitation = page.getByRole("dialog", { name: "Invite a teammate", exact: true });
