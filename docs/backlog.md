@@ -21,29 +21,24 @@ status section where they appear.
 
 ## In progress
 
-### Guided onboarding and help
+No active implementation. Workspace simplification, the larger Ask surface,
+and the expanded Milo guide have been validated and published.
 
-- [ ] Add reusable starter templates for knowledge and processes, support, and
-  learning, with safe sample content, suggested questions, naming guidance,
-  and privacy/data-handling notes.
-- [ ] Extend the guide through inviting teammates, uploading documents,
-  following processing, and asking the first real grounded question.
-- [ ] Add contextual explanations of documents, chunks, embeddings, retrieval,
-  citations, and similarity scores in plain language.
-- [ ] Tailor the full journey to owners, editors, and viewers.
-- [ ] Add a Help entry point to revisit the completed Milo guide.
-- [ ] Validate the creation, ingestion, question, and source-inspection journey
-  for a new non-technical user.
-
-Implementation and local responsive/accessibility journeys are complete.
-Publication and the release quality gates are pending. Automated journeys use
-isolated API fixtures; delivery of real invitation emails remains a separate
-operational validation below. Workspace simplification and the larger Ask
-layout were validated and published on 2026-11-07.
+**Next approved priority** — [Demonstration libraries and document discovery](#1-demonstration-libraries-and-document-discovery): realistic synthetic materials, suggested questions with sources, document/source/language/date/type filters, and controlled prompt comparisons with safety outcomes.
 
 ## Pending implementation
 
-### 1. Durable conversations and product history
+### 1. Demonstration libraries and document discovery
+
+- [ ] Seed reusable demonstration libraries with realistic synthetic handbooks,
+  procedures, FAQs, product guides, and project materials.
+- [ ] Include suggested questions and supporting sources so teams can explore
+  the product and compare separate workspaces.
+- [ ] Add document filters for source/document, language, date range, and file
+  type. Name/source text filtering already exists.
+- [ ] Extend answer comparison to controlled prompt variants and safety outcomes.
+
+### 2. Durable conversations and product history
 
 - [ ] Store named conversations, questions, answers, checked citations, and
   thumbs-up/thumbs-down feedback in the backend, scoped by workspace and user.
@@ -62,16 +57,6 @@ layout were validated and published on 2026-11-07.
 The current transcript lives in browser memory. Recent answers and ratings are
 browser-local. PostgreSQL execution replay lasts 24 hours. Durable conversation
 history is the open work described above.
-
-### 2. Demonstration libraries and document discovery
-
-- [ ] Seed reusable demonstration libraries with realistic synthetic handbooks,
-  procedures, FAQs, product guides, and project materials.
-- [ ] Include suggested questions and supporting sources so teams can explore
-  the product and compare separate workspaces.
-- [ ] Add document filters for source/document, language, date range, and file
-  type. Name/source text filtering already exists.
-- [ ] Extend answer comparison to controlled prompt variants and safety outcomes.
 
 ### 3. Portuguese and English retrieval and answers
 
@@ -281,9 +266,22 @@ CloudWatch → metrics and alarms
 - [x] Full-width app shell with desktop navigation at the left screen edge.
 - [x] One workspace menu above navigation, showing the current name/role,
   workspace choices, and creation action. Keyboard, focus, and viewport tests pass.
-- [x] Separate sign-in, public demo, and bilingual Milo onboarding, with generic
-  knowledge/support/learning goals, optional first upload, sample answer/source,
-  and compatible earlier selections.
+- [x] Separate sign-in, public demo, and bilingual Milo onboarding with generic
+  knowledge/support/learning goals and compatible earlier selections.
+- [x] Reusable English/Portuguese fictional starter documents with preview,
+  download, suggested grounded questions, naming guidance, and data-handling notes.
+- [x] Role-aware guide: owners can invite, owners/editors can upload, and viewers
+  use available documents. The guide follows actual preparation records and
+  supports a real workspace question with checked citations and passage previews.
+- [x] Expandable explanations of documents, chunks, embeddings, retrieval,
+  citations, and similarity versus factual certainty.
+- [x] Help reopens Milo's guide without resetting saved completion; early finish
+  remains available. Guide actions use existing server quotas and authorization.
+- [x] Responsive automated create → prepare → ask → inspect journeys, shared
+  invitation checks, upload-error recovery, and safe starter reuse after deletion.
+  These use isolated API fixtures; real email delivery remains an activation item.
+  [Release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42340958437)
+  passed and frontend commit `14adeda` was confirmed live on Render on 2026-11-07.
 - [x] Per-user/workspace onboarding progress in PostgreSQL, cross-device resume,
   scoped browser retry, and completion preserved across concurrent devices.
 - [x] Milo sign-in greeting and workspace-loading animation, respecting reduced
