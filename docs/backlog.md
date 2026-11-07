@@ -7,6 +7,28 @@ Lumora is a general-purpose knowledge workspace for teams across industries.
 Onboarding and demonstrations are organized around goals and document types.
 IT and legal scenarios remain optional study examples.
 
+Last reviewed on 2026-11-07.
+
+## In progress
+
+- Simplify workspace information hierarchy with one section header and primary
+  action, compact section navigation, and a summary of documents, active
+  processing, and items needing attention.
+- Replace repeated document and member cards with compact lists and action
+  menus. Open invitations in a dialog and document metadata, originals, passages,
+  and processing timelines on demand.
+- Use divided settings groups and reserve prominent notices for actionable
+  failures and budget alerts.
+- Expand Ask to the available content width and use the remaining desktop
+  viewport height for the conversation.
+
+These changes are under implementation. Responsive, accessibility, interaction,
+and production checks are required before moving them to Completed.
+
+Durable named conversations, backend message history, and cross-device feedback
+remain pending under Demo and product expansion. Current streaming replay has
+a 24-hour window, and recent-answer history is browser-local.
+
 ## Completed
 
 - Custom RAG with chunking, interchangeable embeddings, pgvector, hybrid
@@ -112,8 +134,9 @@ IT and legal scenarios remain optional study examples.
    pages, HTML uploads, metadata, language detection, and structured chunking.
 2. RAG visualization — complete for citation and context separation, controlled
    previews, and score interpretation.
-3. UX quality — complete for responsive visual references, automated contrast
-   and accessibility checks, layout stability, and team flows.
+3. UX quality — responsive visual references, automated contrast and
+   accessibility checks, layout stability, and team flows are implemented.
+   Workspace visual-density refinement and the larger Ask layout are in progress.
 4. Workspace Control Center — complete for independent sections, additional
    workspace creation, explicit API selection, and tenant isolation checks.
 5. Product expansion — demo datasets, backend history and feedback, invites,
@@ -199,7 +222,7 @@ and update this backlog after validating each shipped capability.
      saving, and removing access requires confirmation. The API protects
      existing memberships against conflicting invitations.
 
-7. **Workspace Control Center — complete**
+7. **Workspace Control Center — structural split complete**
    - The former `AdminPanel` is split into `Overview`, `Knowledge`,
      `Processing`, `Team`, `Evaluations`, and `Settings`. Each section has a
      stable route and independent data loading. Overview links to the full
@@ -223,6 +246,12 @@ and update this backlog after validating each shipped capability.
    - Persist named conversations, questions, answers, and thumbs-up/thumbs-down
      feedback in the backend, scoped by workspace and user, with access across
      signed-in devices.
+   - Use durable conversation and message IDs, ordered messages, execution status,
+     checked citations, and model and usage metadata. Validate membership and
+     conversation ownership on every read, write, and feedback request.
+   - Make message submission and completion idempotent so retries and stream
+     reconnection preserve one ordered conversation. Load older messages with
+     pagination and support naming, reopening, and deleting conversations.
    - Define conversation visibility, retention, and deletion before enabling
      stored history. Keep conversation content in authorized product records
      and preserve the audit and operational log policy that excludes raw
