@@ -43,6 +43,7 @@ function findMain(node: Element, depth = 0): Element | undefined {
     const main = findMain(child, depth + 1);
     if (main) return main;
   }
+  return undefined;
 }
 
 function normalizedInline(text: string): string {

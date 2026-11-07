@@ -319,6 +319,10 @@ feature-owned locations during BE-07's migration.
   regressions exist. The native unused-symbol slice is implemented: the six
   diagnostics were removed and API `noUnusedLocals`/`noUnusedParameters` are now
   enabled, with passing strict checks, harness/CI and deployment at `2fcd121`.
+  The follow-up [native return/unused candidate](operations/release-2026-11-07-native-quality.md)
+  is locally validated: both workspaces enforce return/fallthrough checks and
+  web also enforces unused symbols. Its five diagnostics are resolved without
+  changing public props/exports; CI/publication are pending.
   Promise/Hook correctness remains open;
   the graph gate and native flags do not cover it. Publication is tracked in the
   [query-ownership release record](operations/release-2026-11-07-query-ownership.md).

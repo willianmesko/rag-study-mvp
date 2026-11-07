@@ -21,6 +21,7 @@ function ocrEventForCurrentAttempt(events: IngestionEvent[]) {
     if (event.stage === "ocr") return event;
     if (event.stage === "queued" || (event.stage === "processing" && event.status === "started")) return undefined;
   }
+  return undefined;
 }
 
 export function PipelineVisualization({ job, events }: { job: UploadJob; events: IngestionEvent[] }) {

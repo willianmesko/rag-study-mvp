@@ -267,5 +267,5 @@ export const api = {
   }
 };
 
-import type { DocumentInput, QuestionInput, QuestionResponse, SearchInput } from "@rag-study/contracts";
+import type { DocumentInput, QuestionInput, SearchInput } from "@rag-study/contracts";
 

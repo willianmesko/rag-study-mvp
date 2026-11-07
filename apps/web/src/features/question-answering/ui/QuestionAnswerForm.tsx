@@ -14,7 +14,7 @@ import { ConversationThread } from "./ConversationThread";
 import { KnowledgeChatState } from "./KnowledgeChatState";
 import { ConversationLibrary } from "./ConversationLibrary";
 
-export function QuestionAnswerForm({ conversation, accessToken, workspaceId, workspaceName, workspaceRole, onAddDocuments, scope, embedded = false, suggestions, suggestion, onSuggestionUsed }: {
+export function QuestionAnswerForm({ conversation, accessToken, workspaceId, workspaceName, workspaceRole, onAddDocuments, embedded = false, suggestions, suggestion, onSuggestionUsed }: {
   conversation: ReturnType<typeof useConversation>;
   accessToken?: string | null;
   workspaceId?: string;

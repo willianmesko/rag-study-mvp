@@ -48,7 +48,7 @@ function CreateWorkspaceStep({ accessToken, onWorkspaceCreated }: Pick<Onboardin
   );
 }
 
-export function OnboardingPage({ workspace, workspaces, accessToken, userId, justCreated, progress, syncing, syncFailed, onWorkspaceCreated, onWorkspaceChange, onProgress, onRetrySync, onComplete, onSignOut }: OnboardingPageProps) {
+export function OnboardingPage({ workspace, workspaces, accessToken, userId, progress, syncing, syncFailed, onWorkspaceCreated, onWorkspaceChange, onProgress, onRetrySync, onComplete, onSignOut }: OnboardingPageProps) {
   const { t } = useLocale();
 
   return (
