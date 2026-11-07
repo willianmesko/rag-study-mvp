@@ -7,7 +7,10 @@ test("application deep-link policy preserves authorized paths and rejects owner 
   expect(accessibleWorkspacePath("/workspace/team", "viewer")).toBe("/workspace/overview");
   expect(accessibleWorkspacePath("/workspace/evaluations", "editor")).toBe("/workspace/overview");
   expect(accessibleWorkspacePath("/workspace/processing", "viewer")).toBe("/workspace/processing");
-  expect(accessibleWorkspacePath("/ask?conversation=fixture", "viewer")).toBe("/ask?conversation=fixture");
+  const conversation = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
+  expect(accessibleWorkspacePath(`/ask?conversation=${conversation}`, "viewer")).toBe(`/ask?conversation=${conversation}`);
+  expect(accessibleWorkspacePath("/ask?conversation=fixture", "viewer")).toBe("/ask");
+  expect(accessibleWorkspacePath(`/ask?conversation=${conversation}&question=private`, "viewer")).toBe(`/ask?conversation=${conversation}`);
   expect(accessibleWorkspacePath(null, "owner")).toBe("/ask");
   expect(accessibleWorkspacePath("https://attacker.example/", "owner")).toBe("/workspace/overview");
 });

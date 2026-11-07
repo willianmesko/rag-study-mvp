@@ -54,7 +54,12 @@ The four environment-independent codec/store/parity cases now run with Node 24's
 native test runner and type stripping, outside Playwright's transform. The seven
 browser journeys still run on all three profiles. No assertion or visual baseline
 was removed. The UX job explicitly selects the supported Node 24 rather than
-inheriting the image's Node 26. Final exact-source CI remains required.
+inheriting the image's Node 26. The subsequent full Linux suite passed 407 checks and identified one old
+route-policy fixture (repeated on three profiles) that used `conversation=fixture`
+as though it were a valid saved UUID. That test now explicitly preserves a real
+UUID, rejects the invalid placeholder and strips private query fields. The
+application's pre-existing saved-conversation schema already required UUIDs.
+Final exact-source CI remains required.
 
 ## Rollback
 
