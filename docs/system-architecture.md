@@ -542,6 +542,17 @@ separately. Full provider billing capture remains backlog. Existing historical
 amounts are not recalculated with today's prices, and missing measurements are
 not fabricated. These figures do not constitute a complete provider invoice.
 
+The model-cost delivery passed all three
+[release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42361785953)
+for commit `d5ab2092365c32bcb86aa50c219ca2dc3afbd82f`: the quality harness,
+23 PostgreSQL checks, and 81 applicable responsive browser checks. Thirty browser
+cases intentionally run only in their designated viewport. Owner journeys use
+isolated API fixtures; reconciliation uses a real disposable PostgreSQL database.
+The API (`dep-dbnfd7lg1s2s73cibneg`) and frontend
+(`dep-dbnfep7f3r2c738go6p0`) were confirmed live on 2026-11-07. Health, protected
+usage routes and deployed assets were verified, with no new API errors in the
+inspected window. No production data or schema was rewritten.
+
 ## Next architectural increments
 
 1. Extend the recorded-cost ledger to embeddings, reranking, and judge calls,

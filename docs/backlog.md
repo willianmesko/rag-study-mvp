@@ -21,10 +21,9 @@ status section where they appear.
 
 ## In progress
 
-Granular model-cost analytics is implemented and being validated: model,
-operation, and daily breakdowns; reported/estimated cost coverage; tokens and
-response times; period selection; and safe aggregate export. Publication remains
-pending. The seven LangGraph capabilities are already live.
+No implementation is currently active. Granular answer-cost analytics and the
+seven LangGraph capabilities were published and verified on 2026-11-07. The
+pending sections below contain the remaining work.
 
 **Approved delivery order**
 
@@ -319,8 +318,12 @@ See [Durable workflows](durable-workflows.md).
   JSON export. A single scoped SQL snapshot reconciles every partition, preserves
   historical estimates, and honors reported zero costs without double counting.
   Owner/workspace checks, real PostgreSQL reconciliation and responsive journeys
-  passed locally. Publication remains pending. The answer-only coverage is
-  visible; embeddings, reranking and judge-call billing remain open above.
+  passed locally. All three [release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42361785953)
+  passed for `d5ab209`, including 23 PostgreSQL checks and 81 applicable responsive
+  browser checks. API and frontend were confirmed live on Render on 2026-11-07;
+  health, protected routes and served feature assets passed verification. No
+  schema migration or historical rewrite was needed. The answer-only coverage
+  is visible; embeddings, reranking and judge-call billing remain open above.
 
 ### Product UI and current chat behavior
 
