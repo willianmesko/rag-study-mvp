@@ -2,18 +2,20 @@
 
 Recorded on **2026-11-07** after the owner requested resuming later from the same
 point. The owner subsequently requested the specific BE-15 abstraction follow-up;
-that is now the active architecture task. General backlog continuation remains
+that follow-up is now validated and published. General backlog continuation remains
 at the FE-06/BE-08 checkpoint below.
 
 ## Current delivery
 
-- Source: `d0459492862a181d77860a1aa26a18e3385f1caa`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42398683215).
-- [Release evidence](operations/release-2026-11-07-architecture-phase2.md) records
+- Source: `cbd0f677baff2b415b16a785ea67bcbf48c99cc2`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42401306893).
+- [Release evidence](operations/release-2026-11-07-capability-boundaries.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
-  conservative reranking and FSD/module checks are in that delivery.
+  conservative reranking and FSD/module checks are in that delivery. Capability
+  ports and outer adapter bindings now isolate the business factories from
+  concrete database, model, graph and tracing implementations.
 - [Learning walkthrough](learning-walkthrough.md): an 18-chapter plan is saved.
   The teaching sessions and learner outcomes remain pending.
 
@@ -21,15 +23,14 @@ FE-06 and the next BE-08 slice were inspected, then stopped **before any edits**
 There is no half-implemented code, pending patch, new branch or library install
 to recover. Resume from the source above plus any later documentation-only receipt.
 
-## Current explicit follow-up: BE-15
+## Completed explicit follow-up: BE-15
 
-Decouple feature module assembly from PostgreSQL, LangGraph, LangSmith and
-provider SDKs. Inject existing/new plain ports, select adapters in outer
-composition, and prove replacement through contract tests and dependency gates.
+Feature module assembly is decoupled from PostgreSQL, LangGraph, LangSmith and
+provider SDKs. It receives plain ports; outer composition selects the adapters.
+Contract tests and dependency gates verify replacement boundaries.
 See [ADR 0003](decisions/0003-technology-neutral-modules.md) and the technical
-backlog for current implementation/publication evidence. This follow-up was
-requested after d045's organization delivery; it must not be described as already
-included in that deployed source.
+backlog for implementation/publication evidence. This follow-up was requested
+after d045's organization delivery and is included in the newer source above.
 
 ## First frontend slice: FE-06 administrative reads
 

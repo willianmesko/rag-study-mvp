@@ -6,12 +6,12 @@ the existing Fastify plugin/composition model. The application root wires the
 providers explicitly. See [ADR 0002](decisions/0002-business-modules.md) for the
 decision and trade-offs.
 
-The organization delivery is live at `d045949`. The subsequent
+The organization delivery was published at `d045949`. The subsequent
 [BE-15 decision](decisions/0003-technology-neutral-modules.md) separates module
 assembly from technology selection. Factories now receive capability ports and
 plain options; `app/composition` selects actual database, provider, workflow and
-tracing adapters. Its validation and deployment status is tracked separately in
-the [technical backlog](technical-backlog.md).
+tracing adapters. This follow-up is live at `cbd0f67`; its validation and
+deployment evidence is tracked in the [technical backlog](technical-backlog.md).
 
 ## Where to find a capability
 

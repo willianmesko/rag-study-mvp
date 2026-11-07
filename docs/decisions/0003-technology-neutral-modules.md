@@ -1,7 +1,7 @@
 # ADR 0003: Technology-neutral feature assembly
 
 - Date: 2026-11-07
-- Status: accepted; implemented and locally validated under BE-15, publication pending
+- Status: accepted; implemented, validated and published under BE-15 at `cbd0f67`
 - Baseline: `d0459492862a181d77860a1aa26a18e3385f1caa`
 
 ## Concrete problem
@@ -94,5 +94,5 @@ tracks the seven-check harness, 78 architecture fixtures, two zero-violation
 dependency graphs, replacement-adapter contracts, current-adapter HTTP/graph
 coverage, 83 PostgreSQL checks, isolated embedding cutover and native OCR smoke.
 The injected transaction writer is covered by report-insert rollback and lease-
-expiry rollback cases. Publication is recorded only after exact-source CI and
-live deployment verification.
+expiry rollback cases. All four exact-source CI jobs and both live deployments
+were verified on 2026-11-07; IDs and production checks are in that record.

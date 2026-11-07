@@ -14,14 +14,15 @@ live activation remain in the [product backlog](backlog.md).
 
 | Status | Tickets | Count |
 | --- | --- | --- |
-| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, FE-01–FE-05 | 14 |
-| Implemented and locally validated; awaiting CI/publication | BE-15 | 1 |
+| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-05 | 15 |
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08, FE-10 | 5 |
 | Pending implementation | BE-09, BE-13, FE-06, FE-07, FE-09, FE-11 | 6 |
 
-The latest batch is live on the frontend and API at `d045949`, after all four
-[CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42398683215).
-See the [phase 2 release evidence](operations/release-2026-11-07-architecture-phase2.md).
+The latest batch is live on the frontend and API at `cbd0f67`, after all four
+[CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42401306893).
+See the [capability-boundary release evidence](operations/release-2026-11-07-capability-boundaries.md).
+The preceding module-organization release at `d045949` is recorded in the
+[phase 2 evidence](operations/release-2026-11-07-architecture-phase2.md).
 The earlier six-ticket batch at `a590360` remains documented in the
 [phase 1 record](operations/release-2026-11-07-architecture-phase1.md).
 A checked slice below does not close the remaining portions of a partial ticket.
@@ -29,11 +30,14 @@ Phase 2/3 checks cover SQL limits, success decoding, bounded Auth/member
 lookup, application composition, conservative reranking and shutdown. The full
 pre-migration API suite passed 308 tests with one intentionally optional database
 skip; frontend response/session/navigation checks passed 105 profile cases. This
-source is published; CI also passed 81 PostgreSQL cases, the isolated cutover,
+module-organization source is published; its CI passed 81 PostgreSQL cases, the isolated cutover,
 61 architecture fixtures, the harness and 247 UX cases with 44 intentional profile
-skips. BE-15 is now implemented and locally validated, separately from that live
-SHA; its [release record](operations/release-2026-11-07-capability-boundaries.md)
-tracks the remaining exact-source CI/publication checks.
+skips. BE-15 is a separate, now published follow-up: its CI passed 83 PostgreSQL
+cases, the isolated cutover, 78 architecture fixtures and 247 UX cases with 44
+deliberate profile skips, plus the seven-check harness. Both exact-source
+deployments, public health/protected routes and the inspected error-log window
+were verified on 2026-11-07. General continuation remains saved in
+[the resume checkpoint](backlog-resume.md).
 
 The owner requested NestJS-style business-module organization. BE-07 includes
 the [module migration](decisions/0002-business-modules.md): `modules`, `platform`
@@ -387,7 +391,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-15 — Technology-neutral modules and replaceable capabilities
 
-- [x] **P2 · L, incremental · High risk · Implemented; publication pending.**
+- [x] **P2 · L, incremental · High risk · Implemented, CI passed and published.**
   Scope: module factories and application ports, `app/composition`, provider
   registry bindings and architecture checks. See
   [ADR 0003](decisions/0003-technology-neutral-modules.md).
@@ -417,8 +421,9 @@ feature-owned locations during BE-07's migration.
   unchanged verified native dependency image. Alternative provider/workflow/
   tracing/repository/engine tests preserve budgets, redaction, signatures and
   tenant authorization. Both new same-client completion regressions prove rollback
-  on post-insert failure and lease expiry. Exact-source CI and deployment remain
-  separately tracked in the release record.
+  on post-insert failure and lease expiry. All four exact-source CI jobs and both
+  deployments passed at `cbd0f67`; see the release record for IDs and production
+  checks. No schema or runtime dependency changed.
 
 ### FE-09 — Semantic tokens and existing primitive consolidation
 

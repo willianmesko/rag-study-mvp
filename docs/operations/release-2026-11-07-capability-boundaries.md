@@ -2,11 +2,19 @@
 
 ## Delivery status
 
-BE-15 follows the published module-organization release `d045949`. Implementation
-is complete and locally validated. The harness, architecture, actual PostgreSQL,
-embedding cutover and native OCR checks passed. Exact-source CI/publication
-evidence must be completed before calling this release live. The previous runtime
-remains the production version until verified here.
+**Frontend and API are live** at exact source
+`cbd0f677baff2b415b16a785ea67bcbf48c99cc2`. BE-15 follows the module-organization
+release `d045949`. All four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42401306893)
+passed before either deployment was triggered.
+
+| Service | Deployment | Observed live at UTC |
+| --- | --- | --- |
+| API | `dep-dbnn4o49v7es73d7puj0` | 2026-11-07 18:50:08 |
+| Frontend | `dep-dbnn4pe417fc73e7ijbg` | 2026-11-07 18:48:54 |
+
+Both Render records match the source SHA above. A later documentation-only
+receipt does not change the deployed runtime SHA. No frontend behavior change is
+part of this backend refactor; its responsive regression suite still ran.
 
 ## Scope
 
@@ -72,13 +80,35 @@ state migration.
   image. Dependencies/native binaries are unchanged; this is not a claim of a
   second complete local image build. The deployment Dockerfile also runs OCR
   smoke while building the fresh production image.
-- Exact-source CI, deployment IDs and production smoke checks: pending.
+- Exact-source CI passed all four jobs. PostgreSQL: 83 passed, zero skips;
+  isolated cutover: one passed, zero skips; architecture: 78 passed, zero skips
+  and zero graph violations; all seven harness checks passed. Responsive UX:
+  247 passed with 44 intentional profile skips in 4.5 minutes.
 
 The local Docker data partition initially prevented the database suite with
 SQLSTATE `53100`. Removing exactly five verified unused build-cache records from
 this task reclaimed 1.067 GB; restarting only the task's existing disposable
 PostgreSQL container allowed the suites to pass. No images, volumes, user
 containers/data or unrelated cache were removed.
+
+## Production verification
+
+At 18:50:27 UTC, public checks confirmed frontend HTTP 200 and the expected
+`/assets/index-D0WsjGJB.js` asset, successful-response decoding/recovery markers
+and the source-matching 256×256 Lumora PNG icon. API health returned 200 with OCR,
+durable workflows and durable conversations active. Server-generated request IDs
+override client-selected values.
+
+Unauthenticated MCP, budget-alert and conversation routes returned 401. OAuth
+resource discovery retained the exact resource, Lumora name and S256 support;
+malformed JSON/unsupported token MIME returned sanitized 400/415, and missing
+resource/PKCE parameters were denied. No provider call, document access, real
+OAuth grant, third-party consent or notification was created.
+
+The API error/fatal log query from 18:50:08 to 18:50:43 UTC returned no records.
+This is the inspected window. Real third-party OAuth consent, central telemetry
+receiver activation, paid provider comparisons and mixed-workload capacity
+remain separate backlog/activation work.
 
 ## Release and rollback
 
