@@ -92,22 +92,26 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
     setInvalidInput(false);
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || !canAsk || !question.trim()) return;
+    const submittedDraft = question;
+    let started = false;
     if (comparing && selectedModel && accessToken && workspaceId) {
       const parsed = questionComparisonInputSchema.safeParse({ question: question.trim(), topK,
         modelIds: [selectedModel.id, comparingPrompts ? selectedModel.id : alternateModel?.id],
         ...(comparingPrompts ? { promptVariantIds: [firstPrompt?.id, secondPrompt?.id] } : {}) });
       if (!parsed.success) { setInvalidInput(true); return; }
-      conversation.startComparison(parsed.data);
-      setCompareMode(false);
+      started = await conversation.startComparison(parsed.data);
+      if (started) setCompareMode(false);
     } else {
       const parsed = questionInputSchema.safeParse({ question: question.trim(), topK, modelId: autoSelected ? "auto" : selectedModel?.id });
       if (!parsed.success) { setInvalidInput(true); return; }
-      conversation.startAnswer(parsed.data);
+      started = await conversation.startAnswer(parsed.data);
     }
-    updateQuestion("");
+    if (!started) return;
+    setQuestion((current) => current === submittedDraft ? "" : current);
+    setInvalidInput(false);
     composer.current?.focus({ preventScroll: true });
   }
 

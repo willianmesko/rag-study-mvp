@@ -1,6 +1,8 @@
 import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { documentFiltersFromLocation, knowledgePath, navigateTo } from "../../../shared/lib/app-route";
+import { useBrowserLocation } from "../../../shared/lib/browser-location";
 import { privateQueryKey } from "../../../shared/lib/query-keys";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DocumentFilters as Filters } from "@rag-study/contracts";
 import { DemoLibraryDialog } from "../../../features/demo-libraries/index";
 import { DocumentFilters } from "../../../features/filter-documents/index";
@@ -32,7 +34,14 @@ export function WorkspaceKnowledge({ workspace, token, onAsk }: { workspace: Wor
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
-  const [filters, setFilters] = useState<Filters>({});
+  const location = useBrowserLocation();
+  const metadata = useMemo(() => documentFiltersFromLocation(location), [location]);
+  const [privateDraft, setPrivateDraft] = useState<Pick<Filters, "q" | "source">>({});
+  const filters = useMemo<Filters>(() => ({ ...metadata, ...privateDraft }), [metadata, privateDraft]);
+  function setFilters(next: Filters) {
+    setPrivateDraft((current) => current.q === next.q && current.source === next.source ? current : { q: next.q, source: next.source });
+    navigateTo(knowledgePath(next));
+  }
   const [debouncedFilters, setDebouncedFilters] = useState(filters);
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedFilters(filters), 200);

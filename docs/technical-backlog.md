@@ -544,6 +544,8 @@ feature-owned locations during BE-07's migration.
   survive recoverable failures in PT/EN. Keep simple forms native; evaluate a form
   library only for demonstrated complexity.
 
+- **Validated implementation, publication pending:** one native history subscription, canonical UUID/metadata codecs, workspace scope cleanup, recoverable answer/comparison drafts and accessible filter/import errors. All 33 new profile cases passed; the release record retains local/CI limitations. No form/router dependency was added. See the [state guide](frontend-url-state.md) and [evidence](operations/release-2026-11-07-url-state.md).
+
 ## Parallel execution and release rules
 
 The first independent tracks can be FE-01/FE-03 and BE-01/BE-03/BE-04. Coordinate

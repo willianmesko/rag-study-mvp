@@ -146,14 +146,14 @@ export function useConversation({
   async function startSaved(
     input: QuestionInput | QuestionComparisonInput,
     mode: "answer" | "comparison",
-  ) {
-    if (current.current.phase !== "idle") return;
+  ): Promise<boolean> {
+    if (current.current.phase !== "idle") return false;
     const runId = crypto.randomUUID();
     transition({ type: "submit", turn: { id: runId, mode, question: input.question, conversationId: saved.selectedId ?? undefined } });
     try {
       const conversationId = await saved.ensure((conversationId) => transition({ type: "created", id: runId, conversationId }));
       const state = readLifecycle();
-      if (state.phase !== "submitting" || state.turn.id !== runId) return;
+      if (state.phase !== "submitting" || state.turn.id !== runId) return false;
       const started = mode === "answer"
         ? live.start(input as QuestionInput, { conversationId, runId })
         : comparison.start(input as QuestionComparisonInput, accessToken!, workspaceId!, { conversationId, runId });
@@ -162,19 +162,18 @@ export function useConversation({
       // The execution reader already owns message progress. Avoid starting a
       // head read against the preceding render's still-enabled observer.
       saved.refresh({ messages: false });
+      return started;
     } catch {
       // Creation errors are displayed by the saved model; obsolete selections
       // are discarded there without creating a model execution.
       transition({ type: "settle", id: runId });
+      return false;
     }
   }
 
-  function startAnswer(input: QuestionInput) {
-    if (saved.enabled) {
-      void startSaved(input, "answer");
-      return;
-    }
-    if (current.current.phase !== "idle") return;
+  async function startAnswer(input: QuestionInput): Promise<boolean> {
+    if (saved.enabled) return startSaved(input, "answer");
+    if (current.current.phase !== "idle") return false;
     const previousQuestions =
       accessToken && workspaceId
         ? turns
@@ -199,15 +198,14 @@ export function useConversation({
         mode: "answer",
         question: input.question,
       });
+      return true;
     }
+    return false;
   }
 
-  function startComparison(input: QuestionComparisonInput) {
-    if (saved.enabled) {
-      void startSaved(input, "comparison");
-      return;
-    }
-    if (current.current.phase !== "idle" || !accessToken || !workspaceId) return;
+  async function startComparison(input: QuestionComparisonInput): Promise<boolean> {
+    if (saved.enabled) return startSaved(input, "comparison");
+    if (current.current.phase !== "idle" || !accessToken || !workspaceId) return false;
     const runId = crypto.randomUUID();
     if (comparison.start(input, accessToken, workspaceId, { runId })) {
       addTurn({
@@ -215,7 +213,9 @@ export function useConversation({
         mode: "comparison",
         question: input.question,
       });
+      return true;
     }
+    return false;
   }
 
   function newConversation() {

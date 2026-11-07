@@ -1,5 +1,5 @@
 import type { Workspace } from "../../shared/api/rag-api";
-import { canAccessWorkspaceSection, readAppRoute, type LabRoute } from "../../shared/lib/app-route";
+import { canAccessWorkspaceSection, canonicalPrivatePath, readAppRoute, type LabRoute } from "../../shared/lib/app-route";
 
 const askPath = "/ask";
 const overviewPath = "/workspace/overview";
@@ -11,5 +11,5 @@ export function canViewRoute(lab: LabRoute, role: Workspace["role"]): boolean {
 export function accessibleWorkspacePath(path: string | null, role: Workspace["role"]): string {
   if (!path) return askPath;
   const route = readAppRoute(path);
-  return route.kind === "private" && canViewRoute(route.lab, role) ? path : overviewPath;
+  return route.kind === "private" && canViewRoute(route.lab, role) ? canonicalPrivatePath(path) : overviewPath;
 }

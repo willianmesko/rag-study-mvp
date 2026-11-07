@@ -5,7 +5,7 @@ import { SignInPage } from "../pages/sign-in/index";
 import { api, type Workspace } from "../shared/api/rag-api";
 import { demoAvailable, canIndexDemo } from "../shared/config/product-mode";
 import { useLocale } from "../shared/i18n/locale";
-import { navigateTo, readAppRoute } from "../shared/lib/app-route";
+import { conversationPath, documentFiltersFromLocation, knowledgePath, navigateTo, readAppRoute } from "../shared/lib/app-route";
 import { readBrowserValue, writeBrowserValue } from "../shared/lib/browser-storage";
 import { QueryIdentityProvider } from "../shared/lib/query-identity";
 import { privateQueryKey } from "../shared/lib/query-keys";
@@ -76,7 +76,11 @@ export function ApplicationRouter() {
 
   function selectWorkspace(workspaceId: string) {
     if (!userId) return;
-    if(new URLSearchParams(window.location.search).has("conversation"))navigateTo("/ask",{replace:true});
+    if (route.kind === "private" && route.lab.tab === "answer" && new URLSearchParams(window.location.search).has("conversation")) navigateTo(askPath, { replace: true });
+    else if (route.kind === "private" && route.lab.tab === "admin" && route.lab.workspaceSection === "knowledge") {
+      const filters = documentFiltersFromLocation(pathname);
+      if (filters.documentId) navigateTo(knowledgePath({ ...filters, documentId: undefined }), { replace: true });
+    }
     setSelected({ userId, workspaceId });
     setCreatedSetup(null);
     writeBrowserValue(`lumora-workspace:${userId}`, workspaceId);
@@ -97,7 +101,7 @@ export function ApplicationRouter() {
     onboarding.update({ goal:onboarding.progress.goal??"knowledge", step:"answer", completed: true });
     setCreatedSetup(null);
     returnPath.current = null;
-    navigateTo(conversationId?`${askPath}?conversation=${encodeURIComponent(conversationId)}`:askPath, { replace: true });
+    navigateTo(conversationPath(conversationId ?? null), { replace: true });
   }
 
   async function signOut() {

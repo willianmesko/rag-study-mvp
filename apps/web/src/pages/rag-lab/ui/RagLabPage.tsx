@@ -12,7 +12,8 @@ import { OnboardingSyncNotice } from "../../../features/workspace-onboarding/ind
 import { api, type QuestionSource, type Workspace } from "../../../shared/api/rag-api";
 import { canIndexDemo } from "../../../shared/config/product-mode";
 import { useLocale } from "../../../shared/i18n/locale";
-import { navigateTo, pathForTab, type LabRoute } from "../../../shared/lib/app-route";
+import { conversationPath, navigateTo, pathForTab, type LabRoute } from "../../../shared/lib/app-route";
+import { useBrowserLocation } from "../../../shared/lib/browser-location";
 import { writeBrowserValue } from "../../../shared/lib/browser-storage";
 import { lazyWithRecovery, SectionErrorBoundary } from "../../../shared/ui/SectionErrorBoundary";
 import { SourcePreview } from "../../../entities/source/index";
@@ -53,6 +54,7 @@ export function RagLabPage({ scope, lab, privateArea, accountAction, accountErro
   const [suggestion, setSuggestion] = useState<{ id: string; text: string } | null>(null);
   const [selectedSource, setSelectedSource] = useState<QuestionSource | null>(null);
   const health = useQuery({ queryKey: ["health"], queryFn: ({ signal }) => api.health(signal), refetchInterval: 30_000 });
+  const location = useBrowserLocation();
   const activeTab = lab.tab;
   const workspaceId = privateArea?.workspace.tenantId;
   const workspaceName = privateArea?.workspace.tenantName;
@@ -60,11 +62,7 @@ export function RagLabPage({ scope, lab, privateArea, accountAction, accountErro
   const isChat = activeTab === "answer";
   const showLearningAside = activeTab !== "admin" && activeTab !== "connections" && !isChat;
 
-  useEffect(() => {
-    const clearPreview = () => setSelectedSource(null);
-    window.addEventListener("popstate", clearPreview);
-    return () => window.removeEventListener("popstate", clearPreview);
-  }, []);
+  useEffect(() => { setSelectedSource(null); }, [location]);
 
   useEffect(() => { if(!privateArea)writeBrowserValue(historyKey, JSON.stringify(history)); }, [history, historyKey,privateArea]);
 
@@ -81,7 +79,7 @@ export function RagLabPage({ scope, lab, privateArea, accountAction, accountErro
       <div className="ambient-glow ambient-glow--cyan" aria-hidden="true" />
       <div className="ambient-glow ambient-glow--blue" aria-hidden="true" />
       <div className="relative grid min-h-screen w-full content-start grid-cols-[minmax(0,1fr)] lg:content-stretch lg:grid-cols-[17rem_minmax(0,1fr)]">
-        <LabNavigation activeTab={activeTab} onTabChange={(tab) => navigateTo(pathForTab(tab, lab.workspaceSection, demo)+(tab==="answer"&&conversation.saved.enabled&&conversation.saved.selectedId?`?conversation=${conversation.saved.selectedId}`:""))}
+        <LabNavigation activeTab={activeTab} onTabChange={(tab) => navigateTo(tab === "answer" && conversation.saved.enabled ? conversationPath(conversation.saved.selectedId) : pathForTab(tab, lab.workspaceSection, demo))}
           publicDemo={demo} canIndex={demo && canIndexDemo} onHelp={privateArea ? () => setGuideOpen(true) : undefined}
           workspaceControl={privateArea ? <WorkspaceSwitcher workspaces={privateArea.workspaces} selectedId={privateArea.workspace.tenantId}
             onChange={privateArea.onWorkspaceChange} compact={isChat} onManageAssistants={() => navigateTo("/connections")}

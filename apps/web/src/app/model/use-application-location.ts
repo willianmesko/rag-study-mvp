@@ -1,14 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
+import { useBrowserLocation } from "../../shared/lib/browser-location";
 
 export function useApplicationLocation() {
-  const [pathname, setPathname] = useState(() => window.location.pathname + window.location.search);
+  const location = useBrowserLocation();
+  const path = location.split("?")[0];
+  const previous = useRef(path);
   useEffect(() => {
-    const update = () => {
-      setPathname(window.location.pathname + window.location.search);
-      window.scrollTo(0, 0);
-    };
-    window.addEventListener("popstate", update);
-    return () => window.removeEventListener("popstate", update);
-  }, []);
-  return pathname;
+    if (previous.current !== path) window.scrollTo(0, 0);
+    previous.current = path;
+  }, [path]);
+  return location;
 }

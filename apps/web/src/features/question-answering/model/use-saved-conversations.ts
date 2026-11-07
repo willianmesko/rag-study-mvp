@@ -4,19 +4,14 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { chatRunIdSchema } from "@rag-study/contracts";
 import { api } from "../../../shared/api/rag-api";
-import { navigateTo } from "../../../shared/lib/app-route";
+import { conversationIdFromLocation, conversationPath, navigateTo } from "../../../shared/lib/app-route";
+import { browserLocation, navigationRevision, useBrowserLocation } from "../../../shared/lib/browser-location";
 import { useQueryIdentity } from "../../../shared/lib/query-identity";
 import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useConversationMessages } from "./use-conversation-messages";
 import type { ConversationWindow } from "./conversation-window";
 
-function selectedFromUrl() {
-  const value = new URLSearchParams(window.location.search).get("conversation");
-  const parsed = chatRunIdSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
-}
 export function useSavedConversations({
   token,
   workspaceId,
@@ -44,14 +39,16 @@ export function useSavedConversations({
   const enabled = Boolean(
     token && userId && workspaceId && health.data?.capabilities?.durableConversations,
   );
-  const [selectedId, setSelectedId] = useState<string | null>(() =>
-    navigation ? selectedFromUrl() : null,
-  );
+  const location = useBrowserLocation();
+  const inChat = location.split("?")[0].replace(/\/+$/, "") === "/ask";
+  const fromUrl = conversationIdFromLocation(location);
+  const [retainedId, setSelectedId] = useState<string | null>(() => navigation ? fromUrl : null);
+  const selectedId = navigation && inChat ? fromUrl : retainedId;
+  useEffect(() => { if (navigation && inChat) setSelectedId(fromUrl); }, [navigation, inChat, fromUrl]);
   const [creating, setCreating] = useState(false),
     [mutationError, setMutationError] = useState<unknown>(null),
     [rating, setRating] = useState<string | null>(null);
   const selectionEpoch = useRef(0), mounted = useRef(true);
-  const routeIdentity = useRef(window.location.pathname + window.location.search);
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; selectionEpoch.current++; };
@@ -82,35 +79,25 @@ export function useSavedConversations({
   }, [client, observed, JSON.stringify(key)]);
   const conversations =
     list.data?.pages.flatMap((page) => page.conversations) ?? [];
-  useEffect(() => {
-    if (!navigation) return;
-    const onPop = () => {
-      const route = window.location.pathname + window.location.search;
-      if (route !== routeIdentity.current) { selectionEpoch.current++; routeIdentity.current = route; }
-      if (window.location.pathname === "/ask") setSelectedId(selectedFromUrl());
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, [navigation]);
   function select(id: string | null, forceNavigation = false) {
     selectionEpoch.current++;
     setSelectedId(id);
     setMutationError(null);
     draftId.current = null;
-    if (navigation && (forceNavigation || window.location.pathname === "/ask"))
-      navigateTo(id ? `/ask?conversation=${encodeURIComponent(id)}` : "/ask");
+    if (navigation && (forceNavigation || browserLocation().split("?")[0].replace(/\/+$/, "") === "/ask"))
+      navigateTo(conversationPath(id));
   }
   async function ensure(onCreated?: (id: string) => void) {
     if (selectedId) return selectedId;
     if (createPending.current) return createPending.current;
-    const epoch = selectionEpoch.current;
+    const epoch = selectionEpoch.current, routeVersion = navigationRevision();
     setCreating(true);
     setMutationError(null);
     draftId.current ??= crypto.randomUUID();
     const task = api
       .createConversation(token!, workspaceId!, draftId.current)
       .then(({ conversation }) => {
-        if (!mounted.current || selectionEpoch.current !== epoch)
+        if (!mounted.current || selectionEpoch.current !== epoch || navigationRevision() !== routeVersion)
           throw new DOMException("Conversation selection changed.", "AbortError");
         onCreated?.(conversation.id);
         select(conversation.id);
@@ -121,7 +108,7 @@ export function useSavedConversations({
     try {
       return await task;
     } catch (error) {
-      if (mounted.current && selectionEpoch.current === epoch) setMutationError(error);
+      if (mounted.current && selectionEpoch.current === epoch && navigationRevision() === routeVersion) setMutationError(error);
       throw error;
     } finally {
       if (createPending.current === task) createPending.current = null;
