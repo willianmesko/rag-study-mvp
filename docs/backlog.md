@@ -132,6 +132,8 @@ and update this backlog after validating each shipped capability.
 2. **Improve ingestion**
    - The first advanced ingestion milestone is complete. Checkpointed ingestion
      and selective retries remain part of the LangGraph workflow expansion.
+   - The hosted demo's private originals bucket accepts HTML for both URL
+     imports and HTML uploads. The deployment guide records the required types.
 
 3. **RAG pipeline visualization**
    - The current UI shows passage counts and offers a bounded preview from a
