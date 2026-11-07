@@ -72,6 +72,16 @@ each input, and the group is disabled while sending. This works in the Team
 dialog, initial onboarding and the nested Milo Help guide. The invitation API,
 owner authorization and workspace scope keep the existing contract.
 
+This invitation-control revision was published on 2026-11-07 as frontend commit
+`344ab76169a3f469db5d4a8eb335b2c7865c67e2`, deploy
+`dep-dbng6gbm8hqs73c4je10`. All three
+[release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42365583647)
+passed. Targeted validation covers twelve responsive cases plus eight desktop
+WebKit/Firefox cases, with native keyboard selection, pending-state protection,
+nested dialogs, focus return and accessibility. Published English/Portuguese
+browser checks used isolated session/member API fixtures; real email delivery
+was not exercised. Served assets and the unchanged API's health were verified.
+
 The desktop Ask surface fills its content column and the remaining viewport
 height. The message thread keeps a readable line width inside that surface.
 

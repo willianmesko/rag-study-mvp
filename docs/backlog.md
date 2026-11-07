@@ -21,9 +21,9 @@ status section where they appear.
 
 ## In progress
 
-Invitation access selection is being updated to show both allowed roles inside
-the modal. Responsive, keyboard and nested-onboarding validation and frontend
-publication are in progress. The pending sections below contain the other work.
+No implementation is currently active. Visible invitation access choices were
+published and verified on 2026-11-07. The pending sections below contain the
+remaining work.
 
 **Approved delivery order**
 
@@ -331,8 +331,13 @@ See [Durable workflows](durable-workflows.md).
   Viewer/Editor, with short descriptions and Viewer selected by default.
   The choice remains usable in Team, onboarding and the nested Help guide;
   keyboard navigation, focus return and pending-state locks are validated.
-  Responsive checks and accessibility passed locally. Frontend publication
-  is in progress; release evidence will follow verification.
+  Twelve responsive checks and eight additional WebKit/Firefox checks passed.
+  All three [release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42365583647)
+  passed for `344ab76`, including 111 applicable browser checks and 24 PostgreSQL
+  checks. The frontend deploy `dep-dbng6gbm8hqs73c4je10` was confirmed live on
+  2026-11-07. Published desktop/English and mobile/Portuguese UI checks used
+  isolated session/member fixtures and confirmed both choices and selection;
+  no real invitations were sent. Served assets and API health were checked.
 - [x] Ask-first navigation without numbered page labels; normal sign-in and
   completed onboarding open chat while authorized private deep links remain.
 - [x] Document-aware chat entry: loading, empty, preparing, failed and ready
