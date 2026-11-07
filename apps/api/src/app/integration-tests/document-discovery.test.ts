@@ -8,7 +8,7 @@ import { demoLibraries } from "../../modules/knowledge/application/demo-librarie
 import { ExistingIngestionSourceError } from "../../modules/ingestion/application/ports/ingestion-job-repository.js";
 import type { IngestionJobRepository } from "../../modules/ingestion/application/ports/ingestion-job-repository.js";
 import { QueueDocumentUploadUseCase } from "../../modules/ingestion/application/use-cases/queue-document-upload.js";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import { assessPromptInjection } from "../../platform/security/prompt-injection.js";
 import { createGroundedAnswerPrompt } from "../../modules/ai/application/policies/grounded-answer-policy.js";
 import { buildApp } from "../http-server.js";
@@ -21,10 +21,7 @@ const headers = { authorization: "Bearer discovery-fixture", "x-workspace-id": t
 const seedUrl = "/v1/admin/demo-libraries/knowledge/documents/handbook";
 
 async function fixture(t: TestContext, role: "owner" | "editor" | "viewer" = "owner", allowQuota = true) {
-  const overrides = { SUPABASE_URL: "https://discovery.example.test", SUPABASE_PUBLISHABLE_KEY: "fixture", API_KEY: undefined };
-  const original = Object.fromEntries(Object.keys(overrides).map((key) => [key, config[key as keyof typeof config]]));
-  Object.assign(config, overrides);
-  t.after(() => Object.assign(config, original));
+  const configuration = parseRuntimeConfiguration({ SUPABASE_URL: "https://discovery.example.test", SUPABASE_PUBLISHABLE_KEY: "fixture" });
   t.mock.method(globalThis, "fetch", async () => Response.json({ id: userId, aud: "authenticated", role: "authenticated" }));
   const states = new Map<string, DemoSourceState>();
   const lookups = t.mock.fn(async (tenant: string, sources: readonly string[]) => {
@@ -48,7 +45,7 @@ async function fixture(t: TestContext, role: "owner" | "editor" | "viewer" = "ow
     queueDocumentUpload: { execute: queue }, consumeAdminUploadQuota: quota, recordAuditEvent: audit, listDocuments: documents,
     findMembership: async (actor: string, tenant: string) => actor === userId && tenant === tenantId
       ? { tenantId, tenantName: "Fixture", tenantSlug: "fixture", role } : null
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, queue, quota, audit, lookups, states, documents };
 }

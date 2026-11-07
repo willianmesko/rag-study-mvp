@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import type { TenantMembership } from "../../modules/workspaces/application/ports/tenant-membership-repository.js";
 import type { AnswerQuestionUseCase } from "../../modules/chat/application/use-cases/answer-question.js";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import type { RetrievedChunk } from "../../modules/knowledge/domain/document.js";
 import { buildApp } from "../http-server.js";
 
@@ -30,13 +30,10 @@ const legalSource: RetrievedChunk = {
 const sources = new Map([[ti.tenantId, tiSource], [legal.tenantId, legalSource]]);
 
 async function fixture(t: TestContext, memberships: TenantMembership[] = [ti, legal]) {
-  const overrides = {
+  const configuration = parseRuntimeConfiguration({
     SUPABASE_URL: supabaseUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key",
-    API_KEY: undefined, DEMO_MODE: true, RATE_LIMIT_MAX: 60, QA_RATE_LIMIT_MAX: 20
-  };
-  const original = Object.fromEntries(Object.keys(overrides).map((key) => [key, config[key as keyof typeof config]]));
-  Object.assign(config, overrides);
-  t.after(() => { Object.assign(config, original); });
+    DEMO_MODE: "true", ADMIN_API_KEY: "synthetic-demo-admin-key", RATE_LIMIT_MAX: "60", QA_RATE_LIMIT_MAX: "20"
+  });
 
   const getUser = t.mock.method(globalThis, "fetch", async (url: string, init?: RequestInit) => {
     assert.equal(String(url), `${supabaseUrl}/auth/v1/user`);
@@ -88,7 +85,7 @@ async function fixture(t: TestContext, memberships: TenantMembership[] = [ti, le
     consumeQuestionQuota, changeWorkspaceMemberRole, createWorkspace,
     searchDocuments: { execute: search }, answerQuestion: { execute: answer }, deleteDocument: { execute: deleteDocument },
     recordAuditEvent: async () => {}
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, getUser, listMemberships, findMembership, search, answer, listDocuments, listDocumentChunks,
     consumeQuestionQuota, deleteDocument, changeWorkspaceMemberRole, invalidateSemanticCache, createWorkspace };
@@ -228,11 +225,8 @@ test("an authenticated user without memberships can create a workspace but canno
 });
 
 test("an invitation cannot update an existing membership or record a successful invite", async (t) => {
-  const auth = { SUPABASE_URL: supabaseUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key",
-    SUPABASE_SERVICE_ROLE_KEY: "fixture-service-key", APP_BASE_URL: "https://lumora.example.test", API_KEY: undefined };
-  const previous = Object.fromEntries(Object.keys(auth).map((key) => [key, config[key as keyof typeof config]]));
-  Object.assign(config, auth);
-  t.after(() => { Object.assign(config, previous); });
+  const configuration = parseRuntimeConfiguration({ SUPABASE_URL: supabaseUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key",
+    SUPABASE_SERVICE_ROLE_KEY: "fixture-service-key", APP_BASE_URL: "https://lumora.example.test" });
   t.mock.method(globalThis, "fetch", async (url: string) => {
     const pathname = new URL(url).pathname;
     assert.ok(pathname === "/auth/v1/user" || pathname === "/auth/v1/invite");
@@ -245,7 +239,7 @@ test("an invitation cannot update an existing membership or record a successful 
   const inviteWorkspaceMember=new InviteWorkspaceMember({begin,complete,fail:async()=>{}},{send});
   const app = await buildApp({
     findMembership: async () => ti, inviteWorkspaceMember, recordAuditEvent
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
 
   const response = await app.inject({ method: "POST", url: `/v1/workspaces/${ti.tenantId}/invitations`,

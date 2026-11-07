@@ -36,6 +36,12 @@ its release record distinguishes local implementation from publication. Older
 fixtures and other repository families remain open. This does not claim that
 every vendor SDK environment read is gone or all settings are deeply immutable.
 
+The [four-family fixture follow-up](operations/release-2026-11-07-isolated-http-fixtures.md)
+migrates query scope/cancellation, knowledge readiness, demo discovery and
+workspace isolation to the same explicit parser/factory contract. Its record
+distinguishes local validation from publication. Fifteen other fixture files
+still mutate the compatibility singleton; their migration remains open.
+
 ## Database boundary
 
 Wire DTOs and physical rows remain distinct. Evaluation `numeric` ratios accept
