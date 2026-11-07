@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { chatRunIdSchema, documentFiltersSchema } from "@rag-study/contracts";
+import { chatRunIdSchema, documentFiltersSchema } from "../../packages/contracts/dist/index.js";
 import { canonicalPrivatePath, conversationIdFromLocation, conversationPath, documentFiltersFromLocation, knowledgePath } from "../../apps/web/src/shared/lib/app-route";
 import { browserLocation, navigationRevision, subscribeBrowserLocation } from "../../apps/web/src/shared/lib/browser-location";
 

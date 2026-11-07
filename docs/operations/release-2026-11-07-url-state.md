@@ -45,6 +45,17 @@ changed. The checks use synthetic sessions/data and invoke no paid model or real
 notification. Production smoke checks do not substitute for a signed-in user's
 private end-to-end session.
 
+## Test-environment correction
+
+The first CI attempt at `f9cfcff` stopped before collecting tests: the browser
+image's Node 26 runtime exposed a named-export interop difference when an ESM
+codec test imported application TypeScript. The test now uses the same transform
+as existing native application-model tests and reads the already-built contract
+module explicitly. The UX job also selects the project's supported Node 24,
+matching the other jobs. No runtime application workaround or golden-image
+change is involved. The corrected Linux pilot and final CI retain separate
+results below.
+
 ## Rollback
 
 Restore the previous application source. No migration or persistent format needs
