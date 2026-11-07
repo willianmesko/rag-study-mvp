@@ -21,10 +21,9 @@ status section where they appear.
 
 ## In progress
 
-The chat-first navigation, document-aware entry, shared upload dialog and
-refreshed logo are implemented and locally validated. Release quality gates
-and frontend/backend publication are in progress. Completed behavior is listed
-under [Product UI and current chat behavior](#product-ui-and-current-chat-behavior).
+No implementation is currently active. Chat-first navigation, document-aware
+entry, the shared upload dialog and refreshed logo were published and verified
+on 2026-11-07. The pending sections below contain the remaining work.
 
 **Approved delivery order**
 
@@ -341,9 +340,14 @@ See [Durable workflows](durable-workflows.md).
   ready. Re-entering chat rechecks cached availability after source deletion.
   Existing messages and active cancellation controls remain accessible.
 - [x] One refreshed open-book/light SVG asset for the app mark and favicon.
-  Readiness authorization and 24 real PostgreSQL integration checks pass;
-  responsive upload/readiness/cache and accessibility journeys are validated.
-  Publication is in progress; release evidence will be recorded after verification.
+  All three [release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42364069688)
+  passed for `3f60bbf`, including 24 PostgreSQL checks and 99 applicable browser
+  checks. Updated visual references cover desktop, tablet and mobile.
+  API and frontend were confirmed live on Render on 2026-11-07. Production
+  desktop/English and mobile/Portuguese checks verified Ask-first navigation,
+  the empty public library, automatic locale, the new SVG/favicon, protected
+  private routes and zero automatic question calls. No new API errors were
+  recorded in the verification window. No schema or secret changes were needed.
 - [x] One section heading/action, compact workspace navigation, lean Overview,
   document/member lists with action menus, invitation dialog, on-demand
   document/timeline side panels, and divided/collapsible Settings.

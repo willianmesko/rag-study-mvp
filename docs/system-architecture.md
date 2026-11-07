@@ -112,6 +112,20 @@ flowchart TD
   Retry --> Check
 ```
 
+This navigation/readiness release was verified on 2026-11-07 for commit
+`3f60bbf95d49d17a666f63284ae386196f006fbb`. All three
+[release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42364069688)
+passed, including 24 PostgreSQL integration checks and 99 applicable browser
+checks. The API deploy `dep-dbnfsd3rjlhs738mro2g` and frontend deploy
+`dep-dbnftt49v7es73cm0gng` were confirmed live. Public HTTP checks verified
+readiness counts, no-store headers, rejected tenant overrides, private-route
+authorization and the served SVG's checksum. Desktop/English and
+mobile/Portuguese production browser checks verified automatic locale,
+Ask-first navigation, the empty-library experience and no automatic question
+calls. No new API errors were recorded during verification. Signed-in
+upload/prepare/ask and cache invalidation journeys use isolated API fixtures;
+the SQL implementation is exercised against real disposable PostgreSQL.
+
 Onboarding is organized around goals such as finding team knowledge, supporting
 others, and learning from documents. Each goal offers a reusable fictional
 Markdown starter in English or Portuguese, a download/preview, and grounded
