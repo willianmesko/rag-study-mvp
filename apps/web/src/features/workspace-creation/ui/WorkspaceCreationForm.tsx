@@ -63,7 +63,7 @@ export function WorkspaceCreationForm({ accessToken, onWorkspaceCreated, onDismi
       <label className="grid w-full gap-2 text-sm font-medium text-slate-200">
         {t("Workspace name", "Nome do espaço")}
         <input className="field" value={name} onChange={(event) => { setName(event.target.value); if (create.isError) create.reset(); }}
-          placeholder={t("e.g. Acme Legal", "Ex.: Jurídico da Acme")} minLength={2} maxLength={100} required readOnly={create.isPending}
+          placeholder={t("e.g. Acme team", "Ex.: Equipe Acme")} minLength={2} maxLength={100} required readOnly={create.isPending}
           aria-describedby={create.isError ? errorId : undefined} />
       </label>
       {create.isError && <p id={errorId} className="error-message w-full" role="alert">{getRequestErrorMessage(create.error, locale)}</p>}

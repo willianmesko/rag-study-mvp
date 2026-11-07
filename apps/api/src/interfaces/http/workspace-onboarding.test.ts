@@ -61,6 +61,19 @@ test("the same account resumes its viewer guide from another session and only in
   }
 });
 
+test("onboarding saves and resumes generic goals while accepting earlier selections", async (t) => {
+  const { app } = await fixture(t);
+  for (const goal of ["knowledge", "support", "learning", "legal", "it", "custom"] as const) {
+    const progress = { goal, step: "knowledge", completed: false } as const;
+    const patch = await app.inject({ method: "PATCH", url: url(), headers: headers(), payload: progress });
+    assert.equal(patch.statusCode, 200);
+    assert.deepEqual(patch.json(), { progress });
+    const read = await app.inject({ method: "GET", url: url(), headers: headers("actor-b") });
+    assert.equal(read.statusCode, 200);
+    assert.deepEqual(read.json(), { progress });
+  }
+});
+
 test("onboarding rejects unauthenticated, mismatched, and unowned workspace scope", async (t) => {
   const { app, get, save } = await fixture(t);
   const attempts = [

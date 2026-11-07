@@ -28,30 +28,30 @@ export const guideCopy: Record<"en" | "pt-BR", GuideCopy> = {
     workspaceIntroduction: (name) => `Let’s get ${name} ready. I’ll show you how Lumora finds answers in your team’s documents.`,
     stepCount: (step, total) => `Step ${step} of ${total}`,
     steps: {
-      purpose: { label: "Your goal", title: "What will you use Lumora for?", description: "Pick the closest fit. Milo will suggest a document and show an example from your field." },
+      purpose: { label: "Your goal", title: "What will you use Lumora for?", description: "Choose a starting point for your team. Milo will suggest a document and show how to find an answer." },
       knowledge: { label: "Documents", title: "Start with a document you trust", description: "A current guide, policy, or checklist gives your team a good place to start." },
       answer: { label: "Answers and sources", title: "See how an answer comes together", description: "Try an example, then check the source before relying on the answer." }
     },
     paths: {
-      legal: {
-        label: "Legal",
-        example: "An approved checklist for opening a new matter",
-        question: "What steps should we take before opening a new matter?",
-        answer: "Check for conflicts of interest and record the supervisor’s approval before opening a new matter.",
-        source: "Sample matter intake checklist",
-        excerpt: "Complete a conflict check and record supervisor approval before opening a new matter."
+      knowledge: {
+        label: "Knowledge and processes",
+        example: "A handbook with your team's request and approval process",
+        question: "What do I need before submitting a request?",
+        answer: "Include a short description and the responsible person's approval.",
+        source: "Sample request checklist",
+        excerpt: "Before submitting a request, include a short description and the responsible person's approval."
       },
-      it: {
-        label: "IT",
-        example: "A support playbook with your team's escalation rules",
-        question: "When should we escalate a support request?",
-        answer: "If a critical service is unavailable, escalate the request to the on-call team.",
-        source: "Sample support playbook",
-        excerpt: "Escalate a request to the on-call team when a critical service is unavailable."
+      support: {
+        label: "Customer and team support",
+        example: "An FAQ with answers and steps for getting help",
+        question: "When should I ask another teammate for help?",
+        answer: "If the guide does not cover the issue, share the request and the steps already tried with the responsible team.",
+        source: "Sample support guide",
+        excerpt: "If this guide does not cover the issue, contact the responsible team with the request and the steps already tried."
       },
-      custom: {
-        label: "Another team",
-        example: "An internal guide for onboarding new teammates",
+      learning: {
+        label: "Learning and onboarding",
+        example: "A getting-started guide for new teammates",
         question: "What should a new teammate do on their first day?",
         answer: "Attend orientation and set up your account on your first day.",
         source: "Sample team handbook",
@@ -75,30 +75,30 @@ export const guideCopy: Record<"en" | "pt-BR", GuideCopy> = {
     workspaceIntroduction: (name) => `Vamos preparar ${name}. Vou mostrar como o Lumora encontra respostas nos documentos da equipe.`,
     stepCount: (step, total) => `Etapa ${step} de ${total}`,
     steps: {
-      purpose: { label: "Seu objetivo", title: "Como você quer usar o Lumora?", description: "Escolha a opção mais próxima da sua realidade. O Milo vai sugerir um documento e mostrar um exemplo da sua área." },
+      purpose: { label: "Seu objetivo", title: "Como você quer usar o Lumora?", description: "Escolha um ponto de partida para sua equipe. O Milo vai sugerir um documento e mostrar como encontrar uma resposta." },
       knowledge: { label: "Documentos", title: "Comece com um documento confiável", description: "Um guia, uma política ou um checklist atualizado já é um bom ponto de partida para sua equipe." },
       answer: { label: "Respostas e fontes", title: "Veja como uma resposta é construída", description: "Experimente o exemplo e confira a fonte antes de usar a resposta." }
     },
     paths: {
-      legal: {
-        label: "Jurídico",
-        example: "Um checklist aprovado para a abertura de um novo caso",
-        question: "Quais etapas devemos seguir antes de abrir um novo caso?",
-        answer: "Verifique se há conflitos de interesse e registre a aprovação da supervisão antes de abrir o caso.",
-        source: "Exemplo de checklist de abertura de casos",
-        excerpt: "Verifique conflitos de interesse e registre a aprovação da supervisão antes de abrir um novo caso."
+      knowledge: {
+        label: "Conhecimento e processos",
+        example: "Um manual com o processo de solicitações e aprovações da equipe",
+        question: "O que preciso antes de enviar uma solicitação?",
+        answer: "Inclua uma breve descrição e a aprovação da pessoa responsável.",
+        source: "Exemplo de checklist de solicitações",
+        excerpt: "Antes de enviar uma solicitação, inclua uma breve descrição e a aprovação da pessoa responsável."
       },
-      it: {
-        label: "TI",
-        example: "Um guia de suporte com as regras de escalonamento da equipe",
-        question: "Quando devemos encaminhar um chamado de suporte para outro nível?",
-        answer: "Se um serviço crítico estiver indisponível, encaminhe o chamado à equipe de plantão.",
-        source: "Exemplo de guia de suporte",
-        excerpt: "Encaminhe o chamado à equipe de plantão quando um serviço crítico estiver indisponível."
+      support: {
+        label: "Atendimento e suporte",
+        example: "Um guia de perguntas frequentes com respostas e orientações de ajuda",
+        question: "Quando devo pedir ajuda a outra pessoa da equipe?",
+        answer: "Se o guia não cobrir a situação, compartilhe a solicitação e as etapas já tentadas com a equipe responsável.",
+        source: "Exemplo de guia de atendimento",
+        excerpt: "Se este guia não cobrir a situação, entre em contato com a equipe responsável e informe a solicitação e as etapas já tentadas."
       },
-      custom: {
-        label: "Outra equipe",
-        example: "Um guia interno de integração para novos colegas",
+      learning: {
+        label: "Aprendizado e integração",
+        example: "Um guia de primeiros passos para novos colegas",
         question: "O que um novo colega deve fazer no primeiro dia?",
         answer: "Participe da orientação inicial e configure sua conta no primeiro dia.",
         source: "Exemplo de manual da equipe",

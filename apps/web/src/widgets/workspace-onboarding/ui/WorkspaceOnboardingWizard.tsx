@@ -6,7 +6,7 @@ import { useLocale } from "../../../shared/i18n/locale";
 import { getRequestErrorMessage } from "../../../shared/lib/request-error";
 import { Mascot } from "../../../shared/ui/Mascot";
 import { guideCopy } from "../model/copy";
-import { guidePaths, guideSteps, type GuidePath, type GuideStep } from "../model/guide";
+import { guidePaths, guideSteps, resolveGuidePath, type GuidePath, type GuideStep } from "../model/guide";
 import "./workspace-guide.css";
 
 type WizardProps = {
@@ -17,7 +17,7 @@ type WizardProps = {
   onComplete: () => void;
 };
 
-const pathIcons: Record<GuidePath, string> = { legal: "§", it: "⌘", custom: "✦" };
+const pathIcons: Record<GuidePath, string> = { knowledge: "▤", support: "◇", learning: "✦" };
 
 export function WorkspaceOnboardingWizard({ workspace, accessToken, progress, onProgress, onComplete }: WizardProps) {
   const { locale, t } = useLocale();
@@ -29,7 +29,8 @@ export function WorkspaceOnboardingWizard({ workspace, accessToken, progress, on
   const currentStep = navigationStep ?? progress.step;
   const stepIndex = guideSteps.indexOf(currentStep);
   const step = copy.steps[currentStep];
-  const path = copy.paths[progress.goal ?? "custom"];
+  const selectedPath = resolveGuidePath(progress.goal);
+  const path = copy.paths[selectedPath];
   const canUpload = workspace.role === "owner" || workspace.role === "editor";
   const finalStep = stepIndex === guideSteps.length - 1;
   const upload = useMutation({
@@ -103,7 +104,7 @@ export function WorkspaceOnboardingWizard({ workspace, accessToken, progress, on
             <legend className="sr-only">{copy.choosePath}</legend>
             {guidePaths.map((id) => (
               <label key={id} className="workspace-guide__choice">
-                <input type="radio" name={`guide-path-${titleId}`} value={id} checked={progress.goal === id} onChange={() => onProgress({ goal: id })} />
+                <input type="radio" name={`guide-path-${titleId}`} value={id} checked={progress.goal !== null && selectedPath === id} onChange={() => onProgress({ goal: id })} />
                 <span className="workspace-guide__choice-icon" aria-hidden="true">{pathIcons[id]}</span>
                 <span><strong>{copy.paths[id].label}</strong><small>{copy.paths[id].example}</small></span>
               </label>

@@ -1,4 +1,5 @@
 import type { BrowserContext } from "@playwright/test";
+import type { WorkspaceOnboardingProgress } from "@rag-study/contracts";
 
 const workspaceId = "11111111-1111-4111-a111-111111111111";
 const userId = "22222222-2222-4222-a222-222222222222";
@@ -12,7 +13,7 @@ const authSession = {
   user: { id: userId, email: "owner@example.test", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {} }
 };
 
-type GuideProgress = { goal: "legal" | "it" | "custom" | null; step: "purpose" | "knowledge" | "answer"; completed: boolean };
+type GuideProgress = WorkspaceOnboardingProgress;
 type Member = { userId: string; email: string; role: "owner" | "editor" | "viewer"; createdAt: string };
 
 const date = "2026-09-04T12:00:00.000Z";

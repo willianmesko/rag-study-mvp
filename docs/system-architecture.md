@@ -2,11 +2,15 @@
 
 ## Purpose
 
-RAG Study Lab is a learning-oriented implementation of a production-style
-retrieval-augmented generation system. It demonstrates how a document becomes
-retrievable context and how that context is used safely to produce an answer.
-The system is deliberately explicit: retrieval, ranking, security checks, and
-provider adapters can each be inspected and replaced independently.
+Lumora is a knowledge workspace for teams across industries. Each workspace
+holds the documents its members use to search, learn, support others, and
+answer questions with sources. The same ingestion, retrieval, and authorization
+model applies to handbooks, procedures, FAQs, product guides, and project
+materials. IT and legal scenarios are optional study examples.
+
+Its retrieval-augmented generation architecture makes the path from document
+to context to answer visible. Retrieval, ranking, security checks, and provider
+adapters can each be inspected and replaced independently.
 
 ## System boundaries
 
@@ -51,6 +55,12 @@ A newly created workspace starts its own onboarding. Each route mounts the
 section that owns its data, actions, and loading and error states. The
 onboarding guide explains concepts in plain language and links directly to
 the next action.
+
+Onboarding is organized around goals such as finding team knowledge, supporting
+others, and learning from documents. A goal selects suggested examples and
+guidance. All goals use the same workspace permissions and accept documents
+from any sector. Starter libraries and reusable templates remain in the product
+backlog.
 
 Milo's onboarding state belongs to the authenticated workspace membership.
 The API stores the selected goal, furthest step, and completion. Database

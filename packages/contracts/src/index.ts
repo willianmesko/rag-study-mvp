@@ -136,7 +136,7 @@ export const chatRunEventSchema = z.discriminatedUnion("type", [
 export const workspaceMemberRoleSchema = z.enum(["editor", "viewer"]);
 
 export const workspaceGuideSteps = ["purpose", "knowledge", "answer"] as const;
-export const workspaceGuideGoals = ["legal", "it", "custom"] as const;
+export const workspaceGuideGoals = ["knowledge", "support", "learning", "legal", "it", "custom"] as const;
 export const workspaceOnboardingProgressSchema = z.strictObject({
   goal: z.enum(workspaceGuideGoals).nullable(),
   step: z.enum(workspaceGuideSteps),

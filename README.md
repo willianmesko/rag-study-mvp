@@ -1,7 +1,11 @@
 # Lumora
 
-Lumora is a production-oriented, study-focused RAG application built with TypeScript,
-PostgreSQL/pgvector, LangGraph, Supabase Auth, and interchangeable AI providers.
+Lumora helps teams in any industry search their documents and ask questions
+grounded in sources. A workspace can hold handbooks, procedures, FAQs, product
+guides, project materials, or other knowledge its members are allowed to share.
+
+The application is built with TypeScript, PostgreSQL/pgvector, LangGraph,
+Supabase Auth, and interchangeable AI providers.
 It keeps ingestion, retrieval, safety controls, and evaluation explicit so each
 part of the system can be understood and measured.
 
@@ -64,7 +68,7 @@ Zod schemas in both applications.
 - Workspace-scoped MCP read tools and a separate approval-gated evaluation worker.
 
 See [Workspace MCP and approved actions](docs/workspace-mcp.md) for connection
-setup, a practical legal-workspace example, budgets, and the execution boundaries.
+setup, a worked example, budgets, and the execution boundaries.
 
 ## Prerequisites
 

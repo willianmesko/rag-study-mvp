@@ -3,6 +3,10 @@
 This backlog separates completed demo capabilities from work that requires a
 product decision, credentials, or additional operational cost.
 
+Lumora is a general-purpose knowledge workspace for teams across industries.
+Onboarding and demonstrations are organized around goals and document types.
+IT and legal scenarios remain optional study examples.
+
 ## Completed
 
 - Custom RAG with chunking, interchangeable embeddings, pgvector, hybrid
@@ -73,6 +77,9 @@ product decision, credentials, or additional operational cost.
   loads workspaces, or checks guided setup. Milo stays still with reduced motion.
 - Milo's guided setup resumes across devices with workspace- and user-scoped
   progress. Existing browser-only progress syncs when the user returns.
+- Milo's setup offers knowledge and processes, support, and learning goals in
+  English and Portuguese. Earlier goal selections retain saved progress and
+  resume with the corresponding general-purpose examples.
 - CI quality gates for every push and pull request: typecheck, unit tests,
   production builds, prompt-injection regression, deterministic golden-set
   retrieval, versioned replay regression, and Promptfoo security checks.
@@ -112,8 +119,9 @@ product decision, credentials, or additional operational cost.
    provider cancellation, and streaming validated citations.
 7. Portuguese and English — verify automatic UI locale and evaluate retrieval in
    both languages.
-8. Onboarding — standalone Milo flow and cross-device sync complete. Starter
-   templates and a Help entry point remain in the guided onboarding backlog.
+8. Onboarding — standalone Milo flow and cross-device sync complete. Reusable
+   templates for knowledge, support, and learning plus a Help entry point remain
+   in the guided onboarding backlog.
 9. Project-owned MCP — scoped read tools and an isolated approved-evaluation
    path are implemented and tested. Production write workers are opt-in.
 10. Models and evaluations — workspace policies, Auto and fallback, embedding
@@ -205,10 +213,17 @@ and update this backlog after validating each shipped capability.
      authorization with two corpora in a disposable PostgreSQL/pgvector database.
 
 8. **Demo and product expansion**
-   - Seed realistic starter corpora for separate `TI` and `Legal` workspaces so
-     the tenant switcher can be demonstrated immediately.
-   - Persist question history and thumbs-up/thumbs-down feedback in the backend,
-     scoped by workspace and user, instead of keeping it only in the browser.
+   - Seed reusable demonstration libraries with realistic synthetic handbooks,
+     procedures, FAQs, product guides, and project materials. Include suggested
+     questions and sources so teams from different industries can explore the
+     product and compare separate workspaces.
+   - Persist named conversations, questions, answers, and thumbs-up/thumbs-down
+     feedback in the backend, scoped by workspace and user, with access across
+     signed-in devices.
+   - Define conversation visibility, retention, and deletion before enabling
+     stored history. Keep conversation content in authorized product records
+     and preserve the audit and operational log policy that excludes raw
+     questions and document contents.
    - Verify invitation delivery and onboarding with the existing Supabase Auth
      invitation endpoint. Configure a transactional sender if needed.
    - Add document filters for source, language, date range, and file type.
@@ -314,8 +329,8 @@ and update this backlog after validating each shipped capability.
    - The MCP tool list contains the five reads. Owner-authorized
      `run_evaluation` requests use a separate approval endpoint and isolated
      worker with a fixed lexical/security suite.
-   - The [MCP guide](workspace-mcp.md) includes Codex configuration, a legal
-     example, runtime limits, and worker setup.
+   - The [MCP guide](workspace-mcp.md) includes Codex configuration, a worked
+     study example, runtime limits, and worker setup.
    - Future work includes remote OAuth-based MCP connections, budgeted hybrid
      search, and production activation of separately hosted approved-action
      workers when the operator provisions their least-privilege connection.
@@ -330,18 +345,22 @@ and update this backlog after validating each shipped capability.
      browser copy. An older device cannot undo completion.
    - Public demo search and chat use the configured demo corpus. Requests
      carrying a private workspace selector require authenticated membership.
-   - Create a first-run, step-by-step onboarding flow for users who do not know
-     RAG terminology or infrastructure concepts.
-   - Start with a plain-language goal, for example: “Make your law firm’s
-     internal materials searchable and answer questions with sources.”
+   - Implemented generic goal choices for finding team knowledge, supporting
+     others, and learning from documents, with compatible saved progress for
+     earlier goal values.
+   - Extend the first-run guide for users who do not know RAG terminology or
+     infrastructure concepts. Start with a plain-language goal such as “Find
+     answers in your team's documents and check the sources.”
    - Guide the user through workspace creation, use-case selection, inviting
      teammates, uploading the first documents, waiting for processing, and
      asking the first grounded question.
    - Explain key concepts at the moment they matter: documents, chunks,
      embeddings, retrieval, citations, similarity scores, and why similarity
      is not factual certainty.
-   - Add a legal-workspace starter template with safe sample content, suggested
-     questions, document naming guidance, and privacy/data-handling notes.
+   - Add reusable starter templates for knowledge and processes, support, and
+     learning. Include safe sample content, suggested questions, document
+     naming guidance, and privacy/data-handling notes. Sector-specific
+     scenarios can be offered as optional examples.
    - Add an entry point to revisit the completed guide from Help.
    - Make steps role-aware: owners configure the workspace, editors add
      knowledge, and viewers learn how to search and inspect sources.

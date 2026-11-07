@@ -61,7 +61,7 @@ test("Milo's setup guide fits the viewport and meets automated accessibility che
   await workspaceFixture(null).attach(context);
   await page.goto("/onboarding");
   await expect(page.getByRole("heading", { level: 1, name: /Milo/ })).toBeVisible();
-  await expect(page.getByRole("radio", { name: /^(Legal|Jurídico)/ })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /^(Knowledge and processes|Conhecimento e processos)/ })).toBeVisible();
   await checkLayout(page, testInfo);
   await matchReference(page, testInfo, "mobile-pt", "milo-setup.png");
 });
@@ -154,9 +154,9 @@ test("the Milo guide resumes in a second browser context", async ({ page, browse
   const fixture = workspaceFixture(null);
   await fixture.attach(context);
   await page.goto("/onboarding");
-  const legal = page.getByRole("radio", { name: /^Legal/ });
-  await legal.click();
-  await expect(legal).toBeChecked();
+  const knowledge = page.getByRole("radio", { name: /^Knowledge and processes/ });
+  await knowledge.click();
+  await expect(knowledge).toBeChecked();
   const saved = page.waitForResponse((response) => response.request().method() === "PATCH" && response.url().endsWith("/onboarding") && response.request().postDataJSON().step === "knowledge");
   await page.getByRole("button", { name: "Continue" }).click();
   expect((await saved).ok()).toBe(true);
@@ -168,7 +168,7 @@ test("the Milo guide resumes in a second browser context", async ({ page, browse
     const second = await secondContext.newPage();
     await second.goto("/onboarding");
     await expect(second.getByText("Step 2 of 3")).toBeVisible();
-    await expect(second.getByText("An approved checklist for opening a new matter")).toBeVisible();
+    await expect(second.getByText("A handbook with your team's request and approval process")).toBeVisible();
     await second.getByRole("button", { name: "Continue" }).click();
     const completed = second.waitForResponse((response) => response.request().method() === "PATCH" && response.url().endsWith("/onboarding") && response.request().postDataJSON().completed === true);
     await second.getByRole("button", { name: "Finish and open workspace" }).click();
@@ -178,5 +178,34 @@ test("the Milo guide resumes in a second browser context", async ({ page, browse
     await expect(page).toHaveURL(/\/workspace\/overview$/);
   } finally {
     await secondContext.close();
+  }
+});
+
+test("earlier guide choices resume with generic examples and preserve progress", async ({ browser, baseURL }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-en", "Legacy progress uses the same mapping across viewport profiles.");
+  const examples = [
+    ["legal", "Knowledge and processes"],
+    ["it", "Customer and team support"],
+    ["custom", "Learning and onboarding"]
+  ] as const;
+  for (const [goal, label] of examples) {
+    const context = await browser.newContext({ baseURL, locale: "en-US", timezoneId: "UTC" });
+    try {
+      await workspaceFixture({ goal, step: "knowledge", completed: false }).attach(context);
+      const page = await context.newPage();
+      await page.goto("/onboarding");
+      await expect(page.getByText("Step 2 of 3")).toBeVisible();
+      await page.getByRole("button", { name: "Back", exact: true }).click();
+      await expect(page.getByRole("radio", { name: new RegExp(`^${label}`) })).toBeChecked();
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
+      await expect(page.getByText("Step 2 of 3")).toBeVisible();
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
+      const finished = page.waitForRequest((request) => request.method() === "PATCH" && request.url().endsWith("/onboarding") && request.postDataJSON().completed === true);
+      await page.getByRole("button", { name: "Finish and open workspace" }).click();
+      expect((await finished).postDataJSON()).toEqual({ goal, step: "answer", completed: true });
+      await expect(page).toHaveURL(/\/workspace\/overview$/);
+    } finally {
+      await context.close();
+    }
   }
 });
