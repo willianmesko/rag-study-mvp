@@ -9,7 +9,8 @@ export class TitanEmbeddingProvider implements EmbeddingProvider {
   constructor(
     private readonly client: BedrockRuntimeClient,
     private readonly modelId: string,
-    private readonly dimensions: number
+    private readonly dimensions: number,
+    private readonly requestSignal: (signal?: AbortSignal | null) => AbortSignal = providerRequestSignal
   ) {}
 
   async embed(text: string, _inputType: "document" | "query", signal?: AbortSignal,onUsage?:ProviderUsageObserver): Promise<number[]> {
@@ -20,7 +21,7 @@ export class TitanEmbeddingProvider implements EmbeddingProvider {
         accept: "application/json",
         body: JSON.stringify({ inputText: text, dimensions: this.dimensions, normalize: true })
       }),
-      { abortSignal: providerRequestSignal(signal) }
+      { abortSignal: this.requestSignal(signal) }
     );
     const payload = JSON.parse(new TextDecoder().decode(response.body)) as TitanEmbeddingResponse;
     if(Number.isSafeInteger(payload.inputTextTokenCount)&&payload.inputTextTokenCount!>=0)onUsage?.({inputTokens:payload.inputTextTokenCount!,outputTokens:0});

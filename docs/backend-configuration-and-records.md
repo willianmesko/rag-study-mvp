@@ -30,9 +30,11 @@ The production server supplies its parsed configuration and production flag
 explicitly. No settings are serialized to a public endpoint.
 
 The HTTP compatibility fallback and some older tests still use the existing
-singleton. Provider transport deadlines also still read it. Completing that
-migration is separate remaining work; this increment does not claim that every
-process-global configuration read is gone or that settings are deeply immutable.
+singleton. A subsequent [provider-deadline increment](operations/release-2026-11-07-provider-deadlines.md)
+now captures transport settings per instance and loads the HTTP fallback lazily;
+its release record distinguishes local implementation from publication. Older
+fixtures and other repository families remain open. This does not claim that
+every vendor SDK environment read is gone or all settings are deeply immutable.
 
 ## Database boundary
 

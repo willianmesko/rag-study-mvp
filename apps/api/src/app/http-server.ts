@@ -33,7 +33,6 @@ import { EmbeddingIndexChangedError } from "../modules/ai/application/ports/work
 import { ChatBudgetExceededError } from "../modules/ai/application/policies/chat-cost.js";
 import { StreamAnswerRuns } from "../modules/chat/application/use-cases/stream-answer-runs.js";
 import { EvaluationRunError } from "../modules/evaluations/application/use-cases/run-evaluation.js";
-import { config as defaultConfiguration } from "../config.js";
 import type { RuntimeConfiguration } from "./configuration/environment.js";
 import { registerWorkspaceMcpRoutes } from "../modules/mcp/workspace-mcp.controller.js";
 import { registerAgentActionRoutes } from "../modules/mcp/agent-actions.controller.js";
@@ -82,7 +81,7 @@ export async function buildApp(dependencies: HttpDependencies, options: {
   configuration?: HttpConfiguration;
   isProduction?: boolean;
 } = {}) {
-  const config = options.configuration ?? defaultConfiguration;
+  const config = options.configuration ?? (await import("../config.js")).config;
   const isProduction = options.isProduction ?? process.env.NODE_ENV === "production";
   const app = Fastify({ genReqId:()=>randomUUID(), logger: { serializers: safeHttpLogSerializers }, bodyLimit: config.UPLOAD_MAX_BYTES + 100_000 });
   const identityServices = dependencies.identityVerifier && dependencies.memberDirectory

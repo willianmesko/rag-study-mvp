@@ -1,7 +1,7 @@
 import type {ProviderUsageObserver} from "../../application/ports/answer-generator.js";
 import { z } from "zod";
 import type { EmbeddingProvider } from "../../application/ports/embedding-provider.js";
-import { requestProviderJson } from "../../../../platform/http/provider-client.js";
+import { defaultProviderHttpClient, type ProviderHttpClient } from "../../../../platform/http/provider-client.js";
 
 const responseSchema = z.object({ data: z.array(z.object({ embedding: z.array(z.number()) })).min(1) });
 
@@ -10,11 +10,12 @@ export class OpenRouterEmbeddingProvider implements EmbeddingProvider {
     private readonly baseUrl: string,
     private readonly apiKey: string,
     private readonly model: string,
-    private readonly dimensions: number
+    private readonly dimensions: number,
+    private readonly http: ProviderHttpClient = defaultProviderHttpClient
   ) {}
 
   async embed(text: string, inputType: "document" | "query", signal?: AbortSignal,onUsage?:ProviderUsageObserver): Promise<number[]> {
-    const json = await requestProviderJson(`${this.baseUrl}/embeddings`, {
+    const json = await this.http.requestJson(`${this.baseUrl}/embeddings`, {
       method: "POST",
       signal,
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },

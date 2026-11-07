@@ -103,3 +103,52 @@ test("registry selection fails closed and native output overruns retain guard id
   await assert.rejects(generator.generate("Question", "Context", stop.signal), (error: unknown) => error === stop.signal.reason);
   assert.equal(calls, 1, "already cancelled work never reaches the provider");
 });
+
+test("configured deadlines reach every HTTP/SDK adapter, including streaming, embedding, judging and reranking", async (t) => {
+  const { parseRuntimeConfiguration } = await import("../configuration/environment.js");
+  const { createConfiguredProviderBindings } = await import("./provider-registry.js");
+  const { BedrockRuntimeClient, InvokeModelCommand, ConverseStreamCommand } = await import("@aws-sdk/client-bedrock-runtime");
+  const observed: number[] = [], nativeTimeout = AbortSignal.timeout;
+  t.mock.method(AbortSignal, "timeout", (ms: number) => { observed.push(ms); return nativeTimeout(ms); });
+  let httpCalls = 0, sdkCalls = 0;
+  t.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
+    httpCalls++; assert.ok(init.signal); const body = JSON.parse(String(init.body));
+    if (url.endsWith("/api/embed")) return Response.json({ embeddings: [[1, 0]] });
+    if (url.endsWith("/embeddings")) return Response.json({ data: [{ embedding: [1, 0] }] });
+    if (url.endsWith("/rerank")) return Response.json({ results: [{ index: 0, relevance_score: 0.9 }] });
+    if (url.endsWith("/api/chat")) return body.stream
+      ? new Response(JSON.stringify({ message: { content: "Synthetic answer." }, done: true }) + "\n")
+      : Response.json({ message: { content: "Synthetic answer." } });
+    assert.ok(url.endsWith("/chat/completions"));
+    if (body.stream) return new Response('data: {"choices":[{"delta":{"content":"Synthetic answer."}}]}\n\ndata: [DONE]\n\n');
+    const content = body.model === "fixture-judge" ? JSON.stringify({ claims: [{ claim: "Synthetic answer.", evidence: "Synthetic evidence passage." }] }) : "Synthetic answer.";
+    return Response.json({ choices: [{ message: { content }, finish_reason: "stop" }] });
+  });
+  t.mock.method(BedrockRuntimeClient.prototype, "send", async (command: unknown, options?: { abortSignal?: AbortSignal }) => {
+    sdkCalls++; assert.ok(options?.abortSignal);
+    if (command instanceof InvokeModelCommand) return { body: Buffer.from(JSON.stringify({ embedding: [1, 0] })) };
+    if (command instanceof ConverseStreamCommand) return { stream: (async function* () {
+      yield { contentBlockDelta: { delta: { text: "Synthetic answer." } } }; yield { messageStop: { stopReason: "end_turn" } };
+    })() };
+    return { output: { message: { content: [{ text: "Synthetic answer." }] } } };
+  });
+  const settings = parseRuntimeConfiguration({ PROVIDER_TIMEOUT_MS: "1234", OPENROUTER_API_KEY: "synthetic-key", RERANKER_PROVIDER: "jina", JINA_API_KEY: "synthetic-key" });
+  const { registry } = createConfiguredProviderBindings(settings);
+  for (const provider of ["ollama", "openrouter", "bedrock"] as const) {
+    const answer = registry.createAnswer({ provider, model: "fixture-answer", maxOutputTokens: 50 });
+    assert.equal(await answer.generate("Synthetic question?", "Synthetic evidence passage."), "Synthetic answer.");
+    const chunks: string[] = [];
+    assert.ok(answer.stream);
+    assert.equal(await answer.stream("Synthetic question?", "Synthetic evidence passage.", (text) => { chunks.push(text); }), "Synthetic answer.");
+    assert.deepEqual(chunks, ["Synthetic answer."]);
+    assert.deepEqual(await registry.createEmbedding({ provider, model: "fixture-embedding", dimensions: 2 }).embed("Synthetic text.", "query"), [1, 0]);
+  }
+  const judge = registry.createJudge({ provider: "openrouter", model: "fixture-judge" }); assert.ok(judge);
+  assert.equal((await judge.assess({ answer: "Synthetic answer.", passages: ["Synthetic evidence passage."] }, new AbortController().signal)).length, 1);
+  await registry.createReranker().rerank({ query: "Synthetic question?", limit: 1, candidates: [{ chunkId: "c", documentId: "d", ordinal: 0,
+    content: "Synthetic evidence passage.", source: "synthetic", title: null, score: 0.8, security: { promptInjectionRisk: "low", signals: [] } }] });
+  assert.deepEqual(observed, Array(11).fill(1234)); assert.equal(httpCalls, 8); assert.equal(sdkCalls, 3);
+  const other = createConfiguredProviderBindings(parseRuntimeConfiguration({ PROVIDER_TIMEOUT_MS: "5000" }));
+  await other.registry.createEmbedding({ provider: "ollama", model: "fixture", dimensions: 2 }).embed("Synthetic text.", "query");
+  assert.equal(observed.at(-1), 5000); assert.equal(observed[0], 1234);
+});

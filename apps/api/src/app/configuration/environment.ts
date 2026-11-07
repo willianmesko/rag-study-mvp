@@ -1,5 +1,6 @@
 import { chatModelIdSchema } from "@rag-study/contracts";
 import { z } from "zod";
+import { defaultProviderTimeoutMs } from "../../platform/http/provider-timeout.js";
 
 const provider = z.enum(["ollama", "openrouter", "bedrock"]);
 const rerankerProvider = z.enum(["none", "jina"]);
@@ -108,7 +109,7 @@ const environment = z.object({
   USAGE_ALERT_THRESHOLD_USD: z.coerce.number().min(0).max(100_000).default(1),
   USAGE_HASH_SECRET: z.string().min(32).optional(),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
-  PROVIDER_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
+  PROVIDER_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(defaultProviderTimeoutMs),
   API_KEY: z.string().min(16).optional(),
   // Public demos expose only read/query routes. The ingestion route remains an
   // administrative operation so visitors cannot change the corpus or trigger

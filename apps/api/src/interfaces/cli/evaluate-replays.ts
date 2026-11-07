@@ -50,7 +50,8 @@ if (values.jina) {
   if (!config.JINA_API_KEY) throw new Error("Set JINA_API_KEY to run the live Jina benchmark.");
   const { JinaReranker } = await import("../../modules/ai/infrastructure/jina/jina-reranker.js");
   model = config.JINA_RERANKER_MODEL;
-  reranker = new JinaReranker("https://api.jina.ai/v1", config.JINA_API_KEY, model);
+  const { createProviderHttpClient } = await import("../../platform/http/provider-client.js");
+  reranker = new JinaReranker("https://api.jina.ai/v1", config.JINA_API_KEY, model, createProviderHttpClient(config.PROVIDER_TIMEOUT_MS));
 }
 
 const replay = await evaluateReplay(suite, reranker, values.jina ? AbortSignal.timeout(90_000) : undefined);

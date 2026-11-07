@@ -47,3 +47,19 @@ test("explicit production policy and anonymous hashing do not borrow another ins
   assert.equal((await demo.inject("/v1/search?q=sample")).statusCode, 200);
   assert.equal(calls.length, 2);
 });
+
+test("explicit HTTP settings do not parse an unrelated invalid process environment on import", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const parser = new URL("../configuration/environment.ts", import.meta.url).href;
+  const http = new URL("../http-server.ts", import.meta.url).href;
+  const code = `
+    const { parseRuntimeConfiguration } = await import(${JSON.stringify(parser)});
+    const { buildApp } = await import(${JSON.stringify(http)});
+    const app = await buildApp({}, { configuration: parseRuntimeConfiguration({}), isProduction: true });
+    try { if ((await app.inject('/health')).statusCode !== 200) throw new Error('Synthetic health failed.'); }
+    finally { await app.close(); }
+  `;
+  execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "--eval", code], {
+    env: { PATH: process.env.PATH, CHUNK_OVERLAP: "99999" }, timeout: 10_000, stdio: "pipe",
+  });
+});

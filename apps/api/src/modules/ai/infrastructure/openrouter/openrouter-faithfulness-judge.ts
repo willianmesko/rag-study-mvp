@@ -1,7 +1,7 @@
 import type {ProviderUsageObserver} from "../../application/ports/answer-generator.js";
 import { z } from "zod";
 import type { FaithfulnessJudge } from "../../../evaluations/index.js";
-import { requestProviderJson } from "../../../../platform/http/provider-client.js";
+import { defaultProviderHttpClient, type ProviderHttpClient } from "../../../../platform/http/provider-client.js";
 
 const responseSchema = z.object({ choices: z.array(z.object({
   message: z.object({ content: z.string() }),
@@ -12,10 +12,10 @@ const verdictSchema = z.strictObject({ claims: z.array(z.strictObject({
 })).min(1).max(16) });
 
 export class OpenRouterFaithfulnessJudge implements FaithfulnessJudge {
-  constructor(private readonly baseUrl: string, private readonly apiKey: string, readonly model: string) {}
+  constructor(private readonly baseUrl: string, private readonly apiKey: string, readonly model: string, private readonly http: ProviderHttpClient = defaultProviderHttpClient) {}
 
   async assess(input: Parameters<FaithfulnessJudge["assess"]>[0], signal: AbortSignal,onUsage?:ProviderUsageObserver) {
-    const response = await requestProviderJson(`${this.baseUrl}/chat/completions`, {
+    const response = await this.http.requestJson(`${this.baseUrl}/chat/completions`, {
       method: "POST", signal,
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
       body: JSON.stringify({

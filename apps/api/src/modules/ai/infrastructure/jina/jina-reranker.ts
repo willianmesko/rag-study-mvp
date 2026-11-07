@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Reranker, RerankInput } from "../../application/ports/reranker.js";
 import type { RetrievedChunk } from "../../../knowledge/index.js";
 import { redactPii } from "../../../../platform/security/pii-redaction.js";
-import { requestProviderJson } from "../../../../platform/http/provider-client.js";
+import { defaultProviderHttpClient, type ProviderHttpClient } from "../../../../platform/http/provider-client.js";
 
 const responseSchema = z.object({
   results: z.array(z.object({
@@ -17,13 +17,14 @@ export class JinaReranker implements Reranker {
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
-    private readonly model: string
+    private readonly model: string,
+    private readonly http: ProviderHttpClient = defaultProviderHttpClient
   ) {}
 
   async rerank(input: RerankInput): Promise<RetrievedChunk[]> {
     if (input.candidates.length === 0) return [];
 
-    const json = await requestProviderJson(`${this.baseUrl}/rerank`, {
+    const json = await this.http.requestJson(`${this.baseUrl}/rerank`, {
       method: "POST",
       signal: input.signal,
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },

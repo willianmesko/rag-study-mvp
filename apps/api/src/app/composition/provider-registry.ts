@@ -1,3 +1,4 @@
+import { createProviderHttpClient } from "../../platform/http/provider-client.js";
 import type { RuntimeConfiguration } from "../configuration/environment.js";
 import type { AnswerGenerator, AnswerProviderInput, EmbeddingModelIdentity, EmbeddingProvider, ModelProviderRegistry, ModelRuntimeGuards, ModelRuntimeOptions, Reranker } from "../../modules/ai/index.js";
 import type { FaithfulnessJudge } from "../../modules/evaluations/index.js";
@@ -56,7 +57,7 @@ type ProviderConfiguration = Pick<RuntimeConfiguration,
   "OLLAMA_BASE_URL" | "OLLAMA_EMBEDDING_MODEL" | "OPENROUTER_BASE_URL" | "OPENROUTER_API_KEY" |
   "OPENROUTER_EMBEDDING_MODEL" | "AWS_REGION" | "BEDROCK_EMBEDDING_MODEL_ID" | "EMBEDDING_PROVIDER" |
   "EMBEDDING_DIMENSIONS" | "RERANKER_PROVIDER" | "JINA_BASE_URL" | "JINA_API_KEY" | "JINA_RERANKER_MODEL" |
-  "RAG_CLAIM_MODE" | "EVAL_FAITHFULNESS_JUDGE_MODEL" | "EVAL_JUDGE_INPUT_COST_PER_1K_USD" | "EVAL_JUDGE_OUTPUT_COST_PER_1K_USD">;
+  "PROVIDER_TIMEOUT_MS" | "RAG_CLAIM_MODE" | "EVAL_FAITHFULNESS_JUDGE_MODEL" | "EVAL_JUDGE_INPUT_COST_PER_1K_USD" | "EVAL_JUDGE_OUTPUT_COST_PER_1K_USD">;
 
 export function defaultWorkspaceEmbeddingModel(configuration: Pick<ProviderConfiguration,
   "EMBEDDING_PROVIDER" | "EMBEDDING_DIMENSIONS" | "OLLAMA_EMBEDDING_MODEL" | "OPENROUTER_EMBEDDING_MODEL" | "BEDROCK_EMBEDDING_MODEL_ID">): EmbeddingModelIdentity {
@@ -84,32 +85,33 @@ export function createConfiguredProviderBindings(configuration: ProviderConfigur
   options: ModelRuntimeOptions;
   defaultEmbedding: EmbeddingModelIdentity;
 } {
+  const http = createProviderHttpClient(configuration.PROVIDER_TIMEOUT_MS);
   let embeddingBedrockClient: ReturnType<typeof createBedrockClient> | undefined;
   const registry = createProviderRegistry([
     {
       id: "ollama",
-      createAnswer: ({ model, maxOutputTokens }) => new OllamaAnswerGenerator(configuration.OLLAMA_BASE_URL, model, maxOutputTokens),
-      createEmbedding: ({ model, dimensions }) => new OllamaEmbeddingProvider(configuration.OLLAMA_BASE_URL, model, dimensions),
+      createAnswer: ({ model, maxOutputTokens }) => new OllamaAnswerGenerator(configuration.OLLAMA_BASE_URL, model, maxOutputTokens, http),
+      createEmbedding: ({ model, dimensions }) => new OllamaEmbeddingProvider(configuration.OLLAMA_BASE_URL, model, dimensions, http),
     },
     {
       id: "openrouter",
-      createAnswer: ({ model, maxOutputTokens }) => new OpenRouterAnswerGenerator(configuration.OPENROUTER_BASE_URL, configuration.OPENROUTER_API_KEY!, model, maxOutputTokens),
+      createAnswer: ({ model, maxOutputTokens }) => new OpenRouterAnswerGenerator(configuration.OPENROUTER_BASE_URL, configuration.OPENROUTER_API_KEY!, model, maxOutputTokens, http),
       createEmbedding: ({ model, dimensions }) => {
         if (!configuration.OPENROUTER_API_KEY) throw new Error("The workspace embedding index requires an OpenRouter API key.");
-        return new OpenRouterEmbeddingProvider(configuration.OPENROUTER_BASE_URL, configuration.OPENROUTER_API_KEY, model, dimensions);
+        return new OpenRouterEmbeddingProvider(configuration.OPENROUTER_BASE_URL, configuration.OPENROUTER_API_KEY, model, dimensions, http);
       },
-      createJudge: (model) => new OpenRouterFaithfulnessJudge(configuration.OPENROUTER_BASE_URL, configuration.OPENROUTER_API_KEY!, model),
+      createJudge: (model) => new OpenRouterFaithfulnessJudge(configuration.OPENROUTER_BASE_URL, configuration.OPENROUTER_API_KEY!, model, http),
     },
     {
       id: "bedrock",
-      createAnswer: ({ model, maxOutputTokens }) => new BedrockAnswerGenerator(createBedrockClient(configuration.AWS_REGION, 1), model, maxOutputTokens),
+      createAnswer: ({ model, maxOutputTokens }) => new BedrockAnswerGenerator(createBedrockClient(configuration.AWS_REGION, 1), model, maxOutputTokens, http.signal),
       createEmbedding: ({ model, dimensions }) => {
         embeddingBedrockClient ??= createBedrockClient(configuration.AWS_REGION);
-        return new TitanEmbeddingProvider(embeddingBedrockClient, model, dimensions);
+        return new TitanEmbeddingProvider(embeddingBedrockClient, model, dimensions, http.signal);
       },
     },
   ], () => configuration.RERANKER_PROVIDER === "jina"
-    ? new JinaReranker(configuration.JINA_BASE_URL, configuration.JINA_API_KEY!, configuration.JINA_RERANKER_MODEL)
+    ? new JinaReranker(configuration.JINA_BASE_URL, configuration.JINA_API_KEY!, configuration.JINA_RERANKER_MODEL, http)
     : new PassThroughReranker());
   return {
     registry,

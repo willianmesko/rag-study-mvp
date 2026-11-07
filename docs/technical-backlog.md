@@ -276,7 +276,8 @@ feature-owned locations during BE-07's migration.
   cache insertion; fixed invalid-response diagnostics retain no received payload.
   Typechecking and malformed-data browser cases pass locally.
 - [x] BE-12 bounded increment, CI verified and published: pure environment parsing, explicit root/HTTP configuration, independent-instance tests, checked evaluation and semantic-cache records. Nine unit cases, 85 PostgreSQL checks, the isolated cutover and seven harness checks passed. See the [boundary guide](backend-configuration-and-records.md) and [release record](operations/release-2026-11-07-configuration-records.md).
-- [ ] Remaining BE-12: remove the provider transport's singleton deadline read; migrate older shared-config fixtures incrementally; inventory/decode remaining externally influenced repository JSON and unchecked row assumptions. The two migrated families do not establish complete SQL coverage.
+- [x] Provider-deadline/lazy-config increment is locally validated, with CI/publication pending: immutable per-instance native clients, all eleven adapter paths and explicit HTTP import isolation. See the [candidate record](operations/release-2026-11-07-provider-deadlines.md).
+- [ ] Remaining BE-12: migrate older shared-config fixtures incrementally; inventory/decode other externally influenced repository JSON and unchecked row assumptions. Two migrated row families do not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
 
@@ -440,6 +441,7 @@ feature-owned locations during BE-07's migration.
   static-analysis automation with explicit scope; no uncontrolled major upgrades.
 - [x] Align manifest/`.nvmrc` with the existing Node 24 CI/container baseline.
 - [x] Production/test-artifact separation is CI verified and published. Explicit runtime roots, clean output inventory and a separate mandatory two-pass native OCR stage are implemented. The final image contains no project test/helper files. See the [release record](operations/release-2026-11-07-runtime-artifacts.md) for actual image checks and the local Docker disk limit.
+- [ ] Validate the actual minimal MCP image/permission handshake in fresh CI; the [image gate](operations/mcp-image-verification.md) is implemented and awaiting its first result.
 - [ ] Apply the reviewed compatible Auth fix with its complete regression/release evidence. The candidate SDK has not been installed.
 - **Review evidence:** the [dated dependency/OCR review](operations/dependency-hygiene-2026-11-07.md)
   verifies that two low audit entries represent one Auth advisory. The only

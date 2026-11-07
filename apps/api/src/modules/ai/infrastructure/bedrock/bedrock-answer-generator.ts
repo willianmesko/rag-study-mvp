@@ -11,7 +11,7 @@ function publishUsage(usage: { inputTokens?: number; outputTokens?: number } | u
 }
 
 export class BedrockAnswerGenerator implements AnswerGenerator {
-  constructor(private readonly client: BedrockRuntimeClient, private readonly modelId: string, private readonly maxOutputTokens = 500) {}
+  constructor(private readonly client: BedrockRuntimeClient, private readonly modelId: string, private readonly maxOutputTokens = 500, private readonly requestSignal: (signal?: AbortSignal | null) => AbortSignal = providerRequestSignal) {}
 
   async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], promptVariant?: ChatPromptVariantId, controls?:AnswerControls): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, promptVariant, controls);
@@ -22,7 +22,7 @@ export class BedrockAnswerGenerator implements AnswerGenerator {
         messages: [{ role: "user", content: [{ text: prompt.user }] }],
         inferenceConfig: { maxTokens: this.maxOutputTokens, temperature: 0 }
       }),
-      { abortSignal: providerRequestSignal(signal) }
+      { abortSignal: this.requestSignal(signal) }
     );
     publishUsage(response.usage, onUsage);
     const text = response.output?.message?.content?.map((block) => block.text ?? "").join("").trim();
@@ -32,7 +32,7 @@ export class BedrockAnswerGenerator implements AnswerGenerator {
 
   async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], controls?:AnswerControls): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, undefined, controls);
-    const requestSignal = providerRequestSignal(signal);
+    const requestSignal = this.requestSignal(signal);
     const response = await this.client.send(new ConverseStreamCommand({
       modelId: this.modelId,
       system: [{ text: prompt.system }],
