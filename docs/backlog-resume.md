@@ -5,13 +5,13 @@ point. The owner subsequently requested the specific BE-15 abstraction follow-up
 that follow-up is now validated and published. General continuation has resumed
 with the FE-06 administrative slice and BE-08 native TypeScript checks below;
 both are published. The remaining FE-06 conversation slice is also validated
-and published. FE-07 is locally validated and awaiting CI/publication.
+and published. FE-07 is also complete and published.
 
 ## Current delivery
 
-- Source: `c72702e198064fb9e1ea562ee3a7790c3026c843`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42409070907).
-- [Release evidence](operations/release-2026-11-07-conversation-readers.md) records
+- Source: `fe9449b8da7bf9e6b1ee37133f3f27f47698ef58`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42412334616).
+- [Release evidence](operations/release-2026-11-07-chat-lifecycle.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -76,7 +76,7 @@ records all four exact-source CI gates, both deployments and public checks.
   coalesced comparison Stop races. The
   seven-check local harness passed. Original baselines remain unchanged.
 
-## Implemented frontend slice: FE-07 (publication pending)
+## Implemented frontend slice: FE-07
 
 Native unions and correlated transitions now cover submission, delivery,
 reconnection, cancellation and terminal outcomes. Nine type assertions reject
@@ -89,7 +89,11 @@ Sending/Stopping states are visible and repeated Stop clicks coalesce.
 Seventy-five focused checks passed across desktop/tablet/mobile, including all
 FE-06 history/window guarantees. The seven-check local harness and 78 architecture
 fixtures passed. See the [lifecycle record](operations/release-2026-11-07-chat-lifecycle.md).
-**Exact-source CI and both deployments are pending; FE-07 is not yet closed.**
+**FE-07 is closed and published.** All four exact-source CI gates passed,
+including 349 UX-suite cases/44 intentional profile skips, 83 PostgreSQL cases,
+the isolated cutover, 78 architecture fixtures and seven harness checks. Both
+Render deployments and served lifecycle assets were verified. **Next frontend
+ticket: FE-09**, semantic tokens and existing primitive consolidation.
 Broader promise/Hook tooling, least-privilege MCP credentials and the other
 technical tickets retain their own acceptance criteria.
 

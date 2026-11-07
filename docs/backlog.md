@@ -9,7 +9,7 @@ Last reviewed on 2026-11-07.
 The [resume checkpoint](backlog-resume.md) records FE-06 as complete and published:
 administrative query ownership, conversation readers and incremental history.
 Technology-neutral module assembly and native TypeScript unused checks are also
-published. BE-08/FE-08 still retain promise/Hook work. FE-07 is locally validated; CI and publication are pending. The learning
+published. BE-08/FE-08 still retain promise/Hook work. FE-07 is also complete and published. The learning
 walkthrough retains its saved starting point; teaching sessions remain pending.
 
 ## Status guide
@@ -27,11 +27,11 @@ status section where they appear.
 
 ## In progress
 
-The latest application release, `c72702e198064fb9e1ea562ee3a7790c3026c843`, is
+The latest application release, `fe9449b8da7bf9e6b1ee37133f3f27f47698ef58`, is
 live on the frontend and API after all four
-[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42409070907).
+[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42412334616).
 Both deployments, served features/icon, health and protected routes were verified
-on 2026-11-07. See [conversation-reader evidence](operations/release-2026-11-07-conversation-readers.md).
+on 2026-11-07. See [chat lifecycle evidence](operations/release-2026-11-07-chat-lifecycle.md).
 The prior [administrative release](operations/release-2026-11-07-query-ownership.md) remains documented separately.
 The previous [capability-boundary release](operations/release-2026-11-07-capability-boundaries.md)
 remains documented separately.
@@ -40,8 +40,8 @@ is retained as historical evidence.
 The earlier [observability/resilience release](operations/release-2026-11-07.md)
 is included.
 
-The [technical backlog](technical-backlog.md) records 16 published tickets,
-five partial tickets, FE-07 awaiting CI/publication, and four pending tickets. The published
+The [technical backlog](technical-backlog.md) records 17 published tickets,
+five partial tickets and four pending tickets. The published
 batch includes shared success-response schemas, SQL limits, bounded Auth/member
 lookup, frontend composition/Public APIs, provider reservations, safe shutdown
 and NestJS-inspired business-module organization. See the
@@ -62,7 +62,8 @@ cases and both live deployments were verified. See the
 for exact-source CI/publication status. FE-07 now has explicit correlated
 submission/delivery/cancellation states and creation/navigation guards. Its 75
 focused checks, seven-check local harness and 78 architecture fixtures passed;
-exact-source CI/publication are still pending. See the
+exact-source CI passed 349 UX-suite cases/44 deliberate profile skips, and both
+services are live. FE-09 is the next frontend ticket. See the
 [lifecycle record](operations/release-2026-11-07-chat-lifecycle.md).
 Operational activation remains separate.
 
