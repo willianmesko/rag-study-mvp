@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 export * from "./mcp.js";
+export * from "./discovery.js";
+
+export const chatPromptVariantIdSchema = z.enum(["balanced", "concise", "explanatory"]);
+export type ChatPromptVariantId = z.infer<typeof chatPromptVariantIdSchema>;
+export const chatPromptDescriptorSchema = z.object({ id: chatPromptVariantIdSchema, version: z.string().min(1).max(80) });
+export type ChatPromptDescriptor = z.infer<typeof chatPromptDescriptorSchema>;
 
 export const documentInputSchema = z.object({
   source: z.string().min(1).max(1_000),
@@ -26,6 +32,8 @@ export const chatModelDescriptorSchema = z.object({
 export const chatModelCatalogSchema = z.object({
   models: z.array(chatModelDescriptorSchema).min(1),
   comparisonAvailable: z.boolean(),
+  promptComparisonAvailable: z.boolean().optional(),
+  promptVariants: z.array(chatPromptDescriptorSchema).min(1).max(3).optional(),
   autoAvailable: z.boolean().optional()
 });
 
@@ -80,9 +88,13 @@ export const questionInputSchema = z.object({
 export const questionComparisonInputSchema = z.strictObject({
   question: questionInputSchema.shape.question,
   topK: questionInputSchema.shape.topK,
-  modelIds: z.tuple([chatModelIdSchema, chatModelIdSchema]).refine(([left, right]) => left !== right, {
-    message: "Choose two different chat models."
-  })
+  modelIds: z.tuple([configuredChatModelIdSchema, configuredChatModelIdSchema]),
+  promptVariantIds: z.tuple([chatPromptVariantIdSchema, chatPromptVariantIdSchema]).optional()
+}).superRefine(({ modelIds, promptVariantIds }, context) => {
+  const differentModels = modelIds[0] !== modelIds[1];
+  const differentPrompts = promptVariantIds !== undefined && promptVariantIds[0] !== promptVariantIds[1];
+  if (differentModels === differentPrompts) context.addIssue({ code: "custom", path: ["modelIds"],
+    message: "Compare different models with the same prompt, or different prompts with the same model." });
 });
 
 export const chatRunIdSchema = z.uuid();
@@ -114,6 +126,8 @@ const questionResponseSchema = z.object({
 
 const questionComparisonResultSchema = z.object({
   model: chatModelDescriptorSchema,
+  providerModel: z.string().min(1).max(200).optional(),
+  prompt: chatPromptDescriptorSchema.optional(),
   latencyMs: z.number().int().nonnegative(),
   estimatedCostUsd: z.number().nonnegative(),
   response: questionResponseSchema.nullable(),

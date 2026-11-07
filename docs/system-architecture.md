@@ -74,8 +74,20 @@ others, and learning from documents. Each goal offers a reusable fictional
 Markdown starter in English or Portuguese, a download/preview, and grounded
 suggested questions. Uploading a starter is an explicit action through the same
 authorized ingestion endpoint as a personal file; choosing a goal alone never
-uploads content or calls a provider. Broader demonstration libraries remain in
-the backlog.
+uploads content or calls a provider. Knowledge also offers three bilingual,
+versioned demonstration libraries with fictional handbooks, procedures, FAQs,
+product guides, and project briefs. Questions name their supporting sources.
+Only an owner or editor can explicitly enqueue the bundled documents. The API
+selects the content from its catalog, applies upload quotas and audit events,
+and uses a short workspace lock to deduplicate source imports. Existing
+documents are preserved. The normal worker extracts text, scans, embeds, and
+persists each accepted file. Viewers can preview materials and ask questions
+once the supporting sources are indexed.
+
+Document filters are shared Zod contracts and bound PostgreSQL predicates.
+Workspace scope, document/source text, language, format, and inclusive UTC
+updated-date bounds apply before the 100-result limit. Request logs retain
+the method and route pattern, excluding filter values and request content.
 
 The guide retains the three persisted phases (`purpose`, `knowledge`, `answer`)
 so earlier progress and concurrent-device completion remain compatible. Its
@@ -376,6 +388,12 @@ Comparison reserves two quota units atomically, prepares a single set of
 passages, and checks the combined generation budget before contacting either
 model. Semantic answer cache entries are isolated by workspace, model,
 prompt version, and retrieval limit. Comparison does not reuse cached answers.
+Controlled comparisons vary exactly one dimension: two allowed models use the
+same prompt, or one allowed model uses two approved prompt styles. Balanced,
+Concise, and Explanatory are versioned backend policies with the same trusted
+grounding and structured-output contract. Each result records its prompt,
+provider/model, token-usage provenance, latency, estimated cost, and validation
+outcome. Browser exports exclude the question, answer, and source excerpts.
 
 - **owner**: manage members, invitations, the corpus, and workspace settings.
 - **editor**: manage the workspace corpus.
@@ -393,6 +411,16 @@ The repository contains three complementary quality layers:
 2. **Golden set** for deterministic retrieval regression metrics such as hit rate
    and MRR.
 3. **Prompt-injection suite and Promptfoo** for security regression coverage.
+
+The workspace retrieval evaluator expects the reviewed reference source
+`golden/rag-fundamentals`, matching `examples/rag-fundamentals.md`. Its preflight
+blocks a run before retrieval or judge calls when that source is absent. Owners
+can explicitly prepare the bundled reference from Evaluations; historical runs
+remain unchanged. A score of 4/4 cases means coverage, not four correct answers.
+Faithfulness and judge calibration currently use separate public fixtures, so
+their scores do not certify the selected workspace's own documents. Dataset
+mapping and reviewed private-corpus evaluations remain future work. See
+[Demonstration and discovery](demonstration-discovery.md).
 
 LangSmith tracing is optional and disabled by default. It should be enabled only
 after deciding what content and metadata may leave the system. A future

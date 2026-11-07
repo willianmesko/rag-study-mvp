@@ -1,12 +1,13 @@
+import type { ChatPromptVariantId } from "@rag-study/contracts";
 import type { AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 
 export class RedactingAnswerGenerator implements AnswerGenerator {
   constructor(private readonly inner: AnswerGenerator) {}
 
-  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[]): Promise<string> {
+  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], promptVariant?: ChatPromptVariantId): Promise<string> {
     const answer = await this.inner.generate(redactPii(question).text, redactPii(context).text, signal, onUsage,
-      previousQuestions?.map((previous) => redactPii(previous).text));
+      previousQuestions?.map((previous) => redactPii(previous).text), promptVariant);
     return redactPii(answer).text;
   }
 

@@ -1,6 +1,6 @@
-import { chatModelCatalogSchema, questionComparisonResponseSchema, workspaceChatModelPolicyResponseSchema, workspaceOnboardingResponseSchema,
+import { chatModelCatalogSchema, demoLibraryCatalogSchema, demoSeedResponseSchema, questionComparisonResponseSchema, workspaceChatModelPolicyResponseSchema, workspaceOnboardingResponseSchema,
   mcpAccessIssuedSchema, mcpAccessStatusSchema,
-  type QuestionComparisonInput, type WorkspaceChatModelPolicy, type WorkspaceOnboardingProgress } from "@rag-study/contracts";
+  type DemoSourceState, type DocumentFilters, type QuestionComparisonInput, type WorkspaceChatModelPolicy, type WorkspaceOnboardingProgress } from "@rag-study/contracts";
 
 export type Health = { status: string };
 
@@ -78,7 +78,7 @@ export type EvaluationRun = {
   createdAt: string;
 };
 
-type ErrorBody = { error?: string; message?: string };
+type ErrorBody = { error?: string; message?: string; code?: string };
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const workspaceHeaders = (workspaceId?: string): Record<string, string> => workspaceId ? { "x-workspace-id": workspaceId } : {};
@@ -95,7 +95,7 @@ function originalFilename(disposition: string | null, fallback: string): string 
 }
 
 export class ApiError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(message: string, public readonly status: number, public readonly code?: string) {
     super(message);
     this.name = "ApiError";
   }
@@ -111,7 +111,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ErrorBody;
-    throw new ApiError(body.error ?? body.message ?? "The request could not be completed.", response.status);
+    throw new ApiError(body.error ?? body.message ?? "The request could not be completed.", response.status, body.code);
   }
   return response.json() as Promise<T>;
 }
@@ -125,6 +125,15 @@ async function requestVoid(path: string, init?: RequestInit): Promise<void> {
 }
 
 export const api = {
+  demoLibraries: async (token: string, workspaceId: string, locale: "en" | "pt-BR", signal: AbortSignal) => demoLibraryCatalogSchema.parse(
+    await request<unknown>(`/v1/demo-libraries?${new URLSearchParams({ locale })}`, {
+      signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]), headers: { authorization: `Bearer ${token}`, ...workspaceHeaders(workspaceId) }
+    })),
+  seedDemoDocument: async (token: string, workspaceId: string, libraryId: string, documentKey: string, locale: "en" | "pt-BR", signal: AbortSignal) => demoSeedResponseSchema.parse(
+    await request<unknown>(`/v1/admin/demo-libraries/${encodeURIComponent(libraryId)}/documents/${encodeURIComponent(documentKey)}`, {
+      method: "POST", body: JSON.stringify({ locale }), signal: AbortSignal.any([signal, AbortSignal.timeout(20_000)]),
+      headers: { authorization: `Bearer ${token}`, ...workspaceHeaders(workspaceId) }
+    })),
   workspaceMcpAccess: async (accessToken: string, workspaceId: string, signal: AbortSignal) => {
     try {
       return mcpAccessStatusSchema.parse(await request<unknown>("/v1/mcp/access", {
@@ -202,13 +211,16 @@ export const api = {
       headers: { authorization: `Bearer ${accessToken}`, "x-workspace-id": workspaceId }, signal, cache: "no-store"
     }),
   getUsageSummary: (accessToken: string, workspaceId: string, days = 30) => request<{ days: number; summary: UsageSummary; alert: UsageAlert }>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
-  listEvaluationRuns: (accessToken: string, workspaceId: string) => request<{ runs: EvaluationRun[]; faithfulnessEnabled?: boolean }>("/v1/admin/evaluations?limit=20", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listEvaluationRuns: (accessToken: string, workspaceId: string) => request<{ runs: EvaluationRun[]; faithfulnessEnabled?: boolean; reference?: DemoSourceState & { ready: boolean } }>("/v1/admin/evaluations?limit=20", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   runEvaluation: (accessToken: string, workspaceId: string, options: { includeFaithfulness?: boolean; modelId?: string; effort?: "compact" | "standard" | "extended" } = {}) =>
     request<{ run: EvaluationRun }>("/v1/admin/evaluations/run", {
       method: "POST", body: JSON.stringify(options), headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
     }),
   retryUpload: (jobId: string, accessToken: string, workspaceId?: string) => request<{ jobId: string; status: string }>(`/v1/admin/uploads/${jobId}/retry`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
-  listDocuments: (accessToken: string, workspaceId?: string, signal?: AbortSignal) => request<{ documents: ManagedDocument[] }>("/v1/admin/documents", { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listDocuments: (accessToken: string, workspaceId?: string, signal?: AbortSignal, filters: DocumentFilters = {}) => {
+    const query = new URLSearchParams(Object.entries(filters).flatMap(([key, value]) => value === undefined ? [] : [[key, value]]));
+    return request<{ documents: ManagedDocument[] }>(`/v1/admin/documents${query.size ? `?${query}` : ""}`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } });
+  },
   getOriginalDocument: async (input: { documentId: string; accessToken: string; workspaceId: string; signal: AbortSignal }): Promise<OriginalDocumentFile> => {
     const response = await fetch(`${apiBaseUrl}/v1/admin/documents/${encodeURIComponent(input.documentId)}/original`, {
       headers: { authorization: `Bearer ${input.accessToken}`, "x-workspace-id": input.workspaceId },

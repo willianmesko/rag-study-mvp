@@ -21,8 +21,14 @@ status section where they appear.
 
 ## In progress
 
-No active implementation. Workspace simplification, the larger Ask surface,
-and the expanded Milo guide have been validated and published.
+### Demonstration libraries, document filters, and prompt comparisons
+
+The discovery milestone is implemented and locally validated: explicit,
+workspace-scoped demo imports, suggested questions and sources, server-side
+filters, controlled prompt variants, safety outcomes, and clearer evaluation
+reference requirements. The quality harness and disposable PostgreSQL isolation
+checks passed; responsive UX validation passed. Release checks and publication
+are still required, so its completion checklist remains open.
 
 **Approved delivery order**
 
@@ -36,7 +42,7 @@ and the expanded Milo guide have been validated and published.
    restart recovery. Start after the demonstration and discovery milestone is
    completed and validated.
 
-Both milestones remain pending implementation.
+The discovery milestone is in progress. LangGraph expansion remains next in the approved queue.
 
 ## Pending implementation
 
@@ -152,6 +158,12 @@ implemented.
   MCP. The current MCP search is bounded PostgreSQL keyword search.
 - [ ] Apply explicit allowlists, schemas, workspace scope, RBAC, rate limits,
   deadlines, budgets, and audit requirements to every new tool.
+
+### 9. Workspace-owned evaluation datasets
+
+- [ ] Add reviewed workspace-specific evaluation datasets and expected-source
+  mappings. The fixed RAG reference benchmark measures its bundled corpus;
+  public faithfulness examples do not certify a team's own documents.
 
 ## Implemented, pending activation or live validation
 

@@ -185,3 +185,16 @@ test("a workspace index cutover invalidates retrieval scores rather than combini
   assert.equal(result.passed, false);
   assert.match(JSON.stringify(result.failureDetails), /embedding_index_changed/);
 });
+
+test("missing reference material blocks paid judging and retrieval before an evaluation is created", async (t) => {
+  const retrieve = t.mock.fn(async () => []);
+  const create = t.mock.fn(async (input: Omit<EvaluationRun, "id" | "createdAt">) => stored(input));
+  const resolveModel = t.mock.fn(async () => undefined);
+  const judge: FaithfulnessJudge = { model: "fixture", assess: async () => { throw new Error("Judge must not run."); } };
+  const useCase = new RunEvaluationUseCase({ execute: retrieve }, { create, list: async () => [] }, models,
+    { judge, resolveModel }, undefined, async (tenant) => { assert.equal(tenant, "tenant-1"); return false; });
+  await assert.rejects(useCase.execute({ tenantId: "tenant-1", includeFaithfulness: true }), { code: "evaluation_reference_missing" });
+  assert.equal(retrieve.mock.callCount(), 0);
+  assert.equal(create.mock.callCount(), 0);
+  assert.equal(resolveModel.mock.callCount(), 0);
+});

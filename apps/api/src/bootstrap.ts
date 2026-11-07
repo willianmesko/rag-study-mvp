@@ -27,6 +27,8 @@ import { OllamaAnswerGenerator } from "./infrastructure/ollama/ollama-answer-gen
 import { OpenRouterAnswerGenerator } from "./infrastructure/openrouter/openrouter-answer-generator.js";
 import { OpenRouterFaithfulnessJudge } from "./infrastructure/openrouter/openrouter-faithfulness-judge.js";
 import { PgDocumentRepository } from "./infrastructure/postgres/pg-document-repository.js";
+import { PgDemoLibraryRepository } from "./infrastructure/postgres/pg-demo-library-repository.js";
+import type { DocumentFilters } from "@rag-study/contracts";
 import { PgIngestionJobRepository } from "./infrastructure/postgres/pg-ingestion-job-repository.js";
 import { PgQuotaRepository } from "./infrastructure/postgres/pg-quota-repository.js";
 import { PgAuditEventRepository } from "./infrastructure/postgres/pg-audit-event-repository.js";
@@ -55,6 +57,7 @@ export function createApplication() {
   const embeddings = createWorkspaceEmbeddingProvider(pool);
   const reranker = createReranker();
   const documents = new PgDocumentRepository(pool, config.EMBEDDING_DIMENSIONS);
+  const demoLibraryRepository = new PgDemoLibraryRepository(pool);
   const jobs = new PgIngestionJobRepository(pool);
   const quotas = new PgQuotaRepository(pool);
   const auditEvents = new PgAuditEventRepository(pool);
@@ -159,6 +162,7 @@ export function createApplication() {
   return {
     useCases: {
       ingestDocument,
+      demoLibraryRepository,
       queueDocumentUpload: new QueueDocumentUploadUseCase(jobs, originals),
       publicHtmlFetcher: new HttpsPublicHtmlFetcher({ maxBytes: Math.min(config.UPLOAD_MAX_BYTES, 1_000_000), timeoutMs: 10_000 }),
       processNextIngestionJob: new ProcessNextIngestionJobUseCase(jobs, extractor, ingestDocument, originals, semanticCache),
@@ -174,7 +178,7 @@ export function createApplication() {
       changeWorkspaceMemberRole: memberships.changeMemberRole.bind(memberships),
       removeWorkspaceMember: memberships.removeMember.bind(memberships),
       recordWorkspaceInvitation: memberships.recordInvitation.bind(memberships),
-      listDocuments: (tenantId: string, limit: number) => documents.list(tenantId, limit),
+      listDocuments: (tenantId: string, limit: number, filters?: DocumentFilters) => documents.list(tenantId, limit, filters),
       listDocumentChunks: (tenantId: string, documentId: string, limit: number) => documents.listChunks({ tenantId, documentId, limit }),
       getDocumentOriginal: new GetDocumentOriginalUseCase(jobs, originals),
       reindexDocument: new ReindexDocumentUseCase(jobs),
@@ -203,7 +207,7 @@ export function createApplication() {
       } : undefined, async (tenantId) => {
         const { identity, version } = await resolveWorkspaceEmbeddingIndex(embeddings, tenantId);
         return identity ? { provider: identity.provider, model: identity.model, version } : undefined;
-      }),
+      }, async (tenantId) => (await demoLibraryRepository.sourceStates(tenantId, ["golden/rag-fundamentals"]))[0]?.state === "ready"),
       invalidateSemanticCache: (tenantId: string) => semanticCache.invalidateTenant(tenantId),
       recordAuditEvent: auditEvents.record.bind(auditEvents),
       searchDocuments,

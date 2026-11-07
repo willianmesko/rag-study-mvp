@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { questionComparisonInputSchema, questionInputSchema } from "@rag-study/contracts";
 import { ApiError, api } from "../../../shared/api/rag-api";
@@ -6,9 +6,10 @@ import { useLocale } from "../../../shared/i18n/locale";
 import { Mascot } from "../../../shared/ui/Mascot";
 import { SelectField } from "../../../shared/ui/SelectField";
 import type { useConversation } from "../model/use-conversation";
+import { promptVariantLabel } from "../model/prompt-variants";
 import { ConversationThread } from "./ConversationThread";
 
-export function QuestionAnswerForm({ conversation, accessToken, workspaceId, workspaceName, scope, embedded = false, suggestions }: {
+export function QuestionAnswerForm({ conversation, accessToken, workspaceId, workspaceName, scope, embedded = false, suggestions, suggestion, onSuggestionUsed }: {
   conversation: ReturnType<typeof useConversation>;
   accessToken?: string | null;
   workspaceId?: string;
@@ -16,6 +17,8 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
   scope: string;
   embedded?: boolean;
   suggestions?: string[];
+  suggestion?: { id: string; text: string } | null;
+  onSuggestionUsed?: () => void;
 }) {
   const { t } = useLocale();
   const [question, setQuestion] = useState("");
@@ -24,6 +27,9 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
   const [preferredModelId, setPreferredModelId] = useState<string>();
   const [alternateModelId, setAlternateModelId] = useState<string>();
   const [compareMode, setCompareMode] = useState(false);
+  const [comparisonKind, setComparisonKind] = useState<"models" | "prompts">("models");
+  const [preferredPrompt, setPreferredPrompt] = useState("balanced");
+  const [alternatePrompt, setAlternatePrompt] = useState("concise");
   const composer = useRef<HTMLTextAreaElement>(null);
   const composerId = useId();
   const hintId = useId();
@@ -40,13 +46,28 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
   const selectedModel = models.find(({ id }) => id === preferredModelId) ?? models.find(({ isDefault }) => isDefault) ?? models[0];
   const alternates = models.filter(({ id }) => id !== selectedModel?.id);
   const alternateModel = alternates.find(({ id }) => id === alternateModelId) ?? alternates[0];
-  const comparisonAvailable = Boolean(catalog.data?.comparisonAvailable && selectedModel && alternateModel);
+  const modelComparisonAvailable = Boolean(catalog.data?.comparisonAvailable && selectedModel && alternateModel);
+  const prompts = catalog.data?.promptVariants ?? [];
+  const promptComparisonAvailable = Boolean(catalog.data?.promptComparisonAvailable && selectedModel && prompts.length >= 2);
+  const comparisonAvailable = modelComparisonAvailable || promptComparisonAvailable;
+  const kind = comparisonKind === "prompts" ? promptComparisonAvailable ? "prompts" : "models" : modelComparisonAvailable ? "models" : "prompts";
+  const firstPrompt = prompts.find(({ id }) => id === preferredPrompt) ?? prompts[0];
+  const otherPrompts = prompts.filter(({ id }) => id !== firstPrompt?.id);
+  const secondPrompt = otherPrompts.find(({ id }) => id === alternatePrompt) ?? otherPrompts[0];
   const autoAvailable = Boolean(catalog.data?.autoAvailable && !catalog.isError);
   const comparing = compareMode && comparisonAvailable;
+  const comparingPrompts = comparing && kind === "prompts";
   const autoSelected = autoAvailable && !comparing && preferredModelId === "auto";
   const isStreaming = live.phase !== null;
   const busy = isStreaming || comparison.isPending || turns.some((turn) => turn.status === "pending");
   const Heading = embedded ? "h3" : "h1";
+  useEffect(() => {
+    if (!suggestion) return;
+    setQuestion(suggestion.text.slice(0, 5_000));
+    setInvalidInput(false);
+    composer.current?.focus({ preventScroll: true });
+    onSuggestionUsed?.();
+  }, [suggestion, onSuggestionUsed]);
 
   const modelOptions = (available: typeof models) => available.map(({ id, label, isDefault }) => ({
     value: id, label, description: isDefault ? t("Workspace default", "Padrão do espaço") : undefined
@@ -60,8 +81,10 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || !question.trim()) return;
-    if (comparing && selectedModel && alternateModel && accessToken && workspaceId) {
-      const parsed = questionComparisonInputSchema.safeParse({ question: question.trim(), topK, modelIds: [selectedModel.id, alternateModel.id] });
+    if (comparing && selectedModel && accessToken && workspaceId) {
+      const parsed = questionComparisonInputSchema.safeParse({ question: question.trim(), topK,
+        modelIds: [selectedModel.id, comparingPrompts ? selectedModel.id : alternateModel?.id],
+        ...(comparingPrompts ? { promptVariantIds: [firstPrompt?.id, secondPrompt?.id] } : {}) });
       if (!parsed.success) { setInvalidInput(true); return; }
       conversation.startComparison(parsed.data);
       setCompareMode(false);
@@ -114,25 +137,36 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
       composer.current?.focus();
     }} />
     <form className="shrink-0 space-y-2 rounded-b-2xl border-t border-slate-800 bg-slate-900/70 p-3 sm:space-y-3 sm:rounded-b-3xl sm:p-4" onSubmit={submit}>
-      {selectedModel && (models.length === 1 && !autoAvailable
+      {selectedModel && (models.length === 1 && !autoAvailable && !comparisonAvailable
         ? <p className="text-xs text-slate-300 [overflow-wrap:anywhere]">{t("Workspace answer model", "Modelo de resposta do espaço")} · {selectedModel.label}</p>
         : <fieldset className={`grid min-w-0 items-end gap-2.5 sm:flex sm:flex-wrap sm:gap-3 ${comparisonAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
           <legend className="sr-only">{t("Answer models", "Modelos de resposta")}</legend>
-          <SelectField className="sm:min-w-28 sm:max-w-56 sm:flex-1" label={comparing ? t("First model", "Primeiro modelo") : t("Answer model", "Modelo de resposta")}
-            value={autoSelected ? "auto" : selectedModel.id} onValueChange={setPreferredModelId} disabled={busy}
+          <SelectField className="sm:min-w-28 sm:max-w-56 sm:flex-1" label={comparing && !comparingPrompts ? t("First model", "Primeiro modelo") : t("Answer model", "Modelo de resposta")}
+            value={autoSelected ? "auto" : selectedModel.id} onValueChange={setPreferredModelId} disabled={busy || (models.length === 1 && !autoAvailable)}
             options={autoAvailable && !comparing ? [{ value: "auto", label: t("Automatic", "Automático"),
               description: t("Selects an allowed model by question complexity.", "Escolhe um modelo permitido pela complexidade da pergunta.") }, ...modelOptions(models)] : modelOptions(models)} />
-          {comparing && alternateModel && <SelectField className="sm:min-w-28 sm:max-w-56 sm:flex-1" label={t("Second model", "Segundo modelo")}
+          {comparing && !comparingPrompts && alternateModel && <SelectField className="sm:min-w-28 sm:max-w-56 sm:flex-1" label={t("Second model", "Segundo modelo")}
             value={alternateModel.id} onValueChange={setAlternateModelId} disabled={busy} options={modelOptions(alternates)} />}
           {comparisonAvailable && <label className={`flex min-h-11 min-w-0 items-center gap-2 rounded-xl px-2 py-2 text-xs text-slate-200 sm:text-sm ${comparing ? "col-span-2" : ""} ${busy ? "cursor-not-allowed" : "cursor-pointer transition-colors hover:bg-slate-800"}`}>
             <input type="checkbox" className="size-4 shrink-0 accent-cyan-300" checked={comparing} disabled={busy}
               aria-describedby={comparisonHint} onChange={(event) => setCompareMode(event.target.checked)} />
-            {t("Compare two models", "Comparar dois modelos")}
+            {kind === "prompts" ? t("Compare prompts", "Comparar prompts") : t("Compare two models", "Comparar dois modelos")}
           </label>}
+          {comparing && promptComparisonAvailable && modelComparisonAvailable && <SelectField label={t("Compare", "Comparar")}
+            value={kind} onValueChange={(value) => setComparisonKind(value === "prompts" ? "prompts" : "models")} disabled={busy}
+            options={[{ value: "models", label: t("Two models", "Dois modelos") }, { value: "prompts", label: t("Two prompts", "Dois prompts") }]} />}
+          {comparingPrompts && firstPrompt && secondPrompt && <>
+            <SelectField label={t("First prompt", "Primeiro prompt")} value={firstPrompt.id} onValueChange={setPreferredPrompt} disabled={busy}
+              options={prompts.map(({ id }) => ({ value: id, label: promptVariantLabel(id, t) }))} />
+            <SelectField label={t("Second prompt", "Segundo prompt")} value={secondPrompt.id} onValueChange={setAlternatePrompt} disabled={busy}
+              options={otherPrompts.map(({ id }) => ({ value: id, label: promptVariantLabel(id, t) }))} />
+          </>}
         </fieldset>)}
       {comparisonAvailable && <p id={comparisonHint} className={comparing ? "text-xs leading-5 text-slate-300" : "sr-only"}>
-        {t("Both models use the same passages. This counts as two questions toward your daily limit.",
-          "Os dois modelos usam os mesmos trechos. A comparação conta como duas perguntas no limite diário.")}
+        {comparingPrompts ? t("The same model answers twice using the same passages and two approved prompts. This counts as two questions.",
+          "O mesmo modelo responde duas vezes com os mesmos trechos e dois prompts aprovados. A comparação conta como duas perguntas.")
+          : t("Both models use the same passages. This counts as two questions toward your daily limit.",
+            "Os dois modelos usam os mesmos trechos. A comparação conta como duas perguntas no limite diário.")}
       </p>}
       {catalog.isError && !(catalog.error instanceof ApiError && catalog.error.status === 404) && <p className="text-xs text-slate-300" role="status">
         {t("Model options are unavailable. Milo will use the workspace default.", "As opções de modelo estão indisponíveis. O Milo vai usar o padrão do espaço.")}

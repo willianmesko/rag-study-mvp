@@ -1,4 +1,5 @@
 import type { EmbeddedChunk, RetrievedChunk } from "../../domain/document.js";
+import type { DocumentFilters } from "@rag-study/contracts";
 
 export type HybridSearchInput = {
   tenantId: string;
@@ -39,7 +40,7 @@ export interface DocumentRepository {
     chunks: EmbeddedChunk[]
   ): Promise<{ id: string; chunkCount: number }>;
   findHybrid(input: HybridSearchInput): Promise<RetrievedChunk[]>;
-  list(tenantId: string, limit: number): Promise<ManagedDocument[]>;
+  list(tenantId: string, limit: number, filters?: DocumentFilters): Promise<ManagedDocument[]>;
   listChunks(input: { tenantId: string; documentId: string; limit: number }): Promise<StoredChunk[]>;
   delete(input: { tenantId: string; documentId: string }): Promise<boolean>;
 }

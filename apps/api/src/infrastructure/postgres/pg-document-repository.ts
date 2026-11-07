@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import type { DocumentFilters } from "@rag-study/contracts";
 import type { DocumentRepository, HybridSearchInput, ManagedDocument, StoredChunk } from "../../application/ports/document-repository.js";
 import type { EmbeddedChunk, RetrievedChunk } from "../../domain/document.js";
 import { indexedOriginalPredicate } from "./indexed-original.js";
@@ -146,7 +147,20 @@ export class PgDocumentRepository implements DocumentRepository {
     }));
   }
 
-  async list(tenantId: string, limit: number): Promise<ManagedDocument[]> {
+  async list(tenantId: string, limit: number, filters: DocumentFilters = {}): Promise<ManagedDocument[]> {
+    const values: unknown[] = [tenantId, limit];
+    const predicates = ["d.tenant_id = $1"];
+    const add = (value: string, expression: (parameter: string) => string) => {
+      values.push(value);
+      predicates.push(expression(`$${values.length}`));
+    };
+    if (filters.q) add(filters.q, (p) => `strpos(lower(COALESCE(d.title, '') || ' ' || d.source), lower(${p})) > 0`);
+    if (filters.source) add(filters.source, (p) => `strpos(lower(d.source), lower(${p})) > 0`);
+    if (filters.documentId) add(filters.documentId, (p) => `d.id = ${p}::uuid`);
+    if (filters.language) add(filters.language, (p) => `COALESCE(NULLIF(d.metadata ->> 'language', 'unknown'), 'und') = ${p}`);
+    if (filters.format) add(filters.format, (p) => `d.metadata ->> 'format' = ${p}`);
+    if (filters.from) add(filters.from, (p) => `d.updated_at >= (${p}::date::timestamp AT TIME ZONE 'UTC')`);
+    if (filters.to) add(filters.to, (p) => `d.updated_at < ((${p}::date + 1)::timestamp AT TIME ZONE 'UTC')`);
     const result = await this.pool.query<ManagedDocumentRow>(
       `SELECT d.id, d.source, d.title, COUNT(c.id)::int AS chunk_count, d.created_at, d.updated_at,
               d.metadata ->> 'format' AS format, d.metadata ->> 'language' AS language,
@@ -154,11 +168,11 @@ export class PgDocumentRepository implements DocumentRepository {
               EXISTS (SELECT 1 FROM ingestion_jobs j WHERE ${indexedOriginalPredicate}) AS has_original
        FROM documents d
        LEFT JOIN chunks c ON c.document_id = d.id
-       WHERE d.tenant_id = $1
+       WHERE ${predicates.join(" AND ")}
        GROUP BY d.id
        ORDER BY d.updated_at DESC, d.id
        LIMIT $2`,
-      [tenantId, limit]
+      values
     );
     return result.rows.map((row) => ({
       id: row.id,

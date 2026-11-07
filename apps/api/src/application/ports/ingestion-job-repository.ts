@@ -1,5 +1,12 @@
 import type { PromptInjectionAssessment } from "../../domain/security/prompt-injection.js";
 
+export class ExistingIngestionSourceError extends Error {
+  constructor(readonly source: string, readonly state: "ready" | "queued" | "processing", readonly documentId: string | null, readonly jobId: string | null) {
+    super("This source is already available or being prepared.");
+    this.name = "ExistingIngestionSourceError";
+  }
+}
+
 export type IngestionJobStatus = "queued" | "processing" | "completed" | "failed";
 export type IngestionEventStatus = "started" | "completed" | "failed" | "info";
 
@@ -40,7 +47,7 @@ export type IngestionPassagePreview = {
 };
 
 export interface IngestionJobRepository {
-  enqueue(input: Omit<IngestionJob, "id" | "documentId" | "status" | "progress" | "error" | "chunkCount" | "highRiskChunks" | "createdAt" | "updatedAt">): Promise<IngestionJob>;
+  enqueue(input: Omit<IngestionJob, "id" | "documentId" | "status" | "progress" | "error" | "chunkCount" | "highRiskChunks" | "createdAt" | "updatedAt">, options?: { onlyIfMissing: true }): Promise<IngestionJob>;
   claimNext(): Promise<IngestionJob | null>;
   complete(id: string, result: { documentId: string; chunkCount: number; highRiskChunks: number }): Promise<void>;
   fail(id: string, error: string): Promise<void>;

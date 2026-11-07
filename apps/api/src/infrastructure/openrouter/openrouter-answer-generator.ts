@@ -1,3 +1,4 @@
+import type { ChatPromptVariantId } from "@rag-study/contracts";
 import { z } from "zod";
 import type { AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
@@ -22,8 +23,8 @@ function publishUsage(raw: unknown, onUsage?: ProviderUsageObserver) {
 export class OpenRouterAnswerGenerator implements AnswerGenerator {
   constructor(private readonly baseUrl: string, private readonly apiKey: string, private readonly model: string, private readonly maxOutputTokens = 500) {}
 
-  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[]): Promise<string> {
-    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions);
+  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], promptVariant?: ChatPromptVariantId): Promise<string> {
+    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, promptVariant);
     const json = await requestProviderJson(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       signal,

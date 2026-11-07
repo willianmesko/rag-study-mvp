@@ -65,6 +65,10 @@ Zod schemas in both applications.
 - Milo guide with bilingual fictional starter documents, role-aware invitation
   and upload actions, actual preparation status, a first grounded question,
   source inspection, and a Help entry that preserves completed setup.
+- Reusable bilingual demonstration libraries, suggested questions with supporting
+  sources, and workspace-scoped document, source, language, date, and type filters.
+- Controlled model or prompt comparisons using shared evidence, recorded safety
+  outcomes, and an export containing measurements rather than conversation text.
 - Authenticated SSE chat with resumable progress, checked citations, and a stop
   action that cancels the provider request. The JSON endpoint remains available.
 - Deterministic golden-set and prompt-injection evaluation suites.
@@ -203,15 +207,43 @@ support.
 Signed-in users can choose from their workspace's allowed models in Ask.
 Owners set the list and default in **Workspace → Settings**. An optional Auto
 policy picks a model by question complexity and can try approved fallbacks.
-With two or more allowed models, **Compare two models** runs both over the same retrieved
-passages and prompt version. It uses two question-quota units and shows each
-answer, checked citations, generation latency, and estimated cost separately.
+With two or more allowed models, **Compare two models** runs both over the same
+retrieved passages and prompt version. **Compare prompts** works with one allowed
+model: choose two backend-owned styles, Balanced, Concise, or Explanatory. A
+comparison changes either the model or the prompt style, so evidence and the
+other variable stay fixed. It uses two question-quota units and shows each
+answer, checked citations, generation latency, tokens, estimated cost, and
+validation outcome separately. Validated source identifiers do not establish
+that every claim is factually correct.
 Embeddings stay fixed until an explicit index migration. The public demo uses
 the configured default chat model.
 
 Operators can stage and switch workspace embeddings with `npm run embedding:index`.
 See the [embedding index runbook](docs/workspace-embedding-index.md) for version,
 dimension, coverage, activation, and rollback checks.
+
+### Explore demonstration libraries and filter documents
+
+In **Workspace → Knowledge → Demo libraries**, preview or download fictional
+materials for team knowledge, support, or learning. Each library includes a
+handbook, procedure, FAQ, product guide, project brief, and questions linked to
+their supporting sources. An owner or editor can explicitly add a library to
+the selected workspace. This uses normal upload quotas and the configured
+embedding provider; choosing or previewing a library makes no AI calls.
+Sources already present or being prepared are preserved. Questions become
+available when their supporting documents are ready, and populate the chat
+composer for review before sending.
+
+**Advanced filters** search the selected workspace on the server before the
+100-result limit. Combine a document, source text, language, file type, and
+updated-date range. Dates include the whole UTC day.
+
+The fixed retrieval benchmark requires a separate **RAG reference benchmark**
+library. **Evaluations → Prepare reference benchmark** adds its reviewed
+`golden/rag-fundamentals` source explicitly. This tests a known reference corpus;
+the public faithfulness examples and judge calibration are separate measurements.
+See [Demonstration and discovery](docs/demonstration-discovery.md) for the data
+flow, contracts, and evaluation limits.
 
 ## Common commands
 

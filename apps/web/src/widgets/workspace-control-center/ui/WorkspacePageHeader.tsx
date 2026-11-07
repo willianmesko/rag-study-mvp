@@ -11,6 +11,6 @@ export function WorkspacePageHeader({ title, description, children, headingRef }
       <h1 ref={headingRef} tabIndex={headingRef ? -1 : undefined} className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">{title}</h1>
       {description && <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{description}</p>}
     </div>
-    {children && <div className="flex shrink-0 flex-wrap gap-2">{children}</div>}
+    {children && <div className="flex min-w-0 max-w-full flex-wrap gap-2">{children}</div>}
   </header>;
 }

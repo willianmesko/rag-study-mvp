@@ -1,4 +1,6 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
+import { ExistingIngestionSourceError } from "../../application/ports/ingestion-job-repository.js";
+import { withWorkspaceLock } from "./workspace-embedding-lock.js";
 import type { IndexedOriginal, IngestionJob, IngestionJobEvent, IngestionJobRepository, IngestionPassagePreview } from "../../application/ports/ingestion-job-repository.js";
 import { indexedOriginalPredicate } from "./indexed-original.js";
 import { readStoredChunkSecurity } from "./stored-chunk-security.js";
@@ -15,9 +17,20 @@ type PassagePreviewRow = { total_chunks: number } & (
 
 export class PgIngestionJobRepository implements IngestionJobRepository {
   constructor(private readonly pool: Pool) {}
-  async enqueue(input: Omit<IngestionJob, "id" | "status" | "progress" | "error" | "chunkCount" | "highRiskChunks" | "createdAt" | "updatedAt">) {
-    const result = await this.pool.query<Row>(`INSERT INTO ingestion_jobs (tenant_id, source, title, filename, mime_type, payload, storage_path) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING ${columns}`, [input.tenantId, input.source, input.title, input.filename, input.mimeType, input.payload, input.storagePath]);
-    return map(result.rows[0] as Row);
+  async enqueue(input: Parameters<IngestionJobRepository["enqueue"]>[0], options?: { onlyIfMissing: true }) {
+    const insert = async (connection: Pool | PoolClient) => {
+      const result = await connection.query<Row>(`INSERT INTO ingestion_jobs (tenant_id, source, title, filename, mime_type, payload, storage_path) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING ${columns}`, [input.tenantId, input.source, input.title, input.filename, input.mimeType, input.payload, input.storagePath]);
+      return map(result.rows[0] as Row);
+    };
+    if (!options?.onlyIfMissing) return insert(this.pool);
+    return withWorkspaceLock(this.pool, input.tenantId, "exclusive", async (client) => {
+      const document = await client.query<{ id: string }>("SELECT id FROM documents WHERE tenant_id=$1 AND source=$2", [input.tenantId, input.source]);
+      if (document.rows[0]) throw new ExistingIngestionSourceError(input.source, "ready", document.rows[0].id, null);
+      const pending = await client.query<{ id: string; status: "queued" | "processing" }>(
+        "SELECT id, status FROM ingestion_jobs WHERE tenant_id=$1 AND source=$2 AND status IN ('queued','processing') ORDER BY created_at DESC LIMIT 1", [input.tenantId, input.source]);
+      if (pending.rows[0]) throw new ExistingIngestionSourceError(input.source, pending.rows[0].status, null, pending.rows[0].id);
+      return insert(client);
+    });
   }
   async claimNext() {
     const result = await this.pool.query<Row>(`WITH candidate AS (SELECT id FROM ingestion_jobs WHERE status = 'queued' OR (status = 'processing' AND updated_at < NOW() - INTERVAL '10 minutes') ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE ingestion_jobs j SET status='processing', progress=20, error=NULL, updated_at=NOW() FROM candidate WHERE j.id=candidate.id RETURNING j.id, j.tenant_id, j.document_id, j.source, j.title, j.filename, j.mime_type, j.payload, j.storage_path, j.status, j.progress, j.error, j.chunk_count, j.high_risk_chunks, j.created_at, j.updated_at`);

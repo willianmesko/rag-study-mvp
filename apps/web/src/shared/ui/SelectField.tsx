@@ -1,5 +1,5 @@
 import * as Select from "@radix-ui/react-select";
-import { useId } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 
 type SelectOption = {
   value: string;
@@ -29,19 +29,22 @@ function Chevron({ up = false }: { up?: boolean }) {
 
 export function SelectField({ label, hideLabel, value, onValueChange, options, disabled, className = "" }: SelectFieldProps) {
   const id = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement>();
+  useLayoutEffect(() => { setPortalContainer(trigger.current?.closest("dialog") ?? undefined); }, []);
   const selected = options.find((option) => option.value === value);
 
   return (
     <div className={`select-field ${className}`}>
       <label htmlFor={id} id={`${id}-label`} className={hideLabel ? "sr-only" : "select-field__label"}>{label}</label>
       <Select.Root value={value} onValueChange={onValueChange} disabled={disabled}>
-        <Select.Trigger id={id} aria-labelledby={`${id}-label`} className="select-field__trigger">
+        <Select.Trigger ref={trigger} id={id} aria-labelledby={`${id}-label`} className="select-field__trigger">
           <span className="select-field__value" title={selected?.label}>
             <Select.Value><span lang={selected?.lang}>{selected?.label ?? label}</span></Select.Value>
           </span>
           <Select.Icon asChild><Chevron /></Select.Icon>
         </Select.Trigger>
-        <Select.Portal>
+        <Select.Portal container={portalContainer}>
           <Select.Content position="popper" align="start" sideOffset={6} collisionPadding={12}
             aria-labelledby={`${id}-label`} className="select-field__menu">
             <Select.ScrollUpButton className="select-field__scroll"><Chevron up /></Select.ScrollUpButton>

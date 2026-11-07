@@ -1,3 +1,4 @@
+import type { ChatPromptVariantId } from "@rag-study/contracts";
 import { ConverseCommand, ConverseStreamCommand, type BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
 import type { AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
@@ -12,8 +13,8 @@ function publishUsage(usage: { inputTokens?: number; outputTokens?: number } | u
 export class BedrockAnswerGenerator implements AnswerGenerator {
   constructor(private readonly client: BedrockRuntimeClient, private readonly modelId: string, private readonly maxOutputTokens = 500) {}
 
-  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[]): Promise<string> {
-    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions);
+  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver, previousQuestions?: readonly string[], promptVariant?: ChatPromptVariantId): Promise<string> {
+    const prompt = createGroundedAnswerPrompt(question, context, previousQuestions, promptVariant);
     const response = await this.client.send(
       new ConverseCommand({
         modelId: this.modelId,

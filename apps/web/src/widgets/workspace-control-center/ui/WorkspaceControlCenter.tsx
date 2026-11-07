@@ -16,23 +16,24 @@ type WorkspaceControlCenterProps = {
   workspace: Workspace;
   token: string;
   onSectionChange: (section: WorkspaceSection) => void;
+  onAsk?: (question: string) => void;
 };
 
-export function WorkspaceControlCenter({ section, workspace, token, onSectionChange }: WorkspaceControlCenterProps) {
+export function WorkspaceControlCenter({ section, workspace, token, onSectionChange, onAsk }: WorkspaceControlCenterProps) {
   const { t } = useLocale();
   return (
     <section className="space-y-6">
       <WorkspaceSectionNav activeSection={section} role={workspace.role} onChange={onSectionChange} />
       <section className="space-y-8">
         <Suspense key={`${workspace.tenantId}:${workspace.role}:${section}`} fallback={<p role="status" className="empty-state">{t("Opening section…", "Abrindo a seção…")}</p>}>
-          <WorkspaceSectionContent section={section} workspace={workspace} token={token} onSectionChange={onSectionChange} />
+          <WorkspaceSectionContent section={section} workspace={workspace} token={token} onSectionChange={onSectionChange} onAsk={onAsk} />
         </Suspense>
       </section>
     </section>
   );
 }
 
-function WorkspaceSectionContent({ section, workspace, token, onSectionChange }: WorkspaceControlCenterProps) {
+function WorkspaceSectionContent({ section, workspace, token, onSectionChange, onAsk }: WorkspaceControlCenterProps) {
   const { t } = useLocale();
   if (!canAccessWorkspaceSection(section, workspace.role)) {
     const messages = {
@@ -45,7 +46,7 @@ function WorkspaceSectionContent({ section, workspace, token, onSectionChange }:
   }
   switch (section) {
     case "overview": return <WorkspaceOverview workspace={workspace} token={token} onNavigate={onSectionChange} />;
-    case "knowledge": return <WorkspaceKnowledge workspace={workspace} token={token} />;
+    case "knowledge": return <WorkspaceKnowledge workspace={workspace} token={token} onAsk={onAsk} />;
     case "processing": return <WorkspaceProcessing workspace={workspace} token={token} />;
     case "team": return <WorkspaceTeam workspaceId={workspace.tenantId} token={token} />;
     case "evaluations": return <WorkspaceEvaluations workspaceId={workspace.tenantId} token={token} />;

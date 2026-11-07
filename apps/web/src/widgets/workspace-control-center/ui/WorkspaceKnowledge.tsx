@@ -1,4 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { DocumentFilters as Filters } from "@rag-study/contracts";
+import { DemoLibraryDialog } from "../../../features/demo-libraries/ui/DemoLibraryDialog";
+import { DocumentFilters } from "../../../features/filter-documents/ui/DocumentFilters";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { OriginalDocumentAction } from "../../../features/open-original-document/ui/OriginalDocumentAction";
 import { UrlImportForm } from "../../../features/workspace-source-upload/ui/UrlImportForm";
@@ -14,7 +17,7 @@ import { WorkspacePageHeader } from "./WorkspacePageHeader";
 
 type DocumentAction = { type: "reindex" | "remove"; documentId: string };
 
-export function WorkspaceKnowledge({ workspace, token }: { workspace: Workspace; token: string }) {
+export function WorkspaceKnowledge({ workspace, token, onAsk }: { workspace: Workspace; token: string; onAsk?: (question: string) => void }) {
   const { locale, t } = useLocale();
   const number = new Intl.NumberFormat(locale);
   const date = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" });
@@ -27,16 +30,23 @@ export function WorkspaceKnowledge({ workspace, token }: { workspace: Workspace;
   const [sourceType, setSourceType] = useState<"file" | "url">("file");
   const [uploading, setUploading] = useState(false);
   const [added, setAdded] = useState(false);
-  const [documentFilter, setDocumentFilter] = useState("");
-  const documentOptions = documentsQuery(token, workspaceId);
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [filters, setFilters] = useState<Filters>({});
+  const [debouncedFilters, setDebouncedFilters] = useState(filters);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedFilters(filters), 200);
+    return () => window.clearTimeout(timer);
+  }, [filters]);
+  const hasFilter = Object.values(filters).some((value) => value !== undefined);
+  const documentOptions = documentsQuery(token, workspaceId, debouncedFilters);
   const documents = useQuery(documentOptions);
-  const selectedDocument = documents.data?.documents.find(({ id }) => id === selectedId);
-  const filter = documentFilter.trim().toLocaleLowerCase(locale);
-  const filteredDocuments = (documents.data?.documents ?? []).filter(({ title, source }) =>
-    [title, source].join(" ").toLocaleLowerCase(locale).includes(filter));
+  const unfiltered = useQuery({ ...documentsQuery(token, workspaceId), enabled: hasFilter });
+  const selectedDocument = documents.data?.documents.find(({ id }) => id === selectedId) ?? unfiltered.data?.documents.find(({ id }) => id === selectedId);
+  const filteredDocuments = documents.data?.documents ?? [];
+  const availableDocuments = [...new Map([...(unfiltered.data?.documents ?? []), ...filteredDocuments].map((document) => [document.id, document])).values()];
 
   function refreshKnowledge() {
-    void queryClient.invalidateQueries({ queryKey: documentOptions.queryKey });
+    void queryClient.invalidateQueries({ queryKey: documentsQuery(token, workspaceId).queryKey });
     void queryClient.invalidateQueries({ queryKey: ingestionJobsQuery(token, workspaceId).queryKey });
   }
 
@@ -70,10 +80,14 @@ export function WorkspaceKnowledge({ workspace, token }: { workspace: Workspace;
   return (
     <div className="space-y-6">
       <WorkspacePageHeader title={t("Documents", "Documentos")} description={t("Your team’s searchable source library.", "Os materiais que sua equipe pode consultar.")} headingRef={heading}>
+        <button type="button" className="secondary-button" aria-haspopup="dialog" onClick={() => setDemoOpen(true)}>{t("Demo libraries", "Bibliotecas de exemplo")}</button>
         {canManage && <button type="button" className="primary-button" aria-haspopup="dialog" onClick={() => { setUploading(false); setAdded(false); setAdding(true); }}>
           {t("Add documents", "Adicionar documentos")}
         </button>}
       </WorkspacePageHeader>
+      {demoOpen && <DemoLibraryDialog token={token} workspaceId={workspaceId} role={workspace.role} onClose={() => setDemoOpen(false)} onImported={refreshKnowledge}
+        onAsk={onAsk ? (question) => { setDemoOpen(false); onAsk(question); } : undefined}
+        onInspectDocument={(documentId) => { setDemoOpen(false); setFilters({ documentId }); setSelectedId(documentId); }} />}
       {adding && canManage && <Overlay title={t("Add documents", "Adicionar documentos")} pending={uploading} onClose={() => setAdding(false)}>
         <div className="flex gap-2" role="group" aria-label={t("Source type", "Tipo de material")}>
           <button type="button" className={sourceType === "file" ? "primary-button" : "secondary-button"} aria-pressed={sourceType === "file"} disabled={uploading} onClick={() => setSourceType("file")}>{t("File", "Arquivo")}</button>
@@ -85,14 +99,11 @@ export function WorkspaceKnowledge({ workspace, token }: { workspace: Workspace;
       </Overlay>}
       {added && <p className="success-message" role="status">{t("Material received. Follow its progress in Processing.", "Material recebido. Acompanhe o andamento em Processamento.")}</p>}
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <input className="field w-full sm:w-72" aria-label={t("Filter documents", "Filtrar documentos")} value={documentFilter}
-            onChange={(event) => setDocumentFilter(event.target.value)} placeholder={t("Find a document…", "Encontrar um documento…")} />
-          {documents.data && <span className="text-xs text-slate-400">{number.format(filteredDocuments.length)} {t("shown", "exibidos")}</span>}
-        </div>
+        <DocumentFilters value={filters} documents={availableDocuments} onChange={setFilters} />
+        {documents.data && <p className="text-xs text-slate-400">{number.format(filteredDocuments.length)} {t("shown", "exibidos")}</p>}
         <WorkspaceQueryFeedback query={documents} loading={t("Loading documents…", "Carregando documentos…")}
           failure={t("We could not load documents.", "Não foi possível carregar os documentos.")} />
-        {documents.isSuccess && filteredDocuments.length === 0 && <p className="empty-state">{filter ? t("No documents match this filter.", "Nenhum documento corresponde a esse filtro.") : t("No documents are ready for search yet.", "Ainda não há documentos disponíveis para busca.")}</p>}
+        {documents.isSuccess && filteredDocuments.length === 0 && <p className="empty-state">{hasFilter ? t("No documents match these filters.", "Nenhum documento corresponde a esses filtros.") : t("No documents are ready for search yet.", "Ainda não há documentos disponíveis para busca.")}</p>}
         {action.isSuccess && <p className="success-message" role="status">{removing
           ? t("Document and original file removed.", "Documento e arquivo original removidos.")
           : t("Index update queued.", "Atualização do índice na fila.")}</p>}
@@ -118,7 +129,7 @@ export function WorkspaceKnowledge({ workspace, token }: { workspace: Workspace;
           ))}
         </ul>
       </div>
-      {selectedDocument && <DocumentDetails document={selectedDocument} token={token} workspaceId={workspaceId} onClose={() => setSelectedId(null)} />}
+      {selectedDocument && <DocumentDetails document={selectedDocument} token={token} workspaceId={workspaceId} onClose={() => { setSelectedId(null); heading.current?.focus({ preventScroll: true }); }} />}
     </div>
   );
 }

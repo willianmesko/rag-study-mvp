@@ -52,7 +52,7 @@ export function EvaluationPanel({ runs, isLoading, runOptions }: {
       <details className="text-sm text-slate-400">
         <summary className="min-h-11 rounded-lg py-2">{t("How to read the results", "Como interpretar os resultados")}</summary>
           <p className="mt-1 max-w-2xl text-xs leading-5">
-            {t("Run the reference tests for this workspace. Context precision checks the rank of reviewed passages. The optional judge measures faithfulness on separate public cases.", "Execute os testes de referência deste espaço. A precisão do contexto verifica a ordem dos trechos revisados. O avaliador opcional mede a fidelidade em casos públicos separados.")}
+            {t("Workspace retrieval checks whether the expected reference passages were found and ranked. Public faithfulness and judge calibration use separate bundled examples. Counts such as 4/4 describe cases scored; they are not the number of correct answers. The final result covers retrieval and deterministic injection screening.", "A busca do espaço confere se os trechos de referência esperados foram encontrados e ordenados. Fidelidade em casos públicos e calibração usam exemplos separados do projeto. Contagens como 4/4 indicam casos avaliados, não respostas corretas. O resultado final cobre busca e triagem determinística de injeção.")}
           </p>
       </details>
       {runOptions}
@@ -62,13 +62,13 @@ export function EvaluationPanel({ runs, isLoading, runOptions }: {
           <div className="mt-5 grid grid-cols-2 gap-5 border-y border-slate-800 py-5 sm:grid-cols-3 lg:grid-cols-5">
             <Metric label={t("Hit rate", "Taxa de acerto")} value={percentage(latest.hitRate)} tone={metricTone(latest.hitRate, 0.8)} />
             <Metric label="MRR" value={percentage(latest.meanReciprocalRank)} tone={metricTone(latest.meanReciprocalRank, 0.7)} />
-            <Metric label={t("Faithfulness", "Fidelidade")} value={percentage(latest.faithfulness)} tone="text-slate-400" />
+            <Metric label={t("Faithfulness · public examples", "Fidelidade · exemplos públicos")} value={percentage(latest.faithfulness)} tone="text-slate-400" />
             <Metric label={t("Context precision", "Precisão do contexto")} value={percentage(latest.contextPrecision)} tone="text-slate-400" />
-            <Metric label={t("Injection defense", "Defesa contra injeção")} value={percentage(latest.injectionPassRate)} tone={metricTone(latest.injectionPassRate, 1)} />
+            <Metric label={t("Injection screening", "Triagem de injeção")} value={percentage(latest.injectionPassRate)} tone={metricTone(latest.injectionPassRate, 1)} />
           </div>
           {quality && <div className="mt-4 grid gap-2 text-xs text-slate-400">
-            <p>{t("Context precision", "Precisão do contexto")} · {t("Reviewed passages", "Trechos revisados")} v{quality.contextPrecision.version} · {quality.contextPrecision.scoredCases}/{latest.totalCases} {t("cases", "casos")}</p>
-            <p>{t("Faithfulness", "Fidelidade")} · {judgeStatus[quality.faithfulness.status]} · {quality.faithfulness.scoredCases}/{quality.faithfulness.totalCases} {t("public cases", "casos públicos")}
+            <p>{t("Context precision", "Precisão do contexto")} · {t("Reviewed passages", "Trechos revisados")} v{quality.contextPrecision.version} · {quality.contextPrecision.scoredCases}/{latest.totalCases} {t("cases scored", "casos avaliados")}</p>
+            <p>{t("Faithfulness", "Fidelidade")} · {judgeStatus[quality.faithfulness.status]} · {quality.faithfulness.scoredCases}/{quality.faithfulness.totalCases} {t("public cases scored", "casos públicos avaliados")}
               {quality.faithfulness.judgeModel && quality.faithfulness.status !== "not_requested" && <> · {t("Judge", "Avaliador")} <span className="font-mono">{quality.faithfulness.judgeModel}</span> · {t("Answer model", "Modelo de resposta")} <span className="font-mono">{latest.chatModel}</span></>}
             </p>
             {quality.faithfulness.effort && quality.faithfulness.maxOutputTokens && <p>
@@ -78,6 +78,10 @@ export function EvaluationPanel({ runs, isLoading, runOptions }: {
               {t("Judge calibration", "Calibração do avaliador")} v{quality.faithfulness.calibration.version} · {quality.faithfulness.calibration.matchedClaims}/{quality.faithfulness.calibration.expectedClaims} {t("claims", "afirmações")} · {t("agreement", "concordância")} {percentage(quality.faithfulness.calibration.agreement)} · {t("false positives", "falsos positivos")} {percentage(quality.faithfulness.calibration.falsePositiveRate)} · {t("false negatives", "falsos negativos")} {percentage(quality.faithfulness.calibration.falseNegativeRate)}
             </p>}
           </div>}
+          {latest.hitRate === 0 && latest.meanReciprocalRank === 0 && <p className="rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-sm leading-6 text-amber-100" role="status">
+            {t("None of this run’s retrieval questions found an expected source. Check that the benchmark’s reference material is prepared in this workspace. A high faithfulness score on the separate public examples does not change this retrieval result.",
+              "Nenhuma pergunta de busca desta execução encontrou uma fonte esperada. Confira se o material do benchmark está pronto neste espaço. A fidelidade alta nos exemplos públicos separados não altera esse resultado de busca.")}
+          </p>}
           <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
             <span className={"status-pill " + (latest.passed ? "" : "border-rose-400/30 bg-rose-400/10 text-rose-200")}>{result(latest.passed)}</span>
             <span>{latest.datasetName} v{latest.datasetVersion}</span>

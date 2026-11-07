@@ -3,7 +3,11 @@ import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createClient } from "@supabase/supabase-js";
-import { chatModelIdSchema, chatRunIdSchema, documentInputSchema, questionComparisonInputSchema, questionInputSchema, questionStreamInputSchema, workspaceChatModelPolicySchema, workspaceMemberRoleSchema, workspaceOnboardingProgressSchema, type ChatModelDescriptor, type ChatRunEvent } from "@rag-study/contracts";
+import { chatModelIdSchema, chatRunIdSchema, demoLibraryIdSchema, demoLocaleSchema, documentFiltersSchema, documentInputSchema, questionComparisonInputSchema, questionInputSchema, questionStreamInputSchema, workspaceChatModelPolicySchema, workspaceMemberRoleSchema, workspaceOnboardingProgressSchema, type DocumentFilters, type ChatModelDescriptor, type ChatRunEvent } from "@rag-study/contracts";
+import { demoLibraries } from "../../application/demo-libraries/catalog.js";
+import { chatPromptDescriptors } from "../../application/policies/grounded-answer-policy.js";
+import type { DemoLibraryRepository } from "../../application/ports/demo-library-repository.js";
+import { ExistingIngestionSourceError } from "../../application/ports/ingestion-job-repository.js";
 import { ZodError, z } from "zod";
 import type { AnswerQuestionUseCase } from "../../application/use-cases/answer-question.js";
 import type { CompareAnswersUseCase, ComparisonModel } from "../../application/use-cases/compare-answers.js";
@@ -41,6 +45,7 @@ import { openAnswerStream, replayAnswerStream } from "./answer-stream.js";
 import { withReplySignal } from "./reply-signal.js";
 import { registerWorkspaceMcpRoutes, type WorkspaceMcp } from "./workspace-mcp.js";
 import { registerAgentActionRoutes, type AgentActions } from "./agent-actions.js";
+import { safeHttpLogSerializers } from "./safe-logging.js";
 
 const searchSchema = z.object({ q: z.string().min(1).max(5_000), topK: z.coerce.number().int().min(1).max(20).optional() });
 const invitationSchema = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: workspaceMemberRoleSchema });
@@ -92,7 +97,8 @@ type HttpDependencies = {
   changeWorkspaceMemberRole: (input: { tenantId: string; userId: string; role: Exclude<TenantRole, "owner"> }) => Promise<boolean>;
   removeWorkspaceMember: (input: { tenantId: string; userId: string }) => Promise<boolean>;
   recordWorkspaceInvitation: (input: { tenantId: string; email: string; role: Exclude<TenantRole, "owner">; invitedBy: string; invitedUserId: string }) => Promise<void>;
-  listDocuments: (tenantId: string, limit: number) => Promise<ManagedDocument[]>;
+  listDocuments: (tenantId: string, limit: number, filters?: DocumentFilters) => Promise<ManagedDocument[]>;
+  demoLibraryRepository?: DemoLibraryRepository;
   listDocumentChunks: (tenantId: string, documentId: string, limit: number) => Promise<StoredChunk[]>;
   getDocumentOriginal: Pick<GetDocumentOriginalUseCase, "execute">;
   reindexDocument: ReindexDocumentUseCase;
@@ -153,7 +159,7 @@ function anonymousActorKey(request: { headers: Record<string, string | string[] 
 }
 
 export async function buildApp(dependencies: HttpDependencies) {
-  const app = Fastify({ logger: true, bodyLimit: config.UPLOAD_MAX_BYTES + 100_000 });
+  const app = Fastify({ logger: { serializers: safeHttpLogSerializers }, bodyLimit: config.UPLOAD_MAX_BYTES + 100_000 });
   const streamShutdown = new AbortController();
   const answerRuns = new StreamAnswerRuns(dependencies.chatRuns, config.AGENT_TIMEOUT_MS);
   app.addHook("preClose", async () => { streamShutdown.abort(); });
@@ -191,13 +197,13 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (error instanceof AutoAnswerFailedError) return reply.code(503).send({ code: "auto_generation_failed", error: error.message });
     if (error instanceof EmbeddingIndexChangedError) return reply.code(409).send({ code: "embedding_index_changed", error: "The workspace index changed. Try again." });
     if (error instanceof EvaluationRunError) {
-      const status = { evaluation_in_progress: 409, judge_unavailable: 503, model_unavailable: 400 }[error.code];
+      const status = { evaluation_in_progress: 409, judge_unavailable: 503, model_unavailable: 400, evaluation_reference_missing: 409 }[error.code];
       return reply.code(status).send({ code: error.code, error: error.message });
     }
     if (typeof error === "object" && error !== null && "statusCode" in error && error.statusCode === 429) {
       return reply.code(429).send({ error: "Too many requests. Try again later." });
     }
-    app.log.error(error);
+    app.log.error({ code: "request_failed", err: error }, "Request failed");
     return reply.code(500).send({ error: "Internal server error" });
   });
   app.get("/health", async () => ({ status: "ok", capabilities: { pdfOcr: config.PDF_OCR_ENABLED } }));
@@ -378,7 +384,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   async function queueWorkspaceUpload(
     actor: { tenantId: string; userId: string }, requestId: string,
     upload: Omit<Parameters<QueueDocumentUploadUseCase["execute"]>[0], "tenantId">,
-    sourceType: "file" | "url"
+    sourceType: "file" | "url" | "demo"
   ) {
     const quota = await dependencies.consumeAdminUploadQuota(actor.tenantId, actor.userId, upload.payload.byteLength);
     if (!quota.allowed) return null;
@@ -394,6 +400,41 @@ export async function buildApp(dependencies: HttpDependencies) {
     });
     return job;
   }
+
+  app.get("/v1/demo-libraries", { exposeHeadRoute: false }, async (request, reply) => {
+    const actor = await authorizeMember(request, true);
+    if (!actor.ok) return rejectScope(reply, actor);
+    const repository = dependencies.demoLibraryRepository;
+    if (!repository) return reply.code(503).send({ error: "Demonstration libraries are unavailable." });
+    const { locale } = z.strictObject({ locale: demoLocaleSchema.default("en") }).parse(request.query);
+    const libraries = demoLibraries(locale);
+    const sources = libraries.flatMap(({ documents }) => documents.map(({ source }) => source));
+    return { libraries, states: await repository.sourceStates(actor.tenantId, sources) };
+  });
+  app.post("/v1/admin/demo-libraries/:libraryId/documents/:documentKey", { bodyLimit: 2_048, config: { rateLimit: { max: 20 } } }, async (request, reply) => {
+    const actor = await authorizeAdmin(request, true);
+    if (!actor.ok) return rejectScope(reply, actor);
+    const repository = dependencies.demoLibraryRepository;
+    if (!repository) return reply.code(503).send({ error: "Demonstration libraries are unavailable." });
+    const { libraryId, documentKey } = z.strictObject({ libraryId: demoLibraryIdSchema, documentKey: z.string().regex(/^[a-z][a-z0-9-]{0,49}$/) }).parse(request.params);
+    const { locale } = z.strictObject({ locale: demoLocaleSchema }).parse(request.body);
+    const document = demoLibraries(locale).find(({ id }) => id === libraryId)?.documents.find(({ id }) => id === documentKey);
+    if (!document) return reply.code(404).send({ error: "Choose a document from an available demonstration library." });
+    const existing = (await repository.sourceStates(actor.tenantId, [document.source]))[0];
+    if (existing && ["ready", "queued", "processing"].includes(existing.state)) return { created: false, state: existing };
+    try {
+      const job = await queueWorkspaceUpload(actor, request.id, {
+        source: document.source, title: document.title, filename: document.filename,
+        mimeType: { markdown: "text/markdown", text: "text/plain", html: "text/html" }[document.format],
+        payload: Buffer.from(document.content), onlyIfMissing: true
+      }, "demo");
+      if (!job) return reply.code(429).send({ error: "Daily upload quota reached. Try again tomorrow." });
+      return reply.code(202).send({ created: true, state: { source: document.source, state: "queued", jobId: job.id, documentId: null } });
+    } catch (error) {
+      if (!(error instanceof ExistingIngestionSourceError)) throw error;
+      return { created: false, state: { source: error.source, state: error.state, documentId: error.documentId, jobId: error.jobId } };
+    }
+  });
 
   app.post("/v1/admin/uploads", async (request, reply) => {
     const authorization = await authorizeAdmin(request);
@@ -489,7 +530,9 @@ export async function buildApp(dependencies: HttpDependencies) {
     const authorization = await authorizeOwner(request);
     if (!authorization.ok) return rejectScope(reply, authorization);
     const { limit } = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20) }).parse(request.query);
-    return { runs: (await dependencies.listEvaluationRuns(authorization.tenantId, limit)).map(serializeEvaluationRun), faithfulnessEnabled: dependencies.runEvaluation.supportsFaithfulness };
+    const reference = (await dependencies.demoLibraryRepository?.sourceStates(authorization.tenantId, ["golden/rag-fundamentals"]))?.[0];
+    return { runs: (await dependencies.listEvaluationRuns(authorization.tenantId, limit)).map(serializeEvaluationRun), faithfulnessEnabled: dependencies.runEvaluation.supportsFaithfulness,
+      ...(reference ? { reference: { ...reference, ready: reference.state === "ready" } } : {}) };
   });
   app.post("/v1/admin/evaluations/run", { config: { rateLimit: { max: 2 } } }, async (request, reply) => {
     const authorization = await authorizeOwner(request);
@@ -521,7 +564,8 @@ export async function buildApp(dependencies: HttpDependencies) {
   app.get("/v1/admin/documents", async (request, reply) => {
     const authorization = await authorizeMember(request);
     if (!authorization.ok) return rejectScope(reply, authorization);
-    return { documents: (await dependencies.listDocuments(authorization.tenantId, 100)).map(serializeDocument) };
+    const filters = documentFiltersSchema.parse(request.query);
+    return { documents: (await dependencies.listDocuments(authorization.tenantId, 100, filters)).map(serializeDocument) };
   });
   app.get("/v1/admin/documents/:documentId/chunks", async (request, reply) => {
     const authorization = await authorizeMember(request);
@@ -632,10 +676,10 @@ export async function buildApp(dependencies: HttpDependencies) {
     const profile = await workspaceChatModels(membership.tenantId);
     const models = Array.from(profile.models.values(), ({ descriptor }) => descriptor);
     if (models.length === 0) return reply.code(503).send(modelUnavailable);
-    return { models, comparisonAvailable: models.length >= 2, ...(profile.auto ? { autoAvailable: true } : {}) };
+    return { models, comparisonAvailable: models.length >= 2, promptComparisonAvailable: true, promptVariants: chatPromptDescriptors, ...(profile.auto ? { autoAvailable: true } : {}) };
   });
   app.post("/v1/qa/compare", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
-    const { question, topK, modelIds } = questionComparisonInputSchema.parse(request.body);
+    const { question, topK, modelIds, promptVariantIds } = questionComparisonInputSchema.parse(request.body);
     const membership = await authorizeMember(request, true);
     if (!membership.ok) return rejectScope(reply, membership);
     const profile = await workspaceChatModels(membership.tenantId);
@@ -646,7 +690,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey, 2);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
     return withReplySignal(reply, streamShutdown.signal, async (signal) => {
-      const results = await dependencies.compareAnswers.execute({ question, topK, tenantId, actorKey, models: [left, right], signal });
+      const results = await dependencies.compareAnswers.execute({ question, topK, tenantId, actorKey, models: [left, right], promptVariantIds, signal });
       return { results: results.map(({ model, response, ...result }) => ({
         ...result, model, response: response ? serializeQuestionAnswer(response, model) : null
       })) };

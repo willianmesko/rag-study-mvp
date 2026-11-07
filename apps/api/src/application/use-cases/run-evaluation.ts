@@ -10,11 +10,12 @@ import type { SearchDocumentsUseCase } from "./search-documents.js";
 type EmbeddingIdentity = { provider: string; model: string; version?: string };
 
 export class EvaluationRunError extends Error {
-  constructor(readonly code: "evaluation_in_progress" | "judge_unavailable" | "model_unavailable") {
+  constructor(readonly code: "evaluation_in_progress" | "judge_unavailable" | "model_unavailable" | "evaluation_reference_missing") {
     super({
       evaluation_in_progress: "An evaluation is already running in this workspace.",
       judge_unavailable: "Faithfulness evaluation is not enabled.",
-      model_unavailable: "Select an available evaluation model."
+      model_unavailable: "Select an available evaluation model.",
+      evaluation_reference_missing: "Add and prepare the RAG reference benchmark document before running this evaluation."
     }[code]);
     this.name = "EvaluationRunError";
   }
@@ -31,7 +32,8 @@ export class RunEvaluationUseCase {
       judge: FaithfulnessJudge;
       resolveModel: (tenantId: string, modelId: string | undefined, maxOutputTokens: number) => EvaluationModel | undefined | Promise<EvaluationModel | undefined>;
     },
-    private readonly embeddingIdentity?: (tenantId: string) => Promise<EmbeddingIdentity | undefined>
+    private readonly embeddingIdentity?: (tenantId: string) => Promise<EmbeddingIdentity | undefined>,
+    private readonly referenceReady?: (tenantId: string) => Promise<boolean>
   ) {}
 
   get supportsFaithfulness() { return Boolean(this.faithfulness); }
@@ -44,6 +46,7 @@ export class RunEvaluationUseCase {
     this.activeTenants.add(input.tenantId);
 
     try {
+      if (this.referenceReady && !await this.referenceReady(input.tenantId)) throw new EvaluationRunError("evaluation_reference_missing");
       const model = input.includeFaithfulness ? await faithfulness?.resolveModel(input.tenantId, input.modelId, evaluationOutputLimits[effort]) : undefined;
       if (input.includeFaithfulness && !model) throw new EvaluationRunError("model_unavailable");
       return await this.run(input.tenantId, effort, model, faithfulness?.judge);
