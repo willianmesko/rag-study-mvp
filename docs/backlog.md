@@ -67,6 +67,8 @@ product decision, credentials, or additional operational cost.
   Team actions explain roles and require confirmation for removal.
 - Milo gives a short greeting on sign-in after the image loads. The greeting
   respects the device's reduced-motion preference.
+- Milo floats on the shared loading screen while Lumora opens a session,
+  loads workspaces, or checks guided setup. Milo stays still with reduced motion.
 - Milo's guided setup resumes across devices with workspace- and user-scoped
   progress. Existing browser-only progress syncs when the user returns.
 - CI quality gates for every push and pull request: typecheck, unit tests,

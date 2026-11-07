@@ -14,6 +14,7 @@ import { api, type QuestionSource, type Workspace } from "../../../shared/api/ra
 import { useLocale } from "../../../shared/i18n/locale";
 import { canAccessWorkspaceSection, navigateTo, pathForTab, readAppRoute, type LabRoute } from "../../../shared/lib/app-route";
 import { supabase } from "../../../shared/lib/supabase";
+import { Mascot } from "../../../shared/ui/Mascot";
 import { SourcePreview } from "../../../shared/ui/SourcePreview";
 import { LabHeader } from "../../../widgets/lab-layout/ui/LabHeader";
 import { LabNavigation } from "../../../widgets/lab-layout/ui/LabNavigation";
@@ -57,7 +58,10 @@ function StatusScreen({ message, onRetry, onSignOut }: { message: string; onRetr
   const { t } = useLocale();
   return (
     <main className="app-shell grid min-h-svh place-items-center p-5">
-      <section className="panel w-full max-w-md">
+      <section className={`panel w-full max-w-md${onRetry ? "" : " text-center"}`}>
+        {!onRetry && <div className="mx-auto mb-5 grid size-28 place-items-center rounded-full bg-cyan-400/5 ring-1 ring-cyan-300/15" aria-hidden="true">
+          <Mascot size="sm" className="workspace-loading-milo" decorative />
+        </div>}
         <p className="eyebrow">Lumora</p>
         <p className="mt-2 text-slate-200" role={onRetry ? "alert" : "status"}>{message}</p>
         {onRetry && <div className="mt-5 flex flex-wrap gap-3">

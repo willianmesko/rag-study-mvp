@@ -101,6 +101,15 @@
 
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
+@media (prefers-reduced-motion: no-preference) {
+  .workspace-loading-milo { animation: milo-loading-float 2.4s ease-in-out infinite; }
+}
+
+@keyframes milo-loading-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

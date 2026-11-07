@@ -28,6 +28,35 @@ test("sign-in fits the viewport and meets automated accessibility checks", async
   await matchReference(page, testInfo, "desktop-en", "sign-in.png");
 });
 
+test("Milo animates while workspaces load and respects reduced motion", async ({ page, context }) => {
+  await workspaceFixture().attach(context);
+  let releaseWorkspaces!: () => void;
+  const workspaceResponse = new Promise<void>((resolve) => { releaseWorkspaces = resolve; });
+  await context.route("**/v1/workspaces", async (route) => {
+    await workspaceResponse;
+    await route.fallback();
+  });
+
+  const status = page.getByRole("status").filter({ hasText: /Loading your workspaces|Carregando seus espaços de trabalho/ });
+  const mascot = page.locator("img.workspace-loading-milo");
+  try {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/workspace/team");
+    await expect(status).toBeVisible();
+    await expect(mascot).toBeVisible();
+    await expect(mascot).toHaveAttribute("alt", "");
+    await expect(mascot).not.toHaveCSS("animation-name", "none");
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(mascot).toHaveCSS("animation-name", "none");
+  } finally {
+    releaseWorkspaces();
+  }
+
+  await expect(status).toBeHidden();
+  await expect(page.getByRole("heading", { name: /Workspace members|Pessoas no espaço/ })).toBeVisible();
+});
+
 test("Milo's setup guide fits the viewport and meets automated accessibility checks", async ({ page, context }, testInfo) => {
   await workspaceFixture(null).attach(context);
   await page.goto("/onboarding");
