@@ -18,17 +18,19 @@ export function LabNavigation({ activeTab, onTabChange, publicDemo, canIndex }: 
 }) {
   const { t } = useLocale();
   const visibleTabs = tabs.filter(([id]) => (id !== "ingest" || canIndex) && (id !== "admin" || !publicDemo));
+  const compact = activeTab === "answer";
 
   return (
-    <aside className="relative z-10 border-b border-slate-800/80 bg-slate-950/65 p-5 backdrop-blur-xl lg:border-r lg:border-b-0 lg:p-6">
-      <div className="flex items-center gap-3">
+    <aside className={`relative z-10 border-b border-slate-800/80 bg-slate-950/65 backdrop-blur-xl lg:border-r lg:border-b-0 lg:p-6 ${compact ? "px-3 py-2 sm:p-5" : "p-5"}`}>
+      <div className={`items-center gap-3 ${compact ? "hidden sm:flex" : "flex"}`}>
         <BrandMark />
         <div>
           <p className="font-semibold tracking-tight text-slate-50">Lumora</p>
           <p className="text-xs text-slate-400">{t("Team knowledge", "Conhecimento da equipe")}</p>
         </div>
       </div>
-      <nav className="mt-7 flex gap-2 overflow-x-auto p-1.5 lg:mt-10 lg:grid lg:overflow-visible" aria-label={t("Main navigation", "Navegação principal")}>
+      <nav className={`flex gap-2 overflow-x-auto p-1.5 lg:mt-10 lg:grid lg:overflow-visible ${compact ? "sm:mt-7" : "mt-7"}`}
+        aria-label={t("Main navigation", "Navegação principal")}>
         {visibleTabs.map(([id, english, portuguese, number]) => (
           <button key={id} type="button" onClick={() => onTabChange(id)} aria-current={activeTab === id ? "page" : undefined}
             className={`group flex min-h-11 shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors lg:py-3 ${activeTab === id ? "bg-cyan-400/10 text-cyan-100 shadow-inner shadow-cyan-400/5 hover:bg-cyan-400/15" : "text-slate-300 hover:bg-slate-800 hover:text-slate-100"}`}>

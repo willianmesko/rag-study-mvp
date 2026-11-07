@@ -17,7 +17,7 @@ const passage = {
   chunk: 0, score: 0.8, excerpt: "Access requests require approval from the employee's manager."
 };
 
-test("a workspace chat keeps its messages and resets the context for a new conversation", async ({ page, context }) => {
+test("a workspace chat keeps its messages and resets the context for a new conversation", async ({ page, context }, info) => {
   await workspaceFixture().attach(context);
   await context.route("**/v1/qa/models", (route) => route.fulfill({ json: {
     models: [{ id: "default", label: "Workspace model", provider: "openrouter", isDefault: true }],
@@ -44,6 +44,7 @@ test("a workspace chat keeps its messages and resets the context for a new conve
   const messages = page.getByRole("region", { name: /Conversation messages|Mensagens da conversa/ });
   const send = page.getByRole("button", { name: /^(Send message|Enviar mensagem)$/ });
   await expect(send).toBeDisabled();
+  if (info.project.name === "mobile-pt") await expect(composer).toBeInViewport({ ratio: 1 });
   await composer.fill(firstQuestion);
   await composer.press("Shift+Enter");
   await expect(composer).toHaveValue(`${firstQuestion}\n`);
