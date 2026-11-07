@@ -277,7 +277,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
     <main className="app-shell text-slate-100">
       <div className="ambient-glow ambient-glow--cyan" aria-hidden="true" />
       <div className="ambient-glow ambient-glow--blue" aria-hidden="true" />
-      <div className="relative mx-auto grid min-h-screen max-w-[1500px] grid-cols-[minmax(0,1fr)] lg:grid-cols-[17rem_minmax(0,1fr)]">
+      <div className="relative grid min-h-screen w-full grid-cols-[minmax(0,1fr)] lg:grid-cols-[17rem_minmax(0,1fr)]">
         <LabNavigation activeTab={activeTab} onTabChange={(tab) => navigateTo(pathForTab(tab, lab.workspaceSection, demo))}
           publicDemo={demo} canIndex={demo && canIndexDemo} />
         <section className={`min-w-0 ${isChat ? "p-3 sm:p-5 lg:px-8 lg:py-6" : "p-5 sm:p-8 lg:p-10"}`}>

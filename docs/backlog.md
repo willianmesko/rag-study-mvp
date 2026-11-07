@@ -65,6 +65,8 @@ product decision, credentials, or additional operational cost.
 - UX quality checks in CI cover desktop, tablet, and mobile. The main flows use
   consistent button states and clearer English and Brazilian Portuguese copy.
   Team actions explain roles and require confirmation for removal.
+- The main app uses the full viewport width, with desktop navigation aligned
+  to the left screen edge and responsive navigation on smaller screens.
 - Milo gives a short greeting on sign-in after the image loads. The greeting
   respects the device's reduced-motion preference.
 - Milo floats on the shared loading screen while Lumora opens a session,
