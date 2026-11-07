@@ -1,3 +1,4 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api, type WorkspaceMember } from "../../../shared/api/rag-api";
@@ -16,9 +17,10 @@ function memberName(member: WorkspaceMember, t: Translate) {
 }
 
 export function WorkspaceTeam({ workspaceId, token }: { workspaceId: string; token: string }) {
+  const userId = useQueryIdentity();
   const { locale, t } = useLocale();
   const queryClient = useQueryClient();
-  const memberOptions = membersQuery(token, workspaceId);
+  const memberOptions = membersQuery(token, workspaceId, userId);
   const members = useQuery(memberOptions);
   const [invitedEmail, setInvitedEmail] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);

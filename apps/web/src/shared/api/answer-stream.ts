@@ -1,5 +1,5 @@
 import { chatRunEventSchema, type ChatRunEvent, type QuestionInput } from "@rag-study/contracts";
-import { ApiError } from "./rag-api";
+import { apiResponseError } from "./api-error";
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const maxFrameLength = 256_000;
@@ -18,8 +18,7 @@ function headers(session?: WorkspaceSession) {
 
 async function checkResponse(response: Response) {
   if (response.ok) return;
-  const body = await response.json().catch(() => ({})) as { error?: string; message?: string };
-  throw new ApiError(body.error ?? body.message ?? "The request could not be completed.", response.status);
+  throw await apiResponseError(response);
 }
 
 export async function startAnswerStream(input: QuestionInput, options: {

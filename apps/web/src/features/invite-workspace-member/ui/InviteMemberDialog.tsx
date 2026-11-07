@@ -1,3 +1,4 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
 import { useId, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { membersQuery, workspaceRoleLabel } from "../../../entities/workspace/model/members";
@@ -29,9 +30,10 @@ export function InviteMemberDialog({ token, workspaceId, onClose, onInvited }: {
   onClose: () => void;
   onInvited: (email: string) => void;
 }) {
+  const userId = useQueryIdentity();
   const { t } = useLocale();
   const queryClient = useQueryClient();
-  const options = membersQuery(token, workspaceId);
+  const options = membersQuery(token, workspaceId, userId);
   const members = useQuery(options);
   const [value, setValue] = useState("");
   const [role, setRole] = useState<"viewer" | "editor">("viewer");

@@ -1,3 +1,5 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useEffect, useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { mcpReadToolNames, type McpReadToolName } from "@rag-study/contracts";
@@ -7,9 +9,10 @@ import { navigateTo } from "../../../shared/lib/app-route";
 import { Mascot } from "../../../shared/ui/Mascot";
 
 export function McpConsentPage({ requestId, token, workspaces }: { requestId: string | null; token: string; workspaces: Workspace[] }) {
+  const userId = useQueryIdentity();
   const { t } = useLocale();
   const fieldId = useId();
-  const details = useQuery({ queryKey: ["mcp-consent", requestId, token],
+  const details = useQuery({ queryKey: privateQueryKey("mcp-consent", userId, undefined, requestId),
     queryFn: ({ signal }) => api.mcpConsent(token, requestId!, signal), enabled: Boolean(requestId), retry: false, gcTime: 0 });
   const [selected, setSelected] = useState("");
   const [tools, setTools] = useState<McpReadToolName[]>(mcpReadToolNames.filter((name) => name !== "get_quality_report"));

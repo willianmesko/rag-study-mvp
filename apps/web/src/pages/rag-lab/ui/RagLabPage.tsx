@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { lazyWithRecovery, SectionErrorBoundary } from "../../../shared/ui/SectionErrorBoundary";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Session } from "@supabase/supabase-js";
 import type { WorkspaceOnboardingProgress } from "@rag-study/contracts";
@@ -15,6 +16,8 @@ import { api, type QuestionSource, type Workspace } from "../../../shared/api/ra
 import { useLocale } from "../../../shared/i18n/locale";
 import { canAccessWorkspaceSection, navigateTo, pathForTab, readAppRoute, type LabRoute } from "../../../shared/lib/app-route";
 import { supabase } from "../../../shared/lib/supabase";
+import { QueryIdentityProvider } from "../../../shared/lib/query-identity";
+import { privateQueryKey, transitionQueryIdentity } from "../../../shared/lib/query-keys";
 import { Mascot } from "../../../shared/ui/Mascot";
 import { SourcePreview } from "../../../shared/ui/SourcePreview";
 import { LabHeader } from "../../../widgets/lab-layout/ui/LabHeader";
@@ -23,12 +26,12 @@ import { RagLearningAside } from "../../../widgets/lab-layout/ui/RagLearningAsid
 import { WorkspaceSwitcher } from "../../../widgets/lab-layout/ui/WorkspaceSwitcher";
 import { ConversationLibrary } from "../../../features/question-answering/ui/ConversationLibrary";
 
-const OnboardingPage = lazy(() => import("../../onboarding/ui/OnboardingPage").then(({ OnboardingPage }) => ({ default: OnboardingPage })));
-const WorkspaceControlCenter = lazy(() => import("../../../widgets/workspace-control-center/ui/WorkspaceControlCenter").then(({ WorkspaceControlCenter }) => ({ default: WorkspaceControlCenter })));
-const WorkspaceGuideHelp = lazy(() => import("../../../widgets/workspace-onboarding/ui/WorkspaceGuideHelp").then(({ WorkspaceGuideHelp }) => ({ default: WorkspaceGuideHelp })));
-const WorkspaceSourceDialog = lazy(() => import("../../../features/workspace-source-upload/ui/WorkspaceSourceDialog").then(({ WorkspaceSourceDialog }) => ({ default: WorkspaceSourceDialog })));
-const McpConsentPage = lazy(() => import("../../mcp-consent/ui/McpConsentPage").then(({ McpConsentPage }) => ({ default: McpConsentPage })));
-const WorkspaceMcpConnection = lazy(() => import("../../../features/workspace-mcp/ui/WorkspaceMcpConnection").then(({ WorkspaceMcpConnection }) => ({ default: WorkspaceMcpConnection })));
+const OnboardingPage = lazyWithRecovery(async () => ({ default: (await import("../../onboarding/ui/OnboardingPage")).OnboardingPage }), "onboarding");
+const WorkspaceControlCenter = lazyWithRecovery(async () => ({ default: (await import("../../../widgets/workspace-control-center/ui/WorkspaceControlCenter")).WorkspaceControlCenter }), "workspace");
+const WorkspaceGuideHelp = lazyWithRecovery(async () => ({ default: (await import("../../../widgets/workspace-onboarding/ui/WorkspaceGuideHelp")).WorkspaceGuideHelp }), "guide");
+const WorkspaceSourceDialog = lazyWithRecovery(async () => ({ default: (await import("../../../features/workspace-source-upload/ui/WorkspaceSourceDialog")).WorkspaceSourceDialog }), "upload");
+const McpConsentPage = lazyWithRecovery(async () => ({ default: (await import("../../mcp-consent/ui/McpConsentPage")).McpConsentPage }), "consent");
+const WorkspaceMcpConnection = lazyWithRecovery(async () => ({ default: (await import("../../../features/workspace-mcp/ui/WorkspaceMcpConnection")).WorkspaceMcpConnection }), "connections");
 const overviewPath = "/workspace/overview";
 const askPath = "/ask";
 const publicDemo = import.meta.env.VITE_DEMO_MODE === "true";
@@ -83,14 +86,15 @@ export function RagLabPage() {
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState(false);
   const returnPath = useRef<string | null>(null);
+  const queryIdentity = useRef<string | null>(null);
   const route = readAppRoute(pathname);
   const demoRoute = route.kind === "demo" && demoAvailable && (route.lab.tab !== "ingest" || canIndexDemo);
   const token = session?.access_token;
   const userId = session?.user.id;
-  const workspaceQueryKey = ["workspaces", token] as const;
+  const workspaceQueryKey = privateQueryKey("workspaces", userId);
   const workspaceQuery = useQuery({
     queryKey: workspaceQueryKey,
-    queryFn: () => api.workspaces(token!),
+    queryFn: ({ signal }) => api.workspaces(token!, signal),
     enabled: Boolean(token && !demoRoute)
   });
   const workspaces = workspaceQuery.data?.workspaces ?? [];
@@ -113,13 +117,21 @@ export function RagLabPage() {
     return () => window.removeEventListener("popstate", update);
   }, []);
 
+  function acceptSession(nextSession: Session | null) {
+    const nextUserId = nextSession?.user.id ?? null;
+    if (transitionQueryIdentity(queryClient, queryIdentity.current, nextUserId)) {
+      setSelected(null);
+      setCreatedSetup(null);
+    }
+    queryIdentity.current = nextUserId;
+    setSession(nextSession);
+    setAuthReady(true);
+  }
+
   useEffect(() => {
-    const listener = supabase?.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      setAuthReady(true);
-    });
+    const listener = supabase?.auth.onAuthStateChange((_event, nextSession) => acceptSession(nextSession));
     return () => listener?.data.subscription.unsubscribe();
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     if (demoRoute || !authReady || route.kind === "mcp-consent") return;
@@ -174,10 +186,7 @@ export function RagLabPage() {
     try {
       const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) throw error;
-      queryClient.clear();
-      setSession(null);
-      setSelected(null);
-      setCreatedSetup(null);
+      acceptSession(null);
       returnPath.current = null;
       navigateTo("/sign-in", { replace: true });
     } catch {
@@ -198,7 +207,7 @@ export function RagLabPage() {
   }
   if (!authReady) return <StatusScreen message={loadingText} />;
   if (!session || !token || !userId) {
-    return <SignInPage demoAvailable={demoAvailable} onSuccess={setSession}
+    return <SignInPage demoAvailable={demoAvailable} onSuccess={acceptSession}
       onDemo={() => navigateTo("/demo")} />;
   }
   if (workspaceQuery.isError) {
@@ -206,29 +215,29 @@ export function RagLabPage() {
       onRetry={() => void workspaceQuery.refetch()} onSignOut={() => void signOut()} />;
   }
   if (workspaceQuery.isPending) return <StatusScreen message={t("Loading your workspaces…", "Carregando seus espaços de trabalho…")} />;
-  if (route.kind === "mcp-consent") return <Suspense fallback={<StatusScreen message={loadingText} />}>
+  if (route.kind === "mcp-consent") return <QueryIdentityProvider userId={userId}><Suspense fallback={<StatusScreen message={loadingText} />}>
     <McpConsentPage key={route.requestId} requestId={route.requestId} token={token} workspaces={workspaces} />
-  </Suspense>;
+  </Suspense></QueryIdentityProvider>;
   if (setupLoading) return <StatusScreen message={t("Checking your progress with Milo…", "Consultando seu progresso com o Milo…")} />;
 
   if (!activeWorkspace || (!setupComplete && !(route.kind === "private" && route.lab.tab === "connections"))) {
-    return <Suspense fallback={<StatusScreen message={loadingText} />}>
+    return <QueryIdentityProvider userId={userId}><Suspense fallback={<StatusScreen message={loadingText} />}>
       <OnboardingPage key={userId} workspace={activeWorkspace} workspaces={workspaces} accessToken={token} userId={userId}
         progress={onboarding.progress} syncing={onboarding.syncing} syncFailed={onboarding.syncFailed}
         onProgress={onboarding.update} onRetrySync={onboarding.retry}
         justCreated={activeSetup !== null && activeSetup === createdSetup} onWorkspaceCreated={workspaceCreated}
         onWorkspaceChange={selectWorkspace} onComplete={finishOnboarding} onSignOut={() => void signOut()} />
       {signOutMessage && <p className="error-message fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md" role="alert">{signOutMessage}</p>}
-    </Suspense>;
+    </Suspense></QueryIdentityProvider>;
   }
 
   const lab = route.kind === "private" && canViewRoute(route.lab, activeWorkspace.role) ? route.lab : { tab: "answer" } as const;
   const scope = `${userId}:${activeWorkspace.tenantId}`;
-  return <LabExperience key={scope} scope={scope} lab={lab}
+  return <QueryIdentityProvider userId={userId}><LabExperience key={scope} scope={scope} lab={lab}
     privateArea={{ token, workspace: activeWorkspace, workspaces, guideProgress: onboarding.progress, onWorkspaceChange: selectWorkspace, onWorkspaceCreated: workspaceCreated }}
     accountAction={{ label: signingOut ? t("Signing out…", "Saindo…") : t("Sign out", "Sair"), onClick: () => void signOut(), disabled: signingOut }}
     accountError={signOutMessage} onboardingSyncing={onboarding.syncing}
-    onRetryOnboardingSync={onboarding.syncFailed && !onboarding.syncing ? onboarding.retry : undefined} />;
+    onRetryOnboardingSync={onboarding.syncFailed && !onboarding.syncing ? onboarding.retry : undefined} /></QueryIdentityProvider>;
 }
 
 type PrivateArea = {
@@ -301,6 +310,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
           {onRetryOnboardingSync && <div className="mt-5"><OnboardingSyncNotice onRetry={onRetryOnboardingSync} /></div>}
           <div className={`grid min-w-0 grid-cols-[minmax(0,1fr)] gap-8 ${isChat ? "mt-3 sm:mt-5" : "mt-8"} ${showLearningAside ? "xl:grid-cols-[minmax(0,1fr)_18rem]" : ""}`}>
             <div className="min-w-0">
+              <SectionErrorBoundary key={activeTab} surface={isChat ? "chat" : "workspace"}>
               {activeTab === "ingest" && <DocumentIngestionForm />}
               {activeTab === "search" && <SemanticSearchForm accessToken={privateArea?.token} workspaceId={workspaceId} workspaceName={workspaceName} />}
               {activeTab === "answer" && <QuestionAnswerForm scope={scope} accessToken={privateArea?.token} workspaceId={workspaceId}
@@ -317,6 +327,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
                   onAsk={(question) => { setSuggestion({ id: crypto.randomUUID(), text: question }); navigateTo("/ask"); }} />
               </Suspense>}
               {selectedSource && <SourcePreview source={selectedSource} onClose={() => setSelectedSource(null)} />}
+              </SectionErrorBoundary>
             </div>
             {showLearningAside && <RagLearningAside />}
           </div>

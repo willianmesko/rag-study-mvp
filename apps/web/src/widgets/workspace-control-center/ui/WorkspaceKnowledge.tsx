@@ -1,3 +1,5 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useEffect, useRef, useState } from "react";
 import type { DocumentFilters as Filters } from "@rag-study/contracts";
 import { DemoLibraryDialog } from "../../../features/demo-libraries/ui/DemoLibraryDialog";
@@ -18,6 +20,7 @@ import { WorkspacePageHeader } from "./WorkspacePageHeader";
 type DocumentAction = { type: "reindex" | "remove"; documentId: string };
 
 export function WorkspaceKnowledge({ workspace, token, onAsk }: { workspace: Workspace; token: string; onAsk?: (question: string) => void }) {
+  const userId = useQueryIdentity();
   const { locale, t } = useLocale();
   const number = new Intl.NumberFormat(locale);
   const date = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" });
@@ -36,17 +39,17 @@ export function WorkspaceKnowledge({ workspace, token, onAsk }: { workspace: Wor
     return () => window.clearTimeout(timer);
   }, [filters]);
   const hasFilter = Object.values(filters).some((value) => value !== undefined);
-  const documentOptions = documentsQuery(token, workspaceId, debouncedFilters);
+  const documentOptions = documentsQuery(token, workspaceId, userId, debouncedFilters);
   const documents = useQuery(documentOptions);
-  const unfiltered = useQuery({ ...documentsQuery(token, workspaceId), enabled: hasFilter });
+  const unfiltered = useQuery({ ...documentsQuery(token, workspaceId, userId), enabled: hasFilter });
   const selectedDocument = documents.data?.documents.find(({ id }) => id === selectedId) ?? unfiltered.data?.documents.find(({ id }) => id === selectedId);
   const filteredDocuments = documents.data?.documents ?? [];
   const availableDocuments = [...new Map([...(unfiltered.data?.documents ?? []), ...filteredDocuments].map((document) => [document.id, document])).values()];
 
   function refreshKnowledge() {
-    void queryClient.invalidateQueries({ queryKey: documentsQuery(token, workspaceId).queryKey });
-    void queryClient.invalidateQueries({ queryKey: ingestionJobsQuery(token, workspaceId).queryKey });
-    void queryClient.invalidateQueries({ queryKey: knowledgeStatusQuery(token, workspaceId).queryKey });
+    void queryClient.invalidateQueries({ queryKey: documentsQuery(token, workspaceId, userId).queryKey });
+    void queryClient.invalidateQueries({ queryKey: ingestionJobsQuery(token, workspaceId, userId).queryKey });
+    void queryClient.invalidateQueries({ queryKey: knowledgeStatusQuery(token, workspaceId, userId).queryKey });
   }
 
   const action = useMutation({
@@ -137,10 +140,11 @@ function DocumentMetadata({ document }: { document: ManagedDocument }) {
 }
 
 function DocumentDetails({ document, token, workspaceId, onClose }: { document: ManagedDocument; token: string; workspaceId: string; onClose: () => void }) {
+  const userId = useQueryIdentity();
   const { locale, t } = useLocale();
   const chunks = useQuery({
-    queryKey: ["document-chunks", token, workspaceId, document.id, document.updatedAt],
-    queryFn: () => api.listDocumentChunks(document.id, token, workspaceId)
+    queryKey: privateQueryKey("document-chunks", userId, workspaceId, document.id, document.updatedAt),
+    queryFn: ({ signal }) => api.listDocumentChunks(document.id, token, workspaceId, signal)
   });
   const riskLabel = { high: t("High", "Alto"), medium: t("Medium", "Médio"), low: t("Low", "Baixo") };
   const riskTone = { high: "text-rose-300", medium: "text-amber-300", low: "text-slate-400" };

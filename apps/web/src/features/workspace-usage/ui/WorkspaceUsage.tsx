@@ -1,3 +1,4 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { UsageResponse } from "@rag-study/contracts";
@@ -38,10 +39,11 @@ export function WorkspaceUsage({
   workspaceId: string;
   token: string;
 }) {
+  const userId = useQueryIdentity();
   const { locale, t } = useLocale(),
     [days, setDays] = useState(30),
     number = new Intl.NumberFormat(locale);
-  const usage = useQuery(usageQuery(token, workspaceId, days)),
+  const usage = useQuery(usageQuery(token, workspaceId, userId, days)),
     summary = usage.data?.summary;
   const money = (value: number) => formatUsageCost(value, locale);
   const metrics = summary

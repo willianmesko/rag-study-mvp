@@ -1,16 +1,17 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { lazyWithRecovery } from "../../../shared/ui/SectionErrorBoundary";
 import type { Workspace } from "../../../shared/api/rag-api";
 import { canAccessWorkspaceSection, type WorkspaceSection } from "../../../shared/lib/app-route";
 import { useLocale } from "../../../shared/i18n/locale";
 import { WorkspaceOverview } from "./WorkspaceOverview";
 import { WorkspaceSectionNav } from "./WorkspaceSectionNav";
 
-const WorkspaceKnowledge = lazy(() => import("./WorkspaceKnowledge").then(({ WorkspaceKnowledge }) => ({ default: WorkspaceKnowledge })));
-const WorkspaceProcessing = lazy(() => import("./WorkspaceProcessing").then(({ WorkspaceProcessing }) => ({ default: WorkspaceProcessing })));
-const WorkspaceTeam = lazy(() => import("./WorkspaceTeam").then(({ WorkspaceTeam }) => ({ default: WorkspaceTeam })));
-const WorkspaceEvaluations = lazy(() => import("./WorkspaceEvaluations").then(({ WorkspaceEvaluations }) => ({ default: WorkspaceEvaluations })));
-const WorkspaceUsagePage = lazy(() => import("./WorkspaceUsagePage").then(({ WorkspaceUsagePage }) => ({ default: WorkspaceUsagePage })));
-const WorkspaceSettings = lazy(() => import("./WorkspaceSettings").then(({ WorkspaceSettings }) => ({ default: WorkspaceSettings })));
+const WorkspaceKnowledge = lazyWithRecovery(async () => ({ default: (await import("./WorkspaceKnowledge")).WorkspaceKnowledge }), "workspace");
+const WorkspaceProcessing = lazyWithRecovery(async () => ({ default: (await import("./WorkspaceProcessing")).WorkspaceProcessing }), "workspace");
+const WorkspaceTeam = lazyWithRecovery(async () => ({ default: (await import("./WorkspaceTeam")).WorkspaceTeam }), "workspace");
+const WorkspaceEvaluations = lazyWithRecovery(async () => ({ default: (await import("./WorkspaceEvaluations")).WorkspaceEvaluations }), "workspace");
+const WorkspaceUsagePage = lazyWithRecovery(async () => ({ default: (await import("./WorkspaceUsagePage")).WorkspaceUsagePage }), "workspace");
+const WorkspaceSettings = lazyWithRecovery(async () => ({ default: (await import("./WorkspaceSettings")).WorkspaceSettings }), "workspace");
 
 type WorkspaceControlCenterProps = {
   section: WorkspaceSection;

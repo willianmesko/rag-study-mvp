@@ -222,7 +222,7 @@ Type sharing does not make the browser a trusted source.
 Parallel source reviews of frontend and backend at `e25572d` support retaining
 the current stack and modular API. They do not establish throughput or complete
 FSD enforcement. The [technical backlog](technical-backlog.md) contains 25
-pending implementation tickets, with evidence and alternatives in the
+implementation tickets with current progress, evidence and alternatives in the
 [frontend review](frontend-architecture-review.md) and
 [backend review](backend-architecture-review.md).
 
@@ -237,7 +237,11 @@ The API's application/domain relative-import graph respects inward dependencies,
 but HTTP/composition files still mix responsibilities. Native Fastify plugins,
 small typed factories and bounded Auth/directory ports are the proposed next
 step. No framework, ORM, router, global store or UI toolkit migration is part of
-this audit. Concrete boundary/recovery corrections precede broad file moves.
+this audit. The first implementation batch adds credential-free user/workspace
+cache keys, consistent JSON/error transport, recoverable UI section boundaries,
+safe native HTTP errors, idle-pool fault handling, stable key inventory, full-window
+alert repair and a dedicated cutover CI gate. Shared success-response schemas,
+SQL deadlines, Public APIs and broad module extraction remain pending.
 
 ## API architecture
 
@@ -687,12 +691,12 @@ inspected window. No production data or schema was rewritten.
 
 ## Next architectural increments
 
-1. Correct the prioritized transport/session/pool and recovery findings in the
-   [technical backlog](technical-backlog.md), preserving public behavior.
-2. Resolve BE-04 before activating unattended budget delivery; select a tracing/
-   metrics receiver and alarm routing under the existing data policy.
-3. Resolve BE-01's concurrent inventory gap, then rehearse staged key rotation
-   and backup restore before reader-key retirement.
+1. Validate and publish the first [technical backlog](technical-backlog.md) batch,
+   then complete the remaining shared response schemas and SQL workload limits.
+2. Use a release containing BE-04 for unattended budget delivery; select a
+   tracing/metrics receiver and alarm routing under the existing data policy.
+3. Use BE-01's logical-key inventory, then rehearse staged key rotation and backup
+   restore before reader-key retirement. Old physical-cursor reports are insufficient.
 4. Extract cohesive HTTP/application composition and frontend Public APIs with
    tested architecture gates; no additional framework is a prerequisite.
 5. Validate mixed-workload capacity, connection budgets and tenant fairness.
@@ -739,10 +743,12 @@ stateDiagram-v2
 ```
 
 Versioned AES-GCM envelopes separate active writer and retained reader keys. A
-bounded rotation command covers four encrypted stores. Its current physical
-cursor is not safe proof of completeness during concurrent row updates; BE-01
-and the [activation gate](operations/workflow-key-rotation.md#current-activation-gate)
-must be satisfied before reader-key retirement, along with backup-key custody.
+bounded rotation command now traverses immutable composite primary keys across
+four encrypted stores, retaining authenticated conditional updates. Concurrent
+relocation, heap rewrite and process-loss tests cover BE-01. Use this updated
+implementation and the [activation gate](operations/workflow-key-rotation.md#current-activation-gate)
+before reader-key retirement, along with backup-key custody. Earlier physical
+cursor releases cannot prove completeness under concurrent updates.
 OpenTelemetry spans trace
 workflow stages, provider effects, tools and HTTP requests using server-generated
 correlation IDs. Metrics use fixed bounded labels and distinguish reported,

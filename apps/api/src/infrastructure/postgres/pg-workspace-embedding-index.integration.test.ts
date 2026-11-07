@@ -16,14 +16,16 @@ import { PgWorkspaceEmbeddingIndex } from "./pg-workspace-embedding-index.js";
 import { toVectorLiteral } from "./pgvector.js";
 
 const databaseUrl = process.env.TEST_EMBEDDING_DATABASE_URL;
+const fixtureRequired = process.env.CI === "true" || process.env.REQUIRE_EMBEDDING_INDEX_TESTS === "true";
 const dimensions = workspaceEmbeddingDimensions;
 const oldModel: EmbeddingModelIdentity = { provider: "ollama", model: "fixture-old", dimensions };
 const newModel: EmbeddingModelIdentity = { provider: "ollama", model: "fixture-new", dimensions };
 const vector = (axis: number) => Array.from({ length: dimensions }, (_, index) => Number(index === axis));
 
-test("a workspace embedding cutover is complete, scoped, cache-invalidating and reversible", { skip: !databaseUrl }, async (t) => {
-  const url = new URL(databaseUrl!);
-  assert.ok(["localhost", "127.0.0.1"].includes(url.hostname) && url.pathname.startsWith("/embedding_cutover_"), "Use only a disposable local fixture database.");
+test("a workspace embedding cutover is complete, scoped, cache-invalidating and reversible", { skip: !databaseUrl && !fixtureRequired }, async (t) => {
+  assert.ok(databaseUrl, "TEST_EMBEDDING_DATABASE_URL is required in CI and when REQUIRE_EMBEDDING_INDEX_TESTS=true; cutover coverage must not be skipped.");
+  const url = new URL(databaseUrl);
+  assert.ok(["localhost", "127.0.0.1"].includes(url.hostname) && /^\/embedding_cutover_[a-zA-Z0-9_]+$/.test(url.pathname), "Use only a disposable local embedding_cutover_* fixture database.");
   const pool = new Pool({ connectionString: databaseUrl });
   const tenantId = randomUUID();
   const otherTenant = randomUUID();

@@ -1,3 +1,5 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { knowledgeStatusQuery } from "../../../entities/workspace/model/knowledge";
@@ -10,15 +12,16 @@ import { WorkspaceFileUpload } from "./WorkspaceFileUpload";
 export function WorkspaceSourceDialog({ token, workspaceId, onClose, onAdded }: {
   token: string; workspaceId: string; onClose: () => void; onAdded?: () => void;
 }) {
+  const userId = useQueryIdentity();
   const { t } = useLocale();
   const queryClient = useQueryClient();
   const [sourceType, setSourceType] = useState<"file" | "url">("file");
   const [pending, setPending] = useState(false);
 
   function added() {
-    void queryClient.invalidateQueries({ queryKey: ["documents", token, workspaceId] });
-    void queryClient.invalidateQueries({ queryKey: ["ingestion-jobs", token, workspaceId] });
-    void queryClient.invalidateQueries({ queryKey: knowledgeStatusQuery(token, workspaceId).queryKey });
+    void queryClient.invalidateQueries({ queryKey: privateQueryKey("documents", userId, workspaceId) });
+    void queryClient.invalidateQueries({ queryKey: privateQueryKey("ingestion-jobs", userId, workspaceId) });
+    void queryClient.invalidateQueries({ queryKey: knowledgeStatusQuery(token, workspaceId, userId).queryKey });
     onAdded?.();
     onClose();
   }

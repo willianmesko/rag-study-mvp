@@ -29,11 +29,13 @@ verified on 2026-11-07. It includes durable conversations, simplified onboarding
 Usage & costs, observability and resilient integrations. See the
 [release evidence](operations/release-2026-11-07.md) for scope and limits.
 
-The parallel backend/frontend architecture **analysis is complete**. Its 25
-implementation tickets are **pending**, not deployed refactors. No application
-implementation is marked in progress by this audit. The
-[technical backlog](technical-backlog.md) defines the incremental execution plan;
-operational activation remains separate below.
+The parallel backend/frontend architecture review is complete and **phase 1 is
+being implemented and validated**. The [technical backlog](technical-backlog.md)
+now distinguishes six implemented tickets, two partial tickets and 17 pending
+tickets. CI and publication of this new batch remain in progress; operational
+activation is separate below. The batch also addresses OAuth extension-parameter
+interoperability and adds Lumora's standard MCP icon metadata. A real completed
+ChatGPT connection still needs client consent/verification.
 
 **Approved delivery order**
 
@@ -90,12 +92,15 @@ implemented.
 The [backend review](backend-architecture-review.md) and
 [frontend review](frontend-architecture-review.md) record code evidence,
 alternatives, trade-offs and validation. The authoritative task checklist is the
-[technical backlog](technical-backlog.md); all 25 implementation tickets remain
-open. The audit itself is complete and introduced no dependency or runtime change.
+[technical backlog](technical-backlog.md), with explicit completed/partial/pending
+slices. The audit itself is complete; phase 1 adds no dependency or database
+migration and preserves the existing stack.
 
-- [ ] Correct HTTP/JSON boundaries, credential-bearing cache keys, local recovery,
-  pool fault handling, key-inventory traversal, budget-alert repair and the
-  embedding cutover CI gap (phase 1).
+- [x] Implement phase 1 HTTP/JSON transport corrections, credential-free cache
+  identity, local section recovery, idle-pool handling, logical key inventory,
+  full-window budget repair and a required embedding cutover CI job. Local
+  regressions are recorded in the technical backlog; release CI/deploy are
+  tracked separately. Full success-payload validation and SQL deadlines remain open.
 - [ ] Extract cohesive Auth/HTTP/app responsibilities, finish shared wire
   contracts and slice Public APIs, and pilot compatible FSD/correctness gates
   with explicit exceptions (phase 2).
@@ -115,12 +120,12 @@ neither the review nor a new package replaces tests or server authorization.
   reason-coded signals are implemented. Langfuse/Phoenix remain conditional on
   backend selection; Splunk/VictoriaMetrics are deferred until operations justify them.
 - [ ] Activate a signed budget-webhook destination, verify its timestamp/HMAC and
-  idempotency handling, and confirm a real delivery **after BE-04 fixes the repair
-  window**. No destination was invented.
+  idempotency handling, and confirm a real delivery using a release containing
+  BE-04's full-window repair. No destination was invented.
 - [ ] Activate versioned workflow writer keys through staged rollout, complete
   a target-environment inventory and rehearse restoring a real retained backup
-  before retiring reader keys. **BE-01 must resolve concurrent inventory traversal
-  first**, or inventory must be rigorously quiesced as described in the runbook.
+  before retiring reader keys. Use BE-01's logical-key traversal and its fresh
+  inventory protocol, not older physical-cursor releases.
   Current legacy-key compatibility is preserved.
 - [ ] Supply reviewed embedding/reranker billing rates where provider dollar
   measurements are unavailable. New unpriced usage is flagged, and historical
@@ -247,9 +252,10 @@ The local harness passed, along with 54 real PostgreSQL integration checks,
 focused set overlaps the full suite). Public provider/mail delivery is mocked
 in tests. All three CI gates passed and the frontend/API are live at `e25572d`.
 The [release record](operations/release-2026-11-07.md) preserves migration,
-deployment and smoke-test evidence. Operational activation and the newly found
-BE-01/BE-04 recovery limitations remain open; completed local checks do not
-replace concurrent-inventory or extended-repair-window regressions.
+deployment and smoke-test evidence for that version. Phase 1 now implements
+BE-01/BE-04 with concurrent-inventory and extended-repair-window regressions;
+its release status is recorded in the technical backlog. Operational activation
+remains separate.
 See [operations](operations/observability.md),
 [rotation](operations/workflow-key-rotation.md) and
 [integration recovery](operations/integration-recovery.md).
@@ -409,8 +415,10 @@ the latest `e25572d` release retains that functionality.
   passed for `d5ab209`, including 23 PostgreSQL checks and 81 applicable responsive
   browser checks. API and frontend were confirmed live on Render on 2026-11-07;
   health, protected routes and served feature assets passed verification. No
-  schema migration or historical rewrite was needed. The answer-only coverage
-  is visible; embeddings, reranking and judge-call billing remain open above.
+  schema migration or historical rewrite was needed. That version recorded
+  answers only; the later `e25572d` release adds new embedding/reranking/judge
+  records with reported/estimated/unpriced distinctions. Reviewed rates and
+  provider-native coverage activation remain separate above.
 
 ### Product UI and current chat behavior
 

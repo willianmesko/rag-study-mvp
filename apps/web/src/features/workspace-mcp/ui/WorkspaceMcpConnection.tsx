@@ -1,17 +1,20 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useId, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 
 export function WorkspaceMcpConnection({ token, workspaceId, expanded = false }: { token: string; workspaceId: string; expanded?: boolean }) {
+  const userId = useQueryIdentity();
   const { t, locale } = useLocale();
   const client = useQueryClient();
   const keyId = useId();
-  const queryKey = ["workspace-mcp-access", workspaceId, token];
+  const queryKey = privateQueryKey("workspace-mcp-access", userId, workspaceId);
   const status = useQuery({
     queryKey, queryFn: ({ signal }) => api.workspaceMcpAccess(token, workspaceId, signal), retry: false, gcTime: 0
   });
-  const connectionsKey = ["workspace-mcp-connections", workspaceId, token];
+  const connectionsKey = privateQueryKey("workspace-mcp-connections", userId, workspaceId);
   const connections = useQuery({ queryKey: connectionsKey, queryFn: ({ signal }) => api.mcpConnections(token, workspaceId, signal), retry: false, gcTime: 0 });
   const [revoking, setRevoking] = useState<string | null>(null);
   const [urlCopied, setUrlCopied] = useState(false);

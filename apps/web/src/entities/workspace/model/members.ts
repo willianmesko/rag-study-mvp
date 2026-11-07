@@ -1,9 +1,10 @@
 import { queryOptions } from "@tanstack/react-query";
 import { api, type Workspace } from "../../../shared/api/rag-api";
 import type { Translate } from "../../../shared/i18n/locale";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 
-export const membersQuery = (token: string, workspaceId: string) => queryOptions({
-  queryKey: ["workspace-members", token, workspaceId], retry: false,
+export const membersQuery = (token: string, workspaceId: string, userId: string | null) => queryOptions({
+  queryKey: privateQueryKey("workspace-members", userId, workspaceId), retry: false,
   queryFn: ({ signal }) => api.listWorkspaceMembers(workspaceId, token, AbortSignal.any([signal, AbortSignal.timeout(10_000)]))
 });
 

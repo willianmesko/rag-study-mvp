@@ -1,3 +1,5 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "../../../shared/api/rag-api";
@@ -22,9 +24,10 @@ export function IngestionPassagePreview(props: PreviewProps) {
 }
 
 function PassageSample({ jobId, accessToken, workspaceId, panelId }: PreviewProps & { panelId: string }) {
+  const userId = useQueryIdentity();
   const { locale, t } = useLocale();
   const preview = useQuery({
-    queryKey: ["ingestion-passage-preview", workspaceId, jobId, accessToken],
+    queryKey: privateQueryKey("ingestion-passage-preview", userId, workspaceId, jobId),
     queryFn: ({ signal }) => api.previewUploadPassages(jobId, accessToken, workspaceId, signal),
     gcTime: 0,
     retry: false,

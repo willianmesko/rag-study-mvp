@@ -1,3 +1,4 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
 import { useQuery } from "@tanstack/react-query";
 import type { Workspace } from "../../../shared/api/rag-api";
 import type { WorkspaceSection } from "../../../shared/lib/app-route";
@@ -8,11 +9,12 @@ import { WorkspacePageHeader } from "./WorkspacePageHeader";
 import { WorkspaceQueryFeedback } from "./WorkspaceQueryFeedback";
 
 export function WorkspaceOverview({ workspace, token, onNavigate }: { workspace: Workspace; token: string; onNavigate: (section: WorkspaceSection) => void }) {
+  const userId = useQueryIdentity();
   const { locale, t } = useLocale();
   const number = new Intl.NumberFormat(locale);
   const date = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" });
-  const documents = useQuery(documentsQuery(token, workspace.tenantId));
-  const processing = useQuery(ingestionJobsQuery(token, workspace.tenantId));
+  const documents = useQuery(documentsQuery(token, workspace.tenantId, userId));
+  const processing = useQuery(ingestionJobsQuery(token, workspace.tenantId, userId));
   const jobs = processing.data?.jobs ?? [];
   const activeJobs = jobs.filter((job) => job.status === "queued" || job.status === "processing").length;
   const failedJobs = jobs.filter((job) => job.status === "failed").length;
@@ -73,8 +75,9 @@ export function WorkspaceOverview({ workspace, token, onNavigate }: { workspace:
 }
 
 function OwnerBudgetNotice({ workspaceId, token, onOpen }: { workspaceId: string; token: string; onOpen: () => void }) {
+  const userId = useQueryIdentity();
   const { locale, t } = useLocale();
-  const usage = useQuery(usageQuery(token, workspaceId));
+  const usage = useQuery(usageQuery(token, workspaceId, userId));
   const currency = new Intl.NumberFormat(locale, { style: "currency", currency: "USD" });
   return <>
     <WorkspaceQueryFeedback query={usage} loading={t("Checking usage…", "Consultando o uso…")}

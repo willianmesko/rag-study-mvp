@@ -2,7 +2,7 @@
 
 Audit date: 2026-11-07. Source baseline: `e25572d6118efbdb84190367a039526775fbd0b2`.
 
-This review inspects the existing React, TypeScript, Tailwind CSS, TanStack Query and Feature-Sliced Design implementation. The consolidated [technical backlog](technical-backlog.md) tracks the proposed incremental changes. This audit performs no library migration, application rewrite or deployment. All implementation tasks below remain pending. Estimates describe engineering effort, including focused verification, rather than delivery promises.
+This review inspects the existing React, TypeScript, Tailwind CSS, TanStack Query and Feature-Sliced Design implementation. The consolidated [technical backlog](technical-backlog.md) tracks the proposed incremental changes. This audit performs no library migration, application rewrite or deployment. Findings describe the audited baseline; current implementation status is maintained in the technical backlog. Phase 1 implements FE-01/03 and the transport/error portion FE-02a. Estimates describe engineering effort, including focused verification, rather than delivery promises.
 
 ## Assessment
 
@@ -269,4 +269,4 @@ Avoid combining session behavior changes, wholesale file moves, formatting and n
 - No invented requirement to create every possible FSD segment, use every design pattern, memoize every callback or achieve an arbitrary test coverage percentage.
 - No change to backend authorization: client role checks continue to guide the UI; tenant scope, membership and access decisions remain enforced by the server.
 
-The completed deliverable for this audit is the evidence-backed plan. Application changes, dependency adoption and releases require their own incremental implementation and validation records; none are marked complete here.
+The completed deliverable for this audit is the evidence-backed plan. Application changes, dependency adoption and releases have their own incremental implementation and validation records in the technical backlog. Keep the dated baseline evidence above rather than interpreting each finding as an unresolved current defect.

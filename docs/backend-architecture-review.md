@@ -2,8 +2,10 @@
 
 Reviewed on 2026-11-07 against `e25572d6118efbdb84190367a039526775fbd0b2`.
 Implementation work is tracked in the [technical backlog](technical-backlog.md).
-All implementation tickets in this review remain pending. This audit changed
-no application code, dependencies, credentials, grants or hosting configuration.
+Findings below describe the audited baseline. Current implementation progress
+and release evidence are tracked in the technical backlog; phase 1 now addresses
+BE-01/02/04/05 and the idle-pool part of BE-03. The audit itself changed no
+application code, dependencies, credentials, grants or hosting configuration.
 
 ## Decision
 

@@ -1,3 +1,4 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -36,11 +37,12 @@ export function GuidePractice({
   onConversationReady: (id: string) => void;
   onAnswered?: (input: GuideAnsweredQuestion) => void;
 }) {
+  const userId = useQueryIdentity();
   const { locale, t } = useLocale();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invited, setInvited] = useState(false);
   const documents = useQuery({
-    ...guideDocumentsQuery(token, workspace.tenantId),
+    ...guideDocumentsQuery(token, workspace.tenantId, userId),
     refetchInterval: (query) =>
       !query.state.error && query.state.data?.documents.length === 0
         ? 3_000

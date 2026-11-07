@@ -56,6 +56,7 @@ import { withReplySignal } from "./reply-signal.js";
 import { registerWorkspaceMcpRoutes, type WorkspaceMcp } from "./workspace-mcp.js";
 import { registerAgentActionRoutes, type AgentActions } from "./agent-actions.js";
 import { safeHttpLogSerializers } from "./safe-logging.js";
+import { frameworkRequestFailure, isWorkspaceSlugConflict } from "./request-errors.js";
 import { isRemoteMcpPath, registerMcpOAuthRoutes } from "./mcp-oauth.js";
 import { registerRemoteMcp, type RemoteMcp } from "../mcp/remote.js";
 import { ConversationError, type ConversationRepository } from "../../application/ports/conversation-repository.js";
@@ -197,7 +198,7 @@ export async function buildApp(dependencies: HttpDependencies) {
   await app.register(rateLimit, {
     max: config.RATE_LIMIT_MAX,
     timeWindow: config.RATE_LIMIT_WINDOW_MS,
-    errorResponseBuilder: () => ({ error: "Too many requests. Try again later." })
+    errorResponseBuilder: (_request, context) => ({ statusCode: context.statusCode, code: "rate_limit_exceeded", error: "Too many requests. Try again later." })
   });
   app.addHook("onSend", async (request, reply, payload) => {
     reply.header("cache-control", "no-store");
@@ -225,6 +226,8 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (!remote && config.API_KEY && !matchesApiKey(apiKey, config.API_KEY)) return reply.code(401).send({ error: "Unauthorized" });
   });
   app.setErrorHandler((error, _request, reply) => {
+    const frameworkFailure = frameworkRequestFailure(error);
+    if (frameworkFailure) return reply.code(frameworkFailure.status).send(frameworkFailure.body);
     if(error instanceof InvitationDeliveryError)return reply.code(error.code==='forbidden'?403:409).send({code:error.code,error:error.message});
     if(error instanceof DeliveryCommandError)return reply.code({forbidden:403,not_found:404,stale_state:409}[error.code]).send({code:error.code,error:error.message});
     if (error instanceof UploadAdmissionError) return reply.code(error.code==='idempotency_conflict'?409:429).send({code:error.code,error:error.message});
@@ -241,9 +244,6 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (error instanceof EvaluationRunError) {
       const status = { evaluation_in_progress: 409, judge_unavailable: 503, model_unavailable: 400, evaluation_reference_missing: 409 }[error.code];
       return reply.code(status).send({ code: error.code, error: error.message });
-    }
-    if (typeof error === "object" && error !== null && "statusCode" in error && error.statusCode === 429) {
-      return reply.code(429).send({ error: "Too many requests. Try again later." });
     }
     app.log.error({ code: "request_failed", err: error }, "Request failed");
     return reply.code(500).send({ error: "Internal server error" });
@@ -415,7 +415,12 @@ export async function buildApp(dependencies: HttpDependencies) {
     const supabase=createClient(config.SUPABASE_URL,config.SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     const {data,error}=await supabase.auth.getUser(token); if(error||!data.user)return reply.code(403).send({error:"Authentication required."});
     const input=z.object({name:z.string().trim().min(2).max(100),slug:z.string().trim().toLowerCase().regex(/^[a-z0-9-]{2,60}$/)}).parse(request.body);
-    try{return reply.code(201).send({workspace:await dependencies.createWorkspace({userId:data.user.id,...input})});}catch{return reply.code(409).send({error:"Workspace name or slug already exists."});}
+    try {
+      return reply.code(201).send({ workspace: await dependencies.createWorkspace({ userId: data.user.id, ...input }) });
+    } catch (error) {
+      if (isWorkspaceSlugConflict(error)) return reply.code(409).send({ error: "Workspace name or slug already exists." });
+      throw error;
+    }
   });
   app.route({
     method: ["GET", "PATCH"],

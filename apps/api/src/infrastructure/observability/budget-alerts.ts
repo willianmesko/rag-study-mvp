@@ -158,7 +158,9 @@ export class BudgetAlerts {
   async work() {
     if (!this.configured) return;
     const { rows: tenants } = await this.pool.query(
-      "SELECT tenant_id FROM ai_usage_events WHERE created_at>=clock_timestamp()-interval '1 day' AND created_at<=clock_timestamp() AND ($1::uuid IS NULL OR tenant_id>$1) GROUP BY tenant_id ORDER BY tenant_id LIMIT 100",
+      // A committed ledger row may have outlived a failed enqueue or a stopped
+      // worker. Repair the same window that enqueue uses, even with no new calls.
+      "SELECT tenant_id FROM ai_usage_events WHERE created_at>=clock_timestamp()-interval '30 days' AND created_at<=clock_timestamp() AND ($1::uuid IS NULL OR tenant_id>$1) GROUP BY tenant_id ORDER BY tenant_id LIMIT 100",
       [this.cursor],
     );
     this.cursor = tenants.length === 100 ? tenants.at(-1)!.tenant_id : null;

@@ -30,8 +30,8 @@ The detailed design is available in
 [System Architecture](docs/system-architecture.md).
 The [technical architecture backlog](docs/technical-backlog.md) prioritizes
 incremental changes from the [backend](docs/backend-architecture-review.md) and
-[frontend](docs/frontend-architecture-review.md) source reviews; these implementation
-tasks remain pending.
+[frontend](docs/frontend-architecture-review.md) source reviews and records which
+implementation slices are complete, partial or pending.
 See [Durable workflows](docs/durable-workflows.md) for graphs, security boundaries,
 local setup, budget semantics, recovery limits, and failure runbooks.
 

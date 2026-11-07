@@ -73,8 +73,13 @@ export async function rotateWorkflowKeys(
     byKey: {} as Record<string, number>,
   };
   for (const spec of tables) {
-    // Keyset by physical row is only for this bounded scan; never persisted as an identifier.
-    let after = "(0,0)";
+    // These immutable primary-key columns also define PostgreSQL's tuple ordering.
+    // Heartbeats, status updates and heap rewrites must not change traversal position.
+    const keys: readonly string[] = [
+      ...spec.identity,
+      ...("last" in spec ? [spec.last] : []),
+    ];
+    let after: unknown[] | undefined;
     for (let n = 0; n < max; n++) {
       const db = await pool.connect();
       try {
@@ -82,21 +87,33 @@ export async function rotateWorkflowKeys(
         await db.query("SET LOCAL statement_timeout='5s'");
         await db.query("SET LOCAL lock_timeout='500ms'");
         const prefix = codec.activeEnvelopePrefix;
+        const values: unknown[] = after ? [...after] : [];
+        const conditions = [`${spec.column} IS NOT NULL`];
+        if (after) {
+          conditions.push(
+            `(${keys.join(",")}) > (${keys.map((_, index) => `$${index + 1}`).join(",")})`,
+          );
+        }
+        if (options.apply) {
+          values.push(prefix.length, prefix);
+          conditions.push(
+            `substring(${spec.column} from 1 for $${values.length - 1})<>$${values.length}`,
+          );
+        }
+        values.push(batch);
         const { rows } = await db.query(
-          `SELECT ctid::text AS row_id,to_jsonb(t)-'${spec.column}' AS fields,${spec.column} AS cipher FROM ${spec.table} t WHERE ${spec.column} IS NOT NULL AND ctid>$1::tid ${options.apply ? `AND substring(${spec.column} from 1 for $3)<>$4` : ""} ORDER BY ctid LIMIT $2 FOR UPDATE`,
-          options.apply
-            ? [after, batch, prefix.length, prefix]
-            : [after, batch],
+          `SELECT ${keys.join(",")},${spec.column} AS cipher FROM ${spec.table} WHERE ${conditions.join(" AND ")} ORDER BY ${keys.join(",")} LIMIT $${values.length} FOR UPDATE`,
+          values,
         );
         for (const row of rows) {
-          after = row.row_id;
+          after = keys.map((field) => row[field]);
           report.examined++;
           const id = codec.keyId(row.cipher);
           report.byKey[id] = (report.byKey[id] ?? 0) + 1;
           const identity = [
-            ...spec.identity.map((field) => String(row.fields[field])),
+            ...spec.identity.map((field) => String(row[field])),
             ...spec.suffix,
-            ...("last" in spec ? [String(row.fields[spec.last])] : []),
+            ...("last" in spec ? [String(row[spec.last])] : []),
           ];
           if (id === codec.activeKeyId) {
             codec.decode(row.cipher, identity);
@@ -105,10 +122,12 @@ export async function rotateWorkflowKeys(
           const next = codec.reencrypt(row.cipher, identity);
           report.remaining++;
           if (options.apply) {
-            await db.query(
-              `UPDATE ${spec.table} SET ${spec.column}=$2 WHERE ctid=$1::tid AND ${spec.column}=$3`,
-              [row.row_id, next, row.cipher],
+            const updated = await db.query(
+              `UPDATE ${spec.table} SET ${spec.column}=$${keys.length + 1} WHERE ${keys.map((field, index) => `${field}=$${index + 1}`).join(" AND ")} AND ${spec.column}=$${keys.length + 2}`,
+              [...after, next, row.cipher],
             );
+            if (updated.rowCount !== 1)
+              throw new Error("Workflow state changed during rotation.");
             report.changed++;
             report.remaining--;
           }

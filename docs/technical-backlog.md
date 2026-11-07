@@ -3,10 +3,37 @@
 Reviewed on **2026-11-07**, against source commit
 `e25572d6118efbdb84190367a039526775fbd0b2`.
 
-The backend and frontend reviews were performed in parallel. **The analysis and
-planning are complete; all 25 implementation tickets below are pending.** No
-application code, dependency, API contract or infrastructure was changed by this
-audit. Product work and live activation remain in the [product backlog](backlog.md).
+The backend and frontend reviews were performed in parallel. The analysis is
+complete and **phase 1 implementation has started**. This delivery retains the
+existing stack and adds no dependency or database migration. Product work and
+live activation remain in the [product backlog](backlog.md).
+
+## Implementation status
+
+| Status | Tickets | Count |
+| --- | --- | --- |
+| Implemented with focused local verification | BE-01, BE-02, BE-04, BE-05, FE-01, FE-03 | 6 |
+| Partially implemented | BE-03: idle-pool handling; FE-02: JSON/error transport | 2 |
+| Pending implementation | BE-06–BE-14; FE-04–FE-11 | 17 |
+
+Release CI and frontend/API deployment are pending for this first implementation
+batch. The previously verified application release remains `e25572d` until the
+new release is recorded. A checked slice below does not close the remaining
+portions of a partially implemented ticket.
+
+Phase 1 verification includes real PostgreSQL regressions for all four encrypted
+stores under concurrent relocation/rewrite and process loss; repair after 25h
+without a new provider call; real idle-client termination/replacement; native
+JSON/multipart/rate-limit handling and a real Fetch-to-Fastify role PATCH. The
+new cutover CI job uses a dedicated disposable database and fails when its
+required fixture is missing. Browser tests cover account transitions, cache
+cleanup, JSON role changes and isolated section recovery. No paid provider, real
+mail, secret rotation or webhook activation is part of routine verification.
+
+The same batch also fixes OAuth extension-parameter interoperability and exposes
+Lumora’s existing brand as standard MCP server icon metadata. The exact reported
+ChatGPT authorization request and a real completed client consent remain separate
+validation; the PKCE/resource/client/redirect/workspace protections are retained.
 
 Each ticket's problem, code evidence, proposed pattern/tool, reasoning and
 trade-offs are documented in the [backend review](backend-architecture-review.md)
@@ -41,7 +68,7 @@ audited source commit and may move after implementation.
 
 ### BE-01 — Stable encryption-key inventory
 
-- [ ] **P1 · M · High risk · Activation gate: reader-key retirement.** Replace
+- [x] **P1 · M · High risk · Activation gate: reader-key retirement.** Replace
   mutable physical-row pagination with immutable logical-key inventory or a
   rigorously quiesced protocol. Scope:
   `infrastructure/postgres/rotate-workflow-keys.ts`, the four encrypted stores,
@@ -56,7 +83,7 @@ audited source commit and may move after implementation.
 
 ### FE-02a + BE-02 — JSON transport and safe HTTP error corrections
 
-- [ ] **P1 · S–M first slice · Medium risk.** Fix JSON headers on body-bearing
+- [x] **P1 · S–M first slice · Medium risk.** Fix JSON headers on body-bearing
   void requests and retain safe error codes. Map trusted framework parser/body
   errors to 400/413/415/429 and unique-slug conflicts to 409. Scope:
   `shared/api/rag-api.ts`, `interfaces/http/app.ts`, error mapping and member-role
@@ -71,8 +98,11 @@ audited source commit and may move after implementation.
 
 ### BE-03 — Database pool faults and workload deadlines
 
-- [ ] **P1 pool listener, P2 SQL limits · S–M · Medium risk.** Scope:
-  `infrastructure/postgres/pool.ts` and bounded transaction/query helpers.
+- [x] **P1 idle-pool listener implemented · S · Medium risk.** Scope:
+  `infrastructure/postgres/pool.ts`, a fixed reason-code counter/log, and unit/
+  actual PostgreSQL disconnect/replacement tests.
+- [ ] **P2 SQL limits remain pending · M.** Inventory actual connection/role
+  defaults and apply workload-specific query/statement/lock limits and cleanup.
 - **Accept:** an idle-client disconnect emits a safe fixed reason and does not
   terminate the service; a replacement connection works. Retrieval sleep/lock
   tests, caller cancellation and failed-transaction reuse prove cleanup and
@@ -81,7 +111,7 @@ audited source commit and may move after implementation.
 
 ### FE-01 — Credential-free cache identity and auth transitions
 
-- [ ] **P1 · M · High risk.** Scope: `pages/rag-lab`,
+- [x] **P1 · M · High risk.** Scope: `pages/rag-lab`,
   `app/providers/QueryProvider.tsx`, workspace query factories,
   `widgets/workspace-control-center/model/queries.ts` and saved conversations.
 - **Accept:** no sentinel bearer token appears in query keys; same-user token
@@ -93,17 +123,17 @@ audited source commit and may move after implementation.
 
 ### FE-03 — Local recovery boundaries and safe diagnostics
 
-- [ ] **P1 · S–M · Medium risk.** Scope: `app/ErrorBoundary.tsx`, workspace lazy
+- [x] **P1 · S–M · Medium risk.** Scope: `app/ErrorBoundary.tsx`, workspace lazy
   sections, chat/onboarding composition and a minimal diagnostic adapter.
 - **Accept:** injected lazy-load/render failures leave navigation and another
   section usable, expose an accessible recovery action and recover without retry
-  loops. Recorded diagnostics exclude sentinel prompts, sources and credentials.
+  loops. A manual reload handles browsers that cache a failed module import. Recorded diagnostics exclude sentinel prompts, sources and credentials.
   Retain a root fallback for genuinely global failures; no monitoring vendor is
   installed as part of this correction.
 
 ### BE-04 — Complete budget-alert repair window
 
-- [ ] **P1 · M · Medium risk · Activation gate: unattended budget webhook.**
+- [x] **P1 · M · Medium risk · Activation gate: unattended budget webhook.**
   Scope: ledger recording in `bootstrap.ts`,
   `infrastructure/observability/budget-alerts.ts` and outbox recovery tests.
 - **Accept:** a crash after ledger commit/before enqueue, followed by 25 hours
@@ -114,7 +144,7 @@ audited source commit and may move after implementation.
 
 ### BE-05 — Execute embedding-index cutover tests in CI
 
-- [ ] **P1 · S–M · Medium risk · Activation gate: live embedding migration.**
+- [x] **P1 · S–M · Medium risk · Activation gate: live embedding migration.**
   Scope: `.github/workflows/quality-gates.yml`, existing
   `pg-workspace-embedding-index.integration.test.ts` and its database fixture.
 - **Accept:** CI creates a separately named disposable cutover database, loads

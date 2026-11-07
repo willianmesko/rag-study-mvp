@@ -1,5 +1,6 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, type ReactNode } from "react";
 import { useLocale } from "../shared/i18n/locale";
+import { reportRenderFailure } from "../shared/lib/client-diagnostics";
 
 type Props = { children: ReactNode };
 type State = { hasError: boolean };
@@ -11,8 +12,8 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("Lumora rendering error", error, info.componentStack);
+  componentDidCatch() {
+    reportRenderFailure("application");
   }
 
   render() {

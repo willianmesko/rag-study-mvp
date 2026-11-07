@@ -9,6 +9,41 @@ permissions:
   contents: read
 
 jobs:
+  embedding-index-cutover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: embedding_cutover_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rag -d embedding_cutover_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://rag:rag@127.0.0.1:5432/embedding_cutover_ci
+      TEST_EMBEDDING_DATABASE_URL: postgresql://rag:rag@127.0.0.1:5432/embedding_cutover_ci
+      REQUIRE_EMBEDDING_INDEX_TESTS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Prepare isolated cutover authentication fixture
+        run: docker exec -i ${{ job.services.postgres.id }} psql -U rag -d embedding_cutover_ci -v ON_ERROR_STOP=1 < tests/fixtures/supabase-auth.sql
+      - run: npm run build:api
+      - name: Migrate isolated cutover database
+        run: npm run db:migrate
+      - name: Verify embedding-index cutover without skips
+        run: npm run test:embedding:index
   mcp-isolation:
     runs-on: ubuntu-latest
     timeout-minutes: 10

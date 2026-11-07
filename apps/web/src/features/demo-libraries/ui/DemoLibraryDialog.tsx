@@ -1,3 +1,5 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DemoLibrary, DemoSourceState } from "@rag-study/contracts";
@@ -17,9 +19,10 @@ export function DemoLibraryDialog({ token, workspaceId, role, initialId = "knowl
   onAsk?: (question: string) => void;
   onInspectDocument?: (documentId: string) => void;
 }) {
+  const userId = useQueryIdentity();
   const { locale, t } = useLocale();
   const queryClient = useQueryClient();
-  const key = ["demo-libraries", token, workspaceId, locale] as const;
+  const key = privateQueryKey("demo-libraries", userId, workspaceId, locale);
   const [selectedId, setSelectedId] = useState(initialId);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [stopped, setStopped] = useState(false);

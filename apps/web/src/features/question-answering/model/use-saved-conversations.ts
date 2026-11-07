@@ -7,6 +7,8 @@ import {
 import { chatRunIdSchema } from "@rag-study/contracts";
 import { api } from "../../../shared/api/rag-api";
 import { navigateTo } from "../../../shared/lib/app-route";
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 
 function selectedFromUrl() {
   const value = new URLSearchParams(window.location.search).get("conversation");
@@ -25,13 +27,14 @@ export function useSavedConversations({
   navigation?: boolean;
 }) {
   const client = useQueryClient();
+  const userId = useQueryIdentity();
   const health = useQuery({
     queryKey: ["health"],
     queryFn: api.health,
     staleTime: 10000,
   });
   const enabled = Boolean(
-    token && workspaceId && health.data?.capabilities?.durableConversations,
+    token && userId && workspaceId && health.data?.capabilities?.durableConversations,
   );
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     navigation ? selectedFromUrl() : null,
@@ -41,13 +44,8 @@ export function useSavedConversations({
     [rating, setRating] = useState<string | null>(null);
   const createPending = useRef<Promise<string> | null>(null),
     draftId = useRef<string | null>(null);
-  const key = ["conversations", scope, token] as const;
-  const messagesKey = [
-    "conversation-messages",
-    scope,
-    selectedId,
-    token,
-  ] as const;
+  const key = privateQueryKey("conversations", userId, workspaceId);
+  const messagesKey = privateQueryKey("conversation-messages", userId, workspaceId, selectedId);
   const list = useInfiniteQuery({
     queryKey: key,
     initialPageParam: null as string | null,
@@ -130,7 +128,7 @@ export function useSavedConversations({
   function refresh() {
     void client.invalidateQueries({ queryKey: key });
     void client.invalidateQueries({
-      queryKey: ["conversation-messages", scope],
+      queryKey: privateQueryKey("conversation-messages", userId, workspaceId),
     });
   }
   async function rename(id: string, title: string) {

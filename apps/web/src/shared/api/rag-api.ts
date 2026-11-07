@@ -1,4 +1,6 @@
 import { usageResponseSchema } from "@rag-study/contracts";
+import { ApiError, apiResponseError } from "./api-error";
+export { ApiError } from "./api-error";
 import { conversationPageSchema, conversationCreatedSchema, conversationMessagesSchema, conversationTurnSchema } from "@rag-study/contracts";
 import { knowledgeStatusSchema } from "@rag-study/contracts";
 import { workflowSnapshotSchema, type WorkflowSnapshot } from "@rag-study/contracts";
@@ -82,8 +84,6 @@ export type EvaluationRun = {
   createdAt: string;
 };
 
-type ErrorBody = { error?: string; message?: string; code?: string };
-
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const workspaceHeaders = (workspaceId?: string): Record<string, string> => workspaceId ? { "x-workspace-id": workspaceId } : {};
 
@@ -98,13 +98,6 @@ function originalFilename(disposition: string | null, fallback: string): string 
   }
 }
 
-export class ApiError extends Error {
-  constructor(message: string, public readonly status: number, public readonly code?: string) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
@@ -113,19 +106,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init?.headers
     }
   });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as ErrorBody;
-    throw new ApiError(body.error ?? body.message ?? "The request could not be completed.", response.status, body.code);
-  }
+  if (!response.ok) throw await apiResponseError(response);
   return response.json() as Promise<T>;
 }
 
 async function requestVoid(path: string, init?: RequestInit): Promise<void> {
-  const response = await fetch(`${apiBaseUrl}${path}`, init);
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as ErrorBody;
-    throw new ApiError(body.error ?? body.message ?? "The request could not be completed.", response.status);
-  }
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    ...init,
+    headers: { ...(init?.body ? { "content-type": "application/json" } : {}), ...init?.headers }
+  });
+  if (!response.ok) throw await apiResponseError(response);
 }
 
 async function waitForSavedTurn(token:string,workspaceId:string,saved:{conversationId:string;runId:string},signal:AbortSignal) {
@@ -215,7 +205,7 @@ export const api = {
   revokeMcpConnection: (token: string, workspaceId: string, id: string) => requestVoid(`/v1/mcp/connections/${encodeURIComponent(id)}`, {
     method: "DELETE", headers: { authorization: `Bearer ${token}`, ...workspaceHeaders(workspaceId) }
   }),
-  workspaces: (accessToken: string) => request<{ workspaces: Workspace[] }>("/v1/workspaces", { headers: { authorization: `Bearer ${accessToken}` } }),
+  workspaces: (accessToken: string, signal?: AbortSignal) => request<{ workspaces: Workspace[] }>("/v1/workspaces", { signal, headers: { authorization: `Bearer ${accessToken}` } }),
   createWorkspace: (input: { name: string; slug: string; accessToken: string }) => request<{ workspace: Workspace }>("/v1/workspaces", { method: "POST", body: JSON.stringify({ name: input.name, slug: input.slug }), headers: { authorization: `Bearer ${input.accessToken}` } }),
   getOnboardingProgress: async (workspaceId: string, accessToken: string, signal: AbortSignal) => {
     const response = await request<unknown>(`/v1/workspaces/${workspaceId}/onboarding`, {
@@ -271,13 +261,13 @@ export const api = {
       headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
     })),
   listUploads: (accessToken: string, workspaceId?: string, signal?: AbortSignal) => request<{ jobs: UploadJob[] }>("/v1/admin/uploads", { signal, headers: { authorization: `Bearer ${accessToken}`, ...(workspaceId ? { "x-workspace-id": workspaceId } : {}) } }),
-  listUploadEvents: (jobId: string, accessToken: string, workspaceId?: string) => request<{ events: IngestionEvent[] }>(`/v1/admin/uploads/${jobId}/events`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listUploadEvents: (jobId: string, accessToken: string, workspaceId?: string, signal?: AbortSignal) => request<{ events: IngestionEvent[] }>(`/v1/admin/uploads/${jobId}/events`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   previewUploadPassages: (jobId: string, accessToken: string, workspaceId: string, signal: AbortSignal) =>
     request<IngestionPassagePreview>(`/v1/admin/uploads/${encodeURIComponent(jobId)}/preview`, {
       headers: { authorization: `Bearer ${accessToken}`, "x-workspace-id": workspaceId }, signal, cache: "no-store"
     }),
-  getUsageSummary: async (accessToken: string, workspaceId: string, days = 30) => usageResponseSchema.parse(await request<unknown>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } })),
-  listEvaluationRuns: (accessToken: string, workspaceId: string) => request<{ runs: EvaluationRun[]; workflowAvailable?: boolean; workflows?: WorkflowSnapshot[]; faithfulnessEnabled?: boolean; reference?: DemoSourceState & { ready: boolean } }>("/v1/admin/evaluations?limit=20", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  getUsageSummary: async (accessToken: string, workspaceId: string, days = 30, signal?: AbortSignal) => usageResponseSchema.parse(await request<unknown>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } })),
+  listEvaluationRuns: (accessToken: string, workspaceId: string, signal?: AbortSignal) => request<{ runs: EvaluationRun[]; workflowAvailable?: boolean; workflows?: WorkflowSnapshot[]; faithfulnessEnabled?: boolean; reference?: DemoSourceState & { ready: boolean } }>("/v1/admin/evaluations?limit=20", { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   runEvaluation: (accessToken: string, workspaceId: string, options: { includeFaithfulness?: boolean; modelId?: string; effort?: "compact" | "standard" | "extended" } = {}) =>
     request<{ run: EvaluationRun }>("/v1/admin/evaluations/run", {
       method: "POST", body: JSON.stringify(options), headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
@@ -312,7 +302,7 @@ export const api = {
     const filename = originalFilename(response.headers.get("content-disposition"), isPdf ? "original-file.pdf" : "original-file");
     return { blob: await response.blob(), filename, isPdf };
   },
-  listDocumentChunks: (documentId: string, accessToken: string, workspaceId?: string) => request<{ chunks: StoredChunk[] }>(`/v1/admin/documents/${documentId}/chunks`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
+  listDocumentChunks: (documentId: string, accessToken: string, workspaceId?: string, signal?: AbortSignal) => request<{ chunks: StoredChunk[] }>(`/v1/admin/documents/${documentId}/chunks`, { signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   reindexDocument: (documentId: string, accessToken: string, workspaceId?: string) => request<{ job: UploadJob }>(`/v1/admin/documents/${documentId}/reindex`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   deleteDocument: (documentId: string, accessToken: string, workspaceId?: string) => requestVoid(`/v1/admin/documents/${documentId}`, { method: "DELETE", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   importDocumentUrl: (input: { url: string; title?: string; accessToken: string; workspaceId: string }) =>
@@ -324,7 +314,7 @@ export const api = {
   uploadDocument: async (input: { file: File; source: string; title?: string; accessToken: string; workspaceId?: string; signal?: AbortSignal }) => {
     const body = new FormData(); body.append("file", input.file);
     const response = await fetch(`${apiBaseUrl}/v1/admin/uploads`, { method: "POST", body, signal: input.signal, headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId), "x-document-source": input.source, ...(input.title ? { "x-document-title": input.title } : {}) } });
-    if (!response.ok) { const error = await response.json().catch(() => ({})) as ErrorBody; throw new ApiError(error.error ?? "The file could not be uploaded.", response.status); }
+    if (!response.ok) throw await apiResponseError(response, "The file could not be uploaded.");
     return response.json() as Promise<{ job: UploadJob }>;
   }
 };

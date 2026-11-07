@@ -1,3 +1,5 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api } from "../../../shared/api/rag-api";
@@ -13,9 +15,10 @@ import { WorkspaceQueryFeedback } from "./WorkspaceQueryFeedback";
 import { WorkspacePageHeader } from "./WorkspacePageHeader";
 
 export function WorkspaceEvaluations({ workspaceId, token }: { workspaceId: string; token: string }) {
+  const userId = useQueryIdentity();
   const { t } = useLocale();
   const queryClient = useQueryClient();
-  const evaluationOptions = evaluationsQuery(token, workspaceId);
+  const evaluationOptions = evaluationsQuery(token, workspaceId, userId);
   const evaluations = useQuery(evaluationOptions);
   const [includeFaithfulness, setIncludeFaithfulness] = useState(false);
   const [modelId, setModelId] = useState<string | undefined>();
@@ -25,7 +28,7 @@ export function WorkspaceEvaluations({ workspaceId, token }: { workspaceId: stri
   const judgingEnabled = evaluations.data?.faithfulnessEnabled === true;
   const judgingRequested = judgingEnabled && includeFaithfulness;
   const catalog = useQuery({
-    queryKey: ["evaluation-models", workspaceId, token],
+    queryKey: privateQueryKey("evaluation-models", userId, workspaceId),
     queryFn: ({ signal }) => api.chatModels(token, workspaceId, signal),
     enabled: judgingRequested
   });

@@ -1,3 +1,5 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type UploadJob, type Workspace } from "../../../shared/api/rag-api";
@@ -15,12 +17,13 @@ import { WorkspacePageHeader } from "./WorkspacePageHeader";
 const jobStatuses = ["queued", "processing", "completed", "failed"] as const;
 
 export function WorkspaceProcessing({ workspace, token }: { workspace: Workspace; token: string }) {
+  const userId = useQueryIdentity();
   const { locale, t } = useLocale();
   const number = new Intl.NumberFormat(locale);
   const workspaceId = workspace.tenantId;
   const canManage = workspace.role !== "viewer";
   const queryClient = useQueryClient();
-  const jobOptions = ingestionJobsQuery(token, workspaceId);
+  const jobOptions = ingestionJobsQuery(token, workspaceId, userId);
   const jobs = useQuery(jobOptions);
   const [jobFilter, setJobFilter] = useState<"all" | UploadJob["status"]>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -89,10 +92,11 @@ export function WorkspaceProcessing({ workspace, token }: { workspace: Workspace
 }
 
 function ProcessingTimeline({ job, token, workspaceId }: { job: UploadJob; token: string; workspaceId: string }) {
+  const userId = useQueryIdentity();
   const { t } = useLocale();
   const events = useQuery({
-    queryKey: ["ingestion-events", token, workspaceId, job.id, job.status],
-    queryFn: () => api.listUploadEvents(job.id, token, workspaceId),
+    queryKey: privateQueryKey("ingestion-events", userId, workspaceId, job.id, job.status),
+    queryFn: ({ signal }) => api.listUploadEvents(job.id, token, workspaceId, signal),
     refetchInterval: job.status === "processing" || job.status === "queued" ? 1_500 : false
   });
   return <>

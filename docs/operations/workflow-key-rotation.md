@@ -8,21 +8,21 @@ in reports, logs, source control or browser configuration.
 
 ## Current activation gate
 
-The 2026-11-07 architecture review found that the current inventory paginates
-physical `ctid` values across transactions. Heartbeats/status updates can relocate
-a row without changing its old ciphertext, so a concurrent scan may miss it.
-Do **not** retire reader keys based solely on this scan's `complete`/`remaining`
-report while database writers are active. Stopping only old encryption writers
-does not stop status updates.
+Use the [BE-01 implementation](../technical-backlog.md#be-01--stable-encryption-key-inventory)
+with immutable composite-primary-key traversal. It retains bounded transactions,
+authenticated decoding and conditional updates by complete identity plus previous
+ciphertext. Actual PostgreSQL tests relocate/rewrite tuples between batches,
+simulate process loss and verify all four stores after bounded resume. Negative
+controls reproduce missed records with the older `ctid` implementation.
 
-Complete [BE-01](../technical-backlog.md#be-01--stable-encryption-key-inventory)
-with immutable logical-key traversal and concurrent-update tests before online
-retirement. An alternative maintenance procedure must quiesce **all writes and
-row-relocating maintenance on all four stores**, retain the full reader ring,
-and perform complete fresh verification before resuming work. If that cannot be
-proven, keep old reader keys. Actual production key activation/retirement has not
-been performed by this release. Existing staged happy-path tests do not close
-this concurrency gap.
+Do **not** use older physical-cursor releases to prove online inventory
+completeness. Heartbeat/status updates can move a logical row without changing
+its ciphertext. Upgrading only encryption writers does not stop those updates.
+
+Logical-key traversal still assumes **all encryption writers have switched to the
+active key** before a fresh retirement inventory. Keep every required reader key
+until verification and backup restore readiness are proven. Source/test delivery
+does not activate a production key or establish real backup custody.
 
 ## Compatibility and rollout
 

@@ -1,3 +1,5 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { workspaceChatModelPolicySchema, type WorkspaceChatModelPolicy, type WorkspaceChatModelPolicyResponse } from "@rag-study/contracts";
@@ -7,9 +9,10 @@ import { workspaceRequestError } from "../../../shared/lib/request-error";
 import { SelectField } from "../../../shared/ui/SelectField";
 
 export function WorkspaceChatPolicy({ token, workspaceId }: { token: string; workspaceId: string }) {
+  const userId = useQueryIdentity();
   const { t } = useLocale();
   const client = useQueryClient();
-  const queryKey = ["workspace-chat-policy", workspaceId, token] as const;
+  const queryKey = privateQueryKey("workspace-chat-policy", userId, workspaceId);
   const query = useQuery({ queryKey, retry: false, queryFn: ({ signal }) => api.chatModelPolicy(token, workspaceId, signal) });
   const save = useMutation({
     mutationFn: (policy: WorkspaceChatModelPolicy) => api.saveChatModelPolicy(token, workspaceId, policy),

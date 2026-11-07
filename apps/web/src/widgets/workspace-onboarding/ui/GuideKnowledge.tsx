@@ -1,3 +1,5 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -29,11 +31,12 @@ export function GuideKnowledge({
   onPendingChange: (pending: boolean) => void;
   onReadyChange: (ready: boolean) => void;
 }) {
+  const userId = useQueryIdentity();
   const { locale, t } = useLocale();
   const template = getStarterTemplate(goal, locale);
   const client = useQueryClient();
-  const documentOptions = guideDocumentsQuery(token, workspace.tenantId);
-  const jobOptions = guideJobsQuery(token, workspace.tenantId);
+  const documentOptions = guideDocumentsQuery(token, workspace.tenantId, userId);
+  const jobOptions = guideJobsQuery(token, workspace.tenantId, userId);
   const documents = useQuery(documentOptions),
     jobs = useQuery(jobOptions);
   const [file, setFile] = useState<File | null>(null);
@@ -67,11 +70,11 @@ export function GuideKnowledge({
         exact: true,
       });
       void client.invalidateQueries({
-        queryKey: ["documents", token, workspace.tenantId],
+        queryKey: privateQueryKey("documents", userId, workspace.tenantId),
         exact: true,
       });
       void client.invalidateQueries({
-        queryKey: ["ingestion-jobs", token, workspace.tenantId],
+        queryKey: privateQueryKey("ingestion-jobs", userId, workspace.tenantId),
         exact: true,
       });
       setFile(null);

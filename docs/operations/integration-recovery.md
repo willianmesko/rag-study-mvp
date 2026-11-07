@@ -57,13 +57,14 @@ Configure `BUDGET_ALERT_WEBHOOK_URL`, `BUDGET_ALERT_WEBHOOK_SECRET` (at least 32
 characters) and `USAGE_ALERT_THRESHOLD_USD`. No destination is active by default.
 The threshold covers known reported/estimated cost over 30 days. Unknown-price
 operations are included as a count. The ledger and queued entries survive
-restarts, but current enqueue repair discovers only tenants active in the last
-day. A crash between ledger commit and enqueue followed by more than a day
-offline can leave a qualifying 30-day alert undiscovered without a new call.
-Complete [BE-04](../technical-backlog.md#be-04--complete-budget-alert-repair-window)
-before unattended notification activation. Already queued deliveries retain
-their durable lease/retry behavior. Do not represent repair as complete across
-the full accounting window until that regression is fixed and tested.
+restarts. [BE-04](../technical-backlog.md#be-04--complete-budget-alert-repair-window)
+extends bounded repair discovery to the same 30-day accounting window, keeping
+100-tenant keyset pagination and unique delivery identities. Actual PostgreSQL
+tests cover a crash-gap receipt discovered after 25h with no new provider call,
+concurrent scans over more than 100 tenants and stable deduplication. Use a
+release containing that fix before unattended activation; older one-day repair
+can miss this case. Delivery remains at least once, not provider-side exactly
+once. Configure and verify a real receiver separately.
 
 The server chooses the HTTPS destination. DNS is resolved and public IPv4
 addresses vetted; the socket pins a validated address with hostname TLS/SNI

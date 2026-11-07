@@ -2,10 +2,11 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceOnboardingProgress } from "@rag-study/contracts";
 import { api } from "../../../shared/api/rag-api";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { initialProgress, readOnboarding, sameProgress, shouldSyncOnboarding, storeOnboarding, type LocalOnboarding } from "./onboarding-progress";
 
-const localKey = (userId?: string, workspaceId?: string) => ["local-onboarding", userId, workspaceId] as const;
-const remoteKey = (userId?: string, workspaceId?: string) => ["workspace-onboarding", userId, workspaceId] as const;
+const localKey = (userId?: string, workspaceId?: string) => privateQueryKey("local-onboarding", userId, workspaceId);
+const remoteKey = (userId?: string, workspaceId?: string) => privateQueryKey("workspace-onboarding", userId, workspaceId);
 
 type Scope = { userId: string; workspaceId: string; accessToken: string };
 

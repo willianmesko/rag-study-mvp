@@ -1,3 +1,5 @@
+import { useQueryIdentity } from "../../../shared/lib/query-identity";
+import { privateQueryKey } from "../../../shared/lib/query-keys";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { questionComparisonInputSchema, questionInputSchema } from "@rag-study/contracts";
@@ -25,6 +27,7 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
   suggestion?: { id: string; text: string } | null;
   onSuggestionUsed?: () => void;
 }) {
+  const userId = useQueryIdentity();
   const { t } = useLocale();
   const [question, setQuestion] = useState("");
   const [libraryOpen,setLibraryOpen]=useState(false);
@@ -42,13 +45,13 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
   const errorId = useId();
   const titleId = useId();
   const comparisonHint = useId();
-  const knowledge = useQuery(knowledgeStatusQuery(accessToken, workspaceId));
+  const knowledge = useQuery(knowledgeStatusQuery(accessToken, workspaceId, userId));
   // A cached ready state must not briefly unlock a workspace whose last
   // document was deleted while the user was on another page/device.
   const canAsk = knowledge.isFetchedAfterMount && knowledge.isSuccess && !knowledge.isError && knowledge.data.passages > 0 && !conversation.saved.initializing && !conversation.saved.loading && !(conversation.saved.enabled&&conversation.saved.error);
   const canAdd = Boolean(accessToken && workspaceId && (workspaceRole === "owner" || workspaceRole === "editor"));
   const catalog = useQuery({
-    queryKey: ["chat-models", scope],
+    queryKey: accessToken ? privateQueryKey("chat-models", userId, workspaceId) : ["chat-models", "public-demo"],
     queryFn: ({ signal }) => api.chatModels(accessToken!, workspaceId!, signal),
     enabled: Boolean(accessToken && workspaceId), retry: false, staleTime: 60_000
   });
