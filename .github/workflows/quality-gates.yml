@@ -9,6 +9,35 @@ permissions:
   contents: read
 
 jobs:
+  mcp-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: rag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rag -d rag"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://rag:rag@127.0.0.1:5432/rag
+      MCP_TEST_DATABASE_URL: postgresql://rag:rag@127.0.0.1:5432/rag
+      AGENT_ACTION_TEST_DATABASE_URL: postgresql://rag:rag@127.0.0.1:5432/rag
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:mcp:postgres
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 10

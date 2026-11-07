@@ -112,7 +112,8 @@ product decision, credentials, or additional operational cost.
    both languages.
 8. Onboarding — standalone Milo flow and cross-device sync complete. Starter
    templates and a Help entry point remain in the guided onboarding backlog.
-9. Project-owned MCP — workspace-scoped read tools.
+9. Project-owned MCP — scoped read tools and an isolated approved-evaluation
+   path are implemented and tested. Production write workers are opt-in.
 10. Models and evaluations — workspace policies, Auto and fallback, embedding
     index migration, comparison, effort profiles, review receipts, and quality
     gates are implemented. Live Jina measurements, live release baselines, and
@@ -124,8 +125,8 @@ and update this backlog after validating each shipped capability.
 ## Backlog by area
 
 1. **Security and cost controls**
-   - Capture provider-native token usage where each provider exposes it; current
-     hosted-demo metrics use a documented character-based estimate.
+   - Extend provider-native usage coverage where available. Current generation
+     records distinguish reported usage and cost from configured estimates.
    - Add external notification delivery for budget alerts if the demo grows
      beyond the owner-only dashboard.
 
@@ -164,6 +165,10 @@ and update this backlog after validating each shipped capability.
      Record the decision, evidence, cost trade-offs, and measurable triggers
      for revisiting it in an architecture decision record.
    - Review RLS policies again before exposing any new database API surface.
+   - Review existing Supabase advisories for
+     [password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
+     and the [vector extension schema](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public)
+     before onboarding real users.
    - Move high-volume jobs to Redis + BullMQ and a dedicated worker only when
      the scalability review shows that the workload justifies the added cost.
    - Add backups, retention policy, domain, identity limits, and incident runbook
@@ -249,15 +254,15 @@ and update this backlog after validating each shipped capability.
      so a misbehaving model cannot create an unbounded loop or spend indefinitely.
 
 11. **Agent tools and MCP safety**
-   - Add a project-owned MCP server with read-only workspace tools first:
-     search, source inspection, ingestion status, and evaluation reports.
-   - Enforce tenant scope, RBAC, schema validation, audit events, rate limits,
-     timeouts, and explicit tool allowlists on every MCP call.
-   - Isolate agent tool execution with a read-only runtime, scoped filesystem
-     access, bounded tokens, cost and steps, and cancellation that stops work.
-   - Add isolated execution for any future write-capable tool, with approval,
-     idempotency keys, retries, dead-letter handling, and a replayable audit
-     record.
+   - Implemented scoped credentials, current membership checks, owner-only
+     reports, strict Zod contracts, safe previews, audits, persistent call
+     allowances, deadlines, output limits, and cancellation for MCP reads.
+   - The stdio connector runs separately with scoped module reads. An optional
+     nonroot container adds a read-only filesystem and OS resource limits.
+   - Approved lexical evaluations have a separate worker, fenced leases,
+     idempotency, bounded retries, dead-letter status, and replayable events.
+   - Before adding effectful integrations, define effect-specific authorization,
+     approval, idempotency, external failure handling, and network egress policy.
 
 12. **Infrastructure as code and AWS production reference**
    - Keep the low-cost Render/Supabase demo as the default deployment path.
@@ -299,17 +304,19 @@ and update this backlog after validating each shipped capability.
      runbooks for failed or partially delivered events.
 
 15. **Project-owned MCP server**
-   - Start with read-only `list_sources`, `get_ingestion_status`, and
-     owner-only `get_quality_report`. Return allowlisted fields from existing
-     records and require an explicit workspace with verified membership.
-   - Add bounded `get_document` and `search_workspace` after defining safe
-     passage previews, provider budgets, and cancellation.
-   - Require tenant scope, RBAC, audit events, timeout and rate-limit guards,
-     Zod schemas, and an explicit allowlist on every tool call.
-   - Treat `run_evaluation` as an owner-authorized action with its own budget.
-     It can call providers and persists results. Add approval-gated actions
-     after isolated execution, idempotency, retries, dead-letter handling,
-     and replayable audit records exist.
+   - Implemented `list_sources`, `get_ingestion_status`, owner-only
+     `get_quality_report`, bounded `get_document`, and `search_workspace`.
+     Search uses PostgreSQL keywords with a zero-provider budget.
+   - Owners can create and revoke temporary credentials from Settings. The API
+     binds every credential and tool call to the selected workspace.
+   - The MCP tool list contains the five reads. Owner-authorized
+     `run_evaluation` requests use a separate approval endpoint and isolated
+     worker with a fixed lexical/security suite.
+   - The [MCP guide](workspace-mcp.md) includes Codex configuration, a legal
+     example, runtime limits, and worker setup.
+   - Future work includes remote OAuth-based MCP connections, budgeted hybrid
+     search, and production activation of separately hosted approved-action
+     workers when the operator provisions their least-privilege connection.
 
 16. **Guided onboarding for non-technical teams**
    - Implemented a dedicated sign-in page, an explicitly separate public demo,

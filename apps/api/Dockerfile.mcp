@@ -1,0 +1,23 @@
+FROM node:24-alpine AS build
+WORKDIR /build
+COPY package.json package-lock.json ./
+COPY apps/api/package.json ./apps/api/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY packages/contracts/package.json ./packages/contracts/package.json
+RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
+COPY apps/api/src ./apps/api/src
+COPY packages/contracts ./packages/contracts
+RUN npm run build:api
+
+FROM node:24-alpine
+WORKDIR /app
+COPY --from=build /build/apps/api/package.json ./package.json
+COPY --from=build /build/apps/api/dist/interfaces/mcp/stdio.js ./stdio.js
+COPY --from=build /build/node_modules/@modelcontextprotocol/server ./node_modules/@modelcontextprotocol/server
+COPY --from=build /build/node_modules/@modelcontextprotocol/core ./node_modules/@modelcontextprotocol/core
+COPY --from=build /build/node_modules/zod ./node_modules/zod
+COPY --from=build /build/packages/contracts/package.json ./node_modules/@rag-study/contracts/package.json
+COPY --from=build /build/packages/contracts/dist ./node_modules/@rag-study/contracts/dist
+USER node
+CMD ["node", "--permission", "--allow-fs-read=/app/package.json", "--allow-fs-read=/app/node_modules", "/app/stdio.js"]

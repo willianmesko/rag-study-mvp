@@ -1,9 +1,9 @@
 import { Pool } from "pg";
 
-export function createPostgresPool(databaseUrl: string): Pool {
+export function createPostgresPool(databaseUrl: string, max = 10): Pool {
   return new Pool({
     connectionString: databaseUrl,
-    max: 10,
+    max,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000
   });

@@ -65,6 +65,9 @@ const environment = z.object({
   RAG_MINIMUM_SCORE: z.coerce.number().min(-1).max(1).default(0.3),
   AGENT_MAX_STEPS: z.coerce.number().int().min(1).max(50).default(8),
   AGENT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
+  MCP_ENABLED: booleanEnvironment.default(false),
+  MCP_READ_DATABASE_URL: z.string().url().optional(),
+  AGENT_ACTIONS_ENABLED: booleanEnvironment.default(false),
   CHAT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(16_000).default(500),
   CHAT_AUTO_MAX_TOTAL_INPUT_TOKENS: z.coerce.number().int().min(1).max(500_000).default(120_000),
   CHAT_AUTO_MAX_TOTAL_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(64_000).optional(),
@@ -144,6 +147,11 @@ if (config.DEMO_MODE && !config.ADMIN_API_KEY) {
 
 if (config.DEMO_MODE && config.API_KEY) {
   throw new Error("API_KEY protects every route and cannot be combined with public DEMO_MODE. Use ADMIN_API_KEY for ingestion instead.");
+}
+
+if ((config.MCP_ENABLED || config.AGENT_ACTIONS_ENABLED) &&
+  (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY || config.API_KEY)) {
+  throw new Error("Workspace MCP and approved actions require Supabase Auth without the legacy global API key.");
 }
 
 if ((config.SUPABASE_URL && !config.SUPABASE_PUBLISHABLE_KEY) || (!config.SUPABASE_URL && config.SUPABASE_PUBLISHABLE_KEY)) {

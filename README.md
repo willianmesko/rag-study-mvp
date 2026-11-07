@@ -61,6 +61,10 @@ Zod schemas in both applications.
 - Authenticated SSE chat with resumable progress, checked citations, and a stop
   action that cancels the provider request. The JSON endpoint remains available.
 - Deterministic golden-set and prompt-injection evaluation suites.
+- Workspace-scoped MCP read tools and a separate approval-gated evaluation worker.
+
+See [Workspace MCP and approved actions](docs/workspace-mcp.md) for connection
+setup, a practical legal-workspace example, budgets, and the execution boundaries.
 
 ## Prerequisites
 

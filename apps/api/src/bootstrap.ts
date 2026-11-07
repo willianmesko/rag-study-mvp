@@ -10,6 +10,9 @@ import { RetryIngestionJobUseCase } from "./application/use-cases/retry-ingestio
 import { ReindexDocumentUseCase } from "./application/use-cases/reindex-document.js";
 import { DeleteDocumentUseCase } from "./application/use-cases/delete-document.js";
 import { GetDocumentOriginalUseCase } from "./application/use-cases/get-document-original.js";
+import { McpAccess } from "./application/mcp/access.js";
+import { McpReadTools } from "./application/mcp/read-tools.js";
+import { AgentActionService } from "./application/agent-actions/agent-action-service.js";
 import { config } from "./config.js";
 import type { AnswerGenerator } from "./application/ports/answer-generator.js";
 import { resolveWorkspaceEmbeddingIndex } from "./application/ports/embedding-provider.js";
@@ -34,6 +37,9 @@ import { PgEvaluationRepository } from "./infrastructure/postgres/pg-evaluation-
 import { PgChatRunRepository } from "./infrastructure/postgres/pg-chat-run-repository.js";
 import { PgWorkspaceOnboardingRepository } from "./infrastructure/postgres/pg-workspace-onboarding-repository.js";
 import { PgWorkspaceModelPolicyRepository } from "./infrastructure/postgres/pg-workspace-model-policy-repository.js";
+import { PgMcpAccessRepository } from "./infrastructure/postgres/pg-mcp-access-repository.js";
+import { PgMcpReadRepository } from "./infrastructure/postgres/pg-mcp-read-repository.js";
+import { PgAgentActionRepository } from "./infrastructure/postgres/pg-agent-action-repository.js";
 import { RedactingAnswerGenerator } from "./infrastructure/security/redacting-answer-generator.js";
 import { MultiFormatDocumentTextExtractor } from "./infrastructure/ingestion/document-text-extractor.js";
 import { PopplerTesseractOcr } from "./infrastructure/ingestion/pdf-ocr.js";
@@ -45,6 +51,7 @@ import { RunEvaluationUseCase } from "./application/use-cases/run-evaluation.js"
 
 export function createApplication() {
   const pool = createPostgresPool(config.DATABASE_URL);
+  const mcpReadPool = config.MCP_ENABLED ? createPostgresPool(config.MCP_READ_DATABASE_URL ?? config.DATABASE_URL, 2) : null;
   const embeddings = createWorkspaceEmbeddingProvider(pool);
   const reranker = createReranker();
   const documents = new PgDocumentRepository(pool, config.EMBEDDING_DIMENSIONS);
@@ -204,11 +211,16 @@ export function createApplication() {
       workspaceOnboarding: new PgWorkspaceOnboardingRepository(pool),
       chatModels,
       workspaceModelPolicies,
+      workspaceMcp: mcpReadPool ? {
+        access: new McpAccess(new PgMcpAccessRepository(pool)),
+        tools: new McpReadTools(new PgMcpReadRepository(mcpReadPool))
+      } : undefined,
+      agentActions: config.AGENT_ACTIONS_ENABLED ? new AgentActionService(new PgAgentActionRepository(pool)) : undefined,
       compareAnswers,
       routeAnswer,
       answerQuestion: defaultChat.answerQuestion
     },
-    close: () => pool.end()
+    close: async () => { await Promise.all([pool.end(), mcpReadPool?.end()]); }
   };
 }
 

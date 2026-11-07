@@ -224,6 +224,22 @@ requests bypass the semantic answer cache and count the extra prompt text
 toward the generation budget. Public demo requests and model comparisons
 remain standalone.
 
+## Workspace MCP boundary
+
+The local stdio connector exposes five read tools with shared Zod schemas.
+It connects to the API with a dedicated short-lived credential and an explicit
+workspace. Current membership, role, and persistent call allowances are checked
+on each call. A separate two-connection pool runs fixed read-only PostgreSQL
+transactions. Screened excerpts and allowlisted metadata leave this boundary.
+Tool queries and excerpts stay outside audit records.
+
+Approved evaluation actions use a separate owner-authenticated proposal and
+approval API. A dedicated worker claims fenced leases, performs a fixed
+provider-free evaluation, and commits its report and completion event
+atomically. Future action handlers require effect-specific policies.
+See the [MCP guide](workspace-mcp.md) for the transport, limits, and runnable
+configuration.
+
 ## LangGraph workflow
 
 The Q&A workflow has three main nodes:

@@ -8,7 +8,8 @@
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "tsx --test src/rag/chunk.test.ts src/application/use-cases/search-documents.test.ts src/application/use-cases/document-management.test.ts src/application/use-cases/get-document-original.test.ts src/application/use-cases/answer-question.test.ts src/application/use-cases/run-evaluation.test.ts src/application/evaluation/golden-set.test.ts src/application/evaluation/prompt-injection-suite.test.ts src/application/evaluation/replay-benchmark.test.ts src/application/evaluation/performance-gate.test.ts src/application/evaluation/reviewed-replay.test.ts src/application/policies/grounded-answer-policy.test.ts src/application/policies/structured-answer.test.ts src/application/policies/agent-execution-policy.test.ts src/application/policies/lexical-query.test.ts src/domain/security/prompt-injection.test.ts src/domain/security/pii-redaction.test.ts src/infrastructure/ingestion/document-text-extractor.test.ts src/infrastructure/ingestion/pdf-ocr.test.ts src/infrastructure/ingestion/public-html-fetcher.test.ts src/infrastructure/jina/jina-reranker.test.ts src/infrastructure/langgraph/langgraph-rag-workflow.test.ts src/interfaces/http/query-scope.test.ts src/interfaces/http/document-original.test.ts src/interfaces/http/url-import.test.ts src/interfaces/http/rag-evidence.test.ts src/interfaces/http/workspace-scope.test.ts src/interfaces/http/workspace-onboarding.test.ts src/interfaces/http/chat-runs.test.ts src/infrastructure/openrouter/openrouter-answer-generator.test.ts src/infrastructure/openrouter/openrouter-faithfulness-judge.test.ts src/interfaces/http/chat-models.test.ts",
+    "test:mcp:postgres": "tsx --test src/infrastructure/postgres/pg-mcp.integration.test.ts src/infrastructure/postgres/pg-agent-action-repository.test.ts",
+    "test": "tsx --test src/rag/chunk.test.ts src/application/use-cases/search-documents.test.ts src/application/use-cases/document-management.test.ts src/application/use-cases/get-document-original.test.ts src/application/use-cases/answer-question.test.ts src/application/use-cases/run-evaluation.test.ts src/application/evaluation/golden-set.test.ts src/application/evaluation/prompt-injection-suite.test.ts src/application/evaluation/replay-benchmark.test.ts src/application/evaluation/performance-gate.test.ts src/application/evaluation/reviewed-replay.test.ts src/application/policies/grounded-answer-policy.test.ts src/application/policies/structured-answer.test.ts src/application/policies/agent-execution-policy.test.ts src/application/policies/lexical-query.test.ts src/domain/security/prompt-injection.test.ts src/domain/security/pii-redaction.test.ts src/infrastructure/ingestion/document-text-extractor.test.ts src/infrastructure/ingestion/pdf-ocr.test.ts src/infrastructure/ingestion/public-html-fetcher.test.ts src/infrastructure/jina/jina-reranker.test.ts src/infrastructure/langgraph/langgraph-rag-workflow.test.ts src/interfaces/http/query-scope.test.ts src/interfaces/http/document-original.test.ts src/interfaces/http/url-import.test.ts src/interfaces/http/rag-evidence.test.ts src/interfaces/http/workspace-scope.test.ts src/interfaces/http/workspace-onboarding.test.ts src/interfaces/http/chat-runs.test.ts src/infrastructure/openrouter/openrouter-answer-generator.test.ts src/infrastructure/openrouter/openrouter-faithfulness-judge.test.ts src/interfaces/http/chat-models.test.ts src/application/mcp/read-tools.test.ts src/infrastructure/postgres/pg-mcp-read-repository.test.ts src/application/agent-actions/agent-actions.test.ts src/infrastructure/postgres/pg-agent-action-repository.test.ts src/interfaces/http/workspace-mcp.test.ts src/interfaces/mcp/stdio.test.ts src/interfaces/http/agent-actions.test.ts",
     "db:migrate": "tsx src/db/migrate.ts",
     "test:embedding:index": "tsx --test src/infrastructure/postgres/pg-workspace-embedding-index.integration.test.ts",
     "ingest": "tsx src/interfaces/cli/ingest.ts",
@@ -27,6 +28,7 @@
     "@fastify/multipart": "^10.1.7",
     "@fastify/rate-limit": "^10.3.0",
     "@langchain/langgraph": "^1.7.0",
+    "@modelcontextprotocol/server": "2.4.0",
     "@rag-study/contracts": "0.1.0",
     "@supabase/supabase-js": "^2.49.8",
     "dotenv": "^16.6.1",
@@ -39,6 +41,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
     "@types/node": "^22.15.30",
     "@types/pdf-parse": "^1.1.5",
     "@types/pg": "^8.15.4",

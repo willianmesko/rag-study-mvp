@@ -50,7 +50,7 @@ function map(row: Row): EvaluationRun {
 }
 
 export class PgEvaluationRepository implements EvaluationRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: Pick<Pool, "query">) {}
 
   async create(input: CreateEvaluationRun): Promise<EvaluationRun> {
     const result = await this.pool.query<Row>(

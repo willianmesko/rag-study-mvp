@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export * from "./mcp.js";
+
 export const documentInputSchema = z.object({
   source: z.string().min(1).max(1_000),
   title: z.string().min(1).max(500).optional(),

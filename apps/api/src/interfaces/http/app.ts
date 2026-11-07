@@ -38,6 +38,9 @@ import { config } from "../../config.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 import { isSafeForAnswer, type PromptInjectionAssessment } from "../../domain/security/prompt-injection.js";
 import { openAnswerStream, replayAnswerStream } from "./answer-stream.js";
+import { withReplySignal } from "./reply-signal.js";
+import { registerWorkspaceMcpRoutes, type WorkspaceMcp } from "./workspace-mcp.js";
+import { registerAgentActionRoutes, type AgentActions } from "./agent-actions.js";
 
 const searchSchema = z.object({ q: z.string().min(1).max(5_000), topK: z.coerce.number().int().min(1).max(20).optional() });
 const invitationSchema = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: workspaceMemberRoleSchema });
@@ -68,6 +71,8 @@ type HttpDependencies = {
   answerQuestion: AnswerQuestionUseCase;
   chatModels: ReadonlyMap<string, ComparisonModel & { answerQuestion: AnswerQuestionUseCase }>;
   workspaceModelPolicies: WorkspaceModelPolicyRepository;
+  workspaceMcp?: WorkspaceMcp;
+  agentActions?: AgentActions;
   compareAnswers: CompareAnswersUseCase;
   routeAnswer: RouteAnswerUseCase;
   chatRuns: ChatRunRepository;
@@ -132,7 +137,7 @@ function applyCorsHeaders(origin: string | undefined, reply: { header: (name: st
   if (!config.ALLOWED_ORIGINS.includes(origin)) return false;
   reply.header("access-control-allow-origin", origin);
   reply.header("access-control-allow-methods", "GET, POST, PATCH, DELETE, OPTIONS");
-  reply.header("access-control-allow-headers", "authorization, content-type, x-document-source, x-document-title, x-workspace-id");
+  reply.header("access-control-allow-headers", "authorization, content-type, idempotency-key, x-document-source, x-document-title, x-workspace-id");
   reply.header("access-control-max-age", "600");
   reply.header("vary", "Origin");
   return true;
@@ -234,6 +239,15 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (authorization.role !== "owner") return { ok: false as const, status: 403, error: "Only the workspace owner can manage members." };
     return authorization;
   };
+  if (dependencies.workspaceMcp) {
+    registerWorkspaceMcpRoutes(app, {
+      ...dependencies.workspaceMcp, authorize: (request) => authorizeMember(request, true),
+      audit: dependencies.recordAuditEvent, shutdown: streamShutdown.signal
+    });
+  }
+  if (dependencies.agentActions) {
+    registerAgentActionRoutes(app, dependencies.agentActions, (request) => authorizeMember(request, true));
+  }
   async function resolveQueryScope(request: FastifyRequest, requireExplicitWorkspace = false) {
     if (requireExplicitWorkspace || (typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer "))) {
       const membership = await authorizeMember(request, requireExplicitWorkspace);
@@ -757,17 +771,6 @@ function restrictedPassagePreview(content: string, security: PromptInjectionAsse
 
 function serializeAnswerSource({ chunkId, documentId, source, title, ordinal, score, content }: AnswerQuestionResult["sources"][number]) {
   return { chunkId, documentId, source, title, chunk: ordinal, score, ...passageExcerpt(content) };
-}
-
-async function withReplySignal<T>(reply: FastifyReply, shutdown: AbortSignal, task: (signal: AbortSignal) => Promise<T>): Promise<T> {
-  const controller = new AbortController();
-  const disconnect = () => controller.abort();
-  reply.raw.once("close", disconnect);
-  try {
-    return await task(AbortSignal.any([controller.signal, shutdown]));
-  } finally {
-    reply.raw.off("close", disconnect);
-  }
 }
 
 function serializeQuestionAnswer(result: AnswerQuestionResult, model = result.model) {

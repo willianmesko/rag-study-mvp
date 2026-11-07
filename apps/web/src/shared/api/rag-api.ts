@@ -1,4 +1,5 @@
 import { chatModelCatalogSchema, questionComparisonResponseSchema, workspaceChatModelPolicyResponseSchema, workspaceOnboardingResponseSchema,
+  mcpAccessIssuedSchema, mcpAccessStatusSchema,
   type QuestionComparisonInput, type WorkspaceChatModelPolicy, type WorkspaceOnboardingProgress } from "@rag-study/contracts";
 
 export type Health = { status: string };
@@ -124,6 +125,26 @@ async function requestVoid(path: string, init?: RequestInit): Promise<void> {
 }
 
 export const api = {
+  workspaceMcpAccess: async (accessToken: string, workspaceId: string, signal: AbortSignal) => {
+    try {
+      return mcpAccessStatusSchema.parse(await request<unknown>("/v1/mcp/access", {
+        signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
+        headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
+      }));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+  },
+  issueWorkspaceMcpAccess: async (accessToken: string, workspaceId: string) => mcpAccessIssuedSchema.parse(
+    await request<unknown>("/v1/mcp/access", {
+      method: "POST", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) },
+      signal: AbortSignal.timeout(10_000)
+    })),
+  revokeWorkspaceMcpAccess: (accessToken: string, workspaceId: string) => requestVoid("/v1/mcp/access", {
+    method: "DELETE", headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) },
+    signal: AbortSignal.timeout(10_000)
+  }),
   workspaces: (accessToken: string) => request<{ workspaces: Workspace[] }>("/v1/workspaces", { headers: { authorization: `Bearer ${accessToken}` } }),
   createWorkspace: (input: { name: string; slug: string; accessToken: string }) => request<{ workspace: Workspace }>("/v1/workspaces", { method: "POST", body: JSON.stringify({ name: input.name, slug: input.slug }), headers: { authorization: `Bearer ${input.accessToken}` } }),
   getOnboardingProgress: async (workspaceId: string, accessToken: string, signal: AbortSignal) => {

@@ -1,0 +1,19 @@
+services:
+  lumora-mcp:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.mcp
+    stdin_open: true
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 32
+    mem_limit: 128m
+    cpus: 0.5
+    environment:
+      LUMORA_MCP_API_URL: ${LUMORA_MCP_API_URL:?Set the Lumora HTTPS API origin}
+      LUMORA_MCP_WORKSPACE_ID: ${LUMORA_MCP_WORKSPACE_ID:?Set the connected workspace}
+      LUMORA_MCP_TOKEN: ${LUMORA_MCP_TOKEN:?Set a short-lived Lumora MCP credential}

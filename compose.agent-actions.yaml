@@ -1,0 +1,27 @@
+services:
+  lumora-agent-actions:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 32
+    mem_limit: 256m
+    cpus: 0.5
+    stop_grace_period: 20s
+    environment:
+      AGENT_ACTIONS_DATABASE_URL: ${AGENT_ACTIONS_DATABASE_URL:?Set the dedicated action-worker database connection}
+    entrypoint:
+      - node
+      - --permission
+      - --allow-fs-read=/app/node_modules
+      - --allow-fs-read=/app/apps/api/package.json
+      - --allow-fs-read=/app/apps/api/dist
+      - --allow-fs-read=/app/packages/contracts/package.json
+      - --allow-fs-read=/app/packages/contracts/dist
+      - /app/apps/api/dist/interfaces/cli/agent-action-worker.js
+    command: []

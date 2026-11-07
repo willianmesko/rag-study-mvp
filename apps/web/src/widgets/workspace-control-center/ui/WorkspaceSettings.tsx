@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { WorkspaceChatPolicy } from "../../../features/workspace-model-policy/ui/WorkspaceChatPolicy";
+import { WorkspaceMcpConnection } from "../../../features/workspace-mcp/ui/WorkspaceMcpConnection";
 import type { Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { workspaceRoleLabel } from "../model/labels";
@@ -38,6 +39,7 @@ export function WorkspaceSettings({ workspace, token }: { workspace: Workspace; 
         </dl>
       </section>
       <WorkspaceChatPolicy token={token} workspaceId={workspace.tenantId} />
+      <WorkspaceMcpConnection key={workspace.tenantId} token={token} workspaceId={workspace.tenantId} />
       <WorkspaceQueryFeedback query={usage} loading={t("Loading usage…", "Carregando o uso…")}
         failure={t("We could not load usage.", "Não foi possível carregar os dados de uso.")} />
       {usage.data && (
