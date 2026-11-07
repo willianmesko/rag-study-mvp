@@ -21,6 +21,7 @@ import { LabHeader } from "../../../widgets/lab-layout/ui/LabHeader";
 import { LabNavigation } from "../../../widgets/lab-layout/ui/LabNavigation";
 import { RagLearningAside } from "../../../widgets/lab-layout/ui/RagLearningAside";
 import { WorkspaceSwitcher } from "../../../widgets/lab-layout/ui/WorkspaceSwitcher";
+import { ConversationLibrary } from "../../../features/question-answering/ui/ConversationLibrary";
 
 const OnboardingPage = lazy(() => import("../../onboarding/ui/OnboardingPage").then(({ OnboardingPage }) => ({ default: OnboardingPage })));
 const WorkspaceControlCenter = lazy(() => import("../../../widgets/workspace-control-center/ui/WorkspaceControlCenter").then(({ WorkspaceControlCenter }) => ({ default: WorkspaceControlCenter })));
@@ -142,6 +143,7 @@ export function RagLabPage() {
 
   function selectWorkspace(workspaceId: string) {
     if (!userId) return;
+    if(new URLSearchParams(window.location.search).has("conversation"))navigateTo("/ask",{replace:true});
     setSelected({ userId, workspaceId });
     setCreatedSetup(null);
     saveLocal(`lumora-workspace:${userId}`, workspaceId);
@@ -172,6 +174,7 @@ export function RagLabPage() {
     try {
       const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) throw error;
+      queryClient.clear();
       setSession(null);
       setSelected(null);
       setCreatedSetup(null);
@@ -268,7 +271,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
     return () => window.removeEventListener("popstate", clearPreview);
   }, []);
 
-  useEffect(() => { saveLocal(historyKey, JSON.stringify(history)); }, [history, historyKey]);
+  useEffect(() => { if(!privateArea)saveLocal(historyKey, JSON.stringify(history)); }, [history, historyKey,privateArea]);
 
   function addAnswer({ question, response }: { question: string; response: { answer: string; sources: QuestionSource[] } }) {
     setHistory((items) => [createQuestionHistoryEntry({ question, response }), ...items].slice(0, 20));
@@ -283,7 +286,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
       <div className="ambient-glow ambient-glow--cyan" aria-hidden="true" />
       <div className="ambient-glow ambient-glow--blue" aria-hidden="true" />
       <div className="relative grid min-h-screen w-full content-start grid-cols-[minmax(0,1fr)] lg:content-stretch lg:grid-cols-[17rem_minmax(0,1fr)]">
-        <LabNavigation activeTab={activeTab} onTabChange={(tab) => navigateTo(pathForTab(tab, lab.workspaceSection, demo))}
+        <LabNavigation activeTab={activeTab} onTabChange={(tab) => navigateTo(pathForTab(tab, lab.workspaceSection, demo)+(tab==="answer"&&conversation.saved.enabled&&conversation.saved.selectedId?`?conversation=${conversation.saved.selectedId}`:""))}
           publicDemo={demo} canIndex={demo && canIndexDemo} onHelp={privateArea ? () => setGuideOpen(true) : undefined}
           workspaceControl={privateArea ? <WorkspaceSwitcher workspaces={privateArea.workspaces} selectedId={privateArea.workspace.tenantId}
             onChange={privateArea.onWorkspaceChange} compact={isChat} onManageAssistants={() => navigateTo("/connections")}
@@ -304,7 +307,7 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError, o
                 workspaceName={workspaceName} workspaceRole={privateArea?.workspace.role}
                 onAddDocuments={privateArea && privateArea.workspace.role !== "viewer" ? () => setAddingDocuments(true) : undefined}
                 conversation={conversation} suggestion={suggestion} onSuggestionUsed={() => setSuggestion(null)} />}
-              {activeTab === "history" && <QuestionHistoryPanel history={history} onClear={() => setHistory([])} onFeedback={setFeedback} onInspectSource={setSelectedSource} />}
+              {activeTab === "history" && (conversation.saved.enabled?<ConversationLibrary standalone saved={conversation.saved} onOpen={conversation.saved.open}/>:<QuestionHistoryPanel history={history} onClear={() => setHistory([])} onFeedback={setFeedback} onInspectSource={setSelectedSource} />)}
               {activeTab === "connections" && privateArea && <Suspense fallback={<p role="status">{t("Loading connections…", "Carregando conexões…")}</p>}>
                 <WorkspaceMcpConnection token={privateArea.token} workspaceId={privateArea.workspace.tenantId} expanded />
               </Suspense>}

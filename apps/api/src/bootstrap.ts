@@ -45,6 +45,7 @@ import { McpReadTools } from "./application/mcp/read-tools.js";
 import { McpHybridSearch } from "./application/mcp/hybrid-search.js";
 import { McpOAuth } from "./application/mcp/oauth.js";
 import { PgMcpControls } from "./infrastructure/postgres/pg-mcp-controls.js";
+import { PgConversationRepository } from "./infrastructure/postgres/pg-conversation-repository.js";
 import { PgMcpOAuthRepository } from "./infrastructure/postgres/pg-mcp-oauth-repository.js";
 import { AgentActionService } from "./application/agent-actions/agent-action-service.js";
 import { config } from "./config.js";
@@ -494,6 +495,7 @@ export function createApplication() {
       ) => ({
         ...(await model.answerQuestion.execute(input)),
         model: model.descriptor,
+        providerModel: model.model,
       }),
     };
   };
@@ -701,6 +703,7 @@ export function createApplication() {
       recordAuditEvent: auditEvents.record.bind(auditEvents),
       searchDocuments,
       chatRuns,
+      conversations: new PgConversationRepository(pool),
       workflows,
       cancelIngestion: async (tenantId: string, jobId: string) => {
         const changed = await jobs.cancel(jobId, tenantId);

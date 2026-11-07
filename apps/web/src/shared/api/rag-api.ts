@@ -1,11 +1,12 @@
 import { usageResponseSchema } from "@rag-study/contracts";
+import { conversationPageSchema, conversationCreatedSchema, conversationMessagesSchema, conversationTurnSchema } from "@rag-study/contracts";
 import { knowledgeStatusSchema } from "@rag-study/contracts";
 import { workflowSnapshotSchema, type WorkflowSnapshot } from "@rag-study/contracts";
 import { chatModelCatalogSchema, demoLibraryCatalogSchema, demoSeedResponseSchema, questionComparisonResponseSchema, workspaceChatModelPolicyResponseSchema, workspaceOnboardingResponseSchema,
   mcpAccessIssuedSchema, mcpAccessStatusSchema, mcpConnectionsSchema, mcpConsentDetailsSchema, mcpConsentRedirectSchema, type McpReadToolName,
   type DemoSourceState, type DocumentFilters, type QuestionComparisonInput, type WorkspaceChatModelPolicy, type WorkspaceOnboardingProgress } from "@rag-study/contracts";
 
-export type Health = { status: string };
+export type Health = { status: string; capabilities?: { durableConversations?: boolean } };
 
 export type SearchResult = {
   chunkId: string;
@@ -127,7 +128,48 @@ async function requestVoid(path: string, init?: RequestInit): Promise<void> {
   }
 }
 
+async function waitForSavedTurn(token:string,workspaceId:string,saved:{conversationId:string;runId:string},signal:AbortSignal) {
+  for(;;){
+    signal.throwIfAborted();
+    const turn=await api.conversationTurn(token,workspaceId,saved.conversationId,saved.runId,signal);
+    if(turn.status!=='queued'&&turn.status!=='running')return turn;
+    await new Promise<void>((resolve,reject)=>{
+      const abort=()=>{clearTimeout(timer);reject(signal.reason);};
+      const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},600);
+      signal.addEventListener('abort',abort,{once:true});
+    });
+  }
+}
+
 export const api = {
+  savedAnswer: async(input:QuestionInput,token:string,workspaceId:string,saved:{conversationId:string;runId:string},signal:AbortSignal)=>{
+    const bounded=AbortSignal.any([signal,AbortSignal.timeout(150000)]);
+    await request<unknown>('/v1/qa/stream',{method:'POST',signal:bounded,body:JSON.stringify({...input,previousQuestions:undefined,...saved}),headers:{accept:'application/json',authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}});
+    return waitForSavedTurn(token,workspaceId,saved,bounded);
+  },
+  savedComparison: async(input:QuestionComparisonInput,token:string,workspaceId:string,saved:{conversationId:string;runId:string},signal:AbortSignal,recover=false):Promise<import('@rag-study/contracts').QuestionComparisonResponse>=>{
+    const bounded=AbortSignal.any([signal,AbortSignal.timeout(150000)]);
+    if(!recover)await request<unknown>('/v1/qa/compare',{method:'POST',signal:bounded,body:JSON.stringify({...input,...saved}),headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}});
+    const turn=await waitForSavedTurn(token,workspaceId,saved,bounded);
+    if(turn.comparison)return turn.comparison;
+    throw new ApiError('The saved comparison did not complete.',409,'execution_failed');
+  },
+  conversations: async(token:string,workspaceId:string,signal:AbortSignal,cursor?:string)=>conversationPageSchema.parse(await request<unknown>(`/v1/conversations?${new URLSearchParams({limit:'20',...(cursor?{cursor}:{})})}`,{
+    signal,headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}})),
+  createConversation: async(token:string,workspaceId:string,id:string)=>conversationCreatedSchema.parse(await request<unknown>('/v1/conversations',{
+    method:'POST',headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)},body:JSON.stringify({id}),signal:AbortSignal.timeout(15000)})),
+  conversationMessages: async(token:string,workspaceId:string,id:string,signal:AbortSignal,before?:number)=>conversationMessagesSchema.parse(await request<unknown>(`/v1/conversations/${encodeURIComponent(id)}/messages?${new URLSearchParams({limit:'25',...(before?{before:String(before)}:{})})}`,{
+    signal,headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}})),
+  renameConversation: async(token:string,workspaceId:string,id:string,title:string)=>conversationCreatedSchema.parse(await request<unknown>(`/v1/conversations/${encodeURIComponent(id)}`,{
+    method:'PATCH',headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)},body:JSON.stringify({title}),signal:AbortSignal.timeout(15000)})),
+  deleteConversation: (token:string,workspaceId:string,id?:string)=>requestVoid(`/v1/conversations${id?`/${encodeURIComponent(id)}`:''}`,{
+    method:'DELETE',headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)},signal:AbortSignal.timeout(15000)}),
+  feedbackConversation: (token:string,workspaceId:string,id:string,messageId:string,value:'up'|'down'|null)=>requestVoid(`/v1/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/feedback`,{
+    method:'PUT',headers:{authorization:`Bearer ${token}`,'content-type':'application/json',...workspaceHeaders(workspaceId)},body:JSON.stringify({value}),signal:AbortSignal.timeout(15000)}),
+  conversationTurn: async(token:string,workspaceId:string,id:string,runId:string,signal?:AbortSignal)=>conversationTurnSchema.parse((await request<{turn:unknown}>(`/v1/conversations/${encodeURIComponent(id)}/runs/${encodeURIComponent(runId)}`,{
+    signal,headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}})).turn),
+  cancelConversationTurn: async(token:string,workspaceId:string,id:string,runId:string)=>conversationTurnSchema.parse((await request<{turn:unknown}>(`/v1/conversations/${encodeURIComponent(id)}/runs/${encodeURIComponent(runId)}/cancel`,{
+    method:'POST',signal:AbortSignal.timeout(15000),headers:{authorization:`Bearer ${token}`,...workspaceHeaders(workspaceId)}})).turn),
   demoLibraries: async (token: string, workspaceId: string, locale: "en" | "pt-BR", signal: AbortSignal) => demoLibraryCatalogSchema.parse(
     await request<unknown>(`/v1/demo-libraries?${new URLSearchParams({ locale })}`, {
       signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]), headers: { authorization: `Bearer ${token}`, ...workspaceHeaders(workspaceId) }

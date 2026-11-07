@@ -40,6 +40,7 @@ export function publicAnswerResponse(
     contextSources: result.contextSources?.map(publicAnswerSource) ?? [],
     cacheHit: result.cacheHit ?? false,
     ...(model ? { model } : {}),
+    ...(result.providerModel ? { providerModel: result.providerModel } : {}),
     ...(result.routing ? { routing: result.routing } : {}),
     ...(result.usage ? { usage: result.usage } : {}),
     ...(result.claimVerification

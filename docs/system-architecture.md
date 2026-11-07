@@ -188,9 +188,9 @@ The practice question uses the existing workspace Q&A, model allowlist, SSE,
 quota, cancellation, and citation-validation paths. Guide runs have a distinct
 browser replay scope so opening Help cannot attach the main chat to the same
 run. Navigation/closing is blocked during an active guide upload or answer,
-with the existing Stop control available for answers. Successful practice
-answers join the existing browser-local recent-answer history; this does not
-implement durable product conversations.
+with the existing Stop control available for answers. Signed-in practice
+questions use the same private, durable product history as the main chat.
+The guide does not change the main chat's selected conversation URL.
 
 Help opens a local replay of the guide without resetting the saved goal,
 furthest phase, or completion. It clearly identifies uploads, questions, and
@@ -361,37 +361,42 @@ They do not hold raw questions or raw provider drafts. Anonymous demo streams
 are transient. The JSON endpoint is available as a fallback before a streaming
 run is admitted.
 
-The Ask transcript is in memory and keyed by the signed-in user and workspace.
-For a follow-up, the browser can send up to three recent answered questions
-from that thread. The server bounds their size, redacts personal data, and
-screens for prompt injection. Earlier questions can clarify references in
-retrieval and generation. The workflow retrieves fresh passages in the
-authorized workspace and validates citations against those passages. Contextual
-requests bypass the semantic answer cache and count the extra prompt text
-toward the generation budget. Public demo requests and model comparisons
-remain standalone.
+Saved conversations use server-owned context: up to three successful recent
+questions from the same private conversation, with a 500-character bound on
+each. The browser submits the conversation and execution UUIDs, not trusted
+history. The server redacts personal data, screens context for prompt injection,
+retrieves fresh workspace passages, and validates citations. Saved conversations
+bypass shared semantic answer caching, including the first turn. Anonymous demo
+questions remain standalone. Comparisons preserve two answers in one private
+turn, using the same retrieved evidence for both models/prompts.
 
-### Planned durable conversation history
+### Durable conversation history
 
-Named, cross-device conversation history remains a product milestone. The
-existing PostgreSQL database can hold three related records:
+`conversations` is keyed by workspace, owner, and conversation UUID. Each
+`conversation_turns` row owns an ordered user/assistant pair with durable message
+IDs, canonical input, status, checked citations, model and usage metadata, and
+optional feedback. Each read and mutation verifies current membership and
+conversation ownership. Workspace owners cannot read another member's history.
 
-- `conversations` with a workspace, creator, title, and timestamps.
-- `conversation_messages` with stable IDs, ordering, role, content, execution
-  state, checked citations, model/prompt metadata, and usage.
-- `message_feedback` linked to a message, workspace, and the member who rated it.
+Admission locks the conversation, checks an immutable request hash, and creates
+one queued pair. That queued record is an admission outbox: a retry or recovery
+reuses the run UUID and does not reserve another quota unit or provider call.
+A database trigger commits normal chat's checked reply in the same transaction
+as its terminal replay event. Comparison admission is durable; an uncertain
+in-flight comparison after a server restart becomes interrupted at its deadline
+rather than silently calling providers again.
 
-The proposed API admits a user message once with an idempotency key, saves its
-pending response state, and streams the authorized RAG execution. A final
-transaction saves the checked assistant message and terminal status. Separate
-execution events support reconnection. Older messages load with pagination.
-Each read and mutation checks membership and conversation ownership.
+Lists use timestamp/UUID keyset pagination and messages use ordered sequences.
+Named conversations reopen across signed-in devices. They expire 90 days after
+the last submitted message. Deletion cascades through product turns and linked
+replay/workflow state; membership removal deletes that member's private history.
+Expired content is inaccessible before bounded background cleanup. Backups
+retain the hosting provider's separate lifecycle.
 
-Conversation content belongs in authorized product records. Operational logs
-continue to exclude raw prompts and document text. Retention, deletion, and
-source availability rules belong to the conversation feature's acceptance
-criteria. Server-side context assembly selects recent messages within the
-token budget and performs fresh workspace retrieval for each question.
+Operational logs, audit events, and optional tracing summaries exclude raw
+questions and document passages. RLS and revoked Data API grants keep these
+records behind backend authorization. See [Durable conversations](durable-conversations.md)
+for the schema, sequence diagram, endpoints, deletion rules, and verification.
 
 Native encrypted PostgreSQL LangGraph checkpointers now persist graph execution
 state for authenticated chat, ingestion, evaluations, and owner approval. That execution state has a separate

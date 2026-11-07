@@ -14,6 +14,7 @@ import {
 import { WorkflowStateCodec } from "../security/workflow-state-codec.js";
 
 type Row = {
+  conversation_id?: string | null;
   tenant_id: string;
   actor_id: string;
   run_id: string;
@@ -45,6 +46,7 @@ export const workflowParams = (scope: WorkflowScope) => [
   scope.runId,
 ];
 const map = (r: Row): WorkflowSnapshot => ({
+  ...(r.conversation_id ? {conversationId:r.conversation_id} : {}),
   tenantId: r.tenant_id,
   actorId: r.actor_id,
   runId: r.run_id,
@@ -77,7 +79,7 @@ export class PgWorkflowRepository implements WorkflowRepository {
   async admit(input: WorkflowAdmission) {
     const budget = workflowBudgetSchema.parse(input.budget);
     const hash = createHash("sha256")
-      .update(JSON.stringify([input.kind, input.version, input.input, budget]))
+      .update(JSON.stringify([input.kind, input.version, input.input, budget,...(input.conversationId?[input.conversationId]:[])]))
       .digest("hex");
     const cipher = this.codec.json(input.input, [
       ...workflowParams(input),
@@ -117,8 +119,8 @@ export class PgWorkflowRepository implements WorkflowRepository {
           throw new WorkflowGuardError("queue_full");
       }
       const inserted = await client.query<Row>(
-        `INSERT INTO workflow_runs(tenant_id,actor_id,run_id,kind,version,input_hash,input_cipher,budget,deadline_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp()+$9*interval '1 millisecond')
+        `INSERT INTO workflow_runs(tenant_id,actor_id,run_id,kind,version,input_hash,input_cipher,budget,deadline_at,conversation_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp()+$9*interval '1 millisecond',$10)
         ON CONFLICT(tenant_id,actor_id,run_id) DO NOTHING RETURNING *`,
         [
           ...workflowParams(input),
@@ -128,6 +130,7 @@ export class PgWorkflowRepository implements WorkflowRepository {
           cipher,
           JSON.stringify(budget),
           budget.timeoutMs,
+          input.conversationId??null,
         ],
       );
       const row =
@@ -161,9 +164,9 @@ export class PgWorkflowRepository implements WorkflowRepository {
       }
       if (inserted.rowCount && input.kind === "chat") {
         const chat = await client.query(
-          `INSERT INTO chat_runs(tenant_id,actor_id,run_id,deadline_at)
-          VALUES($1,$2,$3,$4::timestamptz+interval '5 seconds') ON CONFLICT DO NOTHING RETURNING run_id`,
-          [...workflowParams(input), row.deadline_at],
+          `INSERT INTO chat_runs(tenant_id,actor_id,run_id,deadline_at,conversation_id)
+          VALUES($1,$2,$3,$4::timestamptz+interval '5 seconds',$5) ON CONFLICT DO NOTHING RETURNING run_id`,
+          [...workflowParams(input), row.deadline_at,input.conversationId??null],
         );
         if (chat.rowCount !== 1)
           throw new WorkflowGuardError("definition_changed");

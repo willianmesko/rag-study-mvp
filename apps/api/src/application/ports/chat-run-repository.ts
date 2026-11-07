@@ -1,6 +1,6 @@
 import type { ChatRunEvent } from "@rag-study/contracts";
 
-export type ChatRunScope = { tenantId: string; actorId: string; runId: string };
+export type ChatRunScope = { tenantId: string; actorId: string; runId: string; conversationId?: string };
 export type ChatRunStatus = "running" | "completed" | "failed" | "cancelled";
 export type StoredChatRunEvent = { id: number; event: ChatRunEvent };
 export type ChatRunSnapshot = { status: ChatRunStatus; events: StoredChatRunEvent[] };

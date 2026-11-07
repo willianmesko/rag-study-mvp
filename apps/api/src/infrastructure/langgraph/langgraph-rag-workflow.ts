@@ -1,3 +1,4 @@
+import { traceable } from "langsmith/traceable";
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import type {
   AnswerControls,
@@ -139,11 +140,11 @@ export class LangGraphRagWorkflow
     const value = execution
       ? await execution.input(initial, () => graph.getState(execution.config))
       : initial;
-    const output = await graph.invoke(value, {
+    const output = await traceable(() => graph.invoke(value, {
       ...execution?.config,
       signal: input.signal,
       recursionLimit: this.options.maxSteps + 4,
-    });
+    }), { tracingEnabled: false })();
     input.signal?.throwIfAborted();
     return output.prepared;
   }
@@ -415,11 +416,11 @@ export class LangGraphRagWorkflow
     const value = execution
       ? await execution.input(initial, () => graph.getState(execution.config))
       : initial;
-    const output = await graph.invoke(value, {
+    const output = await traceable(() => graph.invoke(value, {
       ...execution?.config,
       signal,
       recursionLimit: this.options.maxSteps + 4,
-    });
+    }), { tracingEnabled: false })();
     signal?.throwIfAborted();
     await onValidating?.();
     const samples = output.samples;

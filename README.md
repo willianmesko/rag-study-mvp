@@ -192,10 +192,14 @@ questions from the active chat to resolve references, then searches the selected
 workspace for fresh evidence. Expand the sources under each reply to review
 the passages it cites. Press Enter to send or Shift+Enter to add a line.
 
-The active thread stays open when you visit another section of the same
-workspace. **New chat** clears the thread and its follow-up context. The
-separate **History** view still keeps recent answered questions in this browser.
-The public demo and side-by-side model comparisons handle each request on its own.
+Signed-in conversations are private to you within the selected workspace and
+saved in the backend. **Chats** and **History** let you reopen, rename, or delete
+threads across devices. **New chat** starts a separate thread and keeps the old
+one in history. Replies support saved thumbs-up/thumbs-down feedback. Older
+messages load on demand. Conversations expire 90 days after the last submitted
+message; raw content stays out of operational logs. The public demo remains
+browser-local. See [Durable conversations](docs/durable-conversations.md) for
+visibility, retention, deletion, idempotency, and API contracts.
 
 ### Resume or stop a live answer
 
@@ -203,7 +207,9 @@ Signed-in chat resumes an interrupted connection in the same tab. The browser
 keeps the run ID for that account and workspace. PostgreSQL keeps the ordered
 events and answer for up to 24 hours, without storing the original question
 in the replay tables. **Stop answer** cancels the run and aborts in-flight
-provider requests. The public demo streams without storing a replay.
+provider requests. Saved product replies outlive the 24-hour replay window for
+their own retention period. A non-streaming connection uses the same saved
+execution and polls its status. The public demo streams without storing a replay.
 
 The chat shows progress while the model drafts. Lumora checks structured
 citations before releasing the citations and answer text. A provider's ability

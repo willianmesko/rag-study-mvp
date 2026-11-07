@@ -108,6 +108,7 @@ export class WorkspaceWorkflows {
                   ...turn,
                   tenantId: lease.tenantId,
                   actorKey: `user:${lease.actorId}`,
+                  bypassCache: Boolean(lease.conversationId),
                   signal,
                   onEvent: (event) => publish(publicWorkflowEvent(event)),
                 }),

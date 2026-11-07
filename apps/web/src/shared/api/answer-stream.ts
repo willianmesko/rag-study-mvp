@@ -26,12 +26,13 @@ export async function startAnswerStream(input: QuestionInput, options: {
   signal: AbortSignal;
   workspace?: WorkspaceSession;
   runId?: string;
+  conversationId?: string;
 }, onEvent: StreamObserver): Promise<TerminalEvent> {
   const response = await fetch(`${apiBaseUrl}/v1/qa/stream`, {
     method: "POST",
     signal: options.signal,
     headers: { "content-type": "application/json", ...headers(options.workspace) },
-    body: JSON.stringify({ ...input, runId: options.runId })
+    body: JSON.stringify({ ...input, ...(options.conversationId ? {previousQuestions:undefined,conversationId:options.conversationId}:{}), runId: options.runId })
   });
   return readStream(response, { allowLegacy: true, after: 0 }, onEvent);
 }

@@ -20,11 +20,12 @@ function makeUseCase({ cached, generated }: { cached: SemanticCacheEntry | null;
   const usageCacheHits: boolean[] = [];
   const events: AnswerWorkflowEvent[] = [];
   let generations = 0;
+  let cacheReads=0;
   const useCase = new AnswerQuestionUseCase(
     { answer: async () => { generations += 1; return generated; } },
     { embed: async () => [1] },
     {
-      findSimilar: async () => cached,
+      findSimilar: async () => {cacheReads++;return cached;},
       put: async (entry) => { writes.push(entry); },
       invalidateTenant: async () => undefined
     },
@@ -41,7 +42,9 @@ function makeUseCase({ cached, generated }: { cached: SemanticCacheEntry | null;
   return {
     writes, usageCacheHits, events,
     get generations() { return generations; },
-    execute: () => useCase.execute({
+    get cacheReads() {return cacheReads;},
+    execute: (bypassCache=false) => useCase.execute({
+      bypassCache,
       question: "How does RAG work?", tenantId: "tenant-1", actorKey: "actor-1",
       onEvent: (event) => { events.push(event); }
     })
@@ -127,4 +130,11 @@ test("fresh model context is returned without being stored in the answer cache",
   assert.deepEqual(result, generated);
   assert.deepEqual(useCase.writes[0]?.sources, groundedAnswer.sources);
   assert.equal("contextSources" in useCase.writes[0]!, false);
+});
+
+// Private history must be deletable without leaving an answer in a shared cache.
+test("a saved conversation bypasses workspace cache reads and writes even on its first question",async()=>{
+  const useCase=makeUseCase({cached:{answer:"Another member's answer",sources:groundedAnswer.sources,similarity:1},generated:groundedAnswer});
+  assert.equal((await useCase.execute(true)).answer,groundedAnswer.answer);
+  assert.equal(useCase.cacheReads,0);assert.equal(useCase.writes.length,0);assert.equal(useCase.generations,1);
 });

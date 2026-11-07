@@ -6,7 +6,7 @@ import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createClient } from "@supabase/supabase-js";
-import { chatModelIdSchema, chatRunIdSchema, demoLibraryIdSchema, demoLocaleSchema, documentFiltersSchema, documentInputSchema, questionComparisonInputSchema, questionInputSchema, questionStreamInputSchema, workspaceChatModelPolicySchema, workspaceMemberRoleSchema, workspaceOnboardingProgressSchema, type DocumentFilters, type ChatModelDescriptor, type ChatRunEvent } from "@rag-study/contracts";
+import { questionComparisonResponseSchema, chatModelIdSchema, chatRunIdSchema, demoLibraryIdSchema, demoLocaleSchema, documentFiltersSchema, documentInputSchema, questionComparisonInputSchema, questionInputSchema, questionStreamInputSchema, workspaceChatModelPolicySchema, workspaceMemberRoleSchema, workspaceOnboardingProgressSchema, type DocumentFilters, type ChatModelDescriptor, type ChatRunEvent } from "@rag-study/contracts";
 import { demoLibraries } from "../../application/demo-libraries/catalog.js";
 import { chatPromptDescriptors } from "../../application/policies/grounded-answer-policy.js";
 import type { DemoLibraryRepository } from "../../application/ports/demo-library-repository.js";
@@ -52,6 +52,9 @@ import { registerAgentActionRoutes, type AgentActions } from "./agent-actions.js
 import { safeHttpLogSerializers } from "./safe-logging.js";
 import { isRemoteMcpPath, registerMcpOAuthRoutes } from "./mcp-oauth.js";
 import { registerRemoteMcp, type RemoteMcp } from "../mcp/remote.js";
+import { ConversationError, type ConversationRepository } from "../../application/ports/conversation-repository.js";
+import { ConversationDelivery } from "../../application/conversations/delivery.js";
+import { registerConversationRoutes } from "./conversations.js";
 
 const searchSchema = z.object({ q: z.string().min(1).max(5_000), topK: z.coerce.number().int().min(1).max(20).optional() });
 const invitationSchema = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: workspaceMemberRoleSchema });
@@ -88,6 +91,7 @@ type HttpDependencies = {
   compareAnswers: CompareAnswersUseCase;
   routeAnswer: RouteAnswerUseCase;
   chatRuns: ChatRunRepository;
+  conversations?: ConversationRepository;
   workspaceOnboarding: WorkspaceOnboardingRepository;
   queueDocumentUpload: QueueDocumentUploadUseCase;
   publicHtmlFetcher: PublicHtmlFetcher;
@@ -153,7 +157,7 @@ function applyCorsHeaders(origin: string | undefined, reply: { header: (name: st
   const allowed = remote ? [...config.ALLOWED_ORIGINS, ...config.MCP_REMOTE_ALLOWED_ORIGINS, ...(config.APP_BASE_URL ? [new URL(config.APP_BASE_URL).origin] : [])] : config.ALLOWED_ORIGINS;
   if (!allowed.includes(origin)) return false;
   reply.header("access-control-allow-origin", origin);
-  reply.header("access-control-allow-methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  reply.header("access-control-allow-methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   reply.header("access-control-allow-headers", "authorization, content-type, idempotency-key, x-document-source, x-document-title, x-workspace-id, mcp-protocol-version, mcp-session-id, last-event-id");
   reply.header("access-control-expose-headers", "www-authenticate, mcp-protocol-version, mcp-session-id, x-request-id");
   reply.header("access-control-max-age", "600");
@@ -209,6 +213,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (!remote && config.API_KEY && !matchesApiKey(apiKey, config.API_KEY)) return reply.code(401).send({ error: "Unauthorized" });
   });
   app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof ConversationError) return reply.code(error.status).send({code:error.code,error:error.message});
     if (error instanceof WorkflowApprovalPending) return reply.code(409).send({code:'approval_required',error:error.message});
     if (error instanceof WorkflowGuardError) {
       const status = { budget_exceeded:422,lease_lost:409,cancelled:409,deadline_exceeded:504,authorization_revoked:403,definition_changed:409,state_limit:422,queue_full:429 }[error.code];
@@ -228,7 +233,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     app.log.error({ code: "request_failed", err: error }, "Request failed");
     return reply.code(500).send({ error: "Internal server error" });
   });
-  app.get("/health", async () => ({ status: "ok", capabilities: { pdfOcr: config.PDF_OCR_ENABLED, durableWorkflows: Boolean(dependencies.workflows) } }));
+  app.get("/health", async () => ({ status: "ok", capabilities: { pdfOcr: config.PDF_OCR_ENABLED, durableWorkflows: Boolean(dependencies.workflows), durableConversations: Boolean(dependencies.conversations) } }));
   const authorizeMember = async (request: { headers: Record<string, string | string[] | undefined> }, requireExplicitWorkspace = false) => {
     if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return { ok: false as const, status: 503, error: "Admin upload is not configured." };
     const authorization = request.headers.authorization;
@@ -341,8 +346,31 @@ export async function buildApp(dependencies: HttpDependencies) {
     const model = profile.models.get(modelId ?? profile.defaultModelId ?? "");
     if (!model) return null;
     return async (input: Parameters<AnswerQuestionUseCase["execute"]>[0]) =>
-      ({ ...await model.answerQuestion.execute(input), model: model.descriptor });
+      ({ ...await model.answerQuestion.execute(input), model: model.descriptor, providerModel: model.model });
   }
+  const conversationDelivery = dependencies.conversations ? new ConversationDelivery(dependencies.conversations,dependencies.chatRuns,
+    async (submission) => {
+      const {tenantId,userId,runId,conversationId,input}=submission;
+      if(!await dependencies.conversations!.turn(submission,runId))throw new ConversationError('conversation_unavailable',404);
+      const scope={tenantId,actorId:userId,runId,conversationId},actorKey=`user:${userId}`;
+      if(dependencies.workflows){await dependencies.workflows.startChat(scope,input);return;}
+      const answer=await chooseAnswer(tenantId,input.modelId);
+      if(!answer)throw new ConversationError('conversation_unavailable',409);
+      await answerRuns.start(scope,{ reserveQuota:async()=>(await dependencies.consumeQuestionQuota(tenantId,actorKey)).allowed,
+        answer:async({signal,publish})=>serializeQuestionAnswer(await answer({...input,tenantId,actorKey,bypassCache:true,signal,onEvent:(event)=>publish(serializeWorkflowEvent(event))})),
+        reportFailure:()=>app.log.warn({code:'saved_answer_failed'},'Saved answer execution failed') });
+    },async(submission,signal)=>{
+      const profile=await workspaceChatModels(submission.tenantId),[left,right]=submission.input.modelIds.map((id)=>profile.models.get(id));
+      if(!left||!right)throw new ConversationError('conversation_unavailable',409);
+      const quota=await dependencies.consumeQuestionQuota(submission.tenantId,`user:${submission.userId}`,2);
+      if(!quota.allowed)throw new ConversationError('conversation_limit',429);
+      const results=await dependencies.compareAnswers.execute({...submission.input,tenantId:submission.tenantId,actorKey:`user:${submission.userId}`,models:[left,right],signal});
+      return questionComparisonResponseSchema.parse({results:results.map(({model,response,...result})=>({...result,model,response:response?serializeQuestionAnswer(response,model):null}))});
+    },streamShutdown.signal,config.AGENT_TIMEOUT_MS,(reason)=>app.log.warn({code:reason},'Conversation delivery could not complete')) : undefined;
+  if(dependencies.conversations&&conversationDelivery)registerConversationRoutes(app,{
+    records:dependencies.conversations,delivery:conversationDelivery,authorize:(request)=>authorizeMember(request,true),shutdown:streamShutdown.signal,audit:dependencies.recordAuditEvent,
+    cancel:async(scope)=>{await dependencies.workflows?.cancel(scope);return answerRuns.cancel(scope);}
+  });
   app.get("/v1/workspaces", async (request, reply) => {
     if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return reply.code(503).send({ error: "Workspace access is not configured." });
     const authorization = request.headers.authorization;
@@ -755,9 +783,18 @@ export async function buildApp(dependencies: HttpDependencies) {
     return { models, comparisonAvailable: models.length >= 2, promptComparisonAvailable: true, promptVariants: chatPromptDescriptors, ...(profile.auto ? { autoAvailable: true } : {}) };
   });
   app.post("/v1/qa/compare", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
-    const { question, topK, modelIds, promptVariantIds } = questionComparisonInputSchema.parse(request.body);
+    const envelope=z.object({conversationId:z.uuid().optional(),runId:z.uuid().optional()}).parse(request.body);
+    const original={...(request.body as Record<string,unknown>)};delete original.conversationId;delete original.runId;
+    const { question, topK, modelIds, promptVariantIds } = questionComparisonInputSchema.parse(original);
     const membership = await authorizeMember(request, true);
     if (!membership.ok) return rejectScope(reply, membership);
+    if(envelope.conversationId||envelope.runId){
+      if(!envelope.conversationId||!envelope.runId||!conversationDelivery)throw new ConversationError('conversation_unavailable',404);
+      const previous=await dependencies.conversations!.turn({...membership,conversationId:envelope.conversationId},envelope.runId);
+      if(!previous){const profile=await workspaceChatModels(membership.tenantId);if(modelIds.some((id)=>!profile.models.has(id)))return reply.code(400).send(modelUnavailable);}
+      const turn=await conversationDelivery.submit({...membership,conversationId:envelope.conversationId,runId:envelope.runId,mode:'comparison',input:{question,topK,modelIds,promptVariantIds}});
+      return reply.code(202).send({turn});
+    }
     const profile = await workspaceChatModels(membership.tenantId);
     const [left, right] = modelIds.map((id) => profile.models.get(id));
     if (!left || !right) return reply.code(400).send(modelUnavailable);
@@ -785,11 +822,27 @@ export async function buildApp(dependencies: HttpDependencies) {
       serializeQuestionAnswer(await answer({ question, ...(previousQuestions ? { previousQuestions } : {}), topK, tenantId, actorKey, signal })));
   });
   app.post("/v1/qa/stream", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
-    const { question, topK, runId, modelId, previousQuestions } = questionStreamInputSchema.parse(request.body);
+    const { question, topK, runId, modelId, previousQuestions, conversationId } = questionStreamInputSchema.parse(request.body);
     const turn = { question, ...(previousQuestions ? { previousQuestions } : {}), topK };
     if (runId) {
       const membership = await authorizeMember(request, true);
       if (!membership.ok) return rejectScope(reply, membership);
+      if(conversationId){
+        if(!conversationDelivery||!dependencies.conversations)throw new ConversationError('conversation_unavailable',404);
+        const previous=await dependencies.conversations.turn({...membership,conversationId},runId);
+        if(!previous&&!await chooseAnswer(membership.tenantId,modelId))return reply.code(modelId?400:503).send(modelUnavailable);
+        const admitted=await conversationDelivery.submit({...membership,conversationId,runId,mode:'answer',input:{question,topK,modelId}});
+        if(request.headers.accept==='application/json')return reply.code(202).send({turn:admitted});
+        const scope={runId,tenantId:membership.tenantId,actorId:membership.userId};
+        if(!await dependencies.chatRuns.get(scope)){
+          const saved=await dependencies.conversations.turn({...membership,conversationId},runId);
+          if(saved&&saved.status!=='queued'&&saved.status!=='running'){
+            const stream=openAnswerStream(request,reply,streamShutdown.signal);
+            try{const event=saved.answer?{type:'completed' as const,response:saved.answer}:saved.status==='cancelled'?{type:'cancelled' as const}:{type:'error' as const,code:'execution_failed' as const,error:'Lumora could not complete this answer.'};await stream.event(event.type,event,1);}finally{stream.close();}return;
+          }
+        }
+        return replayAnswerStream(request,reply,dependencies.chatRuns,scope,0,streamShutdown.signal);
+      }
       const answer = await chooseAnswer(membership.tenantId, modelId);
       if (!answer) return reply.code(modelId ? 400 : 503).send(modelUnavailable);
       const { tenantId, userId } = membership;

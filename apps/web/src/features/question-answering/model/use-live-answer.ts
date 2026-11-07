@@ -21,6 +21,7 @@ type Run = {
   input?: QuestionInput;
   connecting: boolean;
   stopping: boolean;
+  conversationId?: string;
 };
 type Connection = "start" | "resume" | "regular";
 
@@ -64,12 +65,13 @@ function isRetryable(error: unknown) {
     (error instanceof ApiError && (error.status === 408 || error.status >= 500));
 }
 
-export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, onFinished }: {
+export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, onFinished, autoRecover = true }: {
   accessToken?: string | null;
   workspaceId?: string;
   scope: string;
   onRecovered: (runId: string) => void;
   onFinished: (result: AnswerOutcome) => void;
+  autoRecover?: boolean;
 }) {
   const [state, setState] = useState(emptyAnswer);
   const [stopping, setStopping] = useState(false);
@@ -82,7 +84,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
   useEffect(() => { latest.current = { session, onRecovered, onFinished }; }, [accessToken, workspaceId, onRecovered, onFinished]);
 
   useEffect(() => {
-    const id = storageKey && readRun(storageKey);
+    const id = autoRecover && storageKey && readRun(storageKey);
     if (storageKey && id) {
       const run = { controller: new AbortController(), durable: { id, cursor: 0, storageKey }, connecting: false, stopping: false };
       active.current = run;
@@ -96,7 +98,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
       active.current?.controller.abort();
       active.current = null;
     };
-  }, [storageKey]);
+  }, [storageKey,autoRecover]);
 
   function finish(run: Run, result: AnswerOutcome) {
     if (active.current !== run) return;
@@ -140,21 +142,23 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
         const workspace = latest.current.session;
         try {
           if (mode === "regular" && run.input) {
-            const answer = await api.answer({ ...run.input, ...workspace, signal });
-            finish(run, { answer });
+            if(run.conversationId&&run.durable&&workspace){
+              const turn=await api.savedAnswer(run.input,workspace.accessToken,workspace.workspaceId,{conversationId:run.conversationId,runId:run.durable.id},signal);
+              finish(run,{answer:turn.answer??undefined,cancelled:turn.status==='cancelled',failure:turn.status==='failed'?'execution_failed':undefined});
+            }else finish(run, { answer: await api.answer({ ...run.input, ...workspace, signal }) });
             return;
           }
           if (mode === "resume" ? !run.durable || !workspace : !run.input) throw new StreamInterrupted();
           const event = mode === "resume"
             ? await resumeAnswerStream(run.durable!.id, run.durable!.cursor, workspace!, signal, update)
-            : await startAnswerStream(run.input!, { signal, workspace, runId: run.durable?.id }, update);
+            : await startAnswerStream(run.input!, { signal, workspace, runId: run.durable?.id,conversationId:run.conversationId }, update);
           if (event.type === "completed") finish(run, { answer: event.response });
           else if (event.type === "cancelled") finish(run, { cancelled: true });
           else finish(run, { failure: event.code });
           return;
         } catch (error) {
           if (signal.aborted) return;
-          if (mode === "start" && attempt === 0 && isMissingRoute(error)) {
+          if (mode === "start" && attempt === 0 && isMissingRoute(error) && !run.conversationId) {
             // A missing stream route rejected the request before admission.
             if (run.durable) clearRun(run.durable);
             run.durable = undefined;
@@ -176,7 +180,7 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
           }
           setState((previous) => ({ ...previous, phase: "reconnecting" }));
           await waitForRetry(delay, signal);
-          mode = admissionUnknown ? "start" : "resume";
+          mode = mode === "regular" ? "regular" : admissionUnknown ? "start" : "resume";
         }
       }
     } finally {
@@ -184,12 +188,12 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
     }
   }
 
-  function start(input: QuestionInput) {
+  function start(input: QuestionInput, saved?: {runId:string;conversationId:string}) {
     if (active.current) return false;
     const supportsStream = typeof ReadableStream !== "undefined";
-    const durable = storageKey && supportsStream ? { id: crypto.randomUUID(), cursor: 0, storageKey } : undefined;
+    const durable = storageKey && (supportsStream||saved) ? { id: saved?.runId??crypto.randomUUID(), cursor: 0, storageKey } : undefined;
     if (durable) saveRun(durable.storageKey, durable.id);
-    const run = { controller: new AbortController(), durable, input, connecting: false, stopping: false };
+    const run = { controller: new AbortController(), durable, input, connecting: false, stopping: false,conversationId:saved?.conversationId };
     active.current = run;
     setState({ ...emptyAnswer, phase: "accepted" });
     void connect(run, supportsStream ? "start" : "regular");
@@ -200,8 +204,15 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
     const run = active.current;
     if (!run?.durable || run.connecting || run.stopping) return;
     setState((previous) => ({ ...previous, phase: "reconnecting" }));
-    void connect(run, "resume");
+    void connect(run, run.conversationId&&typeof ReadableStream==="undefined" ? "regular" : "resume");
   }
+  function recoverSaved(runId:string,input:QuestionInput,conversationId:string) {
+    if(active.current||!storageKey)return;
+    const run:Run={controller:new AbortController(),durable:{id:runId,cursor:0,storageKey},input,conversationId,connecting:false,stopping:false};
+    active.current=run;setState({...emptyAnswer,phase:'reconnecting'});void connect(run,typeof ReadableStream==='undefined'?'regular':'resume');
+  }
+  function settleSaved(result:AnswerOutcome){if(active.current)finish(active.current,result);}
+  function detach(){const run=active.current;if(run?.durable)clearRun(run.durable);run?.controller.abort();active.current=null;setState(emptyAnswer);setStopping(false);}
 
   async function stop() {
     const run = active.current;
@@ -220,8 +231,15 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
     try {
       for (let attempt = 0; !signal.aborted; attempt++) {
         try {
-          const status = await cancelAnswerRun(id, latest.current.session ?? workspace, signal);
-          if (status === "cancelled") finish(run, { cancelled: true });
+          if(run.conversationId){
+            const current=latest.current.session??workspace;
+            const turn=await api.cancelConversationTurn(current.accessToken,current.workspaceId,run.conversationId,id);
+            if(turn.status==='cancelled')finish(run,{cancelled:true});
+            else if(turn.answer)finish(run,{answer:turn.answer});
+          }else{
+            const status=await cancelAnswerRun(id,latest.current.session??workspace,signal);
+            if(status==='cancelled')finish(run,{cancelled:true});
+          }
           break;
         } catch (error) {
           if (signal.aborted) return;
@@ -240,5 +258,5 @@ export function useLiveAnswer({ accessToken, workspaceId, scope, onRecovered, on
     if (!signal.aborted) resume();
   }
 
-  return { ...state, stopping, stopError, start, resume, stop };
+  return { ...state, stopping, stopError, start, resume, stop, recoverSaved, settleSaved, detach };
 }

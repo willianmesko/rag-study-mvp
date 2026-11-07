@@ -100,7 +100,8 @@ export const questionComparisonInputSchema = z.strictObject({
 });
 
 export const chatRunIdSchema = z.uuid();
-export const questionStreamInputSchema = questionInputSchema.extend({ runId: chatRunIdSchema.optional() });
+export const questionStreamInputSchema = questionInputSchema.extend({ runId: chatRunIdSchema.optional(), conversationId: z.uuid().optional() })
+  .refine((input) => !input.conversationId || (input.runId && !input.previousQuestions), { message: "Saved conversations require a run ID and server-owned context." });
 
 const questionSourceSchema = z.object({
   chunkId: z.string(),
@@ -113,7 +114,7 @@ const questionSourceSchema = z.object({
   excerptTruncated: z.boolean().optional()
 });
 
-const questionResponseSchema = z.object({
+export const questionResponseSchema = z.object({
   answer: z.string(),
   citedChunkIds: z.array(z.string()).optional(),
   structuredOutput: z.boolean().optional(),
@@ -122,6 +123,7 @@ const questionResponseSchema = z.object({
   contextSources: z.array(questionSourceSchema).optional(),
   cacheHit: z.boolean().optional(),
   model: chatModelDescriptorSchema.optional(),
+  providerModel: z.string().max(200).optional(),
   routing: chatAnswerRoutingSchema.optional(),
   usage: chatAnswerUsageSchema.optional(),
   claimVerification:z.object({method:z.enum(['judge','extractive']),supported:z.boolean(),claims:z.number().int().nonnegative(),unsupported:z.number().int().nonnegative()}).optional(),
@@ -150,6 +152,35 @@ export const chatRunEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("error"), code: z.enum(["quota_exceeded", "execution_failed", "execution_interrupted"]), error: z.string() }),
   z.object({ type: z.literal("cancelled") })
 ]);
+
+
+export const CONVERSATION_RETENTION_DAYS = 90;
+const conversationTitleSchema = z.string().trim().min(1).max(120).refine((title) => !/[\p{Cc}\p{Cf}]/u.test(title));
+export const conversationCreateSchema = z.strictObject({ id: z.uuid(), title: conversationTitleSchema.optional() });
+export const conversationRenameSchema = z.strictObject({ title: conversationTitleSchema });
+export const conversationFeedbackSchema = z.strictObject({ value: z.enum(["up", "down"]).nullable() });
+export const conversationSummarySchema = z.strictObject({
+  id: z.uuid(), title: z.string().max(120).nullable(), turnCount: z.number().int().nonnegative(),
+  createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(), expiresAt: z.iso.datetime()
+});
+const conversationTurnBase = z.object({
+  runId: z.uuid(), userMessageId: z.uuid(), assistantMessageId: z.uuid(), conversationId: z.uuid(),
+  sequence: z.number().int().positive(), question: z.string().max(5000),
+  status: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
+  answer: questionResponseSchema.nullable(), comparison: questionComparisonResponseSchema.nullable(),
+  feedback: z.enum(["up", "down"]).nullable(), failureCode: z.string().max(80).nullable(),
+  createdAt: z.iso.datetime(), completedAt: z.iso.datetime().nullable()
+});
+export const conversationTurnSchema = z.discriminatedUnion('mode',[
+  conversationTurnBase.extend({mode:z.literal('answer'),input:questionInputSchema}),
+  conversationTurnBase.extend({mode:z.literal('comparison'),input:questionComparisonInputSchema})
+]);
+export const conversationPageSchema = z.strictObject({ conversations: z.array(conversationSummarySchema).max(50), nextCursor: z.string().max(300).nullable() });
+export const conversationMessagesSchema = z.strictObject({ conversation: conversationSummarySchema, turns: z.array(conversationTurnSchema).max(50), nextBefore: z.number().int().positive().nullable() });
+export const conversationCreatedSchema = z.strictObject({ conversation: conversationSummarySchema });
+export type ConversationSummary = z.infer<typeof conversationSummarySchema>;
+export type ConversationTurn = z.infer<typeof conversationTurnSchema>;
+export type ConversationMessages = z.infer<typeof conversationMessagesSchema>;
 
 export const workspaceMemberRoleSchema = z.enum(["editor", "viewer"]);
 

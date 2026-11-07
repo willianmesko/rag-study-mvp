@@ -22,7 +22,9 @@ export class LangSmithTracingWorkflow implements QuestionAnsweringWorkflow {
         run_type: "chain",
         project_name: this.options.projectName,
         tracingEnabled: true,
-        processOutputs: ({ contextSources: _contextSources, ...traceOutput }) => traceOutput
+        // Content belongs in authorized product records, never operational traces.
+        processInputs: () => ({ topK: input.topK, questionCharacters: input.question.length }),
+        processOutputs: (output) => ({ sourceCount: output.sources.length, refused: Boolean(output.refusalReason), usage: output.usage })
       }
     );
     return traced(payload);

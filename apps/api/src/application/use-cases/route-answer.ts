@@ -79,7 +79,7 @@ export class RouteAnswerUseCase {
     if (!prepared) {
       const result = await this.workflow.answerPrepared(null, primary.generator, signal);
       await emit({ type: "validating" });
-      return { ...result, model: primary.descriptor, usage: describeAnswerUsage(result, primary, 0, 0, undefined, promptVersion),
+      return { ...result, model: primary.descriptor, providerModel: primary.model, usage: describeAnswerUsage(result, primary, 0, 0, undefined, promptVersion),
         routing: { mode: "auto", reason, attemptedModelIds, usedFallback: false } };
     }
 
@@ -117,7 +117,7 @@ export class RouteAnswerUseCase {
         await emit({ type: "citations", sources: result.sources });
         for (const delta of result.answer.match(/[\s\S]{1,256}/gu) ?? []) await emit({ type: "token", delta });
       }
-      return { ...result, usage, model: model.descriptor, routing: { mode: "auto", reason, attemptedModelIds, usedFallback: index > 0 } };
+      return { ...result, usage, model: model.descriptor, providerModel: model.model, routing: { mode: "auto", reason, attemptedModelIds, usedFallback: index > 0 } };
     }
     throw new AutoAnswerFailedError();
   }

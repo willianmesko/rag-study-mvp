@@ -26,9 +26,10 @@ export function GuidePractice({ workspace, token, scope, goal, onPendingChange, 
   });
   const conversation = useConversation({
     accessToken: token, workspaceId: workspace.tenantId, scope: `${scope}:guide`,
+    navigation:false,
     onAnswered: (input) => onAnswered ? onAnswered(input) : rememberQuestion(scope, input)
   });
-  const busy = conversation.live.phase !== null || conversation.comparison.isPending || conversation.turns.some(({ status }) => status === "pending");
+  const busy = conversation.submitting || conversation.live.phase !== null || conversation.comparison.isPending || conversation.turns.some(({ status }) => status === "pending");
   useEffect(() => {
     onPendingChange(busy);
     return () => onPendingChange(false);

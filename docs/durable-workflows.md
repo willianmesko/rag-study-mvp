@@ -5,9 +5,13 @@
 Lumora uses native LangGraph state graphs for RAG, document preparation, and
 owner-triggered evaluations. When `WORKFLOWS_ENABLED=true`, authenticated chat
 runs, queued ingestion, and dashboard evaluations use encrypted PostgreSQL
-checkpoints. Anonymous chat, the JSON Q&A fallback, comparisons, and direct CLI
-imports remain bounded synchronous operations. This is execution recovery with
-24-hour retention; named, cross-device conversation history is a separate feature.
+checkpoints. Saved JSON fallback requests use the same durable chat admission
+as SSE. Anonymous chat, legacy JSON Q&A, comparisons, and direct CLI imports
+remain bounded operations outside the native workflow runner. Saved comparisons
+have a durable admission and result record; an uncertain in-flight comparison
+is marked interrupted instead of silently repeated after a server restart. This is execution recovery with
+24-hour retention. [Private conversation history](durable-conversations.md) has
+a separate 90-day product lifecycle and links its saved messages to these executions.
 
 The application layer owns authorization, admission, and budgets through ports.
 The infrastructure layer implements LangGraph, the checkpoint saver, provider

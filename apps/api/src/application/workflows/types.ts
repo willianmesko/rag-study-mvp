@@ -13,6 +13,7 @@ export type WorkflowScope = {
   tenantId: string;
   actorId: string;
   runId: string;
+  conversationId?: string;
 };
 export const workflowBudgetSchema = z.strictObject({
   maxSteps: z.number().int().min(1).max(100),

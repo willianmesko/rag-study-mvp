@@ -31,14 +31,14 @@ export class PgChatRunRepository implements ChatRunRepository {
   async create(scope: ChatRunScope, executionTimeoutMs: number): Promise<boolean> {
     const result = await this.pool.query(
       `WITH inserted AS (
-        INSERT INTO chat_runs (tenant_id, actor_id, run_id, deadline_at)
-        VALUES ($1, $2, $3, NOW() + ($4::double precision * INTERVAL '1 millisecond'))
+        INSERT INTO chat_runs (tenant_id, actor_id, run_id, deadline_at,conversation_id)
+        VALUES ($1, $2, $3, NOW() + ($4::double precision * INTERVAL '1 millisecond'),$5)
         ON CONFLICT (tenant_id, actor_id, run_id) DO NOTHING
         RETURNING tenant_id, actor_id, run_id
       )
       INSERT INTO chat_run_events (tenant_id, actor_id, run_id, event_id, event)
       SELECT tenant_id, actor_id, run_id, 1, '{"type":"accepted"}'::jsonb FROM inserted`,
-      [...scopeParams(scope), executionTimeoutMs]
+      [...scopeParams(scope), executionTimeoutMs,scope.conversationId??null]
     );
     return result.rowCount === 1;
   }

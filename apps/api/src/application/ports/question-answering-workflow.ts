@@ -17,6 +17,7 @@ export type AnswerQuestionResult = {
   providerUsage?: ProviderTokenUsage;
   usage?: ChatAnswerUsage;
   model?: ChatModelDescriptor;
+  providerModel?: string;
   routing?: ChatAnswerRouting;
   claimVerification?:ClaimVerification;
   repaired?:boolean;

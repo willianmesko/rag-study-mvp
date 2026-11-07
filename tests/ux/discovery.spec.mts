@@ -258,7 +258,11 @@ test("advanced document filters are sent to the workspace API and invalid dates 
   await page.getByRole("button", { name: /Apply filters|Aplicar filtros/ }).click();
   await expect(page.getByRole("button", { name: /^Portuguese handbook/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /^English guide/ })).toHaveCount(0);
-  expect(Object.fromEntries(requests.find((params) => params.has("format"))!)).toEqual({ source: "policies/", language: "pt", format: "pdf", from: "2026-01-01", to: "2026-01-31" });
+  // Initial/placeholder rows can briefly match while the filtered query starts.
+  await expect.poll(() => {
+    const filtered = requests.find((params) => params.has("format"));
+    return filtered ? Object.fromEntries(filtered) : null;
+  }).toEqual({ source: "policies/", language: "pt", format: "pdf", from: "2026-01-01", to: "2026-01-31" });
   if (process.platform === "linux" && process.arch === "x64") await expect(page).toHaveScreenshot("document-filters.png", { fullPage: true });
   await page.getByLabel(/Updated from|Atualizado a partir de/).fill("2026-02-01");
   await page.getByRole("button", { name: /Apply filters|Aplicar filtros/ }).click();

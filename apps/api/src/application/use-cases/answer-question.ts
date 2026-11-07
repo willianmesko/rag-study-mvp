@@ -21,10 +21,10 @@ export class AnswerQuestionUseCase {
     private readonly options: ChatPricing & { cacheTtlSeconds: number; cacheMinimumSimilarity: number; cacheVariant?: string; provider: string; model: string; maxOutputTokens: number; maxEstimatedCostUsd: number }
   ) {}
 
-  execute(input: { question: string; previousQuestions?: readonly string[]; topK?: number; tenantId: string; actorKey: string; signal?: AbortSignal; onEvent?: (event: AnswerWorkflowEvent) => void | Promise<void> }): Promise<AnswerQuestionResult> {
+  execute(input: { question: string; previousQuestions?: readonly string[]; topK?: number; tenantId: string; actorKey: string; bypassCache?: boolean; signal?: AbortSignal; onEvent?: (event: AnswerWorkflowEvent) => void | Promise<void> }): Promise<AnswerQuestionResult> {
     return withTransientBudget({maxSteps:50,maxCalls:12,maxInputTokens:160_000,maxOutputTokens:Math.min(64_000,this.options.maxOutputTokens*2+1_800),maxCostMicros:Math.ceil(this.options.maxEstimatedCostUsd*1_000_000),timeoutMs:120_000},()=>this.run(input));
   }
-  private async run(input: { question: string; previousQuestions?: readonly string[]; topK?: number; tenantId: string; actorKey: string; signal?: AbortSignal; onEvent?: (event: AnswerWorkflowEvent) => void | Promise<void> }): Promise<AnswerQuestionResult> {
+  private async run(input: { question: string; previousQuestions?: readonly string[]; topK?: number; tenantId: string; actorKey: string; bypassCache?: boolean; signal?: AbortSignal; onEvent?: (event: AnswerWorkflowEvent) => void | Promise<void> }): Promise<AnswerQuestionResult> {
     const { signal } = input;
     signal?.throwIfAborted();
     const startedAt = Date.now();
@@ -38,7 +38,7 @@ export class AnswerQuestionUseCase {
     const embedding = await embeddingIndex.provider.embed(query, "query", signal);
     signal?.throwIfAborted();
     // Similar wording can refer to different entities in different conversations.
-    const cached = hasContext ? null : await workflowEffect('cache_lookup',{tenantId:input.tenantId,modelKey,query}, {},()=>this.cache.findSimilar({ tenantId: input.tenantId, modelKey, embedding, embeddingIndexVersion: embeddingIndex.version, minimumSimilarity: this.options.cacheMinimumSimilarity }));
+    const cached = hasContext || input.bypassCache ? null : await workflowEffect('cache_lookup',{tenantId:input.tenantId,modelKey,query}, {},()=>this.cache.findSimilar({ tenantId: input.tenantId, modelKey, embedding, embeddingIndexVersion: embeddingIndex.version, minimumSimilarity: this.options.cacheMinimumSimilarity }));
     signal?.throwIfAborted();
     if (cached && cached.sources.length > 0 && cached.answer !== invalidCitationsAnswer) {
       const answer = redactPii(cached.answer).text;
@@ -65,7 +65,7 @@ export class AnswerQuestionUseCase {
         : await this.workflow.answer(workflowInput);
       signal?.throwIfAborted();
       const answer = redactPii(result.answer).text;
-      if (!hasContext && !result.refusalReason && result.sources.length > 0) {
+      if (!hasContext && !input.bypassCache && !result.refusalReason && result.sources.length > 0) {
         const questionHash = createHash("sha256").update(safeQuestion).digest("hex");
         await this.cache.put({ tenantId: input.tenantId, modelKey, questionHash, embedding, embeddingIndexVersion: embeddingIndex.version,
           answer, sources: redactSources(result.sources), expiresAt: new Date(Date.now() + this.options.cacheTtlSeconds * 1_000) });

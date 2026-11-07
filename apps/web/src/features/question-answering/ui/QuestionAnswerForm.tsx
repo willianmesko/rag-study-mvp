@@ -10,6 +10,7 @@ import type { useConversation } from "../model/use-conversation";
 import { promptVariantLabel } from "../model/prompt-variants";
 import { ConversationThread } from "./ConversationThread";
 import { KnowledgeChatState } from "./KnowledgeChatState";
+import { ConversationLibrary } from "./ConversationLibrary";
 
 export function QuestionAnswerForm({ conversation, accessToken, workspaceId, workspaceName, workspaceRole, onAddDocuments, scope, embedded = false, suggestions, suggestion, onSuggestionUsed }: {
   conversation: ReturnType<typeof useConversation>;
@@ -26,6 +27,7 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
 }) {
   const { t } = useLocale();
   const [question, setQuestion] = useState("");
+  const [libraryOpen,setLibraryOpen]=useState(false);
   const [topK, setTopK] = useState(5);
   const [invalidInput, setInvalidInput] = useState(false);
   const [preferredModelId, setPreferredModelId] = useState<string>();
@@ -43,7 +45,7 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
   const knowledge = useQuery(knowledgeStatusQuery(accessToken, workspaceId));
   // A cached ready state must not briefly unlock a workspace whose last
   // document was deleted while the user was on another page/device.
-  const canAsk = knowledge.isFetchedAfterMount && knowledge.isSuccess && !knowledge.isError && knowledge.data.passages > 0;
+  const canAsk = knowledge.isFetchedAfterMount && knowledge.isSuccess && !knowledge.isError && knowledge.data.passages > 0 && !conversation.saved.initializing && !conversation.saved.loading && !(conversation.saved.enabled&&conversation.saved.error);
   const canAdd = Boolean(accessToken && workspaceId && (workspaceRole === "owner" || workspaceRole === "editor"));
   const catalog = useQuery({
     queryKey: ["chat-models", scope],
@@ -68,7 +70,7 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
   const comparingPrompts = comparing && kind === "prompts";
   const autoSelected = autoAvailable && !comparing && preferredModelId === "auto";
   const isStreaming = live.phase !== null;
-  const busy = isStreaming || comparison.isPending || turns.some((turn) => turn.status === "pending");
+  const busy = isStreaming || comparison.isPending || conversation.submitting || turns.some((turn) => turn.status === "pending");
   const Heading = embedded ? "h3" : "h1";
   useEffect(() => {
     if (!suggestion) return;
@@ -127,25 +129,32 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
           <Mascot decorative size="sm" className="size-9 sm:size-10" />
         </div>
         <div className="min-w-0">
-          <Heading id={titleId} className="text-base font-semibold tracking-tight text-white sm:text-lg">{t("Chat with Milo", "Converse com o Milo")}</Heading>
+          <Heading id={titleId} className="truncate text-base font-semibold tracking-tight text-white sm:text-lg">{conversation.saved.conversation?.title??t("Chat with Milo", "Converse com o Milo")}</Heading>
           <p className="flex min-w-0 items-center gap-1.5 text-xs leading-5 text-slate-300">
             <span className="size-1.5 shrink-0 rounded-full bg-cyan-300" aria-hidden="true" />
             <span className="truncate" title={workspaceName}>{workspaceName ?? t("Demo workspace", "Espaço de demonstração")}</span>
           </p>
         </div>
       </div>
+      {conversation.saved.enabled&&<button className="secondary-button min-h-11 min-w-11 px-3" type="button" disabled={busy} onClick={()=>setLibraryOpen(true)}>
+        <svg aria-hidden="true" className="size-4 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 3.5h12a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H7l-4.5 3V5A1.5 1.5 0 0 1 4 3.5Z"/><path d="M6 7h8M6 10.5h5"/></svg>
+        <span className="sr-only sm:not-sr-only">{t('Chats','Conversas')}</span>
+      </button>}
       <button className="secondary-button min-w-11 shrink-0 px-2.5 sm:px-3" type="button" disabled={busy || turns.length === 0} onClick={newChat} title={t("New chat", "Nova conversa")}>
         <svg aria-hidden="true" className="size-4 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 4.5H5a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 5 16.5h9a1.5 1.5 0 0 0 1.5-1.5v-4m-7 1 .5-3.5L14.2 3.3a1.4 1.4 0 0 1 2 2L11 10.5 8.5 12Z" />
         </svg>
-        <span className="sr-only min-[375px]:not-sr-only">{t("New chat", "Nova conversa")}</span>
+        <span className={conversation.saved.enabled?"sr-only sm:not-sr-only":"sr-only min-[375px]:not-sr-only"}>{t("New chat", "Nova conversa")}</span>
       </button>
     </header>
-    {(canAsk || busy || turns.length > 0) && <ConversationThread turns={turns} live={live} demo={!accessToken} suggestions={suggestions} onSuggestion={(message) => {
+    {conversation.saved.enabled&&<p className="px-4 pt-2 text-xs text-slate-400">{t('Private to you · saved across devices','Privada para você · salva entre dispositivos')}</p>}
+    {conversation.saved.enabled&&conversation.saved.error&&<p role="alert" className="error-message mx-3 mt-3">{t('We could not load or save this conversation. Try again before sending a message.','Não conseguimos carregar ou salvar esta conversa. Tente novamente antes de enviar uma mensagem.')} <button type="button" className="text-action" onClick={conversation.saved.retry}>{t('Try again','Tentar novamente')}</button> <button type="button" className="text-action" onClick={newChat}>{t('New chat','Nova conversa')}</button></p>}
+    {conversation.saved.loading&&<p role="status" className="p-4 text-sm text-slate-300">{t('Opening your conversation…','Abrindo sua conversa…')}</p>}
+    {(canAsk || busy || turns.length > 0) && <ConversationThread turns={turns} live={live} demo={!accessToken} saved={conversation.saved} suggestions={suggestions} onSuggestion={(message) => {
       updateQuestion(message);
       composer.current?.focus();
     }} />}
-    {!canAsk && !busy && <KnowledgeChatState data={knowledge.data} loading={knowledge.isPending || (!knowledge.isFetchedAfterMount && !knowledge.isError)} failed={knowledge.isError}
+    {!canAsk && !busy && !conversation.saved.loading && <KnowledgeChatState data={knowledge.data} loading={conversation.saved.initializing || knowledge.isPending || (!knowledge.isFetchedAfterMount && !knowledge.isError)} failed={knowledge.isError}
       demo={!accessToken} canAdd={canAdd} onAdd={onAddDocuments} onRetry={() => void knowledge.refetch()} compact={turns.length > 0} />}
     {(canAsk || busy) && <form className="shrink-0 space-y-2 rounded-b-2xl border-t border-slate-800 bg-slate-900/70 p-3 sm:space-y-3 sm:rounded-b-3xl sm:p-4" onSubmit={submit}>
       {canAsk && knowledge.data.processingJobs > 0 && <p className="text-xs leading-5 text-slate-300" role="status">
@@ -228,5 +237,6 @@ export function QuestionAnswerForm({ conversation, accessToken, workspaceId, wor
         </details>
       </div>
     </form>}
+    {libraryOpen&&<ConversationLibrary saved={conversation.saved} onOpen={conversation.saved.open} onClose={()=>setLibraryOpen(false)}/>}
   </section>;
 }

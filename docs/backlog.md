@@ -21,7 +21,10 @@ status section where they appear.
 
 ## In progress
 
-No implementation is currently active in this checkout.
+Durable conversations are implemented and have passed database, API, evaluation,
+and focused responsive/browser checks. The final complete browser regression
+and production publication are in progress; the release evidence will be added
+below when both deployments are confirmed.
 
 **Approved delivery order**
 
@@ -34,26 +37,6 @@ No implementation is currently active in this checkout.
    workspace hybrid retrieval, durable budgets/cancellation and safe tool policies.
 
 ## Pending implementation
-
-### 3. Durable conversations and product history
-
-- [ ] Store named conversations, questions, answers, checked citations, and
-  thumbs-up/thumbs-down feedback in the backend, scoped by workspace and user.
-- [ ] Use durable conversation and message IDs, ordered messages, execution
-  status, and model and usage metadata.
-- [ ] Reopen conversations across signed-in devices. Support naming, renaming,
-  pagination of older messages, and conversation deletion.
-- [ ] Make message submission and completion idempotent so retries and stream
-  reconnection preserve one ordered conversation.
-- [ ] Validate membership and conversation ownership on every read, write,
-  and feedback request.
-- [ ] Define conversation visibility, retention, and deletion. Store content in
-  authorized product records and preserve the log policy that excludes raw
-  questions and document contents.
-
-The current transcript lives in browser memory. Recent answers and ratings are
-browser-local. PostgreSQL execution replay lasts 24 hours. Durable conversation
-history is the open work described above.
 
 ### 4. Portuguese and English retrieval and answers
 
@@ -269,6 +252,35 @@ relevant context; live private-model generation was not exercised through an
 impersonated account. Native recovery/provider tests use isolated fixtures.
 See [Durable workflows](durable-workflows.md).
 
+### 3. Durable conversations and product history
+
+- [x] Store named conversations, questions, answers, checked citations, and
+  thumbs-up/thumbs-down feedback in the backend, scoped by workspace and user.
+- [x] Use durable conversation and message IDs, ordered messages, execution
+  status, and model and usage metadata.
+- [x] Reopen conversations across signed-in devices. Support naming, renaming,
+  pagination of older messages, and conversation deletion.
+- [x] Make message submission and completion idempotent so retries and stream
+  reconnection preserve one ordered conversation.
+- [x] Validate membership and conversation ownership on every read, write,
+  and feedback request.
+- [x] Define conversation visibility, retention, and deletion. Store content in
+  authorized product records and preserve the log policy that excludes raw
+  questions and document contents.
+
+Conversations are private to their author within each workspace, retained for
+90 days after the last submitted message, and removed with linked replay and
+workflow state when deleted. New signed-in history is backend-owned; anonymous
+demo history remains browser-local. Saved comparisons preserve both results;
+a comparison interrupted by a server restart expires safely instead of silently
+repeating provider calls. See [Durable conversations](durable-conversations.md)
+for contracts, diagrams, privacy/deletion rules, and operational limits.
+
+Validation: 13 real PostgreSQL/API checks, seven focused browser journeys across
+three responsive profiles, accessibility checks, and the evaluation harness
+passed locally. The Supabase migration and private-role checks are complete.
+Final CI and frontend/backend publication are pending.
+
 ### RAG and ingestion
 
 - [x] Custom chunking, embedding-provider adapters, pgvector storage, hybrid
@@ -389,10 +401,11 @@ See [Durable workflows](durable-workflows.md).
   scoped browser retry, and completion preserved across concurrent devices.
 - [x] Milo sign-in greeting and workspace-loading animation, respecting reduced
   motion preferences.
-- [x] Ask conversation bubbles, recent-question follow-ups, fresh retrieval and
-  checked citations per reply, and a New chat action. The transcript stays in
-  memory while navigating within the same active workspace.
-- [x] Up to 20 browser-local recent answers and ratings, scoped by workspace/user.
+- [x] Ask conversation bubbles, server-owned recent-question context, fresh
+  retrieval, checked citations, and a New chat action. Signed-in conversations
+  persist across navigation and devices; see the durable-history item above.
+- [x] Up to 20 browser-local recent demo answers and ratings. Signed-in product
+  history and ratings now use private backend records.
 - [x] Signed-in SSE with ordered events, reconnect/reload replay, provider
   cancellation, workspace/user checks, and one quota charge per run.
 - [x] PostgreSQL run/event replay for 24 hours, checked citations before fresh

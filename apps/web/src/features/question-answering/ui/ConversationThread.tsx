@@ -60,12 +60,13 @@ function TurnReply({ turn, live }: { turn: ConversationTurn; live: ReturnType<ty
   </div>;
 }
 
-export function ConversationThread({ turns, live, demo, onSuggestion, suggestions: customSuggestions }: {
+export function ConversationThread({ turns, live, demo, onSuggestion, suggestions: customSuggestions,saved }: {
   turns: ConversationTurn[];
   live: ReturnType<typeof useConversation>["live"];
   demo: boolean;
   onSuggestion: (message: string) => void;
   suggestions?: string[];
+  saved?: ReturnType<typeof useConversation>['saved'];
 }) {
   const { t } = useLocale();
   const transcript = useRef<HTMLDivElement>(null);
@@ -108,6 +109,7 @@ export function ConversationThread({ turns, live, demo, onSuggestion, suggestion
   return <div className="relative min-h-0 min-w-0 flex-1">
     <div role="region" aria-label={t("Conversation messages", "Mensagens da conversa")} tabIndex={0} ref={transcript}
       onScroll={trackScroll} className="h-full overflow-y-auto overscroll-contain px-3 py-5 focus-visible:-outline-offset-2 sm:px-6 [scrollbar-gutter:stable]">
+      {saved?.enabled&&saved.hasOlder&&<button type="button" className="secondary-button mb-5" disabled={saved.loadingOlder} onClick={saved.older}>{saved.loadingOlder?t('Loading…','Carregando…'):t('Load older messages','Carregar mensagens anteriores')}</button>}
       {turns.length === 0 ? <div className="mx-auto flex min-h-full max-w-md flex-col items-center justify-center gap-3 px-2 py-3 text-center sm:py-6">
         <div className="grid size-17 place-items-center rounded-3xl border border-cyan-300/25 bg-cyan-400/10 shadow-lg shadow-cyan-950/30 sm:size-20">
           <Mascot decorative size="sm" className="size-14 sm:size-16" />
@@ -141,6 +143,10 @@ export function ConversationThread({ turns, live, demo, onSuggestion, suggestion
             </div>
             <div className="min-w-0 rounded-2xl rounded-tl-sm border border-slate-700/90 bg-slate-900/90 p-3.5 sm:p-4">
               <TurnReply turn={turn} live={live} />
+              {saved?.enabled&&turn.status==='completed'&&turn.assistantMessageId&&<div className="mt-3 flex flex-wrap gap-2 border-t border-slate-800 pt-3" role="group" aria-label={t('Rate this reply','Avalie esta resposta')}>
+                {(['up','down'] as const).map((value)=><button key={value} type="button" className={`secondary-button min-h-9 px-3 text-xs ${turn.feedback===value?'border-cyan-300 text-cyan-100':''}`} aria-pressed={turn.feedback===value}
+                  disabled={saved.rating===turn.assistantMessageId} onClick={()=>void saved.feedback(turn.assistantMessageId!,turn.feedback===value?null:value)}>{value==='up'?t('👍 Helpful','👍 Útil'):t('👎 Needs work','👎 Precisa melhorar')}</button>)}
+              </div>}
             </div>
           </div>
         </li>)}
