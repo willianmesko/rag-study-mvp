@@ -14,23 +14,24 @@ live activation remain in the [product backlog](backlog.md).
 
 | Status | Tickets | Count |
 | --- | --- | --- |
-| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-07, FE-09 | 18 |
-| Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08, FE-10 | 5 |
+| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-07, FE-09–FE-10 | 19 |
+| Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08 | 4 |
 | Pending implementation | BE-09, BE-13, FE-11 | 3 |
 
-The latest batch is live on the frontend and API at `42a0edb62cb124b47dd4d8ef6656b8b253cf36cf`,
-after all four [CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42414978269).
-See the [UI primitive evidence](operations/release-2026-11-07-ui-primitives.md).
-FE-09 is complete: semantic action states, one compatible native-dialog shell,
-focus return/fallbacks, bounded original-file lifetime and source-domain Public APIs.
-CI passed 374 UX-suite cases/46 deliberate profile skips, 83 PostgreSQL cases,
-the isolated cutover, 78 architecture fixtures and all seven harness checks.
-Both live SHAs, served CSS tokens/assets, health and protected routes were verified.
-The prior [FE-07 lifecycle release](operations/release-2026-11-07-chat-lifecycle.md)
-and [FE-06 reader release](operations/release-2026-11-07-conversation-readers.md)
-retain their separate evidence. BE-08/FE-08 retain promise/Hook correctness work.
-FE-10 is locally validated and undergoing release checks; FE-11 follows.
-BE-09 retains its separate deployment activation gate for minimum database privileges.
+The latest batch is live on the frontend and API at `d63a4b1d28bcfd372e79ae6b4475867ad892a708`,
+after all four [CI jobs passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42417537601). See the
+[frontend performance evidence](operations/release-2026-11-07-frontend-performance.md).
+FE-10's measurement track is complete: versioned build/browser baselines,
+request/payload gates, per-commit artifacts and a measured one-read reduction.
+CI passed 389 UX-suite cases/46 deliberate profile skips, 83 PostgreSQL cases,
+the isolated cutover, 78 architecture fixtures, all seven harness checks and the
+three native frontend-budget cases. Both live SHAs, served assets, health and
+protected routes were verified. Field LCP and provider-speed gains are not claimed.
+The prior [FE-09 primitive release](operations/release-2026-11-07-ui-primitives.md),
+[FE-07 lifecycle release](operations/release-2026-11-07-chat-lifecycle.md) and
+[FE-06 reader release](operations/release-2026-11-07-conversation-readers.md)
+retain separate evidence. Automatic continuation proceeds with FE-11. BE-08/FE-08
+retain promise/Hook work; BE-09 retains its minimum-privilege activation gate.
 The prior administrative/unused-check slice is recorded in the
 [query-ownership evidence](operations/release-2026-11-07-query-ownership.md).
 The prior `cbd0f67` batch is recorded in the
@@ -504,14 +505,14 @@ feature-owned locations during BE-07's migration.
 
 ### FE-10 — Repeatable frontend performance baseline
 
-- [ ] **P2 measurement · S, then measured follow-ups · Low measurement risk.**
+- [x] **P2 measurement · S, then measured follow-ups · Low measurement risk.**
   Scope: Vite build artifacts, private-route loading and long-chat interaction.
 - **Accept:** record environment, entry/chunk gzip size, route/request counts and
   streaming/long-history profiles. Establish reviewed regression budgets. Any
   optimization reports before/after results and preserves keyboard/backscroll/
   pinned-scroll behavior. No claim of better LCP without measurements; no automatic
   memoization, table or virtualization dependency.
-- **Locally validated; CI/publication pending:** native build-size inspection,
+- **Completed and published (measurement track):** native build-size inspection,
   versioned gzip baseline, explicit expiry/review metadata for exceptions, route
   request gates and three-profile long-history/stream profiles are implemented.
   The measured admission-time message read is removed (5 → 4 total history reads
@@ -520,6 +521,8 @@ feature-owned locations during BE-07's migration.
   CI. No dependency, broad memoization or virtualization was added.
   See the [performance guide](frontend-performance.md). Field/RUM performance and
   LCP improvement are not claimed; later optimizations require separate evidence.
+  All four exact-source CI gates and both live deployments passed. See the
+  [release record](operations/release-2026-11-07-frontend-performance.md).
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 

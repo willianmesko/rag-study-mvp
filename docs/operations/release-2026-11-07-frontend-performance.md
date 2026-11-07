@@ -2,10 +2,18 @@
 
 ## Status
 
-Implemented and locally validated; exact-source CI/publication remain pending.
-The currently live application is FE-09 at `42a0edb`. No dependency, backend
-contract, database schema or provider policy changed. See the
-[performance guide](../frontend-performance.md).
+**Frontend and API are live** at `d63a4b1d28bcfd372e79ae6b4475867ad892a708` after all four
+[exact-source CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42417537601) passed. FE-10's measurement
+track is complete. No dependency, backend contract, database schema or provider
+policy changed. See the [performance guide](../frontend-performance.md).
+
+| Service | Deployment | Observed live at UTC |
+| --- | --- | --- |
+| API | `dep-dbnpt4ou01pc73ddr7mg` | 2026-11-07 21:58:36 |
+| Frontend | `dep-dbnpt8k9v7es73dee6m0` | 2026-11-07 21:57:36 |
+
+The source push skipped automatic publication. Fresh remote-head/queue checks
+and all four CI successes preceded manual triggers; both records match that SHA.
 
 ## Delivered measurement track
 
@@ -57,6 +65,31 @@ cursors remain covered.
 
 ## CI and publication evidence
 
-Pending exact-source results, deployment IDs and public verification. Complete
-this section before closing the FE-10 measurement ticket. Field/RUM measurement
-and any larger rendering/route optimization retain separate evidence requirements.
+The final CI passed **389 UX-suite cases/46 intentional profile skips**, 83
+PostgreSQL cases and one isolated cutover with zero skips, all 78 architecture
+fixtures, both clean graphs and the seven-check harness. The three native budget
+cases and the actual payload gate passed. Both build/browser artifact uploads
+completed; the build report binds the exact source and reports a clean worktree.
+
+CI used Linux x64, Node 24.22.2, Vite 6.4.5 and gzip 9. It measured entry 125,116
+bytes, all JS 259,357 bytes, all CSS 14,317 bytes and largest JS chunk 125,116
+bytes. All four ceilings passed without an exception. These small differences
+from the macOS baseline are recorded, not hidden or described as a speedup.
+
+Public checks at **21:59:50 UTC** returned frontend 200 with entry
+`/assets/index-DtRr1j_c.js`, application chunk
+`/assets/WorkspaceSwitcher-BwzRHLRA.js` and semantic stylesheet
+`/assets/index-CS2-Q0PU.css`. The original 256-pixel icon matched the source bytes
+in this check. Lifecycle/recovery/response-decoding markers remain present.
+
+API health returned 200 with OCR, durable workflows and conversations enabled;
+request correlation remains server-controlled. Private conversation/MCP/alert
+routes returned 401 without credentials. OAuth resource discovery/S256 and
+sanitized invalid request rejection remained intact. The API error/fatal query
+for **21:58:36–22:00:15 UTC** returned no records; this is a bounded inspection.
+
+These checks did not access a real private conversation/document, invoke a paid
+provider, send a notification or complete third-party consent. Authorized behavior
+is covered by synthetic UX and isolated database tests. Field/RUM measurement
+and larger rendering/route optimizations retain separate evidence requirements.
+Previous verified runtime: `42a0edb`.

@@ -27,11 +27,11 @@ status section where they appear.
 
 ## In progress
 
-The latest application release, `42a0edb62cb124b47dd4d8ef6656b8b253cf36cf`, is
+The latest application release, `d63a4b1d28bcfd372e79ae6b4475867ad892a708`, is
 live on the frontend and API after all four
-[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42414978269).
+[CI gates passed](https://github.com/willianmesko/rag-study-mvp/actions/runs/42417537601).
 Both deployments, served features/icon, health and protected routes were verified
-on 2026-11-07. See [UI primitive evidence](operations/release-2026-11-07-ui-primitives.md).
+on 2026-11-07. See [frontend performance evidence](operations/release-2026-11-07-frontend-performance.md).
 The prior [administrative release](operations/release-2026-11-07-query-ownership.md) remains documented separately.
 The previous [capability-boundary release](operations/release-2026-11-07-capability-boundaries.md)
 remains documented separately.
@@ -40,8 +40,8 @@ is retained as historical evidence.
 The earlier [observability/resilience release](operations/release-2026-11-07.md)
 is included.
 
-The [technical backlog](technical-backlog.md) records 18 published tickets,
-five partial tickets and three pending tickets. The published
+The [technical backlog](technical-backlog.md) records 19 published tickets,
+four partial tickets and three pending tickets. The published
 batch includes shared success-response schemas, SQL limits, bounded Auth/member
 lookup, frontend composition/Public APIs, provider reservations, safe shutdown
 and NestJS-inspired business-module organization. See the
@@ -64,8 +64,9 @@ submission/delivery/cancellation states and creation/navigation guards. Its 75
 focused checks, seven-check local harness and 78 architecture fixtures passed;
 exact-source CI passed 349 UX-suite cases/44 deliberate profile skips, and both
 services are live. FE-09 is complete and published; its CI passed 374 UX-suite cases/46 profile
-skips. FE-10 measurements and deterministic budgets are implemented and under release
-validation; FE-11 follows. See the [performance guide](frontend-performance.md). See the
+skips. FE-10 measurements and deterministic budgets are complete and published, with
+389 CI UX cases/46 intentional profile skips and the new payload gate passed.
+Automatic continuation proceeds with FE-11. See the [performance guide](frontend-performance.md). See the
 [lifecycle record](operations/release-2026-11-07-chat-lifecycle.md).
 Operational activation remains separate.
 

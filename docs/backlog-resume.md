@@ -9,9 +9,9 @@ and published. FE-07 and FE-09 are also complete and published.
 
 ## Current delivery
 
-- Source: `42a0edb62cb124b47dd4d8ef6656b8b253cf36cf`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42414978269).
-- [Release evidence](operations/release-2026-11-07-ui-primitives.md) records
+- Source: `d63a4b1d28bcfd372e79ae6b4475867ad892a708`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42417537601).
+- [Release evidence](operations/release-2026-11-07-frontend-performance.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -152,15 +152,25 @@ all seven harness checks. Health/protected routes and served semantic CSS were
 verified. A PNG encoding variant required byte-specific browser proof of identical
 rendered pixels; no screenshot tolerance was changed.
 
-**Active: FE-10 measurement track** is implemented and locally validated; CI
-and publication are pending. FE-11 small form/URL flows follow, using existing
-tools. Capture build/route/long-history/streaming counts and environment,
-with the versioned deterministic budgets in `config/frontend-performance-budget.json`. Do not claim a speedup or
-field LCP improvement without measurements. External activation, paid-provider
-load and learner outcomes remain separately scoped and must not be invented.
+## Completed automatic continuation: FE-10
 
-FE-10 local evidence: 90 focused checks across three profiles; native payload
-budget tests; 15 structured browser measurements. A measured redundant admission
-history read was removed, reducing that workload from five to four message reads.
-See `frontend-performance.md`; no field/provider speed claim is made. Finish the
-harness, exact-source CI and publication before marking FE-10 complete.
+The measurement track is complete and published at the source above. See the
+[performance guide](frontend-performance.md), versioned baselines and
+[release evidence](operations/release-2026-11-07-frontend-performance.md).
+
+Ninety focused cases and three native budget cases passed locally. The final CI
+passed 389 UX-suite cases/46 deliberate profile skips, 83 PostgreSQL cases, the
+cutover, 78 architecture fixtures, seven harness checks and the new payload gate.
+Both deployments and public assets/health/protected routes were verified.
+
+The controlled 75-turn workload decreased message reads from five to four, with
+one admission and no competing status/resume reader. Timing is diagnostic lab
+data; no field LCP or real-provider performance is claimed.
+
+**Active next: FE-11**, focused native route and form-state normalization. The
+inspection found separate popstate listeners, document filters held only locally,
+and a chat draft cleared before conversation creation succeeds. Consolidate the
+native adapter, allowlist safe URL metadata/conversation IDs, retain sensitive
+text drafts locally, and preserve drafts on recoverable creation failure. Reuse
+native forms/Zod; keep the new request/payload gates and FE-06/FE-07 race tests.
+External activation, paid-provider load and learner outcomes remain separate.
