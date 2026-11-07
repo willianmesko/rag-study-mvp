@@ -1,0 +1,10 @@
+{
+  "reviewCode": "review-001",
+  "reviewedOn": "YYYY-MM-DD",
+  "checks": {
+    "useAuthorized": false,
+    "identitiesAndSecretsRemoved": false,
+    "identifyingCombinationsGeneralized": false,
+    "evidenceMinimizedAndLabelsChecked": false
+  }
+}

@@ -1,12 +1,18 @@
 import { ConverseCommand, ConverseStreamCommand, type BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
-import type { AnswerGenerator } from "../../application/ports/answer-generator.js";
+import type { AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
 import { providerRequestSignal } from "../http/provider-client.js";
+
+function publishUsage(usage: { inputTokens?: number; outputTokens?: number } | undefined, onUsage?: ProviderUsageObserver) {
+  if (usage?.inputTokens !== undefined && usage.outputTokens !== undefined) {
+    onUsage?.({ inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
+  }
+}
 
 export class BedrockAnswerGenerator implements AnswerGenerator {
   constructor(private readonly client: BedrockRuntimeClient, private readonly modelId: string, private readonly maxOutputTokens = 500) {}
 
-  async generate(question: string, context: string, signal?: AbortSignal): Promise<string> {
+  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context);
     const response = await this.client.send(
       new ConverseCommand({
@@ -17,12 +23,13 @@ export class BedrockAnswerGenerator implements AnswerGenerator {
       }),
       { abortSignal: providerRequestSignal(signal) }
     );
+    publishUsage(response.usage, onUsage);
     const text = response.output?.message?.content?.map((block) => block.text ?? "").join("").trim();
     if (!text) throw new Error("Bedrock returned an empty chat response.");
     return text;
   }
 
-  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal): Promise<string> {
+  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context);
     const requestSignal = providerRequestSignal(signal);
     const response = await this.client.send(new ConverseStreamCommand({
@@ -36,6 +43,7 @@ export class BedrockAnswerGenerator implements AnswerGenerator {
     for await (const event of response.stream ?? []) {
       requestSignal.throwIfAborted();
       if (event.messageStop) completed = true;
+      publishUsage(event.metadata?.usage, onUsage);
       const delta = event.contentBlockDelta?.delta?.text ?? "";
       if (!delta) continue;
       answer += delta;

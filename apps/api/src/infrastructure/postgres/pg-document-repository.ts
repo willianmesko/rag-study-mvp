@@ -4,6 +4,7 @@ import type { EmbeddedChunk, RetrievedChunk } from "../../domain/document.js";
 import { indexedOriginalPredicate } from "./indexed-original.js";
 import { toVectorLiteral } from "./pgvector.js";
 import { readStoredChunkSecurity } from "./stored-chunk-security.js";
+import { requireActiveEmbeddingRevision, withWorkspaceLock } from "./workspace-embedding-lock.js";
 
 type SearchRow = {
   chunk_id: string;
@@ -43,13 +44,12 @@ type StoredChunkRow = {
 export class PgDocumentRepository implements DocumentRepository {
   constructor(private readonly pool: Pool, private readonly embeddingDimensions: number) {}
 
-  async replace(
-    input: { tenantId: string; source: string; title?: string; metadata: Record<string, unknown> },
+  replace(
+    input: Parameters<DocumentRepository["replace"]>[0],
     chunks: EmbeddedChunk[]
   ): Promise<{ id: string; chunkCount: number }> {
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
+    return withWorkspaceLock(this.pool, input.tenantId, "shared", async (client) => {
+      await requireActiveEmbeddingRevision(client, input.tenantId, input.embeddingIndexVersion);
       const document = await client.query<{ id: string }>(
         `INSERT INTO documents (tenant_id, source, title, metadata)
          VALUES ($1, $2, $3, $4::jsonb)
@@ -62,18 +62,14 @@ export class PgDocumentRepository implements DocumentRepository {
 
       await client.query("DELETE FROM chunks WHERE document_id = $1", [documentId]);
       for (const chunk of chunks) await this.insertChunk(client, documentId, chunk);
-      await client.query("COMMIT");
       return { id: documentId, chunkCount: chunks.length };
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   async findHybrid(input: HybridSearchInput): Promise<RetrievedChunk[]> {
-    const result = await this.pool.query<SearchRow>(
+    const result = await withWorkspaceLock(this.pool, input.tenantId, "shared", async (client) => {
+      await requireActiveEmbeddingRevision(client, input.tenantId, input.embeddingIndexVersion);
+      return client.query<SearchRow>(
       `WITH text_query AS (
          SELECT websearch_to_tsquery('portuguese'::regconfig, $3) AS query
        ),
@@ -131,7 +127,8 @@ export class PgDocumentRepository implements DocumentRepository {
         input.limit,
         input.tenantId
       ]
-    );
+      );
+    });
     return result.rows.map((row) => ({
       chunkId: row.chunk_id,
       documentId: row.document_id,
@@ -198,7 +195,8 @@ export class PgDocumentRepository implements DocumentRepository {
 
   async delete(input: { tenantId: string; documentId: string }): Promise<boolean> {
     const result = await this.pool.query(
-      "DELETE FROM documents WHERE tenant_id = $1 AND id = $2",
+      `WITH workspace_lock AS MATERIALIZED (SELECT id FROM tenants WHERE id = $1 FOR SHARE)
+       DELETE FROM documents d USING workspace_lock w WHERE d.tenant_id = w.id AND d.id = $2`,
       [input.tenantId, input.documentId]
     );
     return result.rowCount === 1;

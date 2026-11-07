@@ -176,11 +176,18 @@ support.
 
 ### Choose and compare chat models
 
-Signed-in users can choose from the API's configured model list in Ask. With
-two or more models, **Compare models** runs both over the same retrieved
+Signed-in users can choose from their workspace's allowed models in Ask.
+Owners set the list and default in **Workspace → Settings**. An optional Auto
+policy picks a model by question complexity and can try approved fallbacks.
+With two or more allowed models, **Compare two models** runs both over the same retrieved
 passages and prompt version. It uses two question-quota units and shows each
 answer, checked citations, generation latency, and estimated cost separately.
-Embeddings stay fixed. The public demo uses the configured default chat model.
+Embeddings stay fixed until an explicit index migration. The public demo uses
+the configured default chat model.
+
+Operators can stage and switch workspace embeddings with `npm run embedding:index`.
+See the [embedding index runbook](docs/workspace-embedding-index.md) for version,
+dimension, coverage, activation, and rollback checks.
 
 ## Common commands
 
@@ -194,6 +201,7 @@ npm run db:migrate        # apply API migrations
 npm run eval:golden       # run the retrieval golden set
 npm run eval:security     # run prompt-injection regression cases
 npm run eval:regression   # compare reviewed replays and screening metrics against the reference
+npm run eval:performance-gate -- --baseline ... --candidate ... --limits ...
 ```
 
 ## Frontend quality checks

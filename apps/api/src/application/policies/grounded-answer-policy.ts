@@ -53,3 +53,9 @@ export function estimateGroundedPromptTokens(question: string, context: string):
   const { system, user } = createGroundedAnswerPrompt(question, context);
   return Math.ceil((system.length + user.length) / 4);
 }
+
+export function reserveGroundedPromptTokens(question: string, context: string): number {
+  const { system, user } = createGroundedAnswerPrompt(question, context);
+  // Reserve one token per UTF-8 byte plus allowance for message framing.
+  return Buffer.byteLength(system) + Buffer.byteLength(user) + 128;
+}

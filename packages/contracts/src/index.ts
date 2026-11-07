@@ -23,7 +23,46 @@ export const chatModelDescriptorSchema = z.object({
 
 export const chatModelCatalogSchema = z.object({
   models: z.array(chatModelDescriptorSchema).min(1),
-  comparisonAvailable: z.boolean()
+  comparisonAvailable: z.boolean(),
+  autoAvailable: z.boolean().optional()
+});
+
+const configuredChatModelIdSchema = chatModelIdSchema.refine((id) => id !== "auto");
+const uniqueModelIds = (ids: string[]) => new Set(ids).size === ids.length;
+export const workspaceChatModelPolicySchema = z.strictObject({
+  allowedModelIds: z.array(configuredChatModelIdSchema).min(1).max(6).refine(uniqueModelIds),
+  defaultModelId: configuredChatModelIdSchema,
+  auto: z.strictObject({
+    simpleModelId: configuredChatModelIdSchema,
+    complexModelId: configuredChatModelIdSchema,
+    fallbackModelIds: z.array(configuredChatModelIdSchema).max(3).refine(uniqueModelIds)
+  }).nullable()
+}).refine(({ allowedModelIds, defaultModelId, auto }) => {
+  const referenced = auto ? [defaultModelId, auto.simpleModelId, auto.complexModelId, ...auto.fallbackModelIds] : [defaultModelId];
+  return referenced.every((id) => allowedModelIds.includes(id));
+}, { message: "Every routing model must be enabled for the workspace." });
+export const workspaceChatModelPolicyResponseSchema = z.object({
+  policy: workspaceChatModelPolicySchema,
+  availableModels: z.array(chatModelDescriptorSchema).min(1)
+});
+
+const chatAnswerRoutingSchema = z.object({
+  mode: z.literal("auto"),
+  reason: z.enum(["simple", "complex"]),
+  attemptedModelIds: z.array(configuredChatModelIdSchema).max(4),
+  usedFallback: z.boolean()
+});
+
+const chatAnswerUsageSchema = z.object({
+  source: z.enum(["observed", "estimated", "cache", "none"]),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  latencyMs: z.number().int().nonnegative(),
+  estimatedCostUsd: z.number().nonnegative(),
+  observedCostUsd: z.number().nonnegative().optional(),
+  promptVersion: z.string(),
+  citationCount: z.number().int().nonnegative(),
+  safetyOutcome: z.enum(["validated", "refused", "unstructured", "cached", "provider_failed"])
 });
 
 export const questionInputSchema = z.object({
@@ -62,7 +101,9 @@ const questionResponseSchema = z.object({
   sources: z.array(questionSourceSchema),
   contextSources: z.array(questionSourceSchema).optional(),
   cacheHit: z.boolean().optional(),
-  model: chatModelDescriptorSchema.optional()
+  model: chatModelDescriptorSchema.optional(),
+  routing: chatAnswerRoutingSchema.optional(),
+  usage: chatAnswerUsageSchema.optional()
 });
 
 const questionComparisonResultSchema = z.object({
@@ -104,6 +145,10 @@ export type SearchInput = z.infer<typeof searchInputSchema>;
 export type QuestionInput = z.infer<typeof questionInputSchema>;
 export type ChatModelDescriptor = z.infer<typeof chatModelDescriptorSchema>;
 export type ChatModelCatalog = z.infer<typeof chatModelCatalogSchema>;
+export type WorkspaceChatModelPolicy = z.infer<typeof workspaceChatModelPolicySchema>;
+export type WorkspaceChatModelPolicyResponse = z.infer<typeof workspaceChatModelPolicyResponseSchema>;
+export type ChatAnswerRouting = z.infer<typeof chatAnswerRoutingSchema>;
+export type ChatAnswerUsage = z.infer<typeof chatAnswerUsageSchema>;
 export type QuestionComparisonInput = z.infer<typeof questionComparisonInputSchema>;
 export type QuestionComparisonResponse = z.infer<typeof questionComparisonResponseSchema>;
 export type QuestionSource = z.infer<typeof questionSourceSchema>;

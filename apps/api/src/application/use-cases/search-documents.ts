@@ -2,7 +2,7 @@ import type { RetrievedChunk } from "../../domain/document.js";
 import { isSafeForAnswer } from "../../domain/security/prompt-injection.js";
 import { toLexicalQuery } from "../policies/lexical-query.js";
 import type { DocumentRepository } from "../ports/document-repository.js";
-import type { EmbeddingProvider } from "../ports/embedding-provider.js";
+import { resolveWorkspaceEmbeddingIndex, type EmbeddingProvider } from "../ports/embedding-provider.js";
 import type { Reranker } from "../ports/reranker.js";
 
 export class SearchDocumentsUseCase {
@@ -20,17 +20,27 @@ export class SearchDocumentsUseCase {
     }
   ) {}
 
-  async execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[]; signal?: AbortSignal }): Promise<RetrievedChunk[]> {
+  async execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[]; embeddingIndexVersion?: string; signal?: AbortSignal }): Promise<RetrievedChunk[]> {
     input.signal?.throwIfAborted();
-    const queryEmbedding = input.queryEmbedding ?? await this.embeddings.embed(input.query, "query", input.signal);
+    const tenantId = input.tenantId ?? this.options.defaultTenantId;
+    let queryEmbedding = input.queryEmbedding;
+    let version = input.embeddingIndexVersion;
+    if (!queryEmbedding) {
+      const index = await resolveWorkspaceEmbeddingIndex(this.embeddings, tenantId, input.signal);
+      queryEmbedding = await index.provider.embed(input.query, "query", input.signal);
+      version = index.version;
+    } else if (this.embeddings.forWorkspace && !version) {
+      throw new Error("A precomputed embedding requires its workspace index version.");
+    }
     input.signal?.throwIfAborted();
     const limit = input.topK ?? this.options.defaultTopK;
     const rerankCandidateLimit = this.reranker.enabled
       ? limit * this.options.rerankerCandidateMultiplier
       : limit;
     const candidates = await this.documents.findHybrid({
-      tenantId: input.tenantId ?? this.options.defaultTenantId,
+      tenantId,
       embedding: queryEmbedding,
+      ...(version ? { embeddingIndexVersion: version } : {}),
       query: input.query,
       lexicalQuery: toLexicalQuery(input.query),
       limit: rerankCandidateLimit,

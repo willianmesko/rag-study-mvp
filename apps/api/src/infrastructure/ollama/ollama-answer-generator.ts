@@ -1,14 +1,24 @@
 import { z } from "zod";
-import type { AnswerGenerator } from "../../application/ports/answer-generator.js";
+import type { AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
 import { providerRequestSignal, requestProviderJson } from "../http/provider-client.js";
 
-const responseSchema = z.object({ message: z.object({ content: z.string() }) });
+const responseSchema = z.object({ message: z.object({ content: z.string() }), prompt_eval_count: z.unknown().optional(), eval_count: z.unknown().optional() });
+const usageSchema = z.object({
+  prompt_eval_count: z.number().int().min(0).max(2_147_483_647),
+  eval_count: z.number().int().min(0).max(2_147_483_647)
+});
+
+function publishUsage(raw: unknown, onUsage?: ProviderUsageObserver) {
+  if (!onUsage) return;
+  const usage = usageSchema.safeParse(raw);
+  if (usage.success) onUsage({ inputTokens: usage.data.prompt_eval_count, outputTokens: usage.data.eval_count });
+}
 
 export class OllamaAnswerGenerator implements AnswerGenerator {
   constructor(private readonly baseUrl: string, private readonly model: string, private readonly maxOutputTokens = 500) {}
 
-  async generate(question: string, context: string, signal?: AbortSignal): Promise<string> {
+  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context);
     const json = await requestProviderJson(`${this.baseUrl}/api/chat`, {
       method: "POST",
@@ -24,12 +34,14 @@ export class OllamaAnswerGenerator implements AnswerGenerator {
         ]
       })
     });
-    const answer = responseSchema.parse(json).message.content.trim();
+    const parsed = responseSchema.parse(json);
+    publishUsage(parsed, onUsage);
+    const answer = parsed.message.content.trim();
     if (!answer) throw new Error("Ollama returned an empty chat response.");
     return answer;
   }
 
-  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal): Promise<string> {
+  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context);
     const response = await fetch(`${this.baseUrl}/api/chat`, {
       method: "POST",
@@ -57,6 +69,7 @@ export class OllamaAnswerGenerator implements AnswerGenerator {
       const parsed = JSON.parse(line) as { error?: unknown; done?: boolean; message?: { content?: string }; response?: string };
       if (parsed.error) throw new Error("Ollama could not finish streaming the answer.");
       completed = parsed.done === true;
+      if (completed) publishUsage(parsed, onUsage);
       const delta = parsed.message?.content ?? parsed.response ?? "";
       if (!delta) return;
       answer += delta;

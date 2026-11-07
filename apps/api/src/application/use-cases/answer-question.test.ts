@@ -54,7 +54,9 @@ test("legacy cached invalid-citation refusals with sources are regenerated", asy
     generated: groundedAnswer
   });
 
-  assert.deepEqual(await useCase.execute(), groundedAnswer);
+  const { usage, ...result } = await useCase.execute();
+  assert.deepEqual(result, groundedAnswer);
+  assert.equal(usage?.safetyOutcome, "validated");
   assert.equal(useCase.generations, 1);
   assert.equal(useCase.writes[0]?.answer, groundedAnswer.answer);
   assert.deepEqual(useCase.events, []);
@@ -67,7 +69,8 @@ test("legacy cache entries without supporting passages are regenerated", async (
     generated: groundedAnswer
   });
 
-  assert.deepEqual(await useCase.execute(), groundedAnswer);
+  const { usage: _usage, ...result } = await useCase.execute();
+  assert.deepEqual(result, groundedAnswer);
   assert.equal(useCase.generations, 1);
 });
 
@@ -78,7 +81,9 @@ test("new refusals are returned without being cached even when they contain sour
   };
   const useCase = makeUseCase({ cached: null, generated: refusal });
 
-  assert.deepEqual(await useCase.execute(), refusal);
+  const { usage, ...result } = await useCase.execute();
+  assert.deepEqual(result, refusal);
+  assert.equal(usage?.safetyOutcome, "refused");
   assert.equal(useCase.writes.length, 0);
 });
 
@@ -86,7 +91,10 @@ test("valid existing cached answers remain usable", async () => {
   const { answer, sources } = groundedAnswer;
   const useCase = makeUseCase({ cached: { answer, sources, similarity: 1 }, generated: groundedAnswer });
 
-  assert.deepEqual(await useCase.execute(), { answer, sources, contextSources: [], cacheHit: true });
+  const { usage, ...result } = await useCase.execute();
+  assert.deepEqual(result, { answer, sources, contextSources: [], cacheHit: true });
+  assert.equal(usage?.source, "cache");
+  assert.equal(usage?.outputTokens, 0);
   assert.equal(useCase.generations, 0);
   assert.deepEqual(useCase.events.map(({ type }) => type), ["cached", "validating"]);
   assert.deepEqual(useCase.usageCacheHits, [true]);
@@ -115,7 +123,8 @@ test("fresh model context is returned without being stored in the answer cache",
   };
   const useCase = makeUseCase({ cached: null, generated });
 
-  assert.deepEqual(await useCase.execute(), generated);
+  const { usage: _usage, ...result } = await useCase.execute();
+  assert.deepEqual(result, generated);
   assert.deepEqual(useCase.writes[0]?.sources, groundedAnswer.sources);
   assert.equal("contextSources" in useCase.writes[0]!, false);
 });

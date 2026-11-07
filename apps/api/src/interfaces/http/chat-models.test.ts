@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
-import { chatModelCatalogSchema, questionComparisonResponseSchema } from "@rag-study/contracts";
+import { chatModelCatalogSchema, questionComparisonResponseSchema, type WorkspaceChatModelPolicy } from "@rag-study/contracts";
+import type { ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import type { SemanticAnswerCache, SemanticCacheEntry } from "../../application/ports/semantic-answer-cache.js";
 import type { UsageMetricsRepository } from "../../application/ports/usage-metrics-repository.js";
 import { AnswerQuestionUseCase } from "../../application/use-cases/answer-question.js";
 import { CompareAnswersUseCase } from "../../application/use-cases/compare-answers.js";
+import { RouteAnswerUseCase } from "../../application/use-cases/route-answer.js";
 import { config } from "../../config.js";
 import type { RetrievedChunk } from "../../domain/document.js";
 import { LangGraphRagWorkflow } from "../../infrastructure/langgraph/langgraph-rag-workflow.js";
@@ -24,7 +26,13 @@ const unsafeMatch: RetrievedChunk = {
   security: { promptInjectionRisk: "high", signals: ["instruction-override"] }
 };
 
-async function fixture(t: TestContext, { maxEstimatedCostUsd = 0.05, failure = false, allowed = true } = {}) {
+async function fixture(t: TestContext, {
+  maxEstimatedCostUsd = 0.05, failure = false, allowed = true, role = "viewer",
+  failureModel = failure ? "alternate" : undefined, maxTotalOutputTokens = 1_000, denyFallbackQuota = false
+}: {
+  maxEstimatedCostUsd?: number; failure?: boolean; allowed?: boolean; role?: "viewer" | "owner";
+  failureModel?: string; maxTotalOutputTokens?: number; denyFallbackQuota?: boolean;
+} = {}) {
   const authUrl = "https://models.example.test";
   const overrides = { SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key", API_KEY: undefined, DEMO_MODE: true };
   const previous = Object.fromEntries(Object.keys(overrides).map((key) => [key, config[key as keyof typeof config]]));
@@ -34,7 +42,9 @@ async function fixture(t: TestContext, { maxEstimatedCostUsd = 0.05, failure = f
     assert.equal(String(address), `${authUrl}/auth/v1/user`, "Provider requests are not allowed in this test.");
     return Response.json({ id: userId, aud: "authenticated", role: "authenticated" });
   });
-  const consumeQuestionQuota = t.mock.fn(async (_tenantId: string, _actorKey: string, _units?: 1 | 2) => ({ allowed, used: 1, limit: 30 }));
+  let reservations = 0;
+  const consumeQuestionQuota = t.mock.fn(async (_tenantId: string, _actorKey: string, _units?: 1 | 2) =>
+    ({ allowed: allowed && (++reservations === 1 || !denyFallbackQuota), used: 1, limit: 30 }));
   const retrieve = t.mock.fn(async (_input: { query: string; tenantId?: string }) => [unsafeMatch, safeMatch]);
   const cacheEntries = new Map<string, SemanticCacheEntry>();
   const cache: SemanticAnswerCache = {
@@ -48,8 +58,9 @@ async function fixture(t: TestContext, { maxEstimatedCostUsd = 0.05, failure = f
   const models = ["default", "alternate"].map((id) => {
     const descriptor = { id, label: id === "default" ? "Default" : "Alternate", provider: "openrouter" as const, isDefault: id === "default" };
     const pricing = { inputCostPer1kUsd: 0.001, outputCostPer1kUsd: 0.001 };
-    const generator = { generate: t.mock.fn(async (_question: string, _context: string) => {
-      if (failure && id === "alternate") throw new Error("Private provider details");
+    const generator = { generate: t.mock.fn(async (_question: string, _context: string, _signal?: AbortSignal, onUsage?: ProviderUsageObserver) => {
+      if (id === failureModel) throw new Error("Private provider details");
+      onUsage?.({ inputTokens: 120, outputTokens: 24, costUsd: 0.00015 });
       return JSON.stringify({ answer: `${id}: keep records for five days.`, citedChunkIds: ["S1"] });
     }) };
     const workflow = new LangGraphRagWorkflow({ execute: retrieve }, generator, { maxContextChars: 1_200, minimumScore: 0.3, requireStructuredOutput: true });
@@ -63,13 +74,22 @@ async function fixture(t: TestContext, { maxEstimatedCostUsd = 0.05, failure = f
   const [baseline, alternate] = models;
   const chatModels = new Map(models.map((model) => [model.descriptor.id, model]));
   const compareAnswers = new CompareAnswersUseCase(baseline!.workflow, usage, { timeoutMs: 2_000, maxOutputTokens, maxEstimatedCostUsd });
+  const routeAnswer = new RouteAnswerUseCase(baseline!.workflow, usage, {
+    timeoutMs: 2_000, maxOutputTokens, maxTotalOutputTokens, maxTotalInputTokens: 10_000, maxEstimatedCostUsd
+  });
+  const policies = new Map<string, WorkspaceChatModelPolicy>();
   const app = await buildApp({
-    chatModels, compareAnswers, answerQuestion: baseline!.answerQuestion, consumeQuestionQuota,
+    chatModels, compareAnswers, routeAnswer, answerQuestion: baseline!.answerQuestion, consumeQuestionQuota,
+    workspaceModelPolicies: {
+      get: async (tenant: string) => policies.get(tenant) ?? null,
+      save: async (tenant: string, policy: WorkspaceChatModelPolicy) => { policies.set(tenant, policy); return policy; }
+    },
+    recordAuditEvent: async () => {},
     findMembership: async (actor: string, requested: string) => actor === userId && requested === tenantId
-      ? { tenantId, tenantName: "Legal", tenantSlug: "legal", role: "viewer" } : null
+      ? { tenantId, tenantName: "Legal", tenantSlug: "legal", role } : null
   } as unknown as Parameters<typeof buildApp>[0]);
   t.after(() => app.close());
-  return { app, consumeQuestionQuota, retrieve, baseline: baseline!, alternate: alternate!, record };
+  return { app, consumeQuestionQuota, retrieve, baseline: baseline!, alternate: alternate!, record, policies };
 }
 
 test("model discovery is scoped and only publishes the allowlist descriptors", async (t) => {
@@ -148,6 +168,83 @@ test("comparison stops before generation when quota or the combined prompt budge
       assert.equal(response.statusCode, status);
       assert.equal(baseline.generator.generate.mock.callCount(), 0);
       assert.equal(alternate.generator.generate.mock.callCount(), 0);
+    });
+  }
+});
+
+test("owner-only workspace policy restricts the catalog, explicit calls and comparison and changes the default", async (t) => {
+  const policy = { allowedModelIds: ["alternate"], defaultModelId: "alternate", auto: null };
+  await t.test("viewer cannot edit", async (subtest) => {
+    const { app } = await fixture(subtest);
+    assert.equal((await app.inject({ method: "PATCH", url: "/v1/admin/chat-model-policy", headers, payload: policy })).statusCode, 403);
+  });
+  await t.test("owner updates the scoped model policy", async (subtest) => {
+    const { app, consumeQuestionQuota } = await fixture(subtest, { role: "owner" });
+    assert.equal((await app.inject({ method: "PATCH", url: "/v1/admin/chat-model-policy", headers,
+      payload: { allowedModelIds: ["fake"], defaultModelId: "fake", auto: null } })).statusCode, 400);
+    const saved = await app.inject({ method: "PATCH", url: "/v1/admin/chat-model-policy", headers, payload: policy });
+    assert.equal(saved.statusCode, 200);
+    assert.deepEqual(saved.json().policy, policy);
+    const catalog = (await app.inject({ url: "/v1/qa/models", headers })).json();
+    assert.deepEqual(catalog.models.map(({ id, isDefault }: { id: string; isDefault: boolean }) => [id, isDefault]), [["alternate", true]]);
+    assert.equal(catalog.comparisonAvailable, false);
+    assert.equal((await app.inject({ method: "POST", url: "/v1/qa", headers, payload: { question, modelId: "default" } })).statusCode, 400);
+    assert.equal((await app.inject({ method: "POST", url: "/v1/qa/compare", headers,
+      payload: { question, modelIds: ["default", "alternate"] } })).statusCode, 400);
+    assert.equal(consumeQuestionQuota.mock.callCount(), 0);
+    const answer = await app.inject({ method: "POST", url: "/v1/qa", headers, payload: { question } });
+    assert.equal(answer.statusCode, 200);
+    assert.equal(answer.json().model.id, "alternate");
+  });
+});
+
+const autoPolicy: WorkspaceChatModelPolicy = {
+  allowedModelIds: ["default", "alternate"], defaultModelId: "default",
+  auto: { simpleModelId: "default", complexModelId: "alternate", fallbackModelIds: ["default"] }
+};
+
+test("Auto routes complex questions and reports fallback from the same sanitized context", async (t) => {
+  const { app, policies, retrieve, baseline, alternate, record, consumeQuestionQuota } = await fixture(t, { failure: true });
+  policies.set(tenantId, autoPolicy);
+  assert.equal((await app.inject({ url: "/v1/qa/models", headers })).json().autoAvailable, true);
+  const response = await app.inject({ method: "POST", url: "/v1/qa", headers,
+    payload: { question: "Compare the retention policies.", modelId: "auto" } });
+  assert.equal(response.statusCode, 200);
+  const answer = response.json();
+  assert.equal(answer.model.id, "default");
+  assert.deepEqual(answer.routing, { mode: "auto", reason: "complex", attemptedModelIds: ["alternate", "default"], usedFallback: true });
+  assert.equal(answer.usage.source, "observed");
+  assert.equal(answer.usage.observedCostUsd, 0.00015);
+  assert.equal(answer.usage.safetyOutcome, "validated");
+  assert.equal(answer.usage.citationCount, 1);
+  assert.equal(retrieve.mock.callCount(), 1);
+  assert.deepEqual(alternate.generator.generate.mock.calls[0]!.arguments.slice(0, 2), baseline.generator.generate.mock.calls[0]!.arguments.slice(0, 2));
+  assert.deepEqual(record.mock.calls.map(({ arguments: [event] }) => [event.model, event.failed]), [
+    ["fixture/alternate", true], ["fixture/default", false]
+  ]);
+  assert.equal(consumeQuestionQuota.mock.callCount(), 2);
+});
+
+test("Auto never emits failed-provider text and stops fallback on total token or quota limits", async (t) => {
+  await t.test("SSE terminal result contains only the validated winner", async (subtest) => {
+    const { app, policies } = await fixture(subtest, { failure: true });
+    policies.set(tenantId, autoPolicy);
+    const response = await app.inject({ method: "POST", url: "/v1/qa/stream", headers,
+      payload: { question: "Compare the policies.", modelId: "auto" } });
+    assert.equal(response.statusCode, 200);
+    assert.doesNotMatch(response.body, /Private provider details/);
+    assert.match(response.body, /"usedFallback":true/);
+    assert.match(response.body, /"delta":"default:/);
+  });
+  for (const [name, limit] of [["tokens", { maxTotalOutputTokens: 500 }], ["quota", { denyFallbackQuota: true }]] as const) {
+    await t.test(name, async (subtest) => {
+      const { app, policies, baseline, alternate } = await fixture(subtest, { failure: true, ...limit });
+      policies.set(tenantId, autoPolicy);
+      const response = await app.inject({ method: "POST", url: "/v1/qa", headers,
+        payload: { question: "Compare the policies.", modelId: "auto" } });
+      assert.equal(response.statusCode, 503);
+      assert.equal(alternate.generator.generate.mock.callCount(), 1);
+      assert.equal(baseline.generator.generate.mock.callCount(), 0);
     });
   }
 });

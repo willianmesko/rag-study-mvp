@@ -1,7 +1,7 @@
 import { chunkSections, chunkText, type DocumentSection } from "../../domain/chunk.js";
 import type { DocumentInput, EmbeddedChunk } from "../../domain/document.js";
 import { assessPromptInjection } from "../../domain/security/prompt-injection.js";
-import type { EmbeddingProvider } from "../ports/embedding-provider.js";
+import { resolveWorkspaceEmbeddingIndex, type EmbeddingProvider } from "../ports/embedding-provider.js";
 import type { DocumentRepository } from "../ports/document-repository.js";
 
 type IngestOptions = {
@@ -59,8 +59,9 @@ export class IngestDocumentUseCase {
     // the last successfully indexed version of this source.
     const embeddingStartedAt = Date.now();
     await report?.({ stage: "embedding", status: "started", details: { vectorCount: chunks.length } });
+    const index = await resolveWorkspaceEmbeddingIndex(this.embeddings, input.tenantId);
     const vectors = await mapWithConcurrency(chunks, this.options.embeddingConcurrency, (chunk) =>
-      this.embeddings.embed(chunk.content, "document")
+      index.provider.embed(chunk.content, "document")
     );
     await report?.({ stage: "embedding", status: "completed", durationMs: Date.now() - embeddingStartedAt, details: { vectorCount: vectors.length } });
     const embeddedChunks: EmbeddedChunk[] = chunks.map((chunk, index) => ({
@@ -72,7 +73,8 @@ export class IngestDocumentUseCase {
     const persistenceStartedAt = Date.now();
     await report?.({ stage: "persistence", status: "started" });
     const persisted = await this.documents.replace(
-      { tenantId: input.tenantId, source: input.source, title: input.title, metadata: input.metadata ?? {} },
+      { tenantId: input.tenantId, source: input.source, title: input.title, metadata: input.metadata ?? {},
+        ...(index.version ? { embeddingIndexVersion: index.version } : {}) },
       embeddedChunks
     );
     await report?.({ stage: "persistence", status: "completed", durationMs: Date.now() - persistenceStartedAt, details: { documentId: persisted.id } });

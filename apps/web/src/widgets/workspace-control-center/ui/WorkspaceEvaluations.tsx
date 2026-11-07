@@ -4,6 +4,7 @@ import { api } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { workspaceRequestError } from "../../../shared/lib/request-error";
 import { SelectField } from "../../../shared/ui/SelectField";
+import { effortLabels, evaluationEfforts, type EvaluationEffort } from "../model/evaluation-quality";
 import { evaluationsQuery } from "../model/queries";
 import { EvaluationPanel } from "./EvaluationPanel";
 import { WorkspaceQueryFeedback } from "./WorkspaceQueryFeedback";
@@ -15,6 +16,7 @@ export function WorkspaceEvaluations({ workspaceId, token }: { workspaceId: stri
   const evaluations = useQuery(evaluationOptions);
   const [includeFaithfulness, setIncludeFaithfulness] = useState(false);
   const [modelId, setModelId] = useState<string | undefined>();
+  const [effort, setEffort] = useState<EvaluationEffort>("standard");
   const judgingEnabled = evaluations.data?.faithfulnessEnabled === true;
   const judgingRequested = judgingEnabled && includeFaithfulness;
   const catalog = useQuery({
@@ -25,7 +27,7 @@ export function WorkspaceEvaluations({ workspaceId, token }: { workspaceId: stri
   const models = catalog.data?.models ?? [];
   const selectedModel = models.find(({ id }) => id === modelId) ?? models.find(({ isDefault }) => isDefault);
   const runEvaluation = useMutation({
-    mutationFn: () => api.runEvaluation(token, workspaceId, judgingRequested ? { includeFaithfulness: true, modelId: selectedModel?.id } : {}),
+    mutationFn: () => api.runEvaluation(token, workspaceId, judgingRequested ? { includeFaithfulness: true, modelId: selectedModel?.id, effort } : {}),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: evaluationOptions.queryKey }); }
   });
 
@@ -42,8 +44,15 @@ export function WorkspaceEvaluations({ workspaceId, token }: { workspaceId: stri
         <p className="text-xs text-slate-400">{t("This runs extra model requests on bundled public examples. Workspace content stays out of the judge.", "Esta opção faz chamadas adicionais aos modelos com exemplos públicos do projeto. O avaliador não recebe conteúdo do espaço.")}</p>
         {judgingRequested && <>
           <WorkspaceQueryFeedback query={catalog} loading={t("Loading answer models…", "Carregando modelos de resposta…")} failure={t("Could not load answer models.", "Não foi possível carregar os modelos de resposta.")} />
-          {selectedModel && <SelectField label={t("Answer model", "Modelo de resposta")} value={selectedModel.id} onValueChange={setModelId}
-            options={models.map(({ id, label, provider }) => ({ value: id, label, description: provider }))} disabled={runEvaluation.isPending} />}
+          {selectedModel && <div className="grid gap-3 sm:grid-cols-2">
+            <SelectField label={t("Answer model", "Modelo de resposta")} value={selectedModel.id} onValueChange={setModelId}
+              options={models.map(({ id, label, provider }) => ({ value: id, label, description: provider }))} disabled={runEvaluation.isPending} />
+            <SelectField label={t("Answer effort", "Esforço da resposta")} value={effort} onValueChange={(value) => {
+              const selected = evaluationEfforts.find((item) => item === value);
+              if (selected) setEffort(selected);
+            }} options={evaluationEfforts.map((value) => ({ value, label: t(...effortLabels[value]) }))} disabled={runEvaluation.isPending} />
+            <p className="text-xs text-slate-400 sm:col-span-2">{t("Effort sets the answer token limit. The questions, passages and prompt stay the same.", "O esforço define o limite de tokens da resposta. As perguntas, os trechos e o prompt são os mesmos.")}</p>
+          </div>}
         </>}
       </div> : undefined} />}
     {runEvaluation.isSuccess && <p className="success-message" role="status">{t("Evaluation completed and saved.", "Avaliação concluída e salva.")}</p>}

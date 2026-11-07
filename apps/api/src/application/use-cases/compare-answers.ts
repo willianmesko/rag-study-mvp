@@ -1,9 +1,11 @@
 import type { ChatModelDescriptor } from "@rag-study/contracts";
-import type { AnswerGenerator } from "../ports/answer-generator.js";
+import type { AnswerGenerator, ProviderTokenUsage } from "../ports/answer-generator.js";
 import type { AnswerQuestionResult, PreparedAnswerContext, PreparedAnswerWorkflow } from "../ports/question-answering-workflow.js";
 import type { UsageMetricsRepository } from "../ports/usage-metrics-repository.js";
 import { withExecutionTimeout } from "../policies/agent-execution-policy.js";
 import { ChatBudgetExceededError, estimateChatCost, type ChatPricing } from "../policies/chat-cost.js";
+import { describeAnswerUsage } from "../policies/answer-usage.js";
+import { reserveGroundedPromptTokens } from "../policies/grounded-answer-policy.js";
 import { redactPii } from "../../domain/security/pii-redaction.js";
 
 export type ComparisonModel = ChatPricing & {
@@ -43,8 +45,9 @@ export class CompareAnswersUseCase {
       this.workflow.prepare({ question, topK: input.topK, tenantId: input.tenantId, signal }), this.options.timeoutMs, input.signal);
     input.signal?.throwIfAborted();
     if (prepared) {
+      const reservedInputTokens = reserveGroundedPromptTokens(prepared.question, prepared.context.text);
       const maximum = input.models.reduce((total, model) =>
-        total + estimateChatCost(model, prepared.estimatedInputTokens, this.options.maxOutputTokens), 0);
+        total + estimateChatCost(model, reservedInputTokens, this.options.maxOutputTokens), 0);
       if (maximum > this.options.maxEstimatedCostUsd) throw new ChatBudgetExceededError();
     }
     const remainingMs = Math.max(1, this.options.timeoutMs - Math.ceil(performance.now() - startedAt));
@@ -58,23 +61,21 @@ export class CompareAnswersUseCase {
     const startedAt = performance.now();
     let response: AnswerQuestionResult | null = null;
     let error: ComparisonResult["error"] = null;
+    let providerUsage: ProviderTokenUsage | undefined;
     try {
       response = await withExecutionTimeout((signal) =>
-        this.workflow.answerPrepared(prepared, model.generator, signal), timeoutMs, input.signal);
+        this.workflow.answerPrepared(prepared, model.generator, signal, (usage) => { providerUsage = usage; }), timeoutMs, input.signal);
     } catch {
       input.signal?.throwIfAborted();
       error = "generation_failed";
     }
     input.signal?.throwIfAborted();
-    const latencyMs = Math.round(performance.now() - startedAt);
-    const inputTokens = response?.estimatedInputTokens ?? prepared?.estimatedInputTokens ?? 0;
-    const outputTokens = response?.estimatedOutputTokens ?? 0;
-    const estimatedCostUsd = estimateChatCost(model, inputTokens, outputTokens);
+    const usage = describeAnswerUsage(response, model, performance.now() - startedAt, prepared?.estimatedInputTokens ?? 0, providerUsage);
     await this.usage.record({
       tenantId: input.tenantId, actorKey: input.actorKey, operation: "question_comparison",
       provider: model.descriptor.provider, model: model.model, cacheHit: false,
-      inputTokens, outputTokens, latencyMs, estimatedCostUsd, failed: error !== null
+      ...usage, failed: error !== null
     });
-    return { model: model.descriptor, response, error, latencyMs, estimatedCostUsd };
+    return { model: model.descriptor, response: response ? { ...response, usage } : null, error, latencyMs: usage.latencyMs, estimatedCostUsd: usage.estimatedCostUsd };
   }
 }

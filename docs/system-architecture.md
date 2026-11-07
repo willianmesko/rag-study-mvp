@@ -252,6 +252,11 @@ exists. Creating a workspace assigns its creator the `owner` role there.
 
 Model selection and comparison require a verified membership and explicit
 workspace. The API resolves client model aliases from its configured list.
+Owners can further narrow that list and choose a default for their workspace.
+Auto routing uses a deterministic complexity rule and a configured fallback
+order. It reserves a conservative prompt-token bound, output caps, estimated
+cost, and quota before each planned attempt. It publishes citations and text
+only from the final successful model and records each attempt's usage provenance.
 Comparison reserves two quota units atomically, prepares a single set of
 passages, and checks the combined generation budget before contacting either
 model. Semantic answer cache entries are isolated by workspace, model,

@@ -1,7 +1,7 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
-import type { AnswerGenerator } from "../../application/ports/answer-generator.js";
+import type { AnswerGenerator, ProviderTokenUsage, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import type { AnswerQuestionResult, AnswerWorkflowEvent, AnswerWorkflowInput, PreparedAnswerContext, PreparedAnswerWorkflow, QuestionAnsweringWorkflow } from "../../application/ports/question-answering-workflow.js";
-import { estimateGroundedPromptTokens, formatUntrustedContext, type GroundedContext } from "../../application/policies/grounded-answer-policy.js";
+import { estimateGroundedPromptTokens, formatUntrustedContext, reserveGroundedPromptTokens, type GroundedContext } from "../../application/policies/grounded-answer-policy.js";
 import { assertStepBudget, withExecutionTimeout } from "../../application/policies/agent-execution-policy.js";
 import { ChatBudgetExceededError } from "../../application/policies/chat-cost.js";
 import { parseGroundedAnswer, validateGroundedAnswer } from "../../application/policies/structured-answer.js";
@@ -10,7 +10,7 @@ import { redactPii } from "../../domain/security/pii-redaction.js";
 import { isSafeForAnswer } from "../../domain/security/prompt-injection.js";
 
 type Retriever = {
-  execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[]; signal?: AbortSignal }): Promise<RetrievedChunk[]>;
+  execute(input: { query: string; topK?: number; tenantId?: string; queryEmbedding?: number[]; embeddingIndexVersion?: string; signal?: AbortSignal }): Promise<RetrievedChunk[]>;
 };
 
 const RagState = Annotation.Root({
@@ -18,6 +18,7 @@ const RagState = Annotation.Root({
   topK: Annotation<number | undefined>,
   tenantId: Annotation<string | undefined>,
   queryEmbedding: Annotation<number[] | undefined>,
+  embeddingIndexVersion: Annotation<string | undefined>,
   maxEstimatedInputTokens: Annotation<number | undefined>,
   matches: Annotation<RetrievedChunk[]>(),
   context: Annotation<GroundedContext>(),
@@ -60,7 +61,8 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, Prepared
   async prepare(input: AnswerWorkflowInput): Promise<PreparedAnswerContext | null> {
     assertStepBudget(1, this.options);
     const matches = await this.retriever.execute({
-      query: input.question, topK: input.topK, tenantId: input.tenantId, queryEmbedding: input.queryEmbedding, signal: input.signal
+      query: input.question, topK: input.topK, tenantId: input.tenantId, queryEmbedding: input.queryEmbedding,
+      embeddingIndexVersion: input.embeddingIndexVersion, signal: input.signal
     });
     input.signal?.throwIfAborted();
     const safeMatches = matches.filter((match) => isSafeForAnswer(match.security));
@@ -71,12 +73,16 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, Prepared
     return this.prepared(input.question, context, input.maxEstimatedInputTokens);
   }
 
-  async answerPrepared(prepared: PreparedAnswerContext | null, generator: AnswerGenerator, signal?: AbortSignal): Promise<AnswerQuestionResult> {
+  async answerPrepared(prepared: PreparedAnswerContext | null, generator: AnswerGenerator, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<AnswerQuestionResult> {
     if (!prepared) return insufficientContext;
     assertStepBudget(3, this.options);
-    const rawAnswer = await generator.generate(prepared.question, prepared.context.text, signal);
+    let providerUsage: ProviderTokenUsage | undefined;
+    const rawAnswer = await generator.generate(prepared.question, prepared.context.text, signal, (usage) => {
+      providerUsage = usage;
+      onUsage?.(usage);
+    });
     signal?.throwIfAborted();
-    return this.resolveAnswer(rawAnswer, prepared);
+    return this.resolveAnswer(rawAnswer, prepared, providerUsage);
   }
 
   answerStream(input: AnswerWorkflowInput, onEvent: (event: AnswerWorkflowEvent) => void | Promise<void>): Promise<AnswerQuestionResult> {
@@ -94,11 +100,13 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, Prepared
       }
       await emit({ type: "generating" });
       assertStepBudget(3, this.options);
+      let providerUsage: ProviderTokenUsage | undefined;
+      const observeUsage: ProviderUsageObserver = (usage) => { providerUsage = usage; };
       const rawAnswer = this.answerGenerator.stream
-        ? await this.answerGenerator.stream(prepared.question, prepared.context.text, () => undefined, signal)
-        : await this.answerGenerator.generate(prepared.question, prepared.context.text, signal);
+        ? await this.answerGenerator.stream(prepared.question, prepared.context.text, () => undefined, signal, observeUsage)
+        : await this.answerGenerator.generate(prepared.question, prepared.context.text, signal, observeUsage);
       await emit({ type: "validating" });
-      const result = this.resolveAnswer(rawAnswer, prepared);
+      const result = this.resolveAnswer(rawAnswer, prepared, providerUsage);
       // Only publish deltas after the structured answer and its source references are checked.
       if (!result.refusalReason && result.structuredOutput && result.sources.length > 0) {
         await emit({ type: "citations", sources: result.sources });
@@ -114,7 +122,10 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, Prepared
         "retrieve",
         async (state, runtime) => {
           const stepCount = assertStepBudget(state.stepCount + 1, this.options);
-          const matches = await this.retriever.execute({ query: state.question, topK: state.topK, tenantId: state.tenantId, queryEmbedding: state.queryEmbedding, signal: runtime.signal });
+          const matches = await this.retriever.execute({
+            query: state.question, topK: state.topK, tenantId: state.tenantId, queryEmbedding: state.queryEmbedding,
+            embeddingIndexVersion: state.embeddingIndexVersion, signal: runtime.signal
+          });
           return { matches: matches.filter((match) => isSafeForAnswer(match.security)), stepCount };
         },
         { retryPolicy: { maxAttempts: 3, initialInterval: 0.25, maxInterval: 1, backoffFactor: 2 } }
@@ -150,12 +161,14 @@ export class LangGraphRagWorkflow implements QuestionAnsweringWorkflow, Prepared
 
   private prepared(question: string, context: GroundedContext, maxEstimatedInputTokens?: number): PreparedAnswerContext {
     const estimatedInputTokens = estimateGroundedPromptTokens(question, context.text);
-    if (maxEstimatedInputTokens !== undefined && estimatedInputTokens > maxEstimatedInputTokens) throw new ChatBudgetExceededError();
+    if (maxEstimatedInputTokens !== undefined && reserveGroundedPromptTokens(question, context.text) > maxEstimatedInputTokens) {
+      throw new ChatBudgetExceededError();
+    }
     return { question, context, estimatedInputTokens };
   }
 
-  private resolveAnswer(rawAnswer: string, { context, estimatedInputTokens }: PreparedAnswerContext): AnswerQuestionResult {
-    const usage = { estimatedInputTokens, estimatedOutputTokens: Math.ceil(rawAnswer.length / 4) };
+  private resolveAnswer(rawAnswer: string, { context, estimatedInputTokens }: PreparedAnswerContext, providerUsage?: ProviderTokenUsage): AnswerQuestionResult {
+    const usage = { estimatedInputTokens, estimatedOutputTokens: Math.ceil(rawAnswer.length / 4), ...(providerUsage ? { providerUsage } : {}) };
     const parsed = validateGroundedAnswer(parseGroundedAnswer(rawAnswer), new Set(context.sourcesByReference.keys()));
     if (this.options.requireStructuredOutput && !parsed.structured) {
       return { answer: "I could not validate the model's structured response, so I am declining to answer.", sources: [], citedChunkIds: [], structuredOutput: false, refusalReason: "unstructured_model_output", ...usage };

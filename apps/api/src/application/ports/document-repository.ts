@@ -3,6 +3,7 @@ import type { EmbeddedChunk, RetrievedChunk } from "../../domain/document.js";
 export type HybridSearchInput = {
   tenantId: string;
   embedding: number[];
+  embeddingIndexVersion?: string;
   query: string;
   lexicalQuery: string;
   limit: number;
@@ -34,7 +35,7 @@ export type StoredChunk = {
 
 export interface DocumentRepository {
   replace(
-    document: { tenantId: string; source: string; title?: string; metadata: Record<string, unknown> },
+    document: { tenantId: string; source: string; title?: string; metadata: Record<string, unknown>; embeddingIndexVersion?: string },
     chunks: EmbeddedChunk[]
   ): Promise<{ id: string; chunkCount: number }>;
   findHybrid(input: HybridSearchInput): Promise<RetrievedChunk[]>;

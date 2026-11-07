@@ -19,9 +19,10 @@ const additionalChatModels = z.string().default("[]").transform((raw, ctx): unkn
     return z.NEVER;
   }
 }).pipe(z.array(z.strictObject({
-  id: chatModelIdSchema.refine((id) => id !== "default", { message: "The default alias is reserved." }),
+  id: chatModelIdSchema.refine((id) => id !== "default" && id !== "auto", { message: "The default and auto aliases are reserved." }),
   label: z.string().trim().min(1).max(80),
   model: modelName,
+  provider: provider.optional(),
   inputCostPer1kUsd: z.number().min(0).max(10),
   outputCostPer1kUsd: z.number().min(0).max(10)
 })).max(5).refine((models) => new Set(models.map(({ id }) => id)).size === models.length, { message: "Model aliases must be unique." }));
@@ -65,6 +66,8 @@ const environment = z.object({
   AGENT_MAX_STEPS: z.coerce.number().int().min(1).max(50).default(8),
   AGENT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
   CHAT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(16_000).default(500),
+  CHAT_AUTO_MAX_TOTAL_INPUT_TOKENS: z.coerce.number().int().min(1).max(500_000).default(120_000),
+  CHAT_AUTO_MAX_TOTAL_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(64_000).optional(),
   REQUIRE_STRUCTURED_ANSWER: booleanEnvironment.default(false),
   MAX_ESTIMATED_COST_USD_PER_REQUEST: z.coerce.number().min(0).max(100).default(0.05),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(60),
@@ -122,7 +125,8 @@ if (config.EMBEDDING_DIMENSIONS !== 1024) {
   );
 }
 
-if ((config.EMBEDDING_PROVIDER === "openrouter" || config.CHAT_PROVIDER === "openrouter" || config.EVAL_FAITHFULNESS_JUDGE_MODEL) && !config.OPENROUTER_API_KEY) {
+if ((config.EMBEDDING_PROVIDER === "openrouter" || config.CHAT_PROVIDER === "openrouter" || config.EVAL_FAITHFULNESS_JUDGE_MODEL ||
+  config.CHAT_ADDITIONAL_MODELS.some(({ provider: modelProvider }) => modelProvider === "openrouter")) && !config.OPENROUTER_API_KEY) {
   throw new Error("OPENROUTER_API_KEY is required when OPENROUTER is the selected provider.");
 }
 

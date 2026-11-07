@@ -1,14 +1,28 @@
 import { z } from "zod";
-import type { AnswerGenerator } from "../../application/ports/answer-generator.js";
+import type { AnswerGenerator, ProviderUsageObserver } from "../../application/ports/answer-generator.js";
 import { createGroundedAnswerPrompt } from "../../application/policies/grounded-answer-policy.js";
 import { providerRequestSignal, requestProviderJson } from "../http/provider-client.js";
 
-const responseSchema = z.object({ choices: z.array(z.object({ message: z.object({ content: z.string().nullable() }) })).min(1) });
+const responseSchema = z.object({ choices: z.array(z.object({ message: z.object({ content: z.string().nullable() }) })).min(1), usage: z.unknown().optional() });
+const usageSchema = z.object({
+  prompt_tokens: z.number().int().min(0).max(2_147_483_647),
+  completion_tokens: z.number().int().min(0).max(2_147_483_647),
+  cost: z.number().min(0).max(999_999).nullish()
+});
+
+function publishUsage(raw: unknown, onUsage?: ProviderUsageObserver) {
+  if (!onUsage) return;
+  const usage = usageSchema.safeParse(raw);
+  if (usage.success) onUsage({
+    inputTokens: usage.data.prompt_tokens, outputTokens: usage.data.completion_tokens,
+    ...(usage.data.cost != null ? { costUsd: usage.data.cost } : {})
+  });
+}
 
 export class OpenRouterAnswerGenerator implements AnswerGenerator {
   constructor(private readonly baseUrl: string, private readonly apiKey: string, private readonly model: string, private readonly maxOutputTokens = 500) {}
 
-  async generate(question: string, context: string, signal?: AbortSignal): Promise<string> {
+  async generate(question: string, context: string, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context);
     const json = await requestProviderJson(`${this.baseUrl}/chat/completions`, {
       method: "POST",
@@ -18,18 +32,21 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
         model: this.model,
         max_tokens: this.maxOutputTokens,
         temperature: 0,
+        provider: { allow_fallbacks: false, require_parameters: true },
         messages: [
           { role: "system", content: prompt.system },
           { role: "user", content: prompt.user }
         ]
       })
     });
-    const answer = responseSchema.parse(json).choices[0]?.message.content?.trim();
+    const parsed = responseSchema.parse(json);
+    publishUsage(parsed.usage, onUsage);
+    const answer = parsed.choices[0]?.message.content?.trim();
     if (!answer) throw new Error("OpenRouter returned an empty chat response.");
     return answer;
   }
 
-  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal): Promise<string> {
+  async stream(question: string, context: string, onDelta: (delta: string) => void | Promise<void>, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<string> {
     const prompt = createGroundedAnswerPrompt(question, context);
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
@@ -39,6 +56,7 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
         max_tokens: this.maxOutputTokens,
         temperature: 0,
         stream: true,
+        provider: { allow_fallbacks: false, require_parameters: true },
         messages: [
           { role: "system", content: prompt.system },
           { role: "user", content: prompt.user }
@@ -61,7 +79,8 @@ export class OpenRouterAnswerGenerator implements AnswerGenerator {
         completed = true;
         return;
       }
-      const parsed = JSON.parse(payload) as { error?: unknown; choices?: Array<{ delta?: { content?: string | null }; finish_reason?: string }> };
+      const parsed = JSON.parse(payload) as { error?: unknown; usage?: unknown; choices?: Array<{ delta?: { content?: string | null }; finish_reason?: string }> };
+      publishUsage(parsed.usage, onUsage);
       if (parsed.error || parsed.choices?.[0]?.finish_reason === "error") throw new Error("OpenRouter could not finish streaming the answer.");
       const delta = parsed.choices?.[0]?.delta?.content ?? "";
       if (!delta) return;

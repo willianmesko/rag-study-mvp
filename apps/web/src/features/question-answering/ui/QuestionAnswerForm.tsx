@@ -52,7 +52,9 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
   const alternates = models.filter(({ id }) => id !== selectedModel?.id);
   const alternateModel = alternates.find(({ id }) => id === alternateModelId) ?? alternates[0];
   const comparisonAvailable = Boolean(catalog.data?.comparisonAvailable && selectedModel && alternateModel);
+  const autoAvailable = Boolean(catalog.data?.autoAvailable && !catalog.isError);
   const comparing = compareMode && comparisonAvailable;
+  const autoSelected = autoAvailable && !comparing && preferredModelId === "auto";
   const { phase } = live;
   const answer = comparing ? undefined : live.answer;
   const isStreaming = phase !== null;
@@ -70,7 +72,7 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
       if (input.success) comparison.start(input.data, accessToken, workspaceId);
       return;
     }
-    const parsed = questionInputSchema.safeParse({ question: question.trim(), topK, modelId: selectedModel?.id });
+    const parsed = questionInputSchema.safeParse({ question: question.trim(), topK, modelId: autoSelected ? "auto" : selectedModel?.id });
     setInvalidInput(!parsed.success);
     if (parsed.success) live.start(parsed.data);
   }
@@ -82,6 +84,7 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
   };
   const requestError = comparing ? comparison.error : live.error;
   const error = invalidInput ? t("Enter a question of up to 5,000 characters.", "Digite uma pergunta de até 5.000 caracteres.")
+    : requestError instanceof ApiError && requestError.status === 422 ? t("This request exceeds the model budget. Try a shorter question or fewer passages.", "Esta solicitação excede o orçamento do modelo. Tente uma pergunta menor ou consulte menos trechos.")
     : !comparing && live.failure ? failureCopy[live.failure] : requestError ? getRequestErrorMessage(requestError, locale) : null;
   const refusalCopy = getRefusalCopy(answer?.refusalReason);
   const citations = answer && !answer.cacheHit ? answer.sources.filter((source) => answer.citedChunkIds?.includes(source.chunkId)) : [];
@@ -109,7 +112,7 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
             {t("A focused question usually leads to a clearer answer.", "Uma pergunta específica costuma gerar uma resposta mais clara.")}
           </span>
         </InputLabel>
-        {selectedModel && (models.length === 1 ? <div className="rounded-xl border border-slate-700 px-3 py-2.5">
+        {selectedModel && (models.length === 1 && !autoAvailable ? <div className="rounded-xl border border-slate-700 px-3 py-2.5">
           <p className="text-xs text-slate-300">{t("Workspace answer model", "Modelo de resposta do espaço")}</p>
           <p className="mt-1 text-sm font-semibold text-slate-100 [overflow-wrap:anywhere]">{selectedModel.label}</p>
         </div> : <fieldset className="grid min-w-0 gap-3">
@@ -127,7 +130,9 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
           </label>}
           <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             <SelectField label={comparing ? t("First model", "Primeiro modelo") : t("Answer model", "Modelo de resposta")}
-              value={selectedModel.id} onValueChange={setPreferredModelId} disabled={busy} options={modelOptions(models)} />
+              value={autoSelected ? "auto" : selectedModel.id} onValueChange={setPreferredModelId} disabled={busy}
+              options={autoAvailable && !comparing ? [{ value: "auto", label: t("Automatic", "Automático"),
+                description: t("Selects an allowed model by question complexity.", "Escolhe um modelo permitido pela complexidade da pergunta.") }, ...modelOptions(models)] : modelOptions(models)} />
             {comparing && alternateModel && <SelectField label={t("Second model", "Segundo modelo")}
               value={alternateModel.id} onValueChange={setAlternateModelId} disabled={busy} options={modelOptions(alternates)} />}
           </div>
@@ -179,9 +184,28 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
               : citations.length > 0 && <span className="status-pill status-pill--success">{t("Citations checked", "Citações conferidas")}</span>}
           </div>
           {answer.model && <p className="mt-2 text-xs text-slate-300 [overflow-wrap:anywhere]">{t("Answer model", "Modelo de resposta")} · {answer.model.label}</p>}
+          {answer.routing && <p className="mt-2 text-xs text-slate-300">{answer.routing.reason === "simple"
+            ? t("Automatic routing chose the simple-question profile.", "A seleção automática usou o perfil de perguntas simples.")
+            : t("Automatic routing chose the complex-question profile.", "A seleção automática usou o perfil de perguntas complexas.")}
+            {answer.routing.usedFallback && ` ${t("An approved fallback produced this answer.", "Um modelo alternativo aprovado produziu esta resposta.")}`}
+          </p>}
           <p role={refusalCopy ? "status" : undefined} className="mt-5 whitespace-pre-wrap text-sm leading-7 text-slate-200">
             {refusalCopy ? t(...refusalCopy) : answer.answer}
           </p>
+          {answer.usage && <details className="mt-4 text-xs text-slate-300">
+            <summary className="w-fit rounded-md py-1 hover:text-slate-100">{t("Run details", "Detalhes da execução")}</summary>
+            <p className="mt-1 leading-5">
+              {t("Prompt", "Prompt")} {answer.usage.promptVersion} · {answer.usage.latencyMs.toLocaleString(locale)} ms · {answer.usage.citationCount.toLocaleString(locale)} {t("citations", "citações")}
+              {answer.usage.source === "observed" || answer.usage.source === "estimated" ? ` · ${answer.usage.inputTokens.toLocaleString(locale)} / ${answer.usage.outputTokens.toLocaleString(locale)} ${answer.usage.source === "observed"
+                ? t("reported input/output tokens", "tokens de entrada/saída informados pelo provedor")
+                : t("estimated input/output tokens", "tokens estimados de entrada/saída")}` : ""}
+            </p>
+            <p className="mt-1 leading-5">
+              {answer.usage.observedCostUsd === undefined ? t("Estimated cost", "Custo estimado") : t("Reported cost", "Custo informado")} {new Intl.NumberFormat(locale, {
+                style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 6
+              }).format(answer.usage.observedCostUsd ?? answer.usage.estimatedCostUsd)}
+            </p>
+          </details>}
         </div>
         {!refusalCopy && <RagEvidencePanel response={answer} citations={citations} />}
       </>}

@@ -10,6 +10,9 @@ const reportPath = reportFlagIndex >= 0 && args[reportFlagIndex + 1]
   ? resolve(root, args[reportFlagIndex + 1])
   : null;
 const skipPromptfoo = args.includes("--skip-promptfoo");
+const performanceGate = process.env.EVAL_REQUIRE_PERFORMANCE_GATE === "true" || Boolean(
+  process.env.EVAL_PERFORMANCE_BASELINE || process.env.EVAL_PERFORMANCE_CANDIDATE || process.env.EVAL_PERFORMANCE_LIMITS
+);
 
 const checks = [
   { id: "typecheck", command: "npm run typecheck" },
@@ -18,6 +21,7 @@ const checks = [
   { id: "prompt-injection", command: "npm run eval:security -- evals/security/prompt-injection.v1.json" },
   { id: "golden-set", command: "npm run eval:golden:ci" },
   { id: "replay-regression", command: "npm run eval:regression" },
+  ...(performanceGate ? [{ id: "performance-gate", command: "npm run eval:performance-gate" }] : []),
   { id: "promptfoo", command: "npm run eval:promptfoo" }
 ];
 const selectedChecks = skipPromptfoo ? checks.filter((check) => check.id !== "promptfoo") : checks;
@@ -56,7 +60,7 @@ function parseJsonReport(output) {
 }
 
 function summarize(id, result) {
-  const parsed = ["golden-set", "prompt-injection", "replay-regression"].includes(id) ? parseJsonReport(result.stdout) : null;
+  const parsed = ["golden-set", "prompt-injection", "replay-regression", "performance-gate"].includes(id) ? parseJsonReport(result.stdout) : null;
   return {
     id,
     passed: result.passed,
@@ -77,6 +81,11 @@ function summarize(id, result) {
       replay: parsed.replay,
       screening: parsed.security?.screening,
       comparison: parsed.comparison
+    } : {}),
+    ...(id === "performance-gate" && parsed ? {
+      baseline: parsed.baseline,
+      candidate: parsed.candidate,
+      failures: parsed.failures
     } : {})
   };
 }
@@ -101,7 +110,7 @@ const report = {
   startedAt,
   finishedAt: new Date().toISOString(),
   commitSha: process.env.GITHUB_SHA ?? process.env.RENDER_GIT_COMMIT ?? null,
-  skippedChecks: skipPromptfoo ? ["promptfoo"] : [],
+  skippedChecks: [...(skipPromptfoo ? ["promptfoo"] : []), ...(!performanceGate ? ["performance-gate"] : [])],
   passed: results.length === selectedChecks.length && results.every((result) => result.passed),
   checks: results
 };

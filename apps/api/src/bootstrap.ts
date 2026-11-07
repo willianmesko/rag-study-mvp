@@ -1,5 +1,7 @@
 import { AnswerQuestionUseCase } from "./application/use-cases/answer-question.js";
 import { CompareAnswersUseCase } from "./application/use-cases/compare-answers.js";
+import { RouteAnswerUseCase } from "./application/use-cases/route-answer.js";
+import { defaultWorkspaceChatPolicy, resolveWorkspaceChatModels } from "./application/policies/workspace-chat-models.js";
 import { IngestDocumentUseCase } from "./application/use-cases/ingest-document.js";
 import { SearchDocumentsUseCase } from "./application/use-cases/search-documents.js";
 import { QueueDocumentUploadUseCase } from "./application/use-cases/queue-document-upload.js";
@@ -10,18 +12,16 @@ import { DeleteDocumentUseCase } from "./application/use-cases/delete-document.j
 import { GetDocumentOriginalUseCase } from "./application/use-cases/get-document-original.js";
 import { config } from "./config.js";
 import type { AnswerGenerator } from "./application/ports/answer-generator.js";
-import type { EmbeddingProvider } from "./application/ports/embedding-provider.js";
+import { resolveWorkspaceEmbeddingIndex } from "./application/ports/embedding-provider.js";
 import type { Reranker } from "./application/ports/reranker.js";
 import { BedrockAnswerGenerator } from "./infrastructure/bedrock/bedrock-answer-generator.js";
 import { createBedrockClient } from "./infrastructure/bedrock/client.js";
-import { TitanEmbeddingProvider } from "./infrastructure/bedrock/titan-embedding-provider.js";
+import { createWorkspaceEmbeddingProvider } from "./infrastructure/embedding/workspace-embedding-provider.js";
 import { LangGraphRagWorkflow } from "./infrastructure/langgraph/langgraph-rag-workflow.js";
 import { LangSmithTracingWorkflow } from "./infrastructure/langsmith/langsmith-tracing-workflow.js";
 import { JinaReranker } from "./infrastructure/jina/jina-reranker.js";
 import { OllamaAnswerGenerator } from "./infrastructure/ollama/ollama-answer-generator.js";
-import { OllamaEmbeddingProvider } from "./infrastructure/ollama/ollama-embedding-provider.js";
 import { OpenRouterAnswerGenerator } from "./infrastructure/openrouter/openrouter-answer-generator.js";
-import { OpenRouterEmbeddingProvider } from "./infrastructure/openrouter/openrouter-embedding-provider.js";
 import { OpenRouterFaithfulnessJudge } from "./infrastructure/openrouter/openrouter-faithfulness-judge.js";
 import { PgDocumentRepository } from "./infrastructure/postgres/pg-document-repository.js";
 import { PgIngestionJobRepository } from "./infrastructure/postgres/pg-ingestion-job-repository.js";
@@ -33,8 +33,8 @@ import { PgUsageMetricsRepository } from "./infrastructure/postgres/pg-usage-met
 import { PgEvaluationRepository } from "./infrastructure/postgres/pg-evaluation-repository.js";
 import { PgChatRunRepository } from "./infrastructure/postgres/pg-chat-run-repository.js";
 import { PgWorkspaceOnboardingRepository } from "./infrastructure/postgres/pg-workspace-onboarding-repository.js";
+import { PgWorkspaceModelPolicyRepository } from "./infrastructure/postgres/pg-workspace-model-policy-repository.js";
 import { RedactingAnswerGenerator } from "./infrastructure/security/redacting-answer-generator.js";
-import { RedactingEmbeddingProvider } from "./infrastructure/security/redacting-embedding-provider.js";
 import { MultiFormatDocumentTextExtractor } from "./infrastructure/ingestion/document-text-extractor.js";
 import { PopplerTesseractOcr } from "./infrastructure/ingestion/pdf-ocr.js";
 import { HttpsPublicHtmlFetcher } from "./infrastructure/ingestion/public-html-fetcher.js";
@@ -45,7 +45,7 @@ import { RunEvaluationUseCase } from "./application/use-cases/run-evaluation.js"
 
 export function createApplication() {
   const pool = createPostgresPool(config.DATABASE_URL);
-  const embeddings = new RedactingEmbeddingProvider(createEmbeddingProvider());
+  const embeddings = createWorkspaceEmbeddingProvider(pool);
   const reranker = createReranker();
   const documents = new PgDocumentRepository(pool, config.EMBEDDING_DIMENSIONS);
   const jobs = new PgIngestionJobRepository(pool);
@@ -55,6 +55,7 @@ export function createApplication() {
   const semanticCache = new PgSemanticAnswerCache(pool, config.EMBEDDING_DIMENSIONS);
   const usageMetrics = new PgUsageMetricsRepository(pool);
   const evaluations = new PgEvaluationRepository(pool);
+  const workspaceModelPolicies = new PgWorkspaceModelPolicyRepository(pool);
   const chatRuns = new PgChatRunRepository(pool);
   const originals = new SupabaseOriginalFileStore(
     config.SUPABASE_URL,
@@ -91,15 +92,16 @@ export function createApplication() {
     id: "default",
     label: config.CHAT_DEFAULT_MODEL_LABEL ?? defaultModel.slice(0, 80),
     model: defaultModel,
+    provider: config.CHAT_PROVIDER,
     inputCostPer1kUsd: config.ESTIMATED_INPUT_COST_PER_1K_USD,
     outputCostPer1kUsd: config.ESTIMATED_OUTPUT_COST_PER_1K_USD
   }, ...config.CHAT_ADDITIONAL_MODELS];
-  if (new Set(modelConfigs.map(({ model }) => model)).size !== modelConfigs.length) {
+  if (new Set(modelConfigs.map(({ model, provider }) => `${provider ?? config.CHAT_PROVIDER}:${model}`)).size !== modelConfigs.length) {
     throw new Error("Chat model IDs must be distinct, including the default model.");
   }
-  const chatModels = new Map(modelConfigs.map(({ id, label, model, inputCostPer1kUsd, outputCostPer1kUsd }) => {
-    const descriptor = { id, label, provider: config.CHAT_PROVIDER, isDefault: id === "default" };
-    const generator = new RedactingAnswerGenerator(createAnswerGenerator(model));
+  const chatModels = new Map(modelConfigs.map(({ id, label, model, provider = config.CHAT_PROVIDER, inputCostPer1kUsd, outputCostPer1kUsd }) => {
+    const descriptor = { id, label, provider, isDefault: id === "default" };
+    const generator = new RedactingAnswerGenerator(createAnswerGenerator(provider, model, config.CHAT_MAX_OUTPUT_TOKENS));
     const workflow = new LangGraphRagWorkflow(searchDocuments, generator, workflowOptions);
     const answerWorkflow = new LangSmithTracingWorkflow(workflow, {
       enabled: config.LANGSMITH_TRACING,
@@ -125,6 +127,13 @@ export function createApplication() {
   const compareAnswers = new CompareAnswersUseCase(defaultChat.workflow, usageMetrics, {
     timeoutMs: config.AGENT_TIMEOUT_MS,
     maxOutputTokens: config.CHAT_MAX_OUTPUT_TOKENS,
+    maxEstimatedCostUsd: config.MAX_ESTIMATED_COST_USD_PER_REQUEST
+  });
+  const routeAnswer = new RouteAnswerUseCase(defaultChat.workflow, usageMetrics, {
+    timeoutMs: config.AGENT_TIMEOUT_MS,
+    maxOutputTokens: config.CHAT_MAX_OUTPUT_TOKENS,
+    maxTotalOutputTokens: config.CHAT_AUTO_MAX_TOTAL_OUTPUT_TOKENS ?? config.CHAT_MAX_OUTPUT_TOKENS * 2,
+    maxTotalInputTokens: config.CHAT_AUTO_MAX_TOTAL_INPUT_TOKENS,
     maxEstimatedCostUsd: config.MAX_ESTIMATED_COST_USD_PER_REQUEST
   });
 
@@ -174,18 +183,29 @@ export function createApplication() {
         chatModel: defaultModel
       }, judge ? {
         judge,
-        resolveModel(modelId = "default") {
-          const model = chatModels.get(modelId);
-          return model ? { provider: model.descriptor.provider, model: model.model, generator: model.generator } : undefined;
+        async resolveModel(tenantId, modelId, requestedMaxOutputTokens) {
+          const policy = await workspaceModelPolicies.get(tenantId) ?? defaultWorkspaceChatPolicy(chatModels);
+          const profile = resolveWorkspaceChatModels(chatModels, policy);
+          const model = profile.models.get(modelId ?? profile.defaultModelId ?? "");
+          if (!model) return undefined;
+          const { descriptor: { provider }, model: modelName, inputCostPer1kUsd, outputCostPer1kUsd } = model;
+          const maxOutputTokens = Math.min(requestedMaxOutputTokens, config.CHAT_MAX_OUTPUT_TOKENS);
+          const generator = new RedactingAnswerGenerator(createAnswerGenerator(provider, modelName, maxOutputTokens));
+          return { provider, model: modelName, generator, inputCostPer1kUsd, outputCostPer1kUsd, maxOutputTokens };
         }
-      } : undefined),
+      } : undefined, async (tenantId) => {
+        const { identity, version } = await resolveWorkspaceEmbeddingIndex(embeddings, tenantId);
+        return identity ? { provider: identity.provider, model: identity.model, version } : undefined;
+      }),
       invalidateSemanticCache: (tenantId: string) => semanticCache.invalidateTenant(tenantId),
       recordAuditEvent: auditEvents.record.bind(auditEvents),
       searchDocuments,
       chatRuns,
       workspaceOnboarding: new PgWorkspaceOnboardingRepository(pool),
       chatModels,
+      workspaceModelPolicies,
       compareAnswers,
+      routeAnswer,
       answerQuestion: defaultChat.answerQuestion
     },
     close: () => pool.end()
@@ -203,42 +223,20 @@ function createReranker(): Reranker {
   return new PassThroughReranker();
 }
 
-function createEmbeddingProvider(): EmbeddingProvider {
-  switch (config.EMBEDDING_PROVIDER) {
+function createAnswerGenerator(provider: typeof config.CHAT_PROVIDER, model: string, maxOutputTokens: number): AnswerGenerator {
+  switch (provider) {
     case "ollama":
-      return new OllamaEmbeddingProvider(
-        config.OLLAMA_BASE_URL,
-        config.OLLAMA_EMBEDDING_MODEL,
-        config.EMBEDDING_DIMENSIONS
-      );
-    case "openrouter":
-      return new OpenRouterEmbeddingProvider(
-        config.OPENROUTER_BASE_URL,
-        config.OPENROUTER_API_KEY as string,
-        config.OPENROUTER_EMBEDDING_MODEL,
-        config.EMBEDDING_DIMENSIONS
-      );
-    case "bedrock": {
-      const bedrock = createBedrockClient(config.AWS_REGION);
-      return new TitanEmbeddingProvider(bedrock, config.BEDROCK_EMBEDDING_MODEL_ID, config.EMBEDDING_DIMENSIONS);
-    }
-  }
-}
-
-function createAnswerGenerator(model: string): AnswerGenerator {
-  switch (config.CHAT_PROVIDER) {
-    case "ollama":
-      return new OllamaAnswerGenerator(config.OLLAMA_BASE_URL, model, config.CHAT_MAX_OUTPUT_TOKENS);
+      return new OllamaAnswerGenerator(config.OLLAMA_BASE_URL, model, maxOutputTokens);
     case "openrouter":
       return new OpenRouterAnswerGenerator(
         config.OPENROUTER_BASE_URL,
         config.OPENROUTER_API_KEY as string,
         model,
-        config.CHAT_MAX_OUTPUT_TOKENS
+        maxOutputTokens
       );
     case "bedrock": {
-      const bedrock = createBedrockClient(config.AWS_REGION);
-      return new BedrockAnswerGenerator(bedrock, model, config.CHAT_MAX_OUTPUT_TOKENS);
+      const bedrock = createBedrockClient(config.AWS_REGION, 1);
+      return new BedrockAnswerGenerator(bedrock, model, maxOutputTokens);
     }
   }
 }

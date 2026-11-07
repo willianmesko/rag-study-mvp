@@ -1,0 +1,7 @@
+{
+  "minimumSamples": 12,
+  "maxP95LatencyMs": 15000,
+  "maxMeanCostUsd": 0.01,
+  "maxLatencyIncreasePercent": 35,
+  "maxCostIncreasePercent": 15
+}

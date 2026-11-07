@@ -138,8 +138,13 @@ could identify the original case. Have someone review the fixture, mark its case
 rejects common detected personal identifiers. This is an extra check on top of
 the review.
 
+Record the human review in an attestation and generate a receipt tied to the
+exact suite. See the [review workflow](replays/review-workflow.md).
+
 ```bash
-npm run eval:replay -- --suite /path/to/reviewed-replay.json
+npm run eval:approve-replay -- --suite /path/to/reviewed-replay.json \
+  --attestation /path/to/attestation.json --output /path/to/review-receipt.json
+npm run eval:replay -- --suite /path/to/reviewed-replay.json --approval /path/to/review-receipt.json
 ```
 
 ## 6. Compare Jina against the reviewed candidates
@@ -154,3 +159,31 @@ same safe candidates and K used by the local comparison. It reports quality
 metrics for both orderings and the extra reranking time per case. Custom replay
 files cannot be sent to Jina through this command. Keep production reranking
 disabled until you have reviewed the live comparison.
+
+## 7. Compare generation latency and cost between versions
+
+Choose the same model and effort profile in completed public faithfulness runs.
+Effort profiles vary the output-token limit while sharing the fixture and prompt.
+Export their sanitized measurement JSON from Evaluations. To compare more
+samples, combine runs from each revision in a JSON array. Compare the same
+public fixtures, prompt, judge, calibration, model, and effort cap in both
+files. Reported and estimated costs are separate measurement bases.
+
+```bash
+npm run eval:performance-gate -- \
+  --baseline reports/evaluation-history/approved.json \
+  --candidate reports/evaluation-history/candidate.json \
+  --limits apps/api/evals/performance-thresholds.example.json
+```
+
+The gate uses nearest-rank p95 generation latency and mean cost per public
+case, with both an absolute maximum and a relative regression threshold. It
+fails on incomplete, incompatible, or undersampled data. Choose reviewed
+thresholds for your deployment before enabling the release check.
+
+To run this gate in CI, supply JSON files in the checkout or download them as
+part of your release workflow, and configure the repository variables
+`EVAL_PERFORMANCE_BASELINE`, `EVAL_PERFORMANCE_CANDIDATE`, and
+`EVAL_PERFORMANCE_LIMITS`. Set `EVAL_REQUIRE_PERFORMANCE_GATE=true` to fail
+when any input is missing. The default offline harness reports that this gate
+was skipped. Use measurements from the candidate deployment's revision.

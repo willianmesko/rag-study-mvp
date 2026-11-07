@@ -3,10 +3,15 @@ import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createClient } from "@supabase/supabase-js";
-import { chatModelIdSchema, chatRunIdSchema, documentInputSchema, questionComparisonInputSchema, questionInputSchema, questionStreamInputSchema, workspaceMemberRoleSchema, workspaceOnboardingProgressSchema, type ChatModelDescriptor, type ChatRunEvent } from "@rag-study/contracts";
+import { chatModelIdSchema, chatRunIdSchema, documentInputSchema, questionComparisonInputSchema, questionInputSchema, questionStreamInputSchema, workspaceChatModelPolicySchema, workspaceMemberRoleSchema, workspaceOnboardingProgressSchema, type ChatModelDescriptor, type ChatRunEvent } from "@rag-study/contracts";
 import { ZodError, z } from "zod";
 import type { AnswerQuestionUseCase } from "../../application/use-cases/answer-question.js";
 import type { CompareAnswersUseCase, ComparisonModel } from "../../application/use-cases/compare-answers.js";
+import { AutoAnswerFailedError, type RouteAnswerUseCase } from "../../application/use-cases/route-answer.js";
+import { defaultWorkspaceChatPolicy, resolveWorkspaceChatModels } from "../../application/policies/workspace-chat-models.js";
+import type { WorkspaceModelPolicyRepository } from "../../application/ports/workspace-model-policy-repository.js";
+import { EmbeddingIndexChangedError } from "../../application/ports/workspace-embedding-index.js";
+import { evaluationEffortSchema } from "../../application/evaluation/evaluation-effort.js";
 import { ChatBudgetExceededError } from "../../application/policies/chat-cost.js";
 import { StreamAnswerRuns } from "../../application/use-cases/stream-answer-runs.js";
 import type { ChatRunRepository } from "../../application/ports/chat-run-repository.js";
@@ -41,7 +46,7 @@ const workspaceIdSchema = z.string().uuid();
 const workspaceRequired = { ok: false, status: 400, error: "Select a workspace.", code: "workspace_required" } as const;
 const chatRunParams = z.object({ runId: chatRunIdSchema });
 const chatRunCursor = z.object({ after: z.coerce.number().int().min(0).max(2_147_483_647).default(0) });
-const evaluationInput = z.strictObject({ includeFaithfulness: z.boolean().optional(), modelId: chatModelIdSchema.optional() });
+const evaluationInput = z.strictObject({ includeFaithfulness: z.boolean().optional(), modelId: chatModelIdSchema.optional(), effort: evaluationEffortSchema.optional() });
 const modelUnavailable = { code: "model_unavailable", error: "Select an available chat model." } as const;
 const maxPassageExcerptChars = 600;
 const urlImportSchema = z.object({ url: z.string().trim().min(1).max(1_000).url(), title: z.string().trim().min(1).max(500).optional() });
@@ -62,7 +67,9 @@ type HttpDependencies = {
   searchDocuments: SearchDocumentsUseCase;
   answerQuestion: AnswerQuestionUseCase;
   chatModels: ReadonlyMap<string, ComparisonModel & { answerQuestion: AnswerQuestionUseCase }>;
+  workspaceModelPolicies: WorkspaceModelPolicyRepository;
   compareAnswers: CompareAnswersUseCase;
+  routeAnswer: RouteAnswerUseCase;
   chatRuns: ChatRunRepository;
   workspaceOnboarding: WorkspaceOnboardingRepository;
   queueDocumentUpload: QueueDocumentUploadUseCase;
@@ -176,6 +183,8 @@ export async function buildApp(dependencies: HttpDependencies) {
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError) return reply.code(400).send({ error: "Invalid request", details: error.flatten() });
     if (error instanceof ChatBudgetExceededError) return reply.code(422).send({ code: "chat_budget_exceeded", error: error.message });
+    if (error instanceof AutoAnswerFailedError) return reply.code(503).send({ code: "auto_generation_failed", error: error.message });
+    if (error instanceof EmbeddingIndexChangedError) return reply.code(409).send({ code: "embedding_index_changed", error: "The workspace index changed. Try again." });
     if (error instanceof EvaluationRunError) {
       const status = { evaluation_in_progress: 409, judge_unavailable: 503, model_unavailable: 400 }[error.code];
       return reply.code(status).send({ code: error.code, error: error.message });
@@ -219,8 +228,8 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (authorization.role === "viewer") return { ok: false as const, status: 403, error: "Editor or owner access required." };
     return authorization;
   };
-  const authorizeOwner = async (request: { headers: Record<string, string | string[] | undefined> }) => {
-    const authorization = await authorizeMember(request);
+  const authorizeOwner = async (request: { headers: Record<string, string | string[] | undefined> }, requireExplicitWorkspace = false) => {
+    const authorization = await authorizeMember(request, requireExplicitWorkspace);
     if (!authorization.ok) return authorization;
     if (authorization.role !== "owner") return { ok: false as const, status: 403, error: "Only the workspace owner can manage members." };
     return authorization;
@@ -229,7 +238,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (requireExplicitWorkspace || (typeof request.headers.authorization === "string" && request.headers.authorization.startsWith("Bearer "))) {
       const membership = await authorizeMember(request, requireExplicitWorkspace);
       if (!membership.ok) return membership;
-      return { ok: true as const, tenantId: membership.tenantId, actorKey: `user:${membership.userId}` };
+      return { ok: true as const, tenantId: membership.tenantId, actorKey: `user:${membership.userId}`, authenticated: true };
     }
 
     const requestsPrivateAccess = request.headers.authorization !== undefined || request.headers["x-workspace-id"] !== undefined;
@@ -237,9 +246,35 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (requestsPrivateAccess || requiresProductionAuth) {
       return { ok: false as const, status: 401, error: "Authentication required." };
     }
-    return { ok: true as const, tenantId: config.DEFAULT_TENANT_ID, actorKey: anonymousActorKey(request) };
+    return { ok: true as const, tenantId: config.DEFAULT_TENANT_ID, actorKey: anonymousActorKey(request), authenticated: false };
   }
-  const selectChatModel = (modelId?: string) => dependencies.chatModels?.get(modelId ?? "default");
+  const globalChatModels = dependencies.chatModels ?? new Map<string, ComparisonModel & { answerQuestion: AnswerQuestionUseCase }>();
+  const defaultChatPolicy = defaultWorkspaceChatPolicy(globalChatModels);
+  async function workspaceChatModels(tenantId?: string) {
+    const policy = tenantId ? await dependencies.workspaceModelPolicies?.get(tenantId) : null;
+    return resolveWorkspaceChatModels(globalChatModels, policy ?? defaultChatPolicy);
+  }
+  async function chooseAnswer(tenantId: string | undefined, modelId?: string) {
+    if (!modelId && globalChatModels.size === 0) return dependencies.answerQuestion.execute.bind(dependencies.answerQuestion);
+    const profile = await workspaceChatModels(tenantId);
+    if (modelId === "auto") {
+      const auto = profile.auto;
+      const simple = auto && profile.models.get(auto.simpleModelId);
+      const complex = auto && profile.models.get(auto.complexModelId);
+      if (!auto || !simple || !complex) return null;
+      const fallbacks = auto.fallbackModelIds.flatMap((id) => {
+        const model = profile.models.get(id);
+        return model ? [model] : [];
+      });
+      return (input: Parameters<AnswerQuestionUseCase["execute"]>[0]) =>
+        dependencies.routeAnswer.execute({ ...input, simple, complex, fallbacks,
+          reserveFallbackQuota: async () => (await dependencies.consumeQuestionQuota(input.tenantId, input.actorKey)).allowed });
+    }
+    const model = profile.models.get(modelId ?? profile.defaultModelId ?? "");
+    if (!model) return null;
+    return async (input: Parameters<AnswerQuestionUseCase["execute"]>[0]) =>
+      ({ ...await model.answerQuestion.execute(input), model: model.descriptor });
+  }
   app.get("/v1/workspaces", async (request, reply) => {
     if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY) return reply.code(503).send({ error: "Workspace access is not configured." });
     const authorization = request.headers.authorization;
@@ -415,7 +450,26 @@ export async function buildApp(dependencies: HttpDependencies) {
     if (!authorization.ok) return rejectScope(reply, authorization);
     const { days } = z.object({ days: z.coerce.number().int().min(1).max(90).default(30) }).parse(request.query);
     const summary = await dependencies.getUsageSummary(authorization.tenantId, days);
-    return { days, summary, alert: { thresholdUsd: config.USAGE_ALERT_THRESHOLD_USD, triggered: summary.estimatedCostUsd >= config.USAGE_ALERT_THRESHOLD_USD } };
+    return { days, summary, alert: { thresholdUsd: config.USAGE_ALERT_THRESHOLD_USD, triggered: (summary.effectiveCostUsd ?? summary.estimatedCostUsd) >= config.USAGE_ALERT_THRESHOLD_USD } };
+  });
+  app.get("/v1/admin/chat-model-policy", { exposeHeadRoute: false }, async (request, reply) => {
+    const authorization = await authorizeOwner(request, true);
+    if (!authorization.ok) return rejectScope(reply, authorization);
+    const policy = await dependencies.workspaceModelPolicies.get(authorization.tenantId) ?? defaultChatPolicy;
+    return { policy, availableModels: Array.from(globalChatModels.values(), ({ descriptor }) => descriptor) };
+  });
+  app.patch("/v1/admin/chat-model-policy", { bodyLimit: 4_096 }, async (request, reply) => {
+    const authorization = await authorizeOwner(request, true);
+    if (!authorization.ok) return rejectScope(reply, authorization);
+    const input = workspaceChatModelPolicySchema.parse(request.body);
+    if (input.allowedModelIds.some((id) => !globalChatModels.has(id))) return reply.code(400).send(modelUnavailable);
+    const policy = await dependencies.workspaceModelPolicies.save(authorization.tenantId, input);
+    await dependencies.recordAuditEvent({
+      tenantId: authorization.tenantId, actorUserId: authorization.userId, action: "chat.model_policy_updated",
+      resourceType: "workspace_model_policy", resourceId: null, requestId: request.id,
+      metadata: { allowedModelCount: policy.allowedModelIds.length, autoEnabled: policy.auto !== null }
+    });
+    return { policy, availableModels: Array.from(globalChatModels.values(), ({ descriptor }) => descriptor) };
   });
   app.get("/v1/admin/evaluations", async (request, reply) => {
     const authorization = await authorizeOwner(request);
@@ -427,7 +481,7 @@ export async function buildApp(dependencies: HttpDependencies) {
     const authorization = await authorizeOwner(request);
     if (!authorization.ok) return rejectScope(reply, authorization);
     const input = evaluationInput.parse(request.body ?? {});
-    if (input.modelId && !selectChatModel(input.modelId)) return reply.code(400).send(modelUnavailable);
+    if (input.modelId && !(await workspaceChatModels(authorization.tenantId)).models.has(input.modelId)) return reply.code(400).send(modelUnavailable);
     return reply.code(201).send({ run: serializeEvaluationRun(await dependencies.runEvaluation.execute({ tenantId: authorization.tenantId, ...input })) });
   });
   app.post("/v1/admin/uploads/:jobId/retry", async (request, reply) => {
@@ -561,14 +615,17 @@ export async function buildApp(dependencies: HttpDependencies) {
   app.get("/v1/qa/models", { exposeHeadRoute: false }, async (request, reply) => {
     const membership = await authorizeMember(request, true);
     if (!membership.ok) return rejectScope(reply, membership);
-    const models = Array.from(dependencies.chatModels.values(), ({ descriptor }) => descriptor);
-    return { models, comparisonAvailable: models.length >= 2 };
+    const profile = await workspaceChatModels(membership.tenantId);
+    const models = Array.from(profile.models.values(), ({ descriptor }) => descriptor);
+    if (models.length === 0) return reply.code(503).send(modelUnavailable);
+    return { models, comparisonAvailable: models.length >= 2, ...(profile.auto ? { autoAvailable: true } : {}) };
   });
   app.post("/v1/qa/compare", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
     const { question, topK, modelIds } = questionComparisonInputSchema.parse(request.body);
     const membership = await authorizeMember(request, true);
     if (!membership.ok) return rejectScope(reply, membership);
-    const [left, right] = modelIds.map(selectChatModel);
+    const profile = await workspaceChatModels(membership.tenantId);
+    const [left, right] = modelIds.map((id) => profile.models.get(id));
     if (!left || !right) return reply.code(400).send(modelUnavailable);
     const { tenantId, userId } = membership;
     const actorKey = `user:${userId}`;
@@ -585,32 +642,30 @@ export async function buildApp(dependencies: HttpDependencies) {
     const { question, topK, modelId } = questionInputSchema.parse(request.body);
     const scope = await resolveQueryScope(request, modelId !== undefined);
     if (!scope.ok) return rejectScope(reply, scope);
-    const selected = selectChatModel(modelId);
-    if (modelId && !selected) return reply.code(400).send(modelUnavailable);
-    const useCase = selected?.answerQuestion ?? dependencies.answerQuestion;
+    const answer = await chooseAnswer(scope.authenticated ? scope.tenantId : undefined, modelId);
+    if (!answer) return reply.code(modelId ? 400 : 503).send(modelUnavailable);
     const { tenantId, actorKey } = scope;
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
     return withReplySignal(reply, streamShutdown.signal, async (signal) =>
-      serializeQuestionAnswer(await useCase.execute({ question, topK, tenantId, actorKey, signal }), selected?.descriptor));
+      serializeQuestionAnswer(await answer({ question, topK, tenantId, actorKey, signal })));
   });
   app.post("/v1/qa/stream", { config: { rateLimit: { max: config.QA_RATE_LIMIT_MAX } } }, async (request, reply) => {
     const { question, topK, runId, modelId } = questionStreamInputSchema.parse(request.body);
-    const selected = selectChatModel(modelId);
-    const useCase = selected?.answerQuestion ?? dependencies.answerQuestion;
     if (runId) {
       const membership = await authorizeMember(request, true);
       if (!membership.ok) return rejectScope(reply, membership);
-      if (modelId && !selected) return reply.code(400).send(modelUnavailable);
+      const answer = await chooseAnswer(membership.tenantId, modelId);
+      if (!answer) return reply.code(modelId ? 400 : 503).send(modelUnavailable);
       const { tenantId, userId } = membership;
       const actorKey = `user:${userId}`;
       const scope = { runId, tenantId, actorId: userId };
       await answerRuns.start(scope, {
         reserveQuota: async () => (await dependencies.consumeQuestionQuota(tenantId, actorKey)).allowed,
-        answer: async ({ signal, publish }) => serializeQuestionAnswer(await useCase.execute({
+        answer: async ({ signal, publish }) => serializeQuestionAnswer(await answer({
           question, topK, tenantId, actorKey, signal,
           onEvent: (event) => publish(serializeWorkflowEvent(event))
-        }), selected?.descriptor),
+        })),
         reportFailure: (error) => request.log.warn({ errorType: error instanceof Error ? error.name : typeof error, runId }, "Answer run execution failed")
       });
       return replayAnswerStream(request, reply, dependencies.chatRuns, scope, 0, streamShutdown.signal);
@@ -618,7 +673,8 @@ export async function buildApp(dependencies: HttpDependencies) {
 
     const scope = await resolveQueryScope(request, modelId !== undefined);
     if (!scope.ok) return rejectScope(reply, scope);
-    if (modelId && !selected) return reply.code(400).send(modelUnavailable);
+    const answer = await chooseAnswer(scope.authenticated ? scope.tenantId : undefined, modelId);
+    if (!answer) return reply.code(modelId ? 400 : 503).send(modelUnavailable);
     const { tenantId, actorKey } = scope;
     const quota = await dependencies.consumeQuestionQuota(tenantId, actorKey);
     if (!quota.allowed) return reply.code(429).send({ error: "Daily question quota reached. Try again tomorrow." });
@@ -626,14 +682,14 @@ export async function buildApp(dependencies: HttpDependencies) {
     const stream = openAnswerStream(request, reply, streamShutdown.signal);
     try {
       await stream.event("accepted", { status: "accepted" });
-      const result = await useCase.execute({
+      const result = await answer({
         question, topK, tenantId, actorKey, signal: stream.signal,
         onEvent: (event) => {
           const serialized = serializeWorkflowEvent(event);
           return stream.event(serialized.type, "sources" in serialized || "delta" in serialized ? serialized : { status: serialized.type });
         }
       });
-      await stream.event("completed", serializeQuestionAnswer(result, selected?.descriptor));
+      await stream.event("completed", serializeQuestionAnswer(result));
     } catch (error) {
       if (!stream.signal.aborted) {
         request.log.warn({ errorType: error instanceof Error ? error.name : typeof error }, "Transient answer stream failed");
@@ -713,7 +769,7 @@ async function withReplySignal<T>(reply: FastifyReply, shutdown: AbortSignal, ta
   }
 }
 
-function serializeQuestionAnswer(result: AnswerQuestionResult, model?: ChatModelDescriptor) {
+function serializeQuestionAnswer(result: AnswerQuestionResult, model = result.model) {
   return {
     answer: result.answer,
     citedChunkIds: result.citedChunkIds ?? [],
@@ -722,7 +778,9 @@ function serializeQuestionAnswer(result: AnswerQuestionResult, model?: ChatModel
     sources: result.sources.map(serializeAnswerSource),
     contextSources: result.contextSources?.map(serializeAnswerSource) ?? [],
     cacheHit: result.cacheHit ?? false,
-    ...(model ? { model } : {})
+    ...(model ? { model } : {}),
+    ...(result.routing ? { routing: result.routing } : {}),
+    ...(result.usage ? { usage: result.usage } : {})
   };
 }
 

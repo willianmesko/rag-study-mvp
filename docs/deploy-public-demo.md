@@ -45,6 +45,11 @@ Apply `019_semantic_cache_models.sql` before publishing model selection. The
 model-scoped cache is separate from the legacy cache to keep a previous API
 build from reading alternate-model answers during rollback.
 
+Apply `020_workspace_model_policies.sql`, `021_model_usage_metadata.sql`, and
+`022_workspace_embedding_indexes.sql` before publishing workspace routing and
+embedding version support. These migrations add state and metadata. Embedding
+activation is a separate operator workflow after the updated API is live.
+
 ## 2. Render API
 
 The API is built from the repository root using `apps/api/Dockerfile`. Set at

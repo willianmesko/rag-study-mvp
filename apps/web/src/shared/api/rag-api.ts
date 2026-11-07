@@ -1,5 +1,5 @@
-import { chatModelCatalogSchema, questionComparisonResponseSchema, workspaceOnboardingResponseSchema,
-  type QuestionComparisonInput, type WorkspaceOnboardingProgress } from "@rag-study/contracts";
+import { chatModelCatalogSchema, questionComparisonResponseSchema, workspaceChatModelPolicyResponseSchema, workspaceOnboardingResponseSchema,
+  type QuestionComparisonInput, type WorkspaceChatModelPolicy, type WorkspaceOnboardingProgress } from "@rag-study/contracts";
 
 export type Health = { status: string };
 
@@ -160,6 +160,14 @@ export const api = {
     headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) },
     signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)])
   })),
+  chatModelPolicy: async (accessToken: string, workspaceId: string, signal: AbortSignal) =>
+    workspaceChatModelPolicyResponseSchema.parse(await request<unknown>("/v1/admin/chat-model-policy", {
+      signal, headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
+    })),
+  saveChatModelPolicy: async (accessToken: string, workspaceId: string, policy: WorkspaceChatModelPolicy) =>
+    workspaceChatModelPolicyResponseSchema.parse(await request<unknown>("/v1/admin/chat-model-policy", {
+      method: "PATCH", body: JSON.stringify(policy), headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
+    })),
   compareAnswers: async (input: QuestionComparisonInput, accessToken: string, workspaceId: string, signal: AbortSignal) =>
     questionComparisonResponseSchema.parse(await request<unknown>("/v1/qa/compare", {
       method: "POST", signal, body: JSON.stringify(input),
@@ -173,7 +181,7 @@ export const api = {
     }),
   getUsageSummary: (accessToken: string, workspaceId: string, days = 30) => request<{ days: number; summary: UsageSummary; alert: UsageAlert }>(`/v1/admin/usage?${new URLSearchParams({ days: String(days) })}`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   listEvaluationRuns: (accessToken: string, workspaceId: string) => request<{ runs: EvaluationRun[]; faithfulnessEnabled?: boolean }>("/v1/admin/evaluations?limit=20", { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
-  runEvaluation: (accessToken: string, workspaceId: string, options: { includeFaithfulness?: boolean; modelId?: string } = {}) =>
+  runEvaluation: (accessToken: string, workspaceId: string, options: { includeFaithfulness?: boolean; modelId?: string; effort?: "compact" | "standard" | "extended" } = {}) =>
     request<{ run: EvaluationRun }>("/v1/admin/evaluations/run", {
       method: "POST", body: JSON.stringify(options), headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) }
     }),

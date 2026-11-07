@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createServer, type RequestListener } from "node:http";
 import test, { type TestContext } from "node:test";
+import type { ProviderTokenUsage } from "../../application/ports/answer-generator.js";
 import { OpenRouterAnswerGenerator } from "./openrouter-answer-generator.js";
 
 function chunk(content: string) {
@@ -56,4 +57,27 @@ test("OpenRouter accepts completed streams and rejects mid-stream provider error
   });
   assert.equal(await provider.stream("Question", "Context", () => undefined), "an answer");
   await assert.rejects(provider.stream("Question", "Context", () => undefined), /could not finish streaming/);
+});
+
+test("OpenRouter reports native token and charged usage for JSON and streaming answers", async (context) => {
+  const usage = { prompt_tokens: 124, completion_tokens: 17, cost: 0.0004 };
+  const observations: ProviderTokenUsage[] = [];
+  const observe = (value: ProviderTokenUsage) => { observations.push(value); };
+  const provider = await fakeProvider(context, async (request, response) => {
+    let body = "";
+    for await (const part of request) body += String(part);
+    const parsed = JSON.parse(body);
+    assert.equal(parsed.provider.allow_fallbacks, false);
+    assert.equal(parsed.max_tokens, 500);
+    if (parsed.stream) {
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(chunk("an answer") + `data: ${JSON.stringify({ choices: [], usage })}\n\ndata: [DONE]\n\n`);
+    } else {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ choices: [{ message: { content: "an answer" } }], usage }));
+    }
+  });
+  assert.equal(await provider.generate("Question", "Context", undefined, observe), "an answer");
+  assert.equal(await provider.stream("Question", "Context", () => undefined, undefined, observe), "an answer");
+  assert.deepEqual(observations, Array.from({ length: 2 }, () => ({ inputTokens: 124, outputTokens: 17, costUsd: 0.0004 })));
 });

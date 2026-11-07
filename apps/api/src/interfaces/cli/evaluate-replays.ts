@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { ZodType } from "zod";
 import { benchmarkFingerprint, evaluateReplay, replaySuiteSchema } from "../../application/evaluation/replay-benchmark.js";
 import { compareEvaluationSnapshots, evaluationSnapshotSchema, type EvaluationSnapshot } from "../../application/evaluation/evaluation-regression.js";
+import { assertReviewedReplayApproved, replayReviewApprovalSchema } from "../../application/evaluation/reviewed-replay.js";
 import { evaluatePromptInjectionSuite, promptInjectionSuiteSchema } from "../../application/evaluation/prompt-injection-suite.js";
 import type { Reranker } from "../../application/ports/reranker.js";
 
@@ -26,18 +27,21 @@ async function readFixture<T>(path: string, schema: ZodType<T>, description: str
 
 const { values } = parseArgs({ options: {
   suite: { type: "string" },
+  approval: { type: "string" },
   baseline: { type: "string" },
   report: { type: "string" },
   jina: { type: "boolean" }
 } });
 
-if (values.jina && values.suite) throw new Error("Live Jina evaluation can only use the bundled synthetic suite.");
+if (values.jina && (values.suite || values.approval)) throw new Error("Live Jina evaluation can only use the bundled synthetic suite.");
 
-const [suite, securitySuite, baseline] = await Promise.all([
+const [suite, securitySuite, baseline, approval] = await Promise.all([
   readFixture(values.suite ? resolve(repository, values.suite) : bundledSuite, replaySuiteSchema, "Replay suite"),
   readFixture(securityFixture, promptInjectionSuiteSchema, "Security suite"),
-  values.baseline ? readFixture(resolve(repository, values.baseline), evaluationSnapshotSchema, "Baseline report") : null
+  values.baseline ? readFixture(resolve(repository, values.baseline), evaluationSnapshotSchema, "Baseline report") : null,
+  values.approval ? readFixture(resolve(repository, values.approval), replayReviewApprovalSchema, "Replay review receipt") : null
 ]);
+assertReviewedReplayApproved(suite, approval);
 
 let reranker: Reranker | undefined;
 let model: string | undefined;

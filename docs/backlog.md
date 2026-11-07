@@ -79,9 +79,12 @@ product decision, credentials, or additional operational cost.
 - Owner-only evaluation runs show hit rate, MRR, injection pass rate, reviewed
   context precision, and optional public-fixture faithfulness with judge
   calibration, model metadata, coverage, and historical runs.
-- Signed-in chat supports server-allowlisted model selection and side-by-side
-  comparisons using one retrieved context and a combined budget. The results
-  show citations, generation latency, and estimated cost for each model.
+- Signed-in chat uses an owner-managed workspace model policy. Auto routing
+  classifies questions, limits attempts, and can fall back to approved models.
+  Side-by-side comparisons share retrieved context and a budget. Run details
+  show citation status, prompt version, latency, and provider usage when reported.
+- Workspace embedding versions pin the model. Operators can stage a complete
+  rebuild, check dimensions, and switch versions with cache invalidation.
 - Offline replay tooling validates reviewed anonymized fixtures and gates
   ranking and screening regressions. The bundled synthetic suite can compare
   candidate ranking with Jina through an explicit, credentialed command.
@@ -105,9 +108,10 @@ product decision, credentials, or additional operational cost.
 8. Onboarding — standalone Milo flow and cross-device sync complete. Starter
    templates and a Help entry point remain in the guided onboarding backlog.
 9. Project-owned MCP — workspace-scoped read tools.
-10. Models and evaluations — selection, comparisons, quality metrics, replay
-    tooling, and the regression gate are implemented. Live Jina measurements
-    and reviewed cases from real production workflows remain pending.
+10. Models and evaluations — workspace policies, Auto and fallback, embedding
+    index migration, comparison, effort profiles, review receipts, and quality
+    gates are implemented. Live Jina measurements, live release baselines, and
+    reviewed cases from real production workflows remain pending.
 
 Run independent tasks within a milestone in parallel, integrate in this order,
 and update this backlog after validating each shipped capability.
@@ -197,24 +201,25 @@ and update this backlog after validating each shipped capability.
    - Extend model comparisons to controlled prompt variants and safety outcomes.
 
 9. **Model routing and comparative evaluation**
-   - Ask and public-fixture faithfulness runs accept server-allowlisted model
-     aliases. Side-by-side Ask comparisons share the same retrieved context
-     and prompt version. The browser shows each answer, citations, latency,
-     and estimated cost. Provider-reported token usage remains a follow-up.
-   - Keep the embedding model fixed per index/workspace. Changing it requires an
-     explicit embedding-version migration, dimension validation, semantic-cache
-     invalidation, and a full document reindex before activation.
+   - Owners manage allowed model aliases, the default, and opt-in Auto routing
+     per workspace. Code classifies question complexity, enforces request
+     deadlines and configured token and price bounds, and reserves quota before
+     a fallback attempt. Explicit model choices and A/B runs keep their model.
+   - Ask records the provider, model, prompt version, latency, checked-citation
+     count, safety outcome, and usage provenance per run. The judge dashboard
+     records injection-suite pass rate and reviewed precision separately.
+   - Workspace embedding changes use a staged full-corpus rebuild, dimension
+     checks, atomic activation, and cache invalidation. Validate a cutover in
+     the target environment before moving its live index.
    - Jina remains an optional independent reranker. Run the implemented
      comparison with the bundled synthetic golden cases before enabling it.
-   - Add model-routing policies for simple versus complex questions and provider
-     fallback, with hard token, latency, and spend budgets enforced in code.
    - CI compares versioned ranking and screening metrics with a reference.
-     Add provider-specific performance and cost regression gates once there
-     are enough live measurements for a stable baseline.
-   - Add manually reviewed, anonymized cases derived from production usage
-     to the implemented offline replay workflow. Extend judge calibration
-     beyond the bundled supported and unsupported examples. Compare effort
-     settings as a separate experiment.
+     Supply reviewed live measurement exports to turn on the p95 latency and
+     mean cost gate for a release workload.
+   - Compare model and effort profiles with a bilingual judge calibration suite,
+     reported coverage, and false-positive rates. Use review receipts for
+     anonymized replay fixtures. Populate the suite with approved reconstructed
+     production cases when available.
 
 10. **LangGraph workflow expansion**
    - Add adaptive RAG: retrieve, apply a relevance gate, rewrite the query when

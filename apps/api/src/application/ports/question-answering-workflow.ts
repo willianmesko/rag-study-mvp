@@ -1,6 +1,7 @@
 import type { Citation } from "../../domain/document.js";
 import type { GroundedContext } from "../policies/grounded-answer-policy.js";
-import type { AnswerGenerator } from "./answer-generator.js";
+import type { AnswerGenerator, ProviderTokenUsage, ProviderUsageObserver } from "./answer-generator.js";
+import type { ChatAnswerRouting, ChatAnswerUsage, ChatModelDescriptor } from "@rag-study/contracts";
 
 export type AnswerQuestionResult = {
   answer: string;
@@ -12,6 +13,10 @@ export type AnswerQuestionResult = {
   refusalReason?: string;
   estimatedInputTokens?: number;
   estimatedOutputTokens?: number;
+  providerUsage?: ProviderTokenUsage;
+  usage?: ChatAnswerUsage;
+  model?: ChatModelDescriptor;
+  routing?: ChatAnswerRouting;
 };
 
 export type AnswerWorkflowEvent =
@@ -27,6 +32,7 @@ export type AnswerWorkflowInput = {
   topK?: number;
   tenantId?: string;
   queryEmbedding?: number[];
+  embeddingIndexVersion?: string;
   maxEstimatedInputTokens?: number;
   signal?: AbortSignal;
 };
@@ -44,6 +50,6 @@ export type PreparedAnswerContext = {
 
 export interface PreparedAnswerWorkflow {
   prepare(input: AnswerWorkflowInput): Promise<PreparedAnswerContext | null>;
-  answerPrepared(prepared: PreparedAnswerContext | null, generator: AnswerGenerator, signal?: AbortSignal): Promise<AnswerQuestionResult>;
+  answerPrepared(prepared: PreparedAnswerContext | null, generator: AnswerGenerator, signal?: AbortSignal, onUsage?: ProviderUsageObserver): Promise<AnswerQuestionResult>;
 }
 

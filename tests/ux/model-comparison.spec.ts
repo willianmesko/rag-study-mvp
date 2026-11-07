@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import type { WorkspaceChatModelPolicy } from "@rag-study/contracts";
 import { workspaceFixture } from "./workspace-fixture";
 
 const models = [
@@ -112,4 +113,48 @@ test("the public demo keeps its default model and existing stream", async ({ pag
   await page.getByRole("button", { name: "Ask Lumora" }).click();
   await expect(page.getByText(answer.answer, { exact: true })).toBeVisible();
   expect(catalogRequests).toBe(0);
+});
+
+test("owners set a workspace model policy and Ask reports automatic fallback", async ({ page, context }, info) => {
+  test.skip(info.project.name !== "desktop-en", "The policy form and automatic routing share the same transport across profiles.");
+  await workspaceFixture().attach(context);
+  let policy: WorkspaceChatModelPolicy = { allowedModelIds: ["fast", "balanced", "careful"], defaultModelId: "fast", auto: null };
+  await context.route("**/v1/admin/chat-model-policy", async (route) => {
+    expect(route.request().headers()).toMatchObject(scopeHeaders);
+    if (route.request().method() === "PATCH") policy = route.request().postDataJSON();
+    await route.fulfill({ json: { policy, availableModels: models } });
+  });
+  await context.route("**/v1/qa/models", (route) => route.fulfill({ json: {
+    models: models.filter(({ id }) => policy.allowedModelIds.includes(id)), comparisonAvailable: policy.allowedModelIds.length >= 2,
+    autoAvailable: policy.auto !== null
+  } }));
+  await context.route("**/v1/qa/stream", async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({ question, modelId: "auto" });
+    const completed = { type: "completed", response: { ...answer, model: models[1], routing: {
+      mode: "auto", reason: "simple", attemptedModelIds: ["fast", "balanced"], usedFallback: true
+    }, usage: { source: "observed", inputTokens: 99, outputTokens: 12, latencyMs: 83, estimatedCostUsd: 0.0001,
+      observedCostUsd: 0.00009, promptVersion: "grounded-v1", citationCount: 1, safetyOutcome: "validated" } } };
+    await route.fulfill({ contentType: "text/event-stream", body: `id: 1\nevent: completed\ndata: ${JSON.stringify(completed)}\n\n` });
+  });
+
+  await page.goto("/workspace/settings");
+  await expect(page.getByRole("heading", { name: "Chat model policy" })).toBeVisible();
+  await page.getByRole("checkbox", { name: "Careful Model" }).uncheck();
+  await page.getByRole("checkbox", { name: "Allow automatic routing" }).check();
+  await selectModel(page, /^Complex questions$/, "Balanced Model");
+  await selectModel(page, /^Fallback 1$/, "Balanced Model");
+  await page.getByRole("button", { name: "Save model policy" }).click();
+  await expect(page.getByText("Model policy saved for this workspace.")).toBeVisible();
+  expect(policy).toEqual({ allowedModelIds: ["fast", "balanced"], defaultModelId: "fast", auto: {
+    simpleModelId: "fast", complexModelId: "balanced", fallbackModelIds: ["balanced"]
+  } });
+
+  await page.goto("/ask");
+  await selectModel(page, /^Answer model$/, "Automatic");
+  await page.getByRole("textbox", { name: /What would you like to know/ }).fill(question);
+  await page.getByRole("button", { name: "Ask Lumora" }).click();
+  await expect(page.getByText("Answer model · Balanced Model", { exact: true })).toBeVisible();
+  await expect(page.getByText(/approved fallback produced this answer/)).toBeVisible();
+  await page.getByText("Run details", { exact: true }).click();
+  await expect(page.getByText(/99 \/ 12 reported input\/output tokens/)).toBeVisible();
 });
