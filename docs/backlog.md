@@ -62,8 +62,13 @@ product decision, credentials, or additional operational cost.
   layouts, keyboard-visible focus states, reduced-motion support, loading/
   empty/error/success states, animated ingestion progress, source inspection,
   and document/job filters in the administration area.
+- UX quality checks in CI cover desktop, tablet, and mobile. The main flows use
+  consistent button states and clearer English and Brazilian Portuguese copy.
+  Team actions explain roles and require confirmation for removal.
 - Milo gives a short greeting on sign-in after the image loads. The greeting
   respects the device's reduced-motion preference.
+- Milo's guided setup resumes across devices with workspace- and user-scoped
+  progress. Existing browser-only progress syncs when the user returns.
 - CI quality gates for every push and pull request: typecheck, unit tests,
   production builds, prompt-injection regression, deterministic golden-set
   retrieval, and Promptfoo security checks.
@@ -82,7 +87,8 @@ product decision, credentials, or additional operational cost.
    pages, HTML uploads, metadata, language detection, and structured chunking.
 2. RAG visualization — complete for citation and context separation, controlled
    previews, and score interpretation.
-3. UX quality — responsive visual tests, contrast, accessibility, and team flows.
+3. UX quality — complete for responsive visual references, automated contrast
+   and accessibility checks, layout stability, and team flows.
 4. Workspace Control Center — complete for independent sections, additional
    workspace creation, explicit API selection, and tenant isolation checks.
 5. Product expansion — demo datasets, backend history and feedback, invites,
@@ -91,7 +97,8 @@ product decision, credentials, or additional operational cost.
    provider cancellation, and streaming validated citations.
 7. Portuguese and English — verify automatic UI locale and evaluate retrieval in
    both languages.
-8. Onboarding — validate the standalone Milo flow and sync progress across devices.
+8. Onboarding — standalone Milo flow and cross-device sync complete. Starter
+   templates and a Help entry point remain in the guided onboarding backlog.
 9. Project-owned MCP — workspace-scoped read tools.
 
 Run independent tasks within a milestone in parallel, integrate in this order,
@@ -146,20 +153,17 @@ make model availability, cost estimates, and quota behavior visible in Ask.
    - Add backups, retention policy, domain, identity limits, and incident runbook
      before onboarding real users.
 
-6. **Professional UX/UI hardening**
-   - Implemented a shared responsive select for workspace switching, chat and
-     search result limits, member roles, and processing filters.
-   - Standardize button and menu-action states across the product. Enabled
-     controls use a pointer cursor and visible hover and keyboard focus styles.
-     Disabled and pending actions are visibly distinct and block activation.
-   - Review English and Brazilian Portuguese product copy, including action
-     labels, empty states, progress, errors, and confirmations. Use familiar
-     workspace and document language, and explain how to recover from errors.
-   - Run screenshot-based visual QA on mobile, tablet, and desktop in CI once a
-     browser runner is available in the deployment pipeline.
-   - Add a formal visual-regression baseline and automated contrast checks.
-   - Continue refining member management and workspace onboarding with the same
-     design tokens and state model.
+6. **Professional UX/UI hardening — complete**
+   - Shared button and select styles distinguish hover, keyboard focus,
+     pressed, disabled, and pending states. Core flows use clearer labels,
+     progress, errors, and recovery instructions in English and Brazilian
+     Portuguese.
+   - Playwright exercises sign-in, Milo, and Team on mobile, tablet, and
+     desktop. CI compares checked-in screenshot references, scans contrast
+     and accessibility with axe, and checks overflow and interaction stability.
+   - Team explains the access granted by each role. Changing a role requires
+     saving, and removing access requires confirmation. The API protects
+     existing memberships against conflicting invitations.
 
 7. **Workspace Control Center — complete**
    - The former `AdminPanel` is split into `Overview`, `Knowledge`,
@@ -300,7 +304,9 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      and a standalone bilingual Milo guide before entering the private app.
      Users can create a workspace, choose a goal, optionally upload a document,
      and explore a sample answer and citation. The workspace opens after they
-     finish the guide. Progress is saved per user and workspace in the browser.
+     finish the guide. Progress is saved per user and workspace in PostgreSQL
+     and resumes on another signed-in device. Offline edits retry from a scoped
+     browser copy. An older device cannot undo completion.
    - Public demo search and chat use the configured demo corpus. Requests
      carrying a private workspace selector require authenticated membership.
    - Create a first-run, step-by-step onboarding flow for users who do not know
@@ -315,15 +321,12 @@ make model availability, cost estimates, and quota behavior visible in Ask.
      is not factual certainty.
    - Add a legal-workspace starter template with safe sample content, suggested
      questions, document naming guidance, and privacy/data-handling notes.
-   - Persist onboarding progress so it can be resumed, skipped, or revisited
-     from Help without blocking experienced users.
+   - Add an entry point to revisit the completed guide from Help.
    - Make steps role-aware: owners configure the workspace, editors add
      knowledge, and viewers learn how to search and inspect sources.
    - Acceptance criteria: a new non-technical user can create a workspace,
      ingest a document, ask a question, and understand the cited answer without
      reading technical documentation.
-   - Remaining: sync onboarding progress to the backend so it follows the user
-     across browsers and devices.
 
 17. **Real-time chat and streaming answers — complete**
    - Signed-in requests use an idempotent run ID and receive numbered SSE

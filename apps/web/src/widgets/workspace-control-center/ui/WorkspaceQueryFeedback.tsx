@@ -15,8 +15,8 @@ export function WorkspaceQueryFeedback({ query, loading, failure }: { query: Que
   if (!query.isError) return null;
   return <div className="error-message flex flex-wrap items-center justify-between gap-2">
     <p role="alert">{workspaceRequestError(query.error, t, failure)}</p>
-    <button type="button" className="secondary-button" disabled={query.isFetching} onClick={() => void query.refetch()}>
-      {t("Try again", "Tentar novamente")}
+    <button type="button" className="secondary-button" disabled={query.isFetching} aria-busy={query.isFetching} onClick={() => void query.refetch()}>
+      {query.isFetching ? t("Trying again…", "Tentando novamente…") : t("Try again", "Tentar novamente")}
     </button>
   </div>;
 }

@@ -80,21 +80,25 @@ export function WorkspaceKnowledge({ workspace, token }: { workspace: Workspace;
           : t("We could not update the index. Check that the original file is available.", "Não foi possível atualizar o índice. Confira se o arquivo original está disponível."))}</p>}
         <div className="grid gap-3">
           {filteredDocuments.map((document) => (
-            <article className={"min-w-0 rounded-xl border p-4 transition duration-200 hover:-translate-y-0.5 " + (selectedId === document.id ? "border-cyan-400/50 bg-cyan-400/5" : "border-slate-800 bg-slate-900/30")} key={document.id}>
-              <div className="flex flex-col justify-between gap-4 sm:flex-row">
-                <button className="min-w-0 text-left" type="button" onClick={() => setSelectedId(document.id)}>
+            <article className={"min-w-0 rounded-xl border p-4 " + (selectedId === document.id ? "border-cyan-400/50 bg-cyan-400/5" : "border-slate-800 bg-slate-900/30")} key={document.id}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <button className="min-w-0 flex-1 basis-48 rounded-md text-left hover:bg-slate-800/50" type="button" onClick={() => setSelectedId(document.id)}>
                   <p className="truncate text-sm font-medium text-slate-100">{document.title ?? document.source}</p>
-                  <p className="mt-1 truncate font-mono text-xs text-slate-500">{document.source}</p>
+                  <p className="mt-1 truncate font-mono text-xs text-slate-400">{document.source}</p>
                   <p className="mt-2 text-xs text-slate-400">{number.format(document.chunkCount)} {document.chunkCount === 1 ? t("passage", "trecho") : t("passages", "trechos")} · {t("updated", "atualizado em")} {date.format(new Date(document.updatedAt))}</p>
                   <DocumentMetadata document={document} />
                 </button>
-                <div className="flex shrink-0 flex-wrap items-start gap-3 text-xs font-medium">
-                  <button type="button" className="text-cyan-300 hover:text-cyan-100" onClick={() => setSelectedId(document.id)}>{t("View passages", "Ver trechos")}</button>
+                <div className="flex min-w-0 flex-wrap items-start gap-1 text-xs font-medium">
+                  <button type="button" className="text-action" aria-expanded={selectedId === document.id} onClick={() => setSelectedId(selectedId === document.id ? null : document.id)}>{t("View passages", "Ver trechos")}</button>
                   {document.hasOriginal === true && <OriginalDocumentAction documentId={document.id} documentName={document.title ?? document.source}
                     accessToken={token} workspaceId={workspaceId} />}
                   {canManage && <>
-                    <button type="button" className="text-violet-300 hover:text-violet-100" onClick={() => action.mutate({ type: "reindex", documentId: document.id })} disabled={action.isPending}>{t("Refresh index", "Atualizar índice")}</button>
-                    <button type="button" className="text-rose-300 hover:text-rose-100" onClick={() => confirmDelete(document)} disabled={action.isPending}>{t("Delete", "Excluir")}</button>
+                    <button type="button" className="text-action" onClick={() => action.mutate({ type: "reindex", documentId: document.id })} disabled={action.isPending}>
+                      {action.isPending && !removing && action.variables?.documentId === document.id ? t("Queueing…", "Colocando na fila…") : t("Reprocess", "Reprocessar")}
+                    </button>
+                    <button type="button" className="text-action text-action--danger" onClick={() => confirmDelete(document)} disabled={action.isPending}>
+                      {action.isPending && removing && action.variables?.documentId === document.id ? t("Removing…", "Removendo…") : t("Remove", "Remover")}
+                    </button>
                   </>}
                 </div>
               </div>
@@ -141,7 +145,7 @@ function DocumentPassages({ document, token, workspaceId, onClose }: { document:
           <h3 className="mt-2 break-words text-lg font-semibold text-white">{document.title ?? document.source}</h3>
           <p className="mt-2 text-sm text-slate-400">{t("See the original text and the result of the safety check.", "Veja o texto original e o resultado da verificação de segurança.")}</p>
         </div>
-        <button type="button" className="text-xs text-slate-400 hover:text-white" onClick={onClose}>{t("Close", "Fechar")}</button>
+        <button type="button" className="text-action" onClick={onClose}>{t("Close", "Fechar")}</button>
       </div>
       <WorkspaceQueryFeedback query={chunks} loading={t("Loading passages…", "Carregando trechos…")}
         failure={t("We could not load these passages.", "Não foi possível carregar estes trechos.")} />

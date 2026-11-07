@@ -18,6 +18,7 @@ export function SemanticSearchForm({ accessToken, workspaceId, workspaceName }: 
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (search.isPending) return;
     const input = searchInputSchema.safeParse({ query: query.trim(), topK });
     setInvalidInput(!input.success);
     if (input.success) search.mutate({ ...input.data, accessToken: accessToken ?? undefined, workspaceId });
@@ -32,7 +33,7 @@ export function SemanticSearchForm({ accessToken, workspaceId, workspaceName }: 
   return (
     <form className="space-y-7" onSubmit={submit} aria-busy={search.isPending}>
       <SectionTitle eyebrow={t("Find knowledge", "Encontre informações")} title={t("Search your workspace", "Busque no seu espaço de trabalho")}>
-        {t("Lumora finds relevant passages by meaning and exact terms.", "O Lumora encontra trechos relevantes pelo significado e pelos termos exatos.")}
+        {t("Go straight to the documents. Lumora finds passages that match your words or their meaning.", "Vá direto aos documentos. O Lumora encontra trechos pelas palavras da busca e pelo significado.")}
       </SectionTitle>
       <div className="panel space-y-5">
         <div className="workspace-context">
@@ -43,12 +44,12 @@ export function SemanticSearchForm({ accessToken, workspaceId, workspaceName }: 
           </div>
         </div>
         <InputLabel label={t("What are you looking for?", "O que você está procurando?")}>
-          <textarea aria-describedby="search-hint" value={query} maxLength={5000} onChange={(event) => setQuery(event.target.value)} className="field min-h-32 resize-y"
-            placeholder={t("How do embeddings represent meaning?", "Como os embeddings representam o significado?")} />
+          <textarea aria-describedby="search-hint" value={query} maxLength={5000} onChange={(event) => { setQuery(event.target.value); setInvalidInput(false); }}
+            readOnly={search.isPending} className="field min-h-32 resize-y" placeholder={t("For example, document retention policy", "Por exemplo, política de retenção de documentos")} />
           <span id="search-hint" className="text-xs font-normal text-slate-400">{t("Use your own words or enter a term from a document.", "Use suas próprias palavras ou digite um termo de um documento.")}</span>
         </InputLabel>
         <div className="flex flex-wrap items-end justify-between gap-5">
-          <SelectField className="w-44" label={t("Results to show", "Resultados para mostrar")}
+          <SelectField className="w-44" label={t("Results to show", "Resultados para mostrar")} disabled={search.isPending}
             value={String(topK)} onValueChange={(value) => setTopK(Number(value))}
             options={["3", "5", "8", "10"].map((value) => ({ value, label: value }))} />
           <button className="primary-button" disabled={search.isPending || query.trim().length === 0} type="submit">
@@ -64,13 +65,13 @@ export function SemanticSearchForm({ accessToken, workspaceId, workspaceName }: 
             <p className="text-sm text-slate-400">{results.length.toLocaleString(locale)} {results.length === 1 ? t("result", "resultado") : t("results", "resultados")}</p>
             <span className="status-pill">{t("Meaning + exact terms", "Significado + termos exatos")}</span>
           </div>
-          {results.length > 0 && <aside aria-label={t("How to read the scores", "Como interpretar os scores")} className="space-y-1 rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-xs leading-5 text-slate-300">
+          {results.length > 0 && <aside aria-label={t("How to read the scores", "Como interpretar as pontuações")} className="space-y-1 rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-xs leading-5 text-slate-300">
             <p>{t("A document can contain several passages. Cosine similarity ranges from −1 to 1. Higher values indicate a closer match in meaning. A close match can still contain an error.",
               "Um documento pode ter vários trechos. A similaridade cosseno vai de −1 a 1. Valores mais altos indicam maior proximidade de significado. Mesmo um trecho muito semelhante pode conter um erro.")}</p>
             {hasRankFusion && <p>{t("Rank fusion (RRF) combines the positions from the meaning and keyword searches.", "A fusão de rankings (RRF) combina as posições das buscas por significado e por palavras-chave.")}</p>}
-            {hasReranking && <p>{t("A separate reranker assigns its own relevance score and can change the order of results.", "Um modelo separado atribui seu próprio score de relevância e pode mudar a ordem dos resultados.")}</p>}
+            {hasReranking && <p>{t("A second model can reorder results using its own relevance score.", "Um segundo modelo pode reordenar os resultados usando sua própria pontuação de relevância.")}</p>}
           </aside>}
-          {results.length === 0 ? <p className="empty-state">{t("No close matches yet. Try a broader phrase or add another source.", "Nenhum resultado próximo. Tente uma busca mais ampla ou adicione outra fonte.")}</p>
+          {results.length === 0 ? <p className="empty-state" role="status">{t("No matching passages. Try a different phrase or check that the document is ready for search.", "Não encontramos trechos correspondentes. Tente outra frase ou verifique se o documento está pronto para busca.")}</p>
             : results.map((result, index) => <SearchResultCard key={result.chunkId} result={result} index={index} />)}
         </div>
       )}

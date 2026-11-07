@@ -52,6 +52,17 @@ export const chatRunEventSchema = z.discriminatedUnion("type", [
 
 export const workspaceMemberRoleSchema = z.enum(["editor", "viewer"]);
 
+export const workspaceGuideSteps = ["purpose", "knowledge", "answer"] as const;
+export const workspaceGuideGoals = ["legal", "it", "custom"] as const;
+export const workspaceOnboardingProgressSchema = z.strictObject({
+  goal: z.enum(workspaceGuideGoals).nullable(),
+  step: z.enum(workspaceGuideSteps),
+  completed: z.boolean()
+}).refine(({ goal, step, completed }) =>
+  (goal !== null || step === "purpose") && (!completed || step === "answer"),
+  { message: "Onboarding requires a goal before proceeding and the final step before completion." });
+export const workspaceOnboardingResponseSchema = z.object({ progress: workspaceOnboardingProgressSchema.nullable() });
+
 export type DocumentInput = z.infer<typeof documentInputSchema>;
 export type SearchInput = z.infer<typeof searchInputSchema>;
 export type QuestionInput = z.infer<typeof questionInputSchema>;
@@ -59,3 +70,4 @@ export type QuestionSource = z.infer<typeof questionSourceSchema>;
 export type QuestionResponse = z.infer<typeof questionResponseSchema>;
 export type ChatRunEvent = z.infer<typeof chatRunEventSchema>;
 export type WorkspaceMemberRole = z.infer<typeof workspaceMemberRoleSchema>;
+export type WorkspaceOnboardingProgress = z.infer<typeof workspaceOnboardingProgressSchema>;

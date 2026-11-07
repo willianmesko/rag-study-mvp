@@ -29,7 +29,7 @@ export function SignInPage({ onSuccess, onDemo, demoAvailable = true }: SignInPa
   const errorMessages: Record<SignInError, string> = {
     credentials: t("Check your email and password and try again.", "Confira seu e-mail e sua senha e tente de novo."),
     "rate-limit": t("Too many attempts. Wait a moment and try again.", "Muitas tentativas. Aguarde um pouco e tente novamente."),
-    unavailable: t("We couldn't connect to sign you in. Try again in a moment.", "Não conseguimos conectar para fazer o login. Tente novamente em instantes.")
+    unavailable: t("Lumora couldn’t sign you in. Check your connection and try again.", "O Lumora não conseguiu conectar. Confira sua conexão e tente entrar novamente.")
   };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -83,13 +83,13 @@ export function SignInPage({ onSuccess, onDemo, demoAvailable = true }: SignInPa
               {t("Sign in to Lumora", "Entre no Lumora")}
             </h1>
             <p className="mt-2 text-sm leading-6 text-slate-400">
-              {t("Access your team's documents, conversations, and workspaces.", "Acesse os documentos, as conversas e os espaços de trabalho da sua equipe.")}
+              {t("Open your workspace to search your team’s documents and ask questions with sources.", "Entre no seu espaço para buscar documentos da equipe e receber respostas com fontes.")}
             </p>
 
             {supabase ? (
               <form className="mt-6 grid gap-4" onSubmit={submit} aria-busy={pending}>
                 <div className="grid gap-1.5">
-                  <label htmlFor={emailId} className="text-sm font-medium text-slate-200">{t("Work email", "E-mail profissional")}</label>
+                  <label htmlFor={emailId} className="text-sm font-medium text-slate-200">{t("Email address", "E-mail")}</label>
                   <input id={emailId} name="email" className="field text-base sm:text-sm" type="email"
                     placeholder={t("you@example.com", "voce@exemplo.com")} autoComplete="username"
                     autoCapitalize="none" spellCheck={false} required readOnly={pending} />
@@ -115,13 +115,13 @@ export function SignInPage({ onSuccess, onDemo, demoAvailable = true }: SignInPa
               </form>
             ) : (
               <p className="error-message mt-6" role="status">
-                {t("Account sign-in is unavailable in this environment.", "O login está indisponível neste ambiente.")}
+                {t("Sign-in is currently unavailable.", "O acesso à conta está indisponível no momento.")}
               </p>
             )}
 
             {demoAvailable && (
               <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-5">
-                <p className="text-sm text-slate-400">{t("Just looking around?", "Só quer conhecer?")}</p>
+                <p className="text-sm text-slate-400">{t("Try it with sample documents.", "Experimente com documentos de exemplo.")}</p>
                 <button type="button" className="secondary-button" disabled={pending} onClick={onDemo}>
                   {t("Explore the public demo", "Explorar a demo pública")} <span aria-hidden="true">→</span>
                 </button>

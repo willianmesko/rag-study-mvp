@@ -30,7 +30,7 @@ export function WorkspaceSettings({ workspace, token }: { workspace: Workspace; 
             [t("Data access", "Acesso aos dados"), t("Isolated to this workspace", "Restrito a este espaço")]
           ].map(([label, value]) => (
             <div className="min-w-0 rounded-xl border border-slate-800 bg-slate-950/45 p-4" key={label}>
-              <dt className="text-xs text-slate-500">{label}</dt>
+              <dt className="text-xs text-slate-400">{label}</dt>
               <dd className="mt-2 break-words text-sm text-slate-100">{value}</dd>
             </div>
           ))}
@@ -49,7 +49,7 @@ export function WorkspaceSettings({ workspace, token }: { workspace: Workspace; 
           </div>
           {usage.data.alert.triggered && <p className="mt-4 rounded-xl border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-xs text-rose-200">{t("Estimated usage reached the budget alert of", "O uso estimado atingiu o limite de alerta de")} {currency.format(usage.data.alert.thresholdUsd)}.</p>}
           <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {metrics.map(([label, value]) => <div key={label} className="workspace-metric"><dt className="text-xs text-slate-500">{label}</dt><dd className="mt-1 font-mono text-sm text-slate-100">{value}</dd></div>)}
+            {metrics.map(([label, value]) => <div key={label} className="workspace-metric"><dt className="text-xs text-slate-400">{label}</dt><dd className="mt-1 font-mono text-sm text-slate-100">{value}</dd></div>)}
           </dl>
         </section>
       )}

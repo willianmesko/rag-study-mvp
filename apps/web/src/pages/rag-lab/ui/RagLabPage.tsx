@@ -6,6 +6,8 @@ import { DocumentIngestionForm } from "../../../features/document-ingestion/ui/D
 import { QuestionAnswerForm } from "../../../features/question-answering/ui/QuestionAnswerForm";
 import { QuestionHistoryPanel } from "../../../features/question-history/ui/QuestionHistoryPanel";
 import { SemanticSearchForm } from "../../../features/semantic-search/ui/SemanticSearchForm";
+import { useWorkspaceOnboarding } from "../../../features/workspace-onboarding/model/use-workspace-onboarding";
+import { OnboardingSyncNotice } from "../../../features/workspace-onboarding/ui/OnboardingSyncNotice";
 import { SignInPage } from "../../sign-in/ui/SignInPage";
 import { api, type QuestionSource, type Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
@@ -41,10 +43,6 @@ function saveLocal(key: string, value: string): void {
   try { window.localStorage.setItem(key, value); } catch { /* Storage is optional. */ }
 }
 
-function completionKey(userId: string, workspaceId: string): string {
-  return `lumora-setup-completed:${userId}:${workspaceId}`;
-}
-
 function readQuestionHistory(key: string): QuestionHistoryEntry[] {
   try {
     const entries: unknown = JSON.parse(readLocal(key) ?? "[]");
@@ -77,7 +75,6 @@ export function RagLabPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!supabase);
   const [selected, setSelected] = useState<{ userId: string; workspaceId: string } | null>(null);
-  const [completedThisSession, setCompletedThisSession] = useState<string[]>([]);
   const [createdSetup, setCreatedSetup] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState(false);
@@ -98,8 +95,10 @@ export function RagLabPage() {
     : userId ? readLocal(`lumora-workspace:${userId}`) : null;
   const activeWorkspace = workspaces.find((workspace) => workspace.tenantId === rememberedWorkspaceId) ?? workspaces[0];
   const activeRole = activeWorkspace?.role;
-  const activeSetup = userId && activeWorkspace ? completionKey(userId, activeWorkspace.tenantId) : null;
-  const setupComplete = Boolean(activeSetup && (completedThisSession.includes(activeSetup) || readLocal(activeSetup) === "done"));
+  const activeSetup = userId && activeWorkspace ? `${userId}:${activeWorkspace.tenantId}` : null;
+  const onboarding = useWorkspaceOnboarding(userId, activeWorkspace?.tenantId, demoRoute ? undefined : token);
+  const setupComplete = onboarding.progress.completed;
+  const setupLoading = onboarding.loading && !setupComplete;
 
   useEffect(() => {
     const update = () => {
@@ -123,7 +122,7 @@ export function RagLabPage() {
     if (!session) {
       if (route.kind === "private") returnPath.current = pathname;
       navigateTo("/sign-in", { replace: true });
-    } else if (workspaceQuery.isSuccess && !workspaceQuery.isError) {
+    } else if (workspaceQuery.isSuccess && !workspaceQuery.isError && !setupLoading) {
       if (!setupComplete) {
         if (route.kind === "private") returnPath.current = pathname;
         navigateTo("/onboarding", { replace: true });
@@ -133,7 +132,7 @@ export function RagLabPage() {
         navigateTo(next, { replace: true });
       }
     }
-  }, [activeRole, authReady, demoRoute, pathname, route.kind, session, setupComplete, workspaceQuery.isSuccess, workspaceQuery.isError]);
+  }, [activeRole, authReady, demoRoute, pathname, route.kind, session, setupComplete, setupLoading, workspaceQuery.isSuccess, workspaceQuery.isError]);
 
   function selectWorkspace(workspaceId: string) {
     if (!userId) return;
@@ -149,13 +148,12 @@ export function RagLabPage() {
       workspaces: [...(current?.workspaces ?? []).filter((item) => item.tenantId !== workspace.tenantId), workspace]
     }));
     selectWorkspace(workspace.tenantId);
-    setCreatedSetup(completionKey(userId, workspace.tenantId));
+    setCreatedSetup(`${userId}:${workspace.tenantId}`);
   }
 
   function finishOnboarding() {
     if (!activeSetup) return;
-    saveLocal(activeSetup, "done");
-    setCompletedThisSession((keys) => [...keys, activeSetup]);
+    onboarding.update({ completed: true });
     setCreatedSetup(null);
     returnPath.current = null;
     navigateTo(overviewPath, { replace: true });
@@ -199,10 +197,13 @@ export function RagLabPage() {
       onRetry={() => void workspaceQuery.refetch()} onSignOut={() => void signOut()} />;
   }
   if (workspaceQuery.isPending) return <StatusScreen message={t("Loading your workspaces…", "Carregando seus espaços de trabalho…")} />;
+  if (setupLoading) return <StatusScreen message={t("Checking your progress with Milo…", "Consultando seu progresso com o Milo…")} />;
 
   if (!activeWorkspace || !setupComplete) {
     return <Suspense fallback={<StatusScreen message={loadingText} />}>
       <OnboardingPage key={userId} workspace={activeWorkspace} workspaces={workspaces} accessToken={token} userId={userId}
+        progress={onboarding.progress} syncing={onboarding.syncing} syncFailed={onboarding.syncFailed}
+        onProgress={onboarding.update} onRetrySync={onboarding.retry}
         justCreated={activeSetup !== null && activeSetup === createdSetup} onWorkspaceCreated={workspaceCreated}
         onWorkspaceChange={selectWorkspace} onComplete={finishOnboarding} onSignOut={() => void signOut()} />
       {signOutMessage && <p className="error-message fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md" role="alert">{signOutMessage}</p>}
@@ -214,7 +215,8 @@ export function RagLabPage() {
   return <LabExperience key={scope} scope={scope} lab={lab}
     privateArea={{ token, workspace: activeWorkspace, workspaces, onWorkspaceChange: selectWorkspace, onWorkspaceCreated: workspaceCreated }}
     accountAction={{ label: signingOut ? t("Signing out…", "Saindo…") : t("Sign out", "Sair"), onClick: () => void signOut(), disabled: signingOut }}
-    accountError={signOutMessage} />;
+    accountError={signOutMessage} onboardingSyncing={onboarding.syncing}
+    onRetryOnboardingSync={onboarding.syncFailed && !onboarding.syncing ? onboarding.retry : undefined} />;
 }
 
 type PrivateArea = {
@@ -225,12 +227,14 @@ type PrivateArea = {
   onWorkspaceCreated: (workspace: Workspace) => void;
 };
 
-function LabExperience({ scope, lab, privateArea, accountAction, accountError }: {
+function LabExperience({ scope, lab, privateArea, accountAction, accountError, onboardingSyncing, onRetryOnboardingSync }: {
   scope: string;
   lab: LabRoute;
   privateArea?: PrivateArea;
   accountAction: { label: string; onClick: () => void; disabled?: boolean };
   accountError?: string | null;
+  onboardingSyncing?: boolean;
+  onRetryOnboardingSync?: () => void;
 }) {
   const { t } = useLocale();
   const demo = !privateArea;
@@ -275,6 +279,10 @@ function LabExperience({ scope, lab, privateArea, accountAction, accountError }:
             workspaceCreation={privateArea ? { accessToken: privateArea.token, onWorkspaceCreated: privateArea.onWorkspaceCreated } : undefined}
             accountAction={accountAction} />
           {accountError && <p className="error-message mt-5" role="alert">{accountError}</p>}
+          {onboardingSyncing && <p className="mt-5 text-sm text-slate-300" role="status">
+            {t("Saving your progress with Milo…", "Salvando seu progresso com o Milo…")}
+          </p>}
+          {onRetryOnboardingSync && <div className="mt-5"><OnboardingSyncNotice onRetry={onRetryOnboardingSync} /></div>}
           <div className={`mt-8 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-8 ${activeTab === "admin" ? "" : "xl:grid-cols-[minmax(0,1fr)_18rem]"}`}>
             <div className="min-w-0">
               {activeTab === "ingest" && <DocumentIngestionForm />}

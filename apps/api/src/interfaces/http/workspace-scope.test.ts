@@ -225,3 +225,30 @@ test("an authenticated user without memberships can create a workspace but canno
   assert.equal(created.json().workspace.role, "owner");
   assert.deepEqual(createWorkspace.mock.calls[0]?.arguments, [{ userId: actorId, name: "Compliance", slug: "compliance-team" }]);
 });
+
+test("an invitation cannot update an existing membership or record a successful invite", async (t) => {
+  const auth = { SUPABASE_URL: supabaseUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key",
+    SUPABASE_SERVICE_ROLE_KEY: "fixture-service-key", APP_BASE_URL: "https://lumora.example.test", API_KEY: undefined };
+  const previous = Object.fromEntries(Object.keys(auth).map((key) => [key, config[key as keyof typeof config]]));
+  Object.assign(config, auth);
+  t.after(() => { Object.assign(config, previous); });
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    const pathname = new URL(url).pathname;
+    assert.ok(pathname === "/auth/v1/user" || pathname === "/auth/v1/invite");
+    return Response.json({ id: actorId, aud: "authenticated", role: "authenticated" });
+  });
+  const addWorkspaceMember = t.mock.fn(async (_input: { tenantId: string; userId: string; role: string }) => false);
+  const recordWorkspaceInvitation = t.mock.fn(async () => {});
+  const recordAuditEvent = t.mock.fn(async () => {});
+  const app = await buildApp({
+    findMembership: async () => ti, addWorkspaceMember, recordWorkspaceInvitation, recordAuditEvent
+  } as unknown as Parameters<typeof buildApp>[0]);
+  t.after(() => app.close());
+
+  const response = await app.inject({ method: "POST", url: `/v1/workspaces/${ti.tenantId}/invitations`,
+    headers: headersFor(ti.tenantId), payload: { email: "existing@example.test", role: "viewer" } });
+  assert.equal(response.statusCode, 409);
+  assert.deepEqual(addWorkspaceMember.mock.calls[0]?.arguments, [{ tenantId: ti.tenantId, userId: actorId, role: "viewer" }]);
+  assert.equal(recordWorkspaceInvitation.mock.callCount(), 0);
+  assert.equal(recordAuditEvent.mock.callCount(), 0);
+});

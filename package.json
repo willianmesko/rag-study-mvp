@@ -16,6 +16,7 @@
     "build": "npm run build:api && npm run build:web",
     "typecheck": "npm run build:contracts && npm --workspace @rag-study/api run typecheck && npm --workspace @rag-study/web run typecheck",
     "test": "npm --workspace @rag-study/api run test",
+    "test:ux": "playwright test",
     "db:migrate": "npm --workspace @rag-study/api run db:migrate",
     "ingest": "npm --workspace @rag-study/api run ingest",
     "eval:golden": "npm --workspace @rag-study/api run eval:golden --",
@@ -24,5 +25,9 @@
     "eval:promptfoo": "npm --workspace @rag-study/api run eval:promptfoo",
     "eval:harness": "node scripts/run-evaluation-harness.mjs"
   },
-  "overrides": { "light-my-request": "6.6.0" }
+  "overrides": { "light-my-request": "6.6.0" },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1"
+  }
 }

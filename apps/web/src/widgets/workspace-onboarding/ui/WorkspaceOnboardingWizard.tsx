@@ -1,36 +1,34 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
+import type { WorkspaceOnboardingProgress } from "@rag-study/contracts";
 import { api, type Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { getRequestErrorMessage } from "../../../shared/lib/request-error";
 import { Mascot } from "../../../shared/ui/Mascot";
 import { guideCopy } from "../model/copy";
-import { guidePaths, guideSteps, readGuideProgress, saveGuideProgress, type GuidePath, type GuideProgress } from "../model/guide";
+import { guidePaths, guideSteps, type GuidePath, type GuideStep } from "../model/guide";
 import "./workspace-guide.css";
 
 type WizardProps = {
   workspace: Workspace;
-  userId: string;
   accessToken: string;
+  progress: WorkspaceOnboardingProgress;
+  onProgress: (changes: Partial<WorkspaceOnboardingProgress>) => void;
   onComplete: () => void;
 };
 
 const pathIcons: Record<GuidePath, string> = { legal: "§", it: "⌘", custom: "✦" };
 
-export function WorkspaceOnboardingWizard(props: WizardProps) {
-  const storageKey = `lumora-onboarding-v2:${props.userId}:${props.workspace.tenantId}`;
-  return <WorkspaceGuide key={storageKey} storageKey={storageKey} {...props} />;
-}
-
-function WorkspaceGuide({ storageKey, workspace, accessToken, onComplete }: WizardProps & { storageKey: string }) {
+export function WorkspaceOnboardingWizard({ workspace, accessToken, progress, onProgress, onComplete }: WizardProps) {
   const { locale, t } = useLocale();
   const copy = guideCopy[locale];
   const titleId = useId();
   const stepHeading = useRef<HTMLHeadingElement>(null);
-  const [progress, setProgress] = useState(() => readGuideProgress(storageKey));
+  const [navigationStep, setNavigationStep] = useState<GuideStep | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const stepIndex = guideSteps.indexOf(progress.step);
-  const step = copy.steps[progress.step];
+  const currentStep = navigationStep ?? progress.step;
+  const stepIndex = guideSteps.indexOf(currentStep);
+  const step = copy.steps[currentStep];
   const path = copy.paths[progress.goal ?? "custom"];
   const canUpload = workspace.role === "owner" || workspace.role === "editor";
   const finalStep = stepIndex === guideSteps.length - 1;
@@ -45,18 +43,18 @@ function WorkspaceGuide({ storageKey, workspace, accessToken, onComplete }: Wiza
 
   useEffect(() => {
     stepHeading.current?.focus({ preventScroll: true });
-  }, [progress.step]);
-
-  function update(changes: Partial<GuideProgress>) {
-    const next = { ...progress, ...changes };
-    saveGuideProgress(storageKey, next);
-    setProgress(next);
-  }
+  }, [currentStep]);
 
   function advance() {
     if (!progress.goal || upload.isPending) return;
-    if (finalStep) onComplete();
-    else update({ step: guideSteps[stepIndex + 1] });
+    if (finalStep) {
+      onComplete();
+      return;
+    }
+    const nextStep = guideSteps[stepIndex + 1];
+    const furthestIndex = guideSteps.indexOf(progress.step);
+    setNavigationStep(stepIndex + 1 < furthestIndex ? nextStep : null);
+    if (stepIndex + 1 > furthestIndex) onProgress({ step: nextStep });
   }
 
   function submitUpload(event: FormEvent<HTMLFormElement>) {
@@ -86,7 +84,7 @@ function WorkspaceGuide({ storageKey, workspace, accessToken, onComplete }: Wiza
         <progress value={stepIndex + 1} max={guideSteps.length} aria-label={copy.guideLabel} />
         <ol className="workspace-guide__steps">
           {guideSteps.map((item, index) => (
-            <li className="workspace-guide__step" key={item} aria-current={item === progress.step ? "step" : undefined}>
+            <li className="workspace-guide__step" key={item} aria-current={item === currentStep ? "step" : undefined}>
               <span className="workspace-guide__step-number" aria-hidden="true">{index < stepIndex ? "✓" : index + 1}</span>
               {copy.steps[item].label}
             </li>
@@ -94,18 +92,18 @@ function WorkspaceGuide({ storageKey, workspace, accessToken, onComplete }: Wiza
         </ol>
       </div>
 
-      <div key={progress.step} className="workspace-guide__stage animate-fade-up">
+      <div key={currentStep} className="workspace-guide__stage animate-fade-up">
         <div className="workspace-guide__stage-heading">
           <h2 ref={stepHeading} tabIndex={-1}>{step.title}</h2>
           <p>{step.description}</p>
         </div>
 
-        {progress.step === "purpose" && (
+        {currentStep === "purpose" && (
           <fieldset className="workspace-guide__choices">
             <legend className="sr-only">{copy.choosePath}</legend>
             {guidePaths.map((id) => (
               <label key={id} className="workspace-guide__choice">
-                <input type="radio" name={`guide-path-${titleId}`} value={id} checked={progress.goal === id} onChange={() => update({ goal: id })} />
+                <input type="radio" name={`guide-path-${titleId}`} value={id} checked={progress.goal === id} onChange={() => onProgress({ goal: id })} />
                 <span className="workspace-guide__choice-icon" aria-hidden="true">{pathIcons[id]}</span>
                 <span><strong>{copy.paths[id].label}</strong><small>{copy.paths[id].example}</small></span>
               </label>
@@ -113,7 +111,7 @@ function WorkspaceGuide({ storageKey, workspace, accessToken, onComplete }: Wiza
           </fieldset>
         )}
 
-        {progress.step === "knowledge" && (
+        {currentStep === "knowledge" && (
           <div className="workspace-guide__detail">
             <div className="workspace-guide__example">
               <strong>{copy.sampleDocument}</strong>
@@ -148,7 +146,7 @@ function WorkspaceGuide({ storageKey, workspace, accessToken, onComplete }: Wiza
           </div>
         )}
 
-        {progress.step === "answer" && (
+        {currentStep === "answer" && (
           <div className="workspace-guide__detail">
             <div className="workspace-guide__example">
               <strong>{copy.sampleQuestion}</strong>
@@ -173,11 +171,11 @@ function WorkspaceGuide({ storageKey, workspace, accessToken, onComplete }: Wiza
         {stepIndex > 0 && (
           <button type="button" className="secondary-button" disabled={upload.isPending} onClick={() => {
             setFile(null);
-            update({ step: guideSteps[stepIndex - 1] });
+            setNavigationStep(guideSteps[stepIndex - 1]);
           }}>{copy.back}</button>
         )}
         <button type="button" className="primary-button ms-auto" onClick={() => {
-          if (progress.step === "knowledge" && !upload.isPending) setFile(null);
+          if (currentStep === "knowledge" && !upload.isPending) setFile(null);
           advance();
         }} disabled={!progress.goal || upload.isPending}>
           {finalStep ? copy.finish : copy.next} <span aria-hidden="true">→</span>

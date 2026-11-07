@@ -49,7 +49,9 @@ export function WorkspaceProcessing({ workspace, token }: { workspace: Workspace
         </div>
         <WorkspaceQueryFeedback query={jobs} loading={t("Loading files…", "Carregando arquivos…")}
           failure={t("We could not load processing jobs.", "Não foi possível carregar os processamentos.")} />
-        {jobs.isSuccess && filteredJobs.length === 0 && <p className="empty-state">{t("No processing jobs match this filter.", "Nenhum processamento corresponde a esse filtro.")}</p>}
+        {jobs.isSuccess && filteredJobs.length === 0 && <p className="empty-state">{jobFilter === "all"
+          ? t("Files and pages you add will appear here while Lumora prepares them for search.", "Os arquivos e páginas que você adicionar aparecerão aqui enquanto o Lumora os prepara para busca.")
+          : t("No files match this filter. Choose another status to see more files.", "Nenhum arquivo corresponde a esse filtro. Escolha outro status para ver mais arquivos.")}</p>}
         {retry.isSuccess && <p className="success-message" role="status">{t("File queued for another attempt.", "Arquivo na fila para uma nova tentativa.")}</p>}
         {retry.isError && <p className="error-message" role="alert">{workspaceRequestError(retry.error, t, t("We could not retry this file.", "Não foi possível reprocessar este arquivo."))}</p>}
         {filteredJobs.map((job) => (
@@ -58,11 +60,11 @@ export function WorkspaceProcessing({ workspace, token }: { workspace: Workspace
               <span className="truncate text-slate-100">{job.title ?? job.filename}</span>
               <span className="shrink-0 font-mono text-xs text-cyan-300">{statusLabel(job.status, t)} · {number.format(job.progress)}%</span>
             </div>
-            <p className="mt-1 break-words text-xs text-slate-500">{job.source}{job.chunkCount !== null && " · " + number.format(job.chunkCount) + " " + (job.chunkCount === 1 ? t("passage", "trecho") : t("passages", "trechos"))}</p>
+            <p className="mt-1 break-words text-xs text-slate-400">{job.source}{job.chunkCount !== null && " · " + number.format(job.chunkCount) + " " + (job.chunkCount === 1 ? t("passage", "trecho") : t("passages", "trechos"))}</p>
             {canManage && job.status === "completed" && <IngestionPassagePreview key={job.updatedAt} jobId={job.id}
               documentName={job.title ?? job.filename} accessToken={token} workspaceId={workspaceId} />}
             {job.error && <p className="mt-2 text-xs text-rose-300">{t("Processing failed.", "Falha no processamento.")}</p>}
-            {canManage && job.status === "failed" && <button type="button" className="mt-3 text-xs font-medium text-cyan-300 hover:text-cyan-100"
+            {canManage && job.status === "failed" && <button type="button" className="text-action mt-3"
               onClick={() => retry.mutate(job.id)} disabled={retry.isPending}>
               {retry.isPending && retry.variables === job.id ? t("Queueing again…", "Colocando na fila…") : t("Try again", "Tentar novamente")}
             </button>}

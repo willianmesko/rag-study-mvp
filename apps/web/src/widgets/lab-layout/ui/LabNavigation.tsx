@@ -28,11 +28,11 @@ export function LabNavigation({ activeTab, onTabChange, publicDemo, canIndex }: 
           <p className="text-xs text-slate-400">{t("Team knowledge", "Conhecimento da equipe")}</p>
         </div>
       </div>
-      <nav className="mt-7 flex gap-2 overflow-x-auto pb-1 lg:mt-10 lg:grid lg:overflow-visible" aria-label={t("Main navigation", "Navegação principal")}>
+      <nav className="mt-7 flex gap-2 overflow-x-auto p-1.5 lg:mt-10 lg:grid lg:overflow-visible" aria-label={t("Main navigation", "Navegação principal")}>
         {visibleTabs.map(([id, english, portuguese, number]) => (
           <button key={id} type="button" onClick={() => onTabChange(id)} aria-current={activeTab === id ? "page" : undefined}
-            className={`group flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition duration-200 lg:py-3 ${activeTab === id ? "bg-cyan-400/10 text-cyan-100 shadow-inner shadow-cyan-400/5" : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"}`}>
-            <span aria-hidden="true" className={`font-mono text-[11px] ${activeTab === id ? "text-cyan-300" : "text-slate-500 group-hover:text-slate-400"}`}>{number}</span>
+            className={`group flex min-h-11 shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors lg:py-3 ${activeTab === id ? "bg-cyan-400/10 text-cyan-100 shadow-inner shadow-cyan-400/5 hover:bg-cyan-400/15" : "text-slate-300 hover:bg-slate-800 hover:text-slate-100"}`}>
+            <span aria-hidden="true" className={`font-mono text-[11px] ${activeTab === id ? "text-cyan-300" : "text-slate-400"}`}>{number}</span>
             <span className="font-medium">{t(english, portuguese)}</span>
           </button>
         ))}

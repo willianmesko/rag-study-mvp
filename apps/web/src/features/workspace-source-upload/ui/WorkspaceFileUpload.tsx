@@ -31,12 +31,12 @@ export function WorkspaceFileUpload({ token, workspaceId, onUploaded }: { token:
     <form className="panel grid min-w-0 content-start gap-4" onSubmit={submit} aria-labelledby={titleId} aria-busy={upload.isPending}>
       <div>
         <p className="eyebrow">{t("Add knowledge", "Adicionar documentos")}</p>
-        <h3 id={titleId} className="mt-2 text-lg font-semibold text-white">{t("Upload a source your team trusts", "Envie uma fonte em que sua equipe confia")}</h3>
-        <p className="mt-2 text-sm text-slate-400">{t("Lumora stores the original privately and prepares its text for search.", "O Lumora guarda o arquivo original em privado e prepara seu texto para a busca.")}</p>
+        <h3 id={titleId} className="mt-2 text-lg font-semibold text-white">{t("Upload a document", "Envie um documento")}</h3>
+        <p className="mt-2 text-sm text-slate-400">{t("Lumora keeps the original in this workspace and prepares the text for search and answers.", "O Lumora guarda o original neste espaço e prepara o texto para buscas e respostas.")}</p>
       </div>
       <label className="grid gap-2 text-sm text-slate-300">
-        {t("Source ID (optional)", "Identificador da fonte (opcional)")}
-        <input className="field" name="source" maxLength={1000} readOnly={upload.isPending} placeholder={t("For example, legal/playbook", "Por exemplo, juridico/manual")} />
+        {t("Source label (optional)", "Nome de referência (opcional)")}
+        <input className="field" name="source" maxLength={1000} readOnly={upload.isPending} placeholder={t("For example, legal-team-guide", "Por exemplo, guia-da-equipe-juridica")} />
       </label>
       <label className="grid gap-2 text-sm text-slate-300">
         {t("Title (optional)", "Título (opcional)")}
@@ -46,10 +46,10 @@ export function WorkspaceFileUpload({ token, workspaceId, onUploaded }: { token:
         {t("Document file", "Arquivo do documento")}
         <input className="field" name="file" type="file" accept=".pdf,.docx,.txt,.md,.markdown,.html,.htm" disabled={upload.isPending} required />
       </label>
-      <button className="primary-button w-fit" type="submit" disabled={upload.isPending}>
+      <button className="primary-button w-fit" type="submit" disabled={upload.isPending} aria-busy={upload.isPending}>
         {upload.isPending ? t("Uploading…", "Enviando…") : t("Send for processing", "Enviar para processamento")}
       </button>
-      {upload.isSuccess && <p className="success-message" role="status">{t("File received. You can follow its progress in Processing.", "Arquivo recebido. Você pode acompanhar o andamento em Processamento.")}</p>}
+      {upload.isSuccess && <p className="success-message" role="status">{t("Document received. Open Processing to see when it’s ready to search.", "Documento recebido. Abra Processamento para saber quando ele estará pronto para busca.")}</p>}
       {upload.isError && <p className="error-message" role="alert">
         {workspaceRequestError(upload.error, t, t("We could not upload this file. Check its size and format.", "Não foi possível enviar este arquivo. Verifique o tamanho e o formato."))}
       </p>}

@@ -36,6 +36,11 @@ server-only replay tables. Confirm both tables have RLS enabled and that
 client. Deploy the API before the web client and retain the tables during a
 code rollback so existing runs can still expire normally after recovery.
 
+Apply `017_workspace_onboarding.sql` before releasing synced Milo onboarding.
+The new table is restricted to the API and stores one progress record per
+workspace membership. Verify API health and the onboarding route before
+deploying the web client.
+
 ## 2. Render API
 
 The API is built from the repository root using `apps/api/Dockerfile`. Set at

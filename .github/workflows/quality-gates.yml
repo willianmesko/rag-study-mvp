@@ -26,3 +26,20 @@ jobs:
         with:
           name: lumora-evaluation-harness-${{ github.sha }}
           path: reports/evaluation-history/harness-${{ github.sha }}.json
+  ux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:ux
+      - name: Upload UX report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumora-ux-${{ github.sha }}
+          path: playwright-report/
+          if-no-files-found: ignore

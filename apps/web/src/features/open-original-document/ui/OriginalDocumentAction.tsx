@@ -11,7 +11,7 @@ export function OriginalDocumentAction(props: OriginalDocumentProps) {
   const [open, setOpen] = useState(false);
 
   return <>
-    <button type="button" className="text-cyan-300 hover:text-cyan-100" aria-haspopup="dialog"
+    <button type="button" className="text-action" aria-haspopup="dialog"
       aria-label={t(`Original file for ${props.documentName}`, `Arquivo original de ${props.documentName}`)}
       onClick={() => setOpen(true)}>{t("Original file", "Arquivo original")}</button>
     {open && <OriginalDocumentDialog {...props} onClose={() => setOpen(false)} />}

@@ -18,7 +18,7 @@ export interface TenantMembershipRepository {
   findByUserAndTenant(userId: string, tenantId: string): Promise<TenantMembership | null>;
   createWorkspace(input: { userId: string; name: string; slug: string }): Promise<TenantMembership>;
   listMembers(tenantId: string): Promise<WorkspaceMember[]>;
-  addMember(input: { tenantId: string; userId: string; role: Exclude<TenantRole, "owner"> }): Promise<void>;
+  addMember(input: { tenantId: string; userId: string; role: Exclude<TenantRole, "owner"> }): Promise<boolean>;
   changeMemberRole(input: { tenantId: string; userId: string; role: Exclude<TenantRole, "owner"> }): Promise<boolean>;
   removeMember(input: { tenantId: string; userId: string }): Promise<boolean>;
   recordInvitation(input: { tenantId: string; email: string; role: Exclude<TenantRole, "owner">; invitedBy: string; invitedUserId: string }): Promise<void>;

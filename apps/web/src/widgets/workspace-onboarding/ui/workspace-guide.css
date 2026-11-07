@@ -188,8 +188,9 @@
   transition: border-color 180ms ease, background-color 180ms ease;
 }
 
-.workspace-guide__choice:hover { border-color: rgb(103 232 249 / 0.34); }
+.workspace-guide__choice:hover { border-color: rgb(103 232 249 / 0.65); background: #1b2b40; }
 .workspace-guide__choice:has(:checked) { border-color: #67e8f9; background: #153044; }
+.workspace-guide__choice:has(:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 .workspace-guide__choice input { margin: 0.23rem 0 0; accent-color: #67e8f9; }
 .workspace-guide__choice-icon { color: var(--guide-accent); line-height: 1.3; }
 .workspace-guide__choice strong { display: block; color: #f8fafc; font-size: 0.82rem; line-height: 1.35; }

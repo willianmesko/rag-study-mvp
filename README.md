@@ -157,6 +157,10 @@ The selected workspace controls documents, search, chat, and permissions. The
 same account can manage documents in one workspace and have read access in
 another. Each Control Center section loads its own data.
 
+Milo saves your selected goal and the furthest setup step for each workspace.
+Sign in with the same account on another device to continue. If this browser
+already had progress from an earlier release, Lumora syncs it when you return.
+
 ### Resume or stop a live answer
 
 Signed-in chat resumes an interrupted connection in the same tab. The browser
@@ -182,6 +186,25 @@ npm run db:migrate        # apply API migrations
 npm run eval:golden       # run the retrieval golden set
 npm run eval:security     # run prompt-injection regression cases
 ```
+
+## Frontend quality checks
+
+```bash
+npx playwright install chromium
+npm run test:ux
+```
+
+The suite exercises English and Brazilian Portuguese UI at desktop, tablet,
+and mobile widths using fixture accounts and API responses. It checks viewport
+overflow, hover and keyboard focus, disabled controls, member confirmation,
+and onboarding across browser contexts. axe scans representative pages for
+detectable accessibility and text-contrast issues.
+
+CI compares screenshots with the references in `tests/ux/snapshots`. Run pixel
+checks and regenerate references in the Linux x64 Playwright image pinned in
+`.github/workflows/quality-gates.yml` to keep the browser and font rendering
+consistent. Use `npm run test:ux -- --update-snapshots` there for intentional
+visual changes. Review the diffs before committing updated references.
 
 ## Providers
 

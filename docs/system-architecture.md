@@ -52,6 +52,12 @@ section that owns its data, actions, and loading and error states. The
 onboarding guide explains concepts in plain language and links directly to
 the next action.
 
+Milo's onboarding state belongs to the authenticated workspace membership.
+The API stores the selected goal, furthest step, and completion. Database
+updates keep the furthest step and preserve completion when two devices
+submit in either order. The browser keeps a scoped copy for retry and
+imports earlier browser-only progress when the user returns.
+
 ## Monorepo and ownership
 
 ```text

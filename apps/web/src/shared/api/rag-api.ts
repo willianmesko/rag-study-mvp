@@ -1,3 +1,5 @@
+import { workspaceOnboardingResponseSchema, type WorkspaceOnboardingProgress } from "@rag-study/contracts";
+
 export type Health = { status: string };
 
 export type SearchResult = {
@@ -123,6 +125,23 @@ async function requestVoid(path: string, init?: RequestInit): Promise<void> {
 export const api = {
   workspaces: (accessToken: string) => request<{ workspaces: Workspace[] }>("/v1/workspaces", { headers: { authorization: `Bearer ${accessToken}` } }),
   createWorkspace: (input: { name: string; slug: string; accessToken: string }) => request<{ workspace: Workspace }>("/v1/workspaces", { method: "POST", body: JSON.stringify({ name: input.name, slug: input.slug }), headers: { authorization: `Bearer ${input.accessToken}` } }),
+  getOnboardingProgress: async (workspaceId: string, accessToken: string, signal: AbortSignal) => {
+    const response = await request<unknown>(`/v1/workspaces/${workspaceId}/onboarding`, {
+      headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) },
+      signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)])
+    });
+    return workspaceOnboardingResponseSchema.parse(response).progress;
+  },
+  saveOnboardingProgress: async (workspaceId: string, accessToken: string, progress: WorkspaceOnboardingProgress) => {
+    const response = await request<unknown>(`/v1/workspaces/${workspaceId}/onboarding`, {
+      method: "PATCH", body: JSON.stringify(progress),
+      headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) },
+      signal: AbortSignal.timeout(10_000)
+    });
+    const saved = workspaceOnboardingResponseSchema.parse(response).progress;
+    if (!saved) throw new Error("The guide progress was not saved.");
+    return saved;
+  },
   listWorkspaceMembers: (workspaceId: string, accessToken: string) => request<{ members: WorkspaceMember[] }>(`/v1/workspaces/${workspaceId}/members`, { headers: { authorization: `Bearer ${accessToken}`, ...workspaceHeaders(workspaceId) } }),
   inviteWorkspaceMember: (input: { workspaceId: string; email: string; role: "editor" | "viewer"; accessToken: string }) => request<{ member: Omit<WorkspaceMember, "createdAt"> }>(`/v1/workspaces/${input.workspaceId}/invitations`, { method: "POST", body: JSON.stringify({ email: input.email, role: input.role }), headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),
   changeWorkspaceMemberRole: (input: { workspaceId: string; userId: string; role: "editor" | "viewer"; accessToken: string }) => requestVoid(`/v1/workspaces/${input.workspaceId}/members/${input.userId}`, { method: "PATCH", body: JSON.stringify({ role: input.role }), headers: { authorization: `Bearer ${input.accessToken}`, ...workspaceHeaders(input.workspaceId) } }),

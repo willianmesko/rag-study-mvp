@@ -1,0 +1,90 @@
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import type { WorkspaceMember } from "../../../shared/api/rag-api";
+import { useLocale } from "../../../shared/i18n/locale";
+
+export type MemberRole = Exclude<WorkspaceMember["role"], "owner">;
+export type MemberEdit = { type: "role"; role: MemberRole } | { type: "remove" };
+
+type MemberAccessDialogProps = {
+  type: MemberEdit["type"];
+  member: WorkspaceMember;
+  name: string;
+  roleOptions: readonly { value: MemberRole; label: string; description: string }[];
+  pending: boolean;
+  error: string | null;
+  onSave: (action: MemberEdit) => Promise<void>;
+  onClose: (saved: boolean) => void;
+};
+
+export function MemberAccessDialog({ type, member, name, roleOptions, pending, error, onSave, onClose }: MemberAccessDialogProps) {
+  const { t } = useLocale();
+  const [role, setRole] = useState<MemberRole>(member.role === "editor" ? "editor" : "viewer");
+  const dialog = useRef<HTMLDialogElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const headingId = useId();
+  const descriptionId = useId();
+  const removing = type === "remove";
+  const unchangedRole = !removing && role === member.role;
+
+  useEffect(() => {
+    if (dialog.current && !dialog.current.open) {
+      dialog.current.showModal();
+      cancelButton.current?.focus();
+    }
+  }, []);
+
+  function close(saved: boolean) {
+    dialog.current?.close();
+    onClose(saved);
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending || unchangedRole) return;
+    try {
+      await onSave(removing ? { type: "remove" } : { type: "role", role });
+      close(true);
+    } catch {
+      // The mutation displays the error here so the user can retry or close.
+    }
+  }
+
+  return (
+    <dialog ref={dialog} aria-labelledby={headingId} aria-describedby={descriptionId}
+      onCancel={(event) => { event.preventDefault(); if (!pending) close(false); }}
+      className="panel fixed inset-0 m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto bg-slate-950 text-slate-100 backdrop:bg-slate-950/75">
+      <h3 id={headingId} className="text-lg font-semibold text-white">{removing ? t("Remove access", "Remover acesso") : t("Change role", "Alterar perfil")}</h3>
+      <p id={descriptionId} className="mt-2 text-sm leading-6 text-slate-300 [overflow-wrap:anywhere]">{removing
+        ? t(`${name} will lose access to this workspace, including its documents and answers. Their Lumora account will stay active.`,
+          `${name} perderá o acesso a este espaço, incluindo documentos e respostas. A conta no Lumora continuará ativa.`)
+        : t(`Choose what ${name} can do in this workspace.`, `Escolha o que ${name} pode fazer neste espaço.`)}</p>
+      <form className="mt-5 space-y-4" onSubmit={(event) => void submit(event)} aria-busy={pending}>
+        {!removing && <fieldset className="space-y-2" disabled={pending}>
+          <legend className="mb-2 text-xs font-medium text-slate-300">{t("Access role", "Tipo de acesso")}</legend>
+          {roleOptions.map(({ value, label, description }) => (
+            <label className={`flex items-start gap-3 rounded-xl border border-slate-700 px-3 py-2.5 text-sm transition-colors has-checked:border-cyan-400/70 has-checked:bg-cyan-400/10 ${pending ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-cyan-400/60"}`} key={value}>
+              <input type="radio" className="mt-0.5 size-4 shrink-0 accent-cyan-400" name={`${descriptionId}-role`}
+                checked={role === value} onChange={() => setRole(value)} aria-labelledby={`${headingId}-${value}`}
+                aria-describedby={`${descriptionId}-${value}`} />
+              <span>
+                <span id={`${headingId}-${value}`} className="block font-medium text-slate-100">{label}</span>
+                <span id={`${descriptionId}-${value}`} className="block text-sm text-slate-300">{description}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>}
+        {error && <p role="alert" className="error-message">{error}</p>}
+        <div className="flex flex-wrap justify-end gap-2">
+          <button ref={cancelButton} className="secondary-button" type="button" disabled={pending} onClick={() => close(false)}>
+            {t("Cancel", "Cancelar")}
+          </button>
+          <button className={removing ? "danger-button" : "primary-button"} type="submit" disabled={pending || unchangedRole}>
+            {removing
+              ? pending ? t("Removing access…", "Removendo acesso…") : t("Remove access", "Remover acesso")
+              : pending ? t("Saving role…", "Salvando perfil…") : t("Save role", "Salvar perfil")}
+          </button>
+        </div>
+      </form>
+    </dialog>
+  );
+}

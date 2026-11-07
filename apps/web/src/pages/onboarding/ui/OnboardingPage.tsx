@@ -1,4 +1,6 @@
+import type { WorkspaceOnboardingProgress } from "@rag-study/contracts";
 import { WorkspaceCreationForm } from "../../../features/workspace-creation/ui/WorkspaceCreationForm";
+import { OnboardingSyncNotice } from "../../../features/workspace-onboarding/ui/OnboardingSyncNotice";
 import type { Workspace } from "../../../shared/api/rag-api";
 import { useLocale } from "../../../shared/i18n/locale";
 import { BrandMark } from "../../../shared/ui/BrandMark";
@@ -12,8 +14,13 @@ type OnboardingPageProps = {
   accessToken: string;
   userId: string;
   justCreated?: boolean;
+  progress: WorkspaceOnboardingProgress;
+  syncing: boolean;
+  syncFailed: boolean;
   onWorkspaceCreated: (workspace: Workspace) => void;
   onWorkspaceChange: (workspaceId: string) => void;
+  onProgress: (changes: Partial<WorkspaceOnboardingProgress>) => void;
+  onRetrySync: () => void;
   onComplete: () => void;
   onSignOut: () => void;
 };
@@ -41,7 +48,7 @@ function CreateWorkspaceStep({ accessToken, onWorkspaceCreated }: Pick<Onboardin
   );
 }
 
-export function OnboardingPage({ workspace, workspaces, accessToken, userId, justCreated, onWorkspaceCreated, onWorkspaceChange, onComplete, onSignOut }: OnboardingPageProps) {
+export function OnboardingPage({ workspace, workspaces, accessToken, userId, justCreated, progress, syncing, syncFailed, onWorkspaceCreated, onWorkspaceChange, onProgress, onRetrySync, onComplete, onSignOut }: OnboardingPageProps) {
   const { t } = useLocale();
 
   return (
@@ -60,11 +67,14 @@ export function OnboardingPage({ workspace, workspaces, accessToken, userId, jus
           {t(`Workspace created. Let’s set up ${workspace.tenantName}.`, `Espaço criado. Vamos configurar ${workspace.tenantName}.`)}
         </p>}
         {workspace
-          ? <WorkspaceOnboardingWizard workspace={workspace} userId={userId} accessToken={accessToken} onComplete={onComplete} />
+          ? <WorkspaceOnboardingWizard key={workspace.tenantId} workspace={workspace} accessToken={accessToken}
+            progress={progress} onProgress={onProgress} onComplete={onComplete} />
           : <CreateWorkspaceStep key={userId} accessToken={accessToken} onWorkspaceCreated={onWorkspaceCreated} />}
-        <p className="text-center text-xs text-slate-400">
-          {t("Your progress is saved in this browser.", "Seu progresso fica salvo neste navegador.")}
-        </p>
+        {workspace && (syncFailed && !syncing
+          ? <OnboardingSyncNotice onRetry={onRetrySync} />
+          : <p className="text-center text-xs text-slate-400" role="status">{syncing
+            ? t("Saving your progress…", "Salvando seu progresso…")
+            : t("Continue on any device using this account.", "Continue em qualquer dispositivo com esta conta.")}</p>)}
       </div>
     </main>
   );

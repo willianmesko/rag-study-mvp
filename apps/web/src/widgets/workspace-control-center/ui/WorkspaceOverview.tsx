@@ -7,7 +7,7 @@ import { documentsQuery, evaluationsQuery, ingestionJobsQuery, usageQuery } from
 import { WorkspaceQueryFeedback } from "./WorkspaceQueryFeedback";
 
 function Metric({ label, value, hint, tone = "default" }: { label: string; value: string | number; hint: string; tone?: "default" | "cyan" | "emerald" | "amber" }) {
-  return <article className={`workspace-metric workspace-metric--${tone}`}><p className="text-xs text-slate-500">{label}</p><p className="mt-2 text-2xl font-semibold tracking-tight text-slate-100">{value}</p><p className="mt-2 text-[11px] leading-5 text-slate-500">{hint}</p></article>;
+  return <article className={`workspace-metric workspace-metric--${tone}`}><p className="text-xs text-slate-400">{label}</p><p className="mt-2 text-2xl font-semibold tracking-tight text-slate-100">{value}</p><p className="mt-2 text-[11px] leading-5 text-slate-400">{hint}</p></article>;
 }
 
 export function WorkspaceOverview({ workspace, token, onNavigate }: { workspace: Workspace; token: string; onNavigate: (section: WorkspaceSection) => void }) {
@@ -57,13 +57,13 @@ export function WorkspaceOverview({ workspace, token, onNavigate }: { workspace:
               <p className="eyebrow">{t("Next steps", "Próximos passos")}</p>
               <h3 className="mt-2 text-lg font-semibold text-white">{t("What would you like to do?", "O que você gostaria de fazer?")}</h3>
             </div>
-            {documentCount !== undefined && <span className="text-xs text-slate-500">{documentCount > 0 ? t("Documents ready", "Documentos prontos") : t("Start here", "Comece aqui")}</span>}
+            {documentCount !== undefined && <span className="text-xs text-slate-400">{documentCount > 0 ? t("Documents ready", "Documentos prontos") : t("Start here", "Comece aqui")}</span>}
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {(role === "owner" ? actions : actions.slice(0, 2)).map(([section, title, description]) => (
               <button key={section} type="button" className="workspace-action-card" onClick={() => onNavigate(section)}>
                 <span className="text-sm font-medium text-slate-100">{title}</span>
-                <span className="mt-1 block text-xs leading-5 text-slate-500">{description}</span>
+                <span className="mt-1 block text-xs leading-5 text-slate-400">{description}</span>
                 <span className="mt-3 block text-xs font-semibold text-cyan-300">{t("View details", "Ver detalhes")} →</span>
               </button>
             ))}
@@ -71,7 +71,7 @@ export function WorkspaceOverview({ workspace, token, onNavigate }: { workspace:
         </section>
         {role === "owner" && <OwnerEvaluationSnapshot token={token} workspaceId={workspace.tenantId} onOpen={() => onNavigate("evaluations")} />}
       </div>
-      <p className="text-xs leading-5 text-slate-500">{t("The similarity score measures how closely a passage matches the question. Check the source to verify the answer.", "A pontuação de similaridade mede o quanto um trecho se relaciona com a pergunta. Consulte a fonte para verificar a resposta.")}</p>
+      <p className="text-xs leading-5 text-slate-400">{t("The similarity score measures how closely a passage matches the question. Check the source to verify the answer.", "A pontuação de similaridade mede o quanto um trecho se relaciona com a pergunta. Consulte a fonte para verificar a resposta.")}</p>
     </div>
   );
 }
@@ -102,8 +102,8 @@ function OwnerEvaluationSnapshot({ token, workspaceId, onOpen }: { token: string
       <WorkspaceQueryFeedback query={evaluations} loading={t("Loading evaluations…", "Carregando avaliações…")}
         failure={t("We could not load evaluations.", "Não foi possível carregar as avaliações.")} />
       {runs && <>
-        <div><p className="text-xs text-slate-500">{t("Evaluation runs", "Avaliações realizadas")}</p><p className="mt-1 text-xl font-semibold text-slate-100">{runs.length.toLocaleString(locale)}</p></div>
-        <div><p className="text-xs text-slate-500">{t("Latest status", "Último resultado")}</p><p className="mt-1 text-sm text-slate-200">{status}</p></div>
+        <div><p className="text-xs text-slate-400">{t("Evaluation runs", "Avaliações realizadas")}</p><p className="mt-1 text-xl font-semibold text-slate-100">{runs.length.toLocaleString(locale)}</p></div>
+        <div><p className="text-xs text-slate-400">{t("Latest status", "Último resultado")}</p><p className="mt-1 text-sm text-slate-200">{status}</p></div>
       </>}
       <button type="button" className="secondary-button w-full" onClick={onOpen}>{t("Open evaluations", "Abrir avaliações")}</button>
     </div>

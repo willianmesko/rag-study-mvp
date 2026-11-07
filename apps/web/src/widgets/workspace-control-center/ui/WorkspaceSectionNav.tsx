@@ -24,7 +24,7 @@ export function WorkspaceSectionNav({ activeSection, role, onChange }: { activeS
             <span className="workspace-section-nav__icon" aria-hidden="true">{section.icon}</span>
             <span className="min-w-0 text-left">
               <span className="block text-sm font-medium">{section.label}</span>
-              <span className="mt-0.5 block truncate text-[11px] text-slate-500">{restricted ? t("Owner access", "Acesso de proprietário") : section.description}</span>
+              <span className="mt-0.5 block truncate text-[11px] text-slate-400">{restricted ? t("Owner access", "Acesso de proprietário") : section.description}</span>
             </span>
           </button>
         );

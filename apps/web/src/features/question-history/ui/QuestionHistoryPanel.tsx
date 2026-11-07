@@ -14,11 +14,11 @@ export function QuestionHistoryPanel({ history, onClear, onFeedback, onInspectSo
   return (
     <section className="space-y-6">
       <SectionTitle eyebrow={t("Your activity", "Sua atividade")} title={t("Recent answers", "Respostas recentes")}>
-        {t("Recent questions are saved on this device. Rate an answer to mark it for review.", "As perguntas recentes ficam neste dispositivo. Avalie uma resposta para sinalizar se ela merece revisão.")}
+        {t("This browser keeps your recent answers and ratings so you can find them again.", "Este navegador guarda suas respostas recentes e avaliações para você consultar depois.")}
       </SectionTitle>
       <div className="flex items-center justify-between gap-4">
         <p className="text-sm text-slate-400">{history.length.toLocaleString(locale)} {history.length === 1 ? t("recent question", "pergunta recente") : t("recent questions", "perguntas recentes")}</p>
-        {history.length > 0 && <button type="button" className="text-sm text-rose-300 hover:text-rose-100" onClick={onClear}>{t("Clear history", "Limpar histórico")}</button>}
+        {history.length > 0 && <button type="button" className="rounded-md px-2 py-1 text-sm text-rose-300 hover:bg-rose-400/10 hover:text-rose-100" onClick={onClear}>{t("Clear history", "Limpar histórico")}</button>}
       </div>
       {history.length === 0 && <p className="empty-state">{t("Ask Lumora a question to see your recent answers here.", "Faça uma pergunta ao Lumora para ver suas respostas recentes aqui.")}</p>}
       <div className="grid gap-4">
@@ -32,7 +32,7 @@ export function QuestionHistoryPanel({ history, onClear, onFeedback, onInspectSo
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-4">
               <div className="flex gap-2">
                 {feedbackActions.map(({ id, label, active }) => <button key={id} type="button" aria-pressed={entry.feedback === id}
-                  className={`rounded-md px-3 py-1.5 text-xs ${entry.feedback === id ? active : "bg-slate-800 text-slate-300 hover:text-white"}`}
+                  className={`min-h-9 rounded-md px-3 py-1.5 text-xs hover:brightness-125 ${entry.feedback === id ? active : "bg-slate-800 text-slate-300"}`}
                   onClick={() => onFeedback(entry.id, id)}>{label}</button>)}
               </div>
               <div className="flex max-w-full gap-2 overflow-x-auto">

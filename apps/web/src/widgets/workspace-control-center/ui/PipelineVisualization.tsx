@@ -45,7 +45,7 @@ export function PipelineVisualization({ job, events }: { job: UploadJob; events:
         <div>
           <p className="eyebrow">{t("Live processing timeline", "Processamento em tempo real")}</p>
           <p className="mt-2 break-words text-sm text-slate-300">{job.title ?? job.filename} · {percent}</p>
-          <p className="mt-1 text-xs text-slate-500">{t("This timeline records processing times and counts.", "Esta linha do tempo registra a duração e as contagens do processamento.")}</p>
+          <p className="mt-1 text-xs text-slate-400">{t("This timeline records processing times and counts.", "Esta linha do tempo registra a duração e as contagens do processamento.")}</p>
         </div>
         <span className={"status-pill " + (job.status === "failed" ? "border-rose-400/30 bg-rose-400/10 text-rose-300" : "status-pill--success")}>{statusLabel(job.status, t)}</span>
       </div>
@@ -69,7 +69,7 @@ export function PipelineVisualization({ job, events }: { job: UploadJob; events:
             : failed ? "border-rose-400/30 bg-rose-400/10 text-rose-200"
             : active ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100"
             : ocrSkipped ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
-            : "border-slate-800 bg-slate-950/40 text-slate-500";
+            : "border-slate-800 bg-slate-950/40 text-slate-400";
           const indicator = active ? "animate-pulse bg-cyan-400 text-slate-950"
             : complete ? "bg-emerald-400 text-slate-950" : "bg-slate-800";
           return (

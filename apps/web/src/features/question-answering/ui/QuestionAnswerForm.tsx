@@ -10,11 +10,11 @@ import { useLiveAnswer, type AnswerPhase } from "../model/use-live-answer";
 
 const statusCopy: Record<AnswerPhase, [string, string]> = {
   accepted: ["Request accepted", "Pergunta recebida"],
-  retrieving: ["Finding relevant passages", "Buscando trechos relevantes"],
+  retrieving: ["Looking through your documents", "Buscando nos seus documentos"],
   generating: ["Drafting your answer", "Preparando a resposta"],
-  validating: ["Checking citations", "Conferindo as citações"],
-  cached: ["Opening a saved answer", "Abrindo uma resposta já preparada"],
-  delivering: ["Showing your answer and its sources", "Mostrando a resposta e suas fontes"],
+  validating: ["Checking the sources", "Conferindo as fontes"],
+  cached: ["Opening a recent answer", "Abrindo uma resposta recente"],
+  delivering: ["Showing your answer and its sources", "Mostrando a resposta e as fontes"],
   reconnecting: ["Reconnecting to the same answer…", "Reconectando à mesma resposta…"],
   disconnected: ["Connection lost. Reconnect to pick up where you left off.", "A conexão caiu. Reconecte para retomar de onde parou."]
 };
@@ -71,8 +71,8 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
   return (
     <form className="space-y-7" onSubmit={submit}>
       <SectionTitle eyebrow={t("Ask Lumora", "Pergunte ao Lumora")} title={t("Get an answer with sources", "Receba uma resposta com fontes")}>
-        {t("Lumora searches your workspace for relevant passages and shows the sources behind the answer.",
-           "O Lumora busca trechos relevantes no seu espaço de trabalho e mostra as fontes da resposta.")}
+        {t("Ask in your own words. Lumora looks for relevant passages and shows the sources it can cite.",
+           "Pergunte com suas palavras. O Lumora busca trechos relevantes e mostra as fontes que pode citar.")}
       </SectionTitle>
       <div className="panel space-y-5">
         <div className="workspace-context flex-wrap">
@@ -86,22 +86,22 @@ export function QuestionAnswerForm({ onAnswered, accessToken, workspaceId, works
         <InputLabel label={t("What would you like to know?", "O que você gostaria de saber?")}>
           <textarea aria-describedby="question-hint" value={question} maxLength={5000} readOnly={isStreaming}
             onChange={(event) => { setQuestion(event.target.value); setInvalidInput(false); }}
-            className="field min-h-32 resize-y" placeholder={t("Explain RAG using my notes.", "Explique RAG usando as minhas anotações.")} />
+            className="field min-h-32 resize-y" placeholder={t("For example, what does our policy say about access requests?", "Por exemplo, o que a nossa política diz sobre pedidos de acesso?")} />
           <span id="question-hint" className="text-xs font-normal text-slate-400">
             {t("A focused question usually leads to a clearer answer.", "Uma pergunta específica costuma gerar uma resposta mais clara.")}
           </span>
         </InputLabel>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <SelectField className="w-44" label={t("Passages to search", "Trechos para consultar")}
+          <SelectField className="w-44" label={t("Passages to consider", "Trechos para consultar")}
             value={String(topK)} onValueChange={(value) => setTopK(Number(value))} disabled={isStreaming}
             options={["3", "5", "8"].map((value) => ({ value, label: value }))} />
           <div className="flex flex-wrap gap-2">
-            {isStreaming && <button className="secondary-button enabled:cursor-pointer" type="button" onClick={() => void live.stop()} disabled={live.stopping}>
+            {isStreaming && <button className="secondary-button" type="button" onClick={() => void live.stop()} disabled={live.stopping} aria-busy={live.stopping}>
               {live.stopping ? t("Stopping…", "Interrompendo…") : t("Stop answer", "Parar resposta")}
             </button>}
             {phase === "disconnected"
-              ? <button className="primary-button enabled:cursor-pointer" type="button" onClick={live.resume} disabled={live.stopping}>{t("Reconnect", "Reconectar")}</button>
-              : <button className="primary-button enabled:cursor-pointer" disabled={isStreaming || question.trim().length === 0} type="submit">
+              ? <button className="primary-button" type="button" onClick={live.resume} disabled={live.stopping}>{t("Reconnect", "Reconectar")}</button>
+              : <button className="primary-button" disabled={isStreaming || question.trim().length === 0} type="submit" aria-busy={isStreaming}>
                 {isStreaming && <span className="spinner" aria-hidden="true" />}
                 {isStreaming ? t("Working…", "Preparando…") : t("Ask Lumora", "Perguntar ao Lumora")}
               </button>}

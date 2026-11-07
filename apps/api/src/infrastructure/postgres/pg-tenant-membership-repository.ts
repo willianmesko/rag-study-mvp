@@ -24,10 +24,11 @@ export class PgTenantMembershipRepository implements TenantMembershipRepository 
     return result.rows.map((row) => ({ userId: row.user_id, role: row.role, createdAt: row.created_at }));
   }
   async addMember(input: { tenantId: string; userId: string; role: Exclude<TenantRole, "owner"> }) {
-    await this.pool.query(
-      "INSERT INTO tenant_memberships (tenant_id, user_id, role) VALUES ($1,$2,$3) ON CONFLICT (tenant_id, user_id) DO UPDATE SET role=EXCLUDED.role",
+    const result = await this.pool.query(
+      "INSERT INTO tenant_memberships (tenant_id, user_id, role) VALUES ($1,$2,$3) ON CONFLICT (tenant_id, user_id) DO NOTHING",
       [input.tenantId, input.userId, input.role]
     );
+    return result.rowCount === 1;
   }
   async changeMemberRole(input: { tenantId: string; userId: string; role: Exclude<TenantRole, "owner"> }) {
     const result = await this.pool.query(

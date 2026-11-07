@@ -3,11 +3,12 @@ import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createClient } from "@supabase/supabase-js";
-import { chatRunIdSchema, documentInputSchema, questionInputSchema, questionStreamInputSchema, workspaceMemberRoleSchema, type ChatRunEvent } from "@rag-study/contracts";
+import { chatRunIdSchema, documentInputSchema, questionInputSchema, questionStreamInputSchema, workspaceMemberRoleSchema, workspaceOnboardingProgressSchema, type ChatRunEvent } from "@rag-study/contracts";
 import { ZodError, z } from "zod";
 import type { AnswerQuestionUseCase } from "../../application/use-cases/answer-question.js";
 import { StreamAnswerRuns } from "../../application/use-cases/stream-answer-runs.js";
 import type { ChatRunRepository } from "../../application/ports/chat-run-repository.js";
+import type { WorkspaceOnboardingRepository } from "../../application/ports/workspace-onboarding-repository.js";
 import type { AnswerQuestionResult, AnswerWorkflowEvent } from "../../application/ports/question-answering-workflow.js";
 import type { IngestDocumentUseCase } from "../../application/use-cases/ingest-document.js";
 import type { SearchDocumentsUseCase } from "../../application/use-cases/search-documents.js";
@@ -57,6 +58,7 @@ type HttpDependencies = {
   searchDocuments: SearchDocumentsUseCase;
   answerQuestion: AnswerQuestionUseCase;
   chatRuns: ChatRunRepository;
+  workspaceOnboarding: WorkspaceOnboardingRepository;
   queueDocumentUpload: QueueDocumentUploadUseCase;
   publicHtmlFetcher: PublicHtmlFetcher;
   processNextIngestionJob: ProcessNextIngestionJobUseCase;
@@ -68,7 +70,7 @@ type HttpDependencies = {
   findMembership: (userId: string, tenantId: string) => Promise<TenantMembership | null>;
   createWorkspace: (input: { userId: string; name: string; slug: string }) => Promise<TenantMembership>;
   listWorkspaceMembers: (tenantId: string) => Promise<WorkspaceMember[]>;
-  addWorkspaceMember: (input: { tenantId: string; userId: string; role: Exclude<TenantRole, "owner"> }) => Promise<void>;
+  addWorkspaceMember: (input: { tenantId: string; userId: string; role: Exclude<TenantRole, "owner"> }) => Promise<boolean>;
   changeWorkspaceMemberRole: (input: { tenantId: string; userId: string; role: Exclude<TenantRole, "owner"> }) => Promise<boolean>;
   removeWorkspaceMember: (input: { tenantId: string; userId: string }) => Promise<boolean>;
   recordWorkspaceInvitation: (input: { tenantId: string; email: string; role: Exclude<TenantRole, "owner">; invitedBy: string; invitedUserId: string }) => Promise<void>;
@@ -245,6 +247,25 @@ export async function buildApp(dependencies: HttpDependencies) {
     const input=z.object({name:z.string().trim().min(2).max(100),slug:z.string().trim().toLowerCase().regex(/^[a-z0-9-]{2,60}$/)}).parse(request.body);
     try{return reply.code(201).send({workspace:await dependencies.createWorkspace({userId:data.user.id,...input})});}catch{return reply.code(409).send({error:"Workspace name or slug already exists."});}
   });
+  app.route({
+    method: ["GET", "PATCH"],
+    url: "/v1/workspaces/:workspaceId/onboarding",
+    exposeHeadRoute: false,
+    bodyLimit: 2_048,
+    async handler(request, reply) {
+      const authorization = await authorizeMember(request, true);
+      if (!authorization.ok) return rejectScope(reply, authorization);
+      const { workspaceId } = z.object({ workspaceId: workspaceIdSchema }).parse(request.params);
+      const { tenantId, userId } = authorization;
+      if (workspaceId !== tenantId) return reply.code(403).send({ error: "Select the workspace you want to open." });
+
+      const scope = { tenantId, userId };
+      const progress = request.method === "PATCH"
+        ? await dependencies.workspaceOnboarding.save(scope, workspaceOnboardingProgressSchema.parse(request.body))
+        : await dependencies.workspaceOnboarding.get(scope);
+      return { progress };
+    }
+  });
   app.get("/v1/workspaces/:workspaceId/members", async (request, reply) => {
     const authorization = await authorizeOwner(request);
     if (!authorization.ok) return rejectScope(reply, authorization);
@@ -268,7 +289,8 @@ export async function buildApp(dependencies: HttpDependencies) {
     const admin = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await admin.auth.admin.inviteUserByEmail(input.email, { redirectTo: config.APP_BASE_URL });
     if (error || !data.user) return reply.code(409).send({ error: error?.message ?? "Unable to invite this email." });
-    await dependencies.addWorkspaceMember({ tenantId: authorization.tenantId, userId: data.user.id, role: input.role });
+    const added = await dependencies.addWorkspaceMember({ tenantId: authorization.tenantId, userId: data.user.id, role: input.role });
+    if (!added) return reply.code(409).send({ error: "This person already belongs to the workspace." });
     await dependencies.recordWorkspaceInvitation({ tenantId: authorization.tenantId, email: input.email, role: input.role, invitedBy: authorization.userId, invitedUserId: data.user.id });
     await dependencies.recordAuditEvent({ tenantId: authorization.tenantId, actorUserId: authorization.userId, action: "workspace.member_invited", resourceType: "tenant_membership", resourceId: null, requestId: request.id, metadata: { role: input.role } });
     return reply.code(201).send({ member: { userId: data.user.id, email: input.email, role: input.role } });

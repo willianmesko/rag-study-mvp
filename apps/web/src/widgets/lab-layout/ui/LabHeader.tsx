@@ -14,9 +14,9 @@ export function LabHeader({ online, loading, publicDemo, workspaces, workspaceId
   accountAction: { label: string; onClick: () => void; disabled?: boolean };
 }) {
   const { t } = useLocale();
-  const status = loading ? t("Connecting", "Conectando") : online
-    ? t("All systems ready", "Tudo pronto")
-    : t("Connection unavailable", "Conexão indisponível");
+  const status = loading ? t("Connecting…", "Conectando…") : online
+    ? t("Connected", "Conectado")
+    : t("Could not connect", "Sem conexão com o Lumora");
 
   return (
     <header className="flex flex-col gap-6 border-b border-slate-800/80 pb-8 2xl:flex-row 2xl:items-end 2xl:justify-between">
@@ -30,19 +30,19 @@ export function LabHeader({ online, loading, publicDemo, workspaces, workspaceId
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
             {publicDemo
               ? t("Try Lumora with sample documents.", "Experimente o Lumora com documentos de exemplo.")
-              : t("Ask your workspace anything.", "Pergunte aos documentos da sua equipe.")}
+              : t("Answers from your team’s documents", "Respostas com base nos documentos da equipe")}
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
             {publicDemo
-              ? t("Explore how Lumora searches and answers using the public library.", "Veja como o Lumora busca e responde usando a biblioteca pública.")
-              : t("Lumora uses your documents to answer questions and show where each answer comes from.",
-                  "O Lumora consulta seus documentos para responder e mostrar de onde vêm as informações.")}
+              ? t("Search the sample library or ask a question and check the sources.", "Busque na biblioteca de exemplo ou faça uma pergunta e confira as fontes.")
+              : t("Find a passage or ask a question, then open the sources behind the answer.",
+                  "Encontre um trecho ou faça uma pergunta. Depois, confira as fontes da resposta.")}
           </p>
         </div>
       </div>
       <div className="flex min-w-0 flex-wrap items-end gap-3 2xl:shrink-0">
         <WorkspaceSwitcher workspaces={workspaces} selectedId={workspaceId} onChange={onWorkspaceChange} creation={workspaceCreation} />
-        <div className={`status-pill mb-1.5 ${online ? "status-pill--success" : "status-pill--warning"}`}>
+        <div role="status" className={`status-pill mb-1.5 ${online ? "status-pill--success" : loading ? "" : "status-pill--warning"}`}>
           <span aria-hidden="true" className={`size-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-amber-400"}`} />
           {status}
         </div>
