@@ -21,28 +21,22 @@ status section where they appear.
 
 ## In progress
 
-### Workspace simplification
+### Guided onboarding and help
 
-- [ ] Use one section header and one primary action on each workspace page.
-- [ ] Replace the six navigation cards with compact section navigation.
-- [ ] Reduce Overview to document counts, active processing, items needing
-  attention, and recent activity. Remove action cards that repeat navigation.
-- [ ] Use compact document and member lists with grouped action menus.
-- [ ] Open member invitations in a dialog.
-- [ ] Open document originals, metadata, and passages in an on-demand side panel.
-- [ ] Open the full processing timeline after selecting a file.
-- [ ] Organize Settings with divided groups and collapsible advanced options.
-  Reserve prominent notices for actionable failures and budget alerts.
+- [ ] Add reusable starter templates for knowledge and processes, support, and
+  learning, with safe sample content, suggested questions, naming guidance,
+  and privacy/data-handling notes.
+- [ ] Extend the guide through inviting teammates, uploading documents,
+  following processing, and asking the first real grounded question.
+- [ ] Add contextual explanations of documents, chunks, embeddings, retrieval,
+  citations, and similarity scores in plain language.
+- [ ] Tailor the full journey to owners, editors, and viewers.
+- [ ] Add a Help entry point to revisit the completed Milo guide.
+- [ ] Validate the creation, ingestion, question, and source-inspection journey
+  for a new non-technical user.
 
-### Larger Ask layout
-
-- [ ] Expand the chat to the available content width and use the remaining
-  desktop viewport height for the conversation.
-
-These items require responsive, accessibility, interaction, and production
-checks before moving to Completed.
-
-**Next approved milestone** — [Guided onboarding and help](#3-guided-onboarding-and-help), after the workspace and Ask updates are validated and published.
+This is the next approved milestone. Workspace simplification and the larger
+Ask layout were validated and published on 2026-11-07.
 
 ## Pending implementation
 
@@ -76,22 +70,7 @@ history is the open work described above.
   type. Name/source text filtering already exists.
 - [ ] Extend answer comparison to controlled prompt variants and safety outcomes.
 
-### 3. Guided onboarding and help
-
-- [ ] Add reusable starter templates for knowledge and processes, support, and
-  learning, with safe sample content, suggested questions, naming guidance,
-  and privacy/data-handling notes.
-- [ ] Extend the guide through inviting teammates, uploading documents,
-  following processing, and asking the first real grounded question.
-- [ ] Add contextual explanations of documents, chunks, embeddings, retrieval,
-  citations, and similarity scores in plain language.
-- [ ] Tailor the full journey to owners, editors, and viewers. Role-based upload
-  access is already implemented.
-- [ ] Add a Help entry point to revisit the completed Milo guide.
-- [ ] Validate that a new non-technical user can create a workspace, ingest a
-  document, ask a question, and inspect its sources using the guided experience.
-
-### 4. Portuguese and English retrieval and answers
+### 3. Portuguese and English retrieval and answers
 
 - [ ] Detect the question's language independently of the interface. Use the
   interface language for short, ambiguous, or mixed-language questions.
@@ -104,7 +83,7 @@ The bilingual interface, automatic locale selection, localized dates/numbers,
 and document labels for Portuguese, English, mixed, and undetermined text are
 implemented.
 
-### 5. LangGraph workflow expansion
+### 4. LangGraph workflow expansion
 
 - [ ] Add adaptive retrieval with a relevance gate, one bounded query rewrite
   and retrieval retry, and a refusal when evidence remains insufficient.
@@ -122,7 +101,7 @@ implemented.
 - [ ] Recover graph work across server restarts. Current in-flight chat runs
   become interrupted when their worker exits.
 
-### 6. Observability, security, and cost controls
+### 5. Observability, security, and cost controls
 
 - [ ] Add OpenTelemetry spans by workflow stage, request correlation IDs,
   reason-coded logs/metrics, and tool-call telemetry.
@@ -135,7 +114,7 @@ implemented.
 - [ ] Add Langfuse/Phoenix if selected as the tracing backend. A LangSmith adapter
   already exists and has a separate activation item below.
 
-### 7. Production capacity and operations
+### 6. Production capacity and operations
 
 - [ ] Execute the mixed-workload benchmark from the
   [backend scalability review](backend-scalability-review.md). Define targets
@@ -154,7 +133,7 @@ implemented.
 - [ ] Define and verify backups, retention, domain configuration, identity
   limits, and incident procedures for real-user operation.
 
-### 8. Resilient integrations and future tool actions
+### 7. Resilient integrations and future tool actions
 
 - [ ] Extend idempotency keys and deduplication to uploads, ingestion jobs,
   model calls, and external notifications.
@@ -166,7 +145,7 @@ implemented.
   idempotency, retries, replayable audits, and network egress policy before
   adding write-capable external tools.
 
-### 9. MCP expansion
+### 8. MCP expansion
 
 - [ ] Add remote MCP connections with OAuth for clients that connect by URL.
 - [ ] Add hybrid workspace search with provider budgets and cancellation to
@@ -286,6 +265,12 @@ CloudWatch → metrics and alarms
 
 ### Product UI and current chat behavior
 
+- [x] One section heading/action, compact workspace navigation, lean Overview,
+  document/member lists with action menus, invitation dialog, on-demand
+  document/timeline side panels, and divided/collapsible Settings.
+- [x] Ask fills the available column and remaining desktop viewport height.
+  Desktop, tablet, and mobile checks pass. [Release quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42339025439)
+  passed and frontend commit `84eccfa` was confirmed live on Render on 2026-11-07.
 - [x] React/TypeScript Feature-Sliced Design, shared UI styles, responsive states,
   hover/focus/disabled/pending behavior, reduced-motion support, and bilingual copy.
 - [x] Six independently loaded, role-aware workspace sections with routes and
