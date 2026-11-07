@@ -24,7 +24,19 @@ status section where they appear.
 No active implementation. Workspace simplification, the larger Ask surface,
 and the expanded Milo guide have been validated and published.
 
-**Next approved priority** — [Demonstration libraries and document discovery](#1-demonstration-libraries-and-document-discovery): realistic synthetic materials, suggested questions with sources, document/source/language/date/type filters, and controlled prompt comparisons with safety outcomes.
+**Approved delivery order**
+
+1. [Demonstration libraries and document discovery](#1-demonstration-libraries-and-document-discovery):
+   realistic synthetic materials, suggested questions with sources,
+   document/source/language/date/type filters, and controlled prompt comparisons
+   with safety outcomes.
+2. [LangGraph workflow expansion](#2-langgraph-workflow-expansion): adaptive
+   retrieval, claim verification and citation repair, checkpointed ingestion,
+   unified evaluations, durable approvals, execution budgets/cancellation, and
+   restart recovery. Start after the demonstration and discovery milestone is
+   completed and validated.
+
+Both milestones remain pending implementation.
 
 ## Pending implementation
 
@@ -38,7 +50,25 @@ and the expanded Milo guide have been validated and published.
   type. Name/source text filtering already exists.
 - [ ] Extend answer comparison to controlled prompt variants and safety outcomes.
 
-### 2. Durable conversations and product history
+### 2. LangGraph workflow expansion
+
+- [ ] Add adaptive retrieval with a relevance gate, one bounded query rewrite
+  and retrieval retry, and a refusal when evidence remains insufficient.
+- [ ] Verify answer claims against source passages and add a bounded repair
+  path for invalid citations. Citation-ID validation already exists.
+- [ ] Run ingestion as a checkpointed graph covering extraction, text quality,
+  OCR fallback, metadata, language, structure-aware chunking, security scanning,
+  embeddings, and persistence. Retry the failed node and retain safe metrics.
+- [ ] Add a unified evaluation graph for retrieval metrics, answer generation,
+  faithfulness, context precision, security checks, and a versioned report.
+- [ ] Add durable human-approval checkpoints for sensitive graph actions, with
+  authorized approval before execution resumes.
+- [ ] Extend durable state, cancellation, step/token limits, timeouts, and
+  per-run budgets to the expanded workflows and their tools.
+- [ ] Recover graph work across server restarts. Current in-flight chat runs
+  become interrupted when their worker exits.
+
+### 3. Durable conversations and product history
 
 - [ ] Store named conversations, questions, answers, checked citations, and
   thumbs-up/thumbs-down feedback in the backend, scoped by workspace and user.
@@ -58,7 +88,7 @@ The current transcript lives in browser memory. Recent answers and ratings are
 browser-local. PostgreSQL execution replay lasts 24 hours. Durable conversation
 history is the open work described above.
 
-### 3. Portuguese and English retrieval and answers
+### 4. Portuguese and English retrieval and answers
 
 - [ ] Detect the question's language independently of the interface. Use the
   interface language for short, ambiguous, or mixed-language questions.
@@ -70,24 +100,6 @@ history is the open work described above.
 The bilingual interface, automatic locale selection, localized dates/numbers,
 and document labels for Portuguese, English, mixed, and undetermined text are
 implemented.
-
-### 4. LangGraph workflow expansion
-
-- [ ] Add adaptive retrieval with a relevance gate, one bounded query rewrite
-  and retrieval retry, and a refusal when evidence remains insufficient.
-- [ ] Verify answer claims against source passages and add a bounded repair
-  path for invalid citations. Citation-ID validation already exists.
-- [ ] Run ingestion as a checkpointed graph covering extraction, text quality,
-  OCR fallback, metadata, language, structure-aware chunking, security scanning,
-  embeddings, and persistence. Retry the failed node and retain safe metrics.
-- [ ] Add a unified evaluation graph for retrieval metrics, answer generation,
-  faithfulness, context precision, security checks, and a versioned report.
-- [ ] Add durable human-approval checkpoints for sensitive graph actions, with
-  authorized approval before execution resumes.
-- [ ] Extend durable state, cancellation, step/token limits, timeouts, and
-  per-run budgets to the expanded workflows and their tools.
-- [ ] Recover graph work across server restarts. Current in-flight chat runs
-  become interrupted when their worker exits.
 
 ### 5. Observability, security, and cost controls
 
