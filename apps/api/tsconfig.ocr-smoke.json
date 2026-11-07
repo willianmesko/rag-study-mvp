@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "outDir": "ocr-smoke-build" },
+  "files": ["src/modules/ingestion/infrastructure/extraction/pdf-ocr.native.test.ts"],
+  "include": []
+}

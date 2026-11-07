@@ -215,3 +215,12 @@ The advisory reachability and compatible-candidate analysis are complete.
 The SDK update, committed advisory regression and production/smoke artifact
 separation remain **pending**. This evidence changes no package version,
 deployment, database schema, credentials or OCR activation.
+
+
+## Artifact implementation follow-up
+
+The runtime/smoke separation now has a locally verified candidate using the same
+compiler, Node runner and Docker tooling, with explicit roots and mandatory two
+real OCR passes. The [release record](release-2026-11-07-runtime-artifacts.md)
+records artifact sizes, final-image inspection, current CI/publication status and
+the local Docker capacity limitation. The dependency update remains separate.

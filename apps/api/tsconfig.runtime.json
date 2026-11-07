@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "files": [
+    "src/server.ts",
+    "src/db/migrate.ts",
+    "src/interfaces/mcp/stdio.ts",
+    "src/interfaces/cli/agent-action-worker.ts",
+    "src/interfaces/cli/approve-reviewed-replay.ts",
+    "src/interfaces/cli/embedding-index.ts",
+    "src/interfaces/cli/evaluate-golden-set.ts",
+    "src/interfaces/cli/evaluate-golden-set-ci.ts",
+    "src/interfaces/cli/evaluate-performance-gate.ts",
+    "src/interfaces/cli/evaluate-prompt-injection.ts",
+    "src/interfaces/cli/evaluate-replays.ts",
+    "src/interfaces/cli/ingest.ts",
+    "src/interfaces/cli/integration-deliveries.ts",
+    "src/interfaces/cli/rotate-workflow-keys.ts"
+  ],
+  "include": []
+}

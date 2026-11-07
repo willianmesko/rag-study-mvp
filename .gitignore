@@ -14,3 +14,6 @@ work/
 
 # Per-run measurements are CI artifacts; reviewed baselines remain versioned.
 reports/frontend-performance/runs/*.json
+
+# Private compiler output for image-level OCR verification only.
+apps/api/ocr-smoke-build/

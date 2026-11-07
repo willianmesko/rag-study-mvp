@@ -5,3 +5,7 @@ dist
 output
 outputs
 
+
+**/ocr-smoke-build
+**/test-results
+**/playwright-report

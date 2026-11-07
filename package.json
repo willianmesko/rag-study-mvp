@@ -45,7 +45,8 @@
     "test:architecture": "node --test tests/architecture/architecture.test.mjs",
     "check:frontend-budget": "node scripts/frontend-performance.mjs",
     "test:frontend-budget": "node --test tests/frontend-performance/budget.test.mjs",
-    "test:frontend-state": "node --test tests/frontend-state/location.test.mts"
+    "test:frontend-state": "node --test tests/frontend-state/location.test.mts",
+    "test:runtime-artifacts": "node --test tests/build-artifacts/runtime.test.mjs"
   },
   "overrides": {
     "light-my-request": "6.6.0"

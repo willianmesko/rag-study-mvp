@@ -436,15 +436,14 @@ feature-owned locations during BE-07's migration.
   image-level Poppler/Tesseract smoke validation. Evaluate native dependency/
   static-analysis automation with explicit scope; no uncontrolled major upgrades.
 - [x] Align manifest/`.nvmrc` with the existing Node 24 CI/container baseline.
-- [ ] Complete advisory reachability/fix review and production test-artifact
-  separation while preserving the native OCR image smoke test.
+- [x] Production/test-artifact separation is locally validated; CI/publication pending. Explicit runtime roots, clean output inventory and a separate mandatory two-pass native OCR stage are implemented. The final image contains no project test/helper files. See the [candidate record](operations/release-2026-11-07-runtime-artifacts.md) for actual image checks and the local Docker disk limit.
+- [ ] Apply the reviewed compatible Auth fix with its complete regression/release evidence. The candidate SDK has not been installed.
 - **Review evidence:** the [dated dependency/OCR review](operations/dependency-hygiene-2026-11-07.md)
   verifies that two low audit entries represent one Auth advisory. The only
   affected application sink rejects malformed IDs before any request; a mocked
   raw-SDK comparison confirms the underlying routing behavior. SDK `2.50.0`
   is the smallest reviewed vendor candidate, but it has not been installed or
-  released. Current versions and image-level OCR smoke remain unchanged; the
-  compatible update and separate verified runtime/smoke artifacts are pending.
+  released. Dependency versions remain unchanged. Native OCR is preserved by the new verified artifact candidate; its CI/publication and the separate compatible SDK update retain their own gates.
 
 ## Phase 4 — Consistency and evidence-led performance
 
