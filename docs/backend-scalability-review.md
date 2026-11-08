@@ -52,7 +52,12 @@ The heavy workspace completed fewer pairs and had higher search latency;
 lock, pool and queue measurement, not proof that a particular service/index must
 be replaced. Active-query count is not checkout wait, and queued-job age omits
 already admitted durable work. Later native event-loop measurements have only
-short-run evidence and do not backfill the long report.
+short-run evidence and do not backfill the long report. The later
+[guarded-checkout histogram](operations/postgres-checkout-measurement.md) has
+real queued-contention SQL proof and separate version-three short image-based
+reports. It includes connection establishment/setup, aggregates guarded paths
+across pools, and excludes direct queries. It does not establish pure queue wait,
+production metric export, instrumented sustained capacity or replica sizing.
 
 Keep the current demonstration topology. Real Auth/provider latency/billing,
 large-file/reindex/evaluation bursts, slow readers, restarts, replica limits and

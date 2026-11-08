@@ -18,16 +18,18 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-13, BE-14, FE-08 | 5 |
 | Pending implementation or final validation/publication | BE-09 | 1 |
 
-The latest batch is live on frontend and API at `577e5007283ecafcf5372c8034849b39697515ff`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42450042196) passed.
+The latest batch is live on frontend and API at `151ccef257f79882754d64d6c3bf49d234ad84fc`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42494273559) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
-CI passed 410 UX cases/46 deliberate skips, 99 PostgreSQL cases, the isolated
+CI passed 410 UX cases/46 deliberate skips, 100 PostgreSQL cases, the isolated
 cutover, 78 architecture fixtures, seven harness checks, four native route-state,
 six artifact and three payload cases. The Render build independently passed
 both actual OCR cases with zero skips and zero project test artifacts in the
-final application tree. The [OAuth/vector receipt](operations/release-2026-11-08-oauth-vector-boundaries.md)
-records the current delivery. The earlier [partial-projection receipt](operations/ingestion-projection-boundaries.md)
+final application tree. The [guarded-checkout receipt](operations/postgres-checkout-measurement.md)
+records the current delivery and both short version-three capacity reports.
+The earlier [OAuth/vector receipt](operations/release-2026-11-08-oauth-vector-boundaries.md)
+retains its pinned evidence. The [partial-projection receipt](operations/ingestion-projection-boundaries.md)
 retains its original/preview evidence; the
 [combined receipt](operations/release-2026-11-08-records-and-capacity.md) retains its pinned read-boundary and separate capacity evidence. Both live SHAs, public assets, health, protected routes
 and a bounded error-log window were verified.
@@ -587,7 +589,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
-- [ ] Guarded API checkout measurement: OpenTelemetry records acquisition/cancellation/failure duration without SQL or identities; direct pool queries and pure queue wait remain explicitly unmeasured. Native behavior and in-memory delta probe checks pass. The max=1 real-SQL fixture, both actual version-three image-based paths, final CI and publication remain pending. See the [bounded plan](operations/postgres-checkout-measurement.md).
+- [x] Guarded API checkout measurement is validated and published at `151ccef`: the existing OpenTelemetry API records acquisition/cancellation/failure duration without SQL or identities. Seven native cases, eighteen capacity/probe cases, the max=1 real-SQL contention/cancellation fixture, both actual version-three short image-based paths and all four normal CI jobs pass. Both exact-source services and public checks are verified. Direct pool queries and pure queue wait remain unmeasured; hosted metric export is not activated. See the [measurement and release evidence](operations/postgres-checkout-measurement.md).
 
 - [x] Scoped durable queue/ready/running/lease/approval measurements are validated and active in CI at `2c2ed48`: 15 native cases, both actual image-based pilots and all four normal jobs pass. Six-row pre-start SQL fixtures prove readiness, disjoint leases, ages, scope and exact cleanup without dispatching work. Both pilots retain 14 valid runtime observations. This measures states, not recovery or sustained capacity. See the [evidence](operations/capacity-workflow-queues.md).
 
@@ -598,7 +600,7 @@ feature-owned locations during BE-07's migration.
 
 - [x] Authoritative fixture ownership for newly ingested IDs and chunk/document pairing are CI validated. Nine native cases, the full normal gates and the actual lab passed, including six new-source searches/answers and six scoped ownership lookups. This is not the sustained baseline. See the [evidence](operations/release-2026-11-08-capacity-source-ownership.md).
 
-- **Measured, ticket partial:** the [first sustained result](operations/capacity-sustained-result.md) now supplies the declared 50,000-chunk mixed workload, while the [native probe](operations/capacity-event-loop-plan.md) and [queue/lease measurements](operations/capacity-workflow-queues.md) have separate short-run evidence. API checkout waiting, a sustained run with the new instrumentation, large-file/restart/slow-reader and replica scenarios remain open. No topology change is inferred from one synthetic run.
+- **Measured, ticket partial:** the [first sustained result](operations/capacity-sustained-result.md) supplies the declared 50,000-chunk mixed workload. The [native probe](operations/capacity-event-loop-plan.md), [queue/lease measurements](operations/capacity-workflow-queues.md) and [guarded-checkout histogram](operations/postgres-checkout-measurement.md) have separate short-run evidence. Pure pool queue wait, remaining direct-query paths, a sustained run with the new instrumentation, large-file/restart/slow-reader and replica scenarios remain open. No topology change is inferred from one synthetic run.
 
 - [ ] **P2 measurement · M–L · Medium operational risk.** Scope:
   [capacity plan](backend-scalability-review.md), synthetic load fixtures,

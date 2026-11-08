@@ -36,7 +36,11 @@ image/load proof must run on a fresh CI runner; local pure tests cannot substitu
 The [sustained result](capacity-sustained-result.md) now covers the declared
 50,000-chunk/ten-workspace/30-minute mixed cohort at pinned source 7c37d96.
 The [native probe](capacity-event-loop-plan.md) has separate version-two short
-image-based proof at the final application source. Earlier results below are
+image-based proof. The later [guarded-checkout increment](postgres-checkout-measurement.md)
+adds version-three short reports at `151ccef`, retaining event-loop and queue
+evidence while measuring guarded acquisition, including connection setup.
+Pure pool queue wait and direct-query paths remain unmeasured. The previous
+sustained report is not backfilled. Earlier results below are
 historical reviewed pilots; their different sources/corpora and unmeasured
 fields remain intact. BE-13 still has the stated remaining acceptance criteria.
 

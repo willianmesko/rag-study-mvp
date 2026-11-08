@@ -57,8 +57,10 @@ separate: releasing an instrument is not proof that an exporter is enabled.
 Implementation is locally validated: seven native behavior cases, eighteen
 capacity/probe cases, the seven-check harness and both architecture graphs pass
 (454/1,811 structural modules/dependencies; 453/1,316 runtime). The optional
-model-performance gate is not executed. The actual SQL max=1 fixture and both
-actual version-three image-based pilots await fresh CI; publication is pending.
+model-performance gate is not executed. The actual SQL max=1 fixture, both
+actual version-three image-based pilots and all four normal quality jobs passed
+in fresh CI. Both exact-source Render deployments are live and public checks
+passed on 2026-11-08 UTC. This bounded increment is published; BE-13 remains partial.
 Original workspace changes are preserved. No library is added or upgraded.
 
 ## Inspection and remaining work
@@ -82,3 +84,79 @@ patching pg.Pool globally. The trade-off is deliberate partial coverage and
 bucketed distributions rather than exact quantiles. Pure pool waiting, remaining
 direct paths, an instrumented sustained cohort, large-file/restart/slow-reader
 and replica scenarios remain open. Keep BE-13 partial.
+
+## Exact-source CI evidence
+
+Source `151ccef257f79882754d64d6c3bf49d234ad84fc`.
+[Quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42494273559)
+include 410 UX cases with 46 intentional profile skips, 100 actual SQL cases
+with zero skips, the isolated index cutover and 78 architecture fixtures. The
+new real-pool case confirms a
+queued request under max=1, a measured interval of at least 50 ms while held,
+one cancellation sample, no late success, a reusable client and exclusion of
+direct pool queries. Native behavior, privacy and listener cleanup cases also
+pass. No hosted record or migration was changed.
+
+[Capacity lab](https://github.com/willianmesko/rag-study-mvp/actions/runs/42494273501),
+job `128773064378`, artifact `13622946989`, passed both actual image-based paths.
+Reviewed [legacy](../../reports/capacity/reviewed/pilot-151ccef.json) and
+[durable](../../reports/capacity/reviewed/durable-pilot-151ccef.json) reports are
+version three, retain native event-loop/queue evidence and keep poolWaitMs and
+actual provider cost null. All older reports remain unchanged.
+
+| Cohort / interval | Acquired samples | Maximum observed duration (ms) |
+| --- | ---: | ---: |
+| Legacy / API only | 210 | 0.660169 |
+| Legacy / ingestion mix | 390 | 0.181758 |
+| Durable / API only | 522 | 0.163345 |
+| Durable / ingestion mix | 1,138 | 0.207888 |
+
+All observations fall in the 0–1 ms bucket in these short cohorts. This is not
+an exact p95, proof of absent queueing, a sustained result or production sizing.
+Cancelled/failed counts are zero in the load windows; their behavior is exercised
+separately in the native/real-SQL fixtures. The durable run records 100 completed
+chats, six completed ingestions and 532 checkpoints; the legacy run has 105 phase
+pairs and the durable run 94. Each completes six new-source searches/answers,
+six unique replayed uploads and 14 queue observations. Both stop all three
+processes with exit zero, no OOM and zero cleanup failures.
+
+The actual API image has 498 runtime files / 1,566,557 bytes / 14 roots / zero
+project test artifacts. Two real OCR cases pass without skips. The SQL catalog
+remains 31 files / 52,893 bytes with SHA-256
+`f3d3581a9a83a1568390cc0d249968dcec8016d09596a1004e043f6d711c253b`;
+the image applies 31 migrations, then zero on repeat in the disposable database.
+The minimal read-only MCP image check also passes. No dependency, configuration,
+pool size, schema, service plan, exporter or provider is changed.
+
+## Publication
+
+All four quality jobs passed. Both observed Render deployments match the exact
+tested source, on 2026-11-08 UTC:
+
+| Service | Deploy | Observed live timestamp |
+| --- | --- | --- |
+| API | `dep-dbo9avjrjlhs73ap6oi0` | 15:32:11.822818 UTC |
+| Frontend | `dep-dbo9b2gu01pc73ejn5s0` | 15:31:28.335671 UTC |
+
+The independent Render build log at 15:30:54 UTC records two real OCR cases,
+zero skips, the exact runtime inventory and SQL catalog digest above.
+Public verification started at 15:32:29 UTC and passed:
+
+- Frontend HTTP 200; main `index-CN4jfNbL.js`, lazy
+  `WorkspaceSwitcher-BcBm5QKA.js` and CSS `index-CS2-Q0PU.css` served with the
+  existing section-recovery, safe-response, chat-lifecycle and action-token markers.
+- The 256×256 PNG icon is byte-identical to the reviewed source.
+- API `/health` HTTP 200, with OCR, durable workflows and conversations enabled;
+  the server replaces an untrusted request correlation ID.
+- Unauthenticated MCP, owner alerts, conversation reads and the legacy JSON
+  ingestion route return HTTP 401.
+- OAuth resource/name/S256 discovery passes; malformed JSON, unsupported XML
+  and missing authorization parameters fail with the expected 400/415 responses.
+
+Real signed-in user journeys, third-party OAuth consent and production metric
+delivery were not exercised. No document or provider operation was admitted.
+The Render application error/fatal query for 15:32:12–15:33:45 UTC succeeded
+with zero records and `hasMore: false`; this is a bounded window, not an uptime SLO.
+The previous tested/live source is `577e500`. This increment can be rolled back
+without a schema or data rewrite. Instrument availability is not an assertion
+that hosted OTLP export has been activated.

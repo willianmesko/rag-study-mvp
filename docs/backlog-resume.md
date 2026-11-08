@@ -9,10 +9,11 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `577e5007283ecafcf5372c8034849b39697515ff`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42450042196).
-- [Release evidence](operations/release-2026-11-08-oauth-vector-boundaries.md) records
-  all four green CI jobs, both observed live deployments and production checks.
+- Source: `151ccef257f79882754d64d6c3bf49d234ad84fc`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42494273559).
+- [Release evidence](operations/postgres-checkout-measurement.md) records all four
+  green jobs, 100 actual SQL cases, both short version-three image-based capacity
+  pilots, both observed live deployments and public checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
   conservative reranking and FSD/module checks are in that delivery. Capability
@@ -55,8 +56,19 @@ This tooling-only change needed no application deployment. It is now included
 in the later `ce17d1d` application delivery. Recovery and sustained queue capacity
 are not claimed.
 
-Next safe measurement: API checkout wait before making a scaling decision,
-then a sustained run with the new instrumentation. Remaining BE-12 projection work needs concrete sink/
+The subsequent [guarded-checkout increment](operations/postgres-checkout-measurement.md)
+is validated and published at `151ccef`: seven native behavior cases, eighteen
+capacity/probe cases, max=1 real-SQL contention/cancellation, both actual short
+image-based paths and all four normal CI jobs pass. The private lab pull reader
+captures delta acquisition histograms without SQL or identity labels. Both
+exact-source services are live and public checks pass. No dependency, database
+grant, model, exporter, pool size or topology changed. Earlier reports remain
+pinned and unmodified; `poolWaitMs` stays unknown.
+
+Next safe measurement: a separately declared sustained cohort using the new
+event-loop/queue/guarded-checkout instrumentation. Guarded checkout includes
+connection setup; pure queue wait and remaining direct paths still need distinct
+measurement before a scaling decision. Remaining BE-12 projection work needs concrete sink/
 constraint review; avoid blanket decoder or library additions. Pending tooling,
 minimum-privilege credentials, SDK adoption and paid/exporter activation retain
 their explicit separate decisions. Do not mark partial tickets complete.
@@ -73,8 +85,9 @@ Remaining BE-12 review: action rows/leases/events, OAuth request/grant/principal
 assumptions, embedding version/staged-row mappings and document/demo/knowledge
 metadata. Inspect concrete sinks and existing constraints before adding guards;
 do not turn every TypeScript row annotation into a generic schema task. BE-13
-still needs scoped API checkout timing and the remaining documented load/recovery
-scenarios. BE-08/FE-08, BE-09 and BE-14 retain their explicit tooling/activation/
+still needs pure pool queue wait/remaining direct paths and the remaining
+documented instrumented sustained/load/recovery scenarios. BE-08/FE-08, BE-09
+and BE-14 retain their explicit tooling/activation/
 SDK decisions. The table remains 21 published, five partial and one pending.
 
 ## Completed bounded delivery and next work
