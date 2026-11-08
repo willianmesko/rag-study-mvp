@@ -99,6 +99,11 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
   Twenty-eight focused cases, seven harness checks, both graphs, 97 real SQL
   cases and all four normal gates pass; both deployments and public checks are
   verified. See the [receipt](operations/ingestion-projection-boundaries.md).
+- **In validation:** OAuth client redirect metadata is checked on reads using
+  the existing canonical-URI policy. Twenty-three focused cases, seven harness
+  checks and both graphs pass locally; actual SQL/CI and publication remain pending. PKCE, resource binding,
+  consent and membership checks are unchanged. See the
+  [plan](operations/oauth-client-record-boundaries.md).
 
 The [technical backlog](technical-backlog.md) now records **21 published tickets,
 five partial tickets and one pending ticket**. The current CI passed 410 UX

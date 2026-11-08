@@ -2,9 +2,10 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { mcpReadToolNames, type McpReadToolName } from "@rag-study/contracts";
 import type { TenantRole } from "../../../workspaces/index.js";
-import type { McpOAuthRepository, McpPrincipal, OAuthClient, OAuthRequest, OAuthTokenPair } from "../../application/remote-types.js";
+import type { McpOAuthRepository, McpPrincipal, OAuthRequest, OAuthTokenPair } from "../../application/remote-types.js";
 import { OAuthRequestError } from "../../application/oauth.js";
 import { applyPostgresDeadlines, postgresDeadlineProfiles } from "../../../../platform/database/sql-boundary.js";
+import { decodeOAuthClient } from "./stored-oauth-client.js";
 
 const requestColumns = `r.id,r.client_id AS "clientId",r.redirect_uri AS "redirectUri",r.state,r.challenge,r.resource,r.expires_at AS "expiresAt"`;
 const clientColumns = `id,name,redirect_uris AS "redirectUris",expires_at AS "expiresAt"`;
@@ -19,14 +20,14 @@ export class PgMcpOAuthRepository implements McpOAuthRepository {
       await db.query("DELETE FROM mcp_oauth_clients WHERE expires_at<clock_timestamp()");
       const count = await db.query<{ count: string }>("SELECT count(*) FROM mcp_oauth_clients");
       if (Number(count.rows[0]!.count) >= 1000) throw new OAuthRequestError("temporarily_unavailable", "Client registration is at capacity.",429);
-      const result = await db.query<OAuthClient>(`INSERT INTO mcp_oauth_clients(id,name,redirect_uris) VALUES($1,$2,$3::jsonb) RETURNING ${clientColumns}`,
+      const result = await db.query(`INSERT INTO mcp_oauth_clients(id,name,redirect_uris) VALUES($1,$2,$3::jsonb) RETURNING ${clientColumns}`,
         [input.id,input.name,JSON.stringify(input.redirectUris)]);
-      return result.rows[0]!;
+      return decodeOAuthClient(result.rows[0]);
     });
   }
   async client(id: string) {
-    const { rows } = await this.pool.query<OAuthClient>(`SELECT ${clientColumns} FROM mcp_oauth_clients WHERE id=$1 AND expires_at>clock_timestamp()`,[id]);
-    return rows[0] ?? null;
+    const { rows } = await this.pool.query(`SELECT ${clientColumns} FROM mcp_oauth_clients WHERE id=$1 AND expires_at>clock_timestamp()`,[id]);
+    return rows[0] ? decodeOAuthClient(rows[0]) : null;
   }
   request(input: Omit<OAuthRequest,"id"|"expiresAt">) {
     return this.transaction(async (db) => {

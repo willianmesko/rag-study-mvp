@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { PgEvaluationRepository } from "../../modules/evaluations/infrastructure/postgres/pg-evaluation-repository.js";
 import { PgMcpReadRepository } from "../../modules/mcp/infrastructure/postgres/pg-mcp-read-repository.js";
@@ -10,9 +10,31 @@ import { StoredRecordError } from "./stored-record.js";
 import { PgWorkspaceModelPolicyRepository } from "../../modules/chat/infrastructure/postgres/pg-workspace-model-policy-repository.js";
 import { PgWorkspaceOnboardingRepository } from "../../modules/workspaces/infrastructure/postgres/pg-workspace-onboarding-repository.js";
 import { PgConversationRepository } from "../../modules/chat/infrastructure/postgres/pg-conversation-repository.js";
+import { PgMcpOAuthRepository } from "../../modules/mcp/infrastructure/postgres/pg-mcp-oauth-repository.js";
 
 const databaseUrl = process.env.MCP_TEST_DATABASE_URL;
 const options = { skip: !databaseUrl, timeout: 30_000 };
+
+test("PostgreSQL OAuth clients reject constraint-valid malformed callback arrays and recover after repair", options, async (t) => {
+  assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(new URL(databaseUrl!).hostname), "Use a disposable local database.");
+  const pool = new Pool({ connectionString: databaseUrl, max: 2 }), repository = new PgMcpOAuthRepository(pool);
+  const id = "lumora_client_" + randomBytes(32).toString("base64url"), redirectUris = ["https://example.com/callback", "http://localhost:12345/callback"];
+  t.after(async () => { try { await pool.query("DELETE FROM mcp_oauth_clients WHERE id=$1", [id]); } finally { await pool.end(); } });
+  const client = await repository.register({ id, name: "Synthetic callback fixture", redirectUris });
+  assert.equal(client.id, id); assert.deepEqual(client.redirectUris, redirectUris); assert.ok(client.expiresAt instanceof Date);
+  assert.deepEqual(await repository.client(id), client);
+  assert.equal(await repository.client("lumora_client_" + "x".repeat(43)), null);
+  for (const value of [[42], [{ value: "PRIVATE_CALLBACK" }], ["javascript:alert(1)"]]) {
+    try {
+      await pool.query("UPDATE mcp_oauth_clients SET redirect_uris=$2::jsonb WHERE id=$1", [id, JSON.stringify(value)]);
+      await assert.rejects(repository.client(id), (error: unknown) => error instanceof StoredRecordError &&
+        !String(error).includes("PRIVATE_") && !JSON.stringify(error).includes("PRIVATE_") && !("cause" in error));
+    } finally { await pool.query("UPDATE mcp_oauth_clients SET redirect_uris=$2::jsonb WHERE id=$1", [id, JSON.stringify(redirectUris)]); }
+  }
+  assert.deepEqual(await repository.client(id), client);
+  await pool.query("UPDATE mcp_oauth_clients SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1", [id]);
+  assert.equal(await repository.client(id), null);
+});
 
 async function fixture(t: import("node:test").TestContext) {
   assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(new URL(databaseUrl!).hostname), "Use a disposable local database.");
