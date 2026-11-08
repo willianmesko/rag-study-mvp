@@ -57,6 +57,33 @@ only when operational needs justify it; avoid parallel platforms for the same
 job. Render logs alone do not expose an AI request's grounded-source behavior
 or a complete cross-service trace tree.
 
+## LangSmith activation checklist
+
+Activation was requested after the streamed-tracing correction. The live API
+already contains that correction at db8d236. Actual receiver validation remains
+pending; the following steps must not be marked complete from a successful deploy.
+
+1. In the intended LangSmith account/region, open Settings → API Keys. Create a
+   service key scoped to the intended workspace, with the permissions needed for
+   its destination. Store it directly as LANGSMITH_API_KEY in the API service's
+   Render Environment page using Save only. Never paste the key into chat/docs.
+2. Confirm region and destination mode/name/ID. The installed SDK supports agent
+   addresses, but the current adapter explicitly supplies a legacy project name;
+   agent-based workspaces require an explicit compatible binding rather than
+   mixing agent and legacy destination settings. Do not guess the target.
+3. Apply the matching nonsensitive destination settings, enable tracing, deploy
+   the intended source and confirm health. Retain unrelated variables and secrets.
+4. Submit one controlled first-turn streaming question with safe source data,
+   within the existing provider budget. Avoid a cached answer, which skips this
+   workflow root, and history, which intentionally suppresses tracing.
+5. Confirm completed stream and one received rag-question-workflow trace in the
+   intended receiver, with matching correlation/run metadata and safe summaries.
+   Record evidence without raw prompts, passages or credentials, then complete
+   the activation backlog item. A local fake-client test is not this receipt.
+
+References: [API keys](https://docs.langchain.com/langsmith/create-account-api-key),
+[destination and region setup](https://docs.langchain.com/langsmith/observability-quickstart).
+
 ## Signal flow
 
 ```mermaid

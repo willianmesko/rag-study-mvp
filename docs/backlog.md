@@ -188,6 +188,10 @@ See the [verified status and access guide](operations/observability-review-2026-
 - [ ] Confirm the existing LangSmith account/region and project- versus
   agent/environment-based destination before configuring credentials. Verify
   installed SDK compatibility rather than automatically adding/upgrading tools.
+  Activation is now requested. The live API correction is confirmed at db8d236;
+  the owner must supply the key through Render and identify the region/destination.
+  No tracing flag has been changed and no received live trace is claimed.
+  See the [activation checklist](operations/observability.md#langsmith-activation-checklist).
 - [ ] Verify the selected receiver with a controlled nonsensitive trace when
   configuration is available. Keep exporter activation and billable provider
   calls separate from this completed inventory; never print credential values.
