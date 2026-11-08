@@ -27,7 +27,8 @@ usage stays unknown. No new library or generic provider framework is justified.
 
 ## Acceptance and status
 
-Implementation and local validation are complete; CI/publication are pending.
+Implementation, validation and publication are complete at
+`e3840b31a5c915aba4927d2ff38548711ba11a36`.
 The adapters now use fixed invalid-response failures, one judge choice, a shared
 16-claim ceiling and the requested rerank result maximum before item traversal.
 They preserve native accounting independently of output validity.
@@ -43,3 +44,24 @@ harness, provider deadline/usage/registry cases, conservative paid-reranker test
 and fresh database/UX/MCP gates remain required before publication. No real provider call, key,
 pricing change or model activation is required. Jina's separate golden-set
 quality comparison/activation remains pending.
+
+## Published evidence
+
+All four [quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42430999939)
+passed: 410 UX cases/46 deliberate profile skips, 88 actual PostgreSQL cases,
+the isolated embedding cutover, 78 architecture fixtures, seven harness checks,
+four native route-state cases, three artifact cases, three payload cases and the
+actual five-tool read-only MCP image. The Render build at 00:51:47 UTC passed
+both real OCR cases with zero skips and reported 490 application files,
+1,546,252 bytes, 14 supported entries and zero project test artifacts.
+
+Both services were observed LIVE on 2026-11-08 at the exact source:
+
+- API `dep-dbnsf32jnfac73d8n2ng`: 00:52:23.191220 UTC.
+- Web `dep-dbnsf4brjlhs739o773g`: 00:52:18.878970 UTC.
+
+The 00:59:02 UTC public check verified served entry/lazy/CSS assets and original
+icon bytes, health/readiness, server-owned request correlation, protected routes,
+S256/resource discovery and safe malformed request responses. The API error/fatal
+window 00:52:23–01:03:22 UTC was empty. No private question, real Jina/judge call,
+secret, model switch or hosted SQL operation was used for these checks.

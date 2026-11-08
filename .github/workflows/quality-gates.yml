@@ -84,6 +84,16 @@ jobs:
           docker run --rm --entrypoint promtool
           -v "$PWD/ops/observability:/etc/lumora:ro" -w /etc/lumora
           prom/prometheus:v3.16.0 test rules alert-tests.yml
+      - name: Prepare isolated API-image migration fixture
+        run: |
+          docker exec -i ${{ job.services.postgres.id }} psql -U rag -d rag -v ON_ERROR_STOP=1 -c "CREATE DATABASE runtime_artifact_ci OWNER rag"
+          docker exec -i ${{ job.services.postgres.id }} psql -U rag -d runtime_artifact_ci -v ON_ERROR_STOP=1 < tests/fixtures/supabase-auth.sql
+      - name: Build and verify actual API-image migration resources
+        env:
+          RUNTIME_MIGRATION_TEST_DATABASE_URL: postgresql://rag:rag@127.0.0.1:5432/runtime_artifact_ci
+        run: |
+          docker build --tag lumora-api:ci --file apps/api/Dockerfile .
+          node scripts/check-api-migrations.mjs
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 10

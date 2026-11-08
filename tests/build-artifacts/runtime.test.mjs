@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { inspectRuntimeArtifacts, requireNativeOcrSuccess, runtimeEntries } from "../../scripts/runtime-artifacts.mjs";
+import { inspectRuntimeArtifacts, inspectMigrationResources, requireNativeOcrSuccess, runtimeEntries } from "../../scripts/runtime-artifacts.mjs";
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "lumora-runtime-artifacts-"));
@@ -19,6 +19,43 @@ test("runtime inventory requires every supported entry and rejects test files an
   }
   await writeFile(join(root, "bad.js"), 'import test from "node:test";'); await assert.rejects(inspectRuntimeArtifacts(root), /test runner/);
   await rm(join(root, "bad.js")); await rm(join(root, "server.js")); await assert.rejects(inspectRuntimeArtifacts(root), /entry is missing/);
+});
+
+test("migration catalog is ordered, byte-sensitive and refuses an empty directory", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "lumora-migration-assets-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await assert.rejects(inspectMigrationResources(root), /catalog is missing/);
+  await writeFile(join(root, "002_second.sql"), "SELECT 2;\n");
+  await writeFile(join(root, "001_first.sql"), "SELECT 1;\n");
+  const original = await inspectMigrationResources(root);
+  assert.deepEqual(original.versions, ["001_first.sql", "002_second.sql"]);
+  assert.equal(original.files, 2); assert.equal(original.bytes, 20);
+  assert.equal((await inspectMigrationResources(root)).sha256, original.sha256);
+  await writeFile(join(root, "002_second.sql"), "SELECT 3;\n");
+  assert.notEqual((await inspectMigrationResources(root)).sha256, original.sha256);
+});
+
+test("migration catalog refuses symlinks, nested directories and unexpected files", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "lumora-migration-assets-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, "001_first.sql"), "SELECT 1;\n");
+  await symlink(join(root, "001_first.sql"), join(root, "002_link.sql"));
+  await assert.rejects(inspectMigrationResources(root), /regular SQL files/);
+  await rm(join(root, "002_link.sql"));
+  await mkdir(join(root, "002_nested.sql"));
+  await assert.rejects(inspectMigrationResources(root), /regular SQL files/);
+  await rm(join(root, "002_nested.sql"), { recursive: true });
+  await writeFile(join(root, ".env"), "PRIVATE_SENTINEL");
+  await assert.rejects(inspectMigrationResources(root), /Unexpected migration/);
+});
+
+test("compatibility and workspace API Dockerfiles retain the same executable stages", async () => {
+  const normalize = (content) => content.split("\n").map((line) => line.trim()).filter((line) => line && !line.startsWith("#")).join("\n");
+  const [compatibility, workspace] = await Promise.all([
+    readFile(new URL("../../Dockerfile", import.meta.url), "utf8"),
+    readFile(new URL("../../apps/api/Dockerfile", import.meta.url), "utf8")
+  ]);
+  assert.equal(normalize(compatibility), normalize(workspace));
 });
 test("runtime inventory refuses symlinks rather than following them outside the artifact tree", async (t) => {
   const root = await fixture(t); await symlink("/tmp", join(root, "outside"));

@@ -8,6 +8,7 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY scripts/build-api-runtime.mjs scripts/runtime-artifacts.mjs ./scripts/
 COPY apps/api/tsconfig*.json ./apps/api/
 COPY apps/api/src ./apps/api/src
+COPY apps/api/db/migrations ./apps/api/db/migrations
 COPY packages/contracts ./packages/contracts
 RUN npm run build:api
 

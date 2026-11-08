@@ -27,8 +27,8 @@ status section where they appear.
 
 ## In progress
 
-Frontend and API are live at `9b29ceb6cfe915f4849ed18467f56064925ada3d` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42429856205) passed. Publication, assets, icon, health, private-route protection
+Frontend and API are live at `e3840b31a5c915aba4927d2ff38548711ba11a36` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42430999939) passed. Publication, assets, icon, health, private-route protection
 and a bounded error-log window were verified on 2026-11-08 UTC.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
@@ -52,8 +52,11 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
   workspace model-policy/onboarding record boundaries. See the [receipt](operations/release-2026-11-08-workspace-stored-records.md).
 - **Published increment, ticket partial:** conversation record/recovery
   boundaries. See the [receipt](operations/release-2026-11-08-conversation-record-boundaries.md).
-- **In validation:** judge/reranker response boundaries. This follow-up is not
-  yet published; it does not enable Jina or change model/prompt selection.
+- **Published increment, ticket partial:** judge/reranker response boundaries.
+  See the [receipt](operations/release-2026-11-08-provider-assessment-boundaries.md).
+  This does not enable Jina or change model/prompt selection.
+- **In validation:** API-image SQL resources and safe migration CLI failures,
+  a prerequisite for the isolated capacity lab. No hosted migration is run.
 
 The [technical backlog](technical-backlog.md) now records **20 published tickets,
 four partial tickets and two pending tickets**. The current CI passed 410 UX

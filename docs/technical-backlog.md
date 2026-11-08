@@ -18,8 +18,8 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08 | 4 |
 | Pending implementation | BE-09, BE-13 | 2 |
 
-The latest batch is live on frontend and API at `9b29ceb6cfe915f4849ed18467f56064925ada3d`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42429856205) passed.
+The latest batch is live on frontend and API at `e3840b31a5c915aba4927d2ff38548711ba11a36`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42430999939) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
 CI passed 410 UX cases/46 deliberate skips, 88 PostgreSQL cases, the isolated
@@ -44,7 +44,8 @@ and all configuration fixtures. Workspace model-policy/guide record decoding
 is also [published](operations/release-2026-11-08-workspace-stored-records.md).
 Conversation record/recovery validation is also
 [published](operations/release-2026-11-08-conversation-record-boundaries.md).
-Judge/reranker response validation is the next locally validated candidate.
+Judge/reranker response validation is also
+[published](operations/release-2026-11-08-provider-assessment-boundaries.md).
 BE-12 remains partial; BE-08/FE-08 retain promise/Hook work and BE-09 retains
 minimum-privilege activation. Earlier releases retain their dated evidence.
 The prior administrative/unused-check slice is recorded in the
@@ -294,7 +295,7 @@ feature-owned locations during BE-07's migration.
 - [x] Configuration fixtures are CI verified and published: the original 19 mutable files and the read-only assembly consumer use explicit settings; the source inventory of 96 tests finds no legacy imports/writes. Actual durable-conversation and cutover fixtures passed without skips. See the [release record](operations/release-2026-11-07-isolated-resource-fixtures.md).
 - [x] Workspace stored-record increment is CI verified and published: policy routing and onboarding physical rows use shared contracts with fixed stored-data errors. Thirty-two focused cases, seven harness checks, both graphs and 87 real PostgreSQL cases passed. See the [release record](operations/release-2026-11-08-workspace-stored-records.md).
 - [x] Conversation-record/recovery increment is CI verified and published: unknown pending input is checked before dispatch, invalid items fail independently, and summary/turn views use fixed stored-data errors. Fifteen focused cases, both graphs, seven harness checks and 88 actual SQL cases passed. See the [release record](operations/release-2026-11-08-conversation-record-boundaries.md).
-- [x] Judge/reranker response candidate is locally validated: safe fixed errors, one choice/16-claim bounds, requested rerank cardinality and retained native usage. Twenty-three focused cases, both graphs and seven harness checks pass; fresh CI/publication are pending. Jina quality/activation stays separate. See the [candidate record](operations/release-2026-11-08-provider-assessment-boundaries.md).
+- [x] Judge/reranker response boundaries are validated and published: safe fixed errors, one choice/16-claim bounds, requested rerank cardinality and retained native usage. Twenty-three focused cases, both graphs, seven harness checks and all four fresh CI gates passed. Jina quality/activation stays separate. See the [release record](operations/release-2026-11-08-provider-assessment-boundaries.md).
 - [ ] Remaining BE-12: inventory/decode other externally influenced repository JSON and unchecked row assumptions. Targeted row decoding does not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
@@ -464,6 +465,7 @@ feature-owned locations during BE-07's migration.
 - [x] Align manifest/`.nvmrc` with the existing Node 24 CI/container baseline.
 - [x] Production/test-artifact separation is CI verified and published. Explicit runtime roots, clean output inventory and a separate mandatory two-pass native OCR stage are implemented. The final image contains no project test/helper files. See the [release record](operations/release-2026-11-07-runtime-artifacts.md) for actual image checks and the local Docker disk limit.
 - [x] Actual minimal MCP image/permission handshake passed in fresh CI, including five tools, restricted runtime and rejection of the unavailable write tool. The [image gate](operations/mcp-image-verification.md) is required on every release.
+- [ ] Runtime migration resources and safe CLI failures are in validation. Copy the reviewed catalog into API images, verify its digest and run the actual image twice against a fresh disposable database. See the [bounded plan](operations/release-2026-11-08-runtime-migration-resources.md). No hosted migration or SDK upgrade is included.
 - [ ] Apply the reviewed compatible Auth fix with its complete regression/release evidence. The candidate SDK has not been installed.
 - **Review evidence:** the [dated dependency/OCR review](operations/dependency-hygiene-2026-11-07.md)
   verifies that two low audit entries represent one Auth advisory. The only

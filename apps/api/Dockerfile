@@ -11,6 +11,7 @@ RUN npm ci
 COPY scripts/build-api-runtime.mjs scripts/runtime-artifacts.mjs ./scripts/
 COPY apps/api/tsconfig*.json ./apps/api/
 COPY apps/api/src ./apps/api/src
+COPY apps/api/db/migrations ./apps/api/db/migrations
 COPY packages/contracts ./packages/contracts
 RUN npm run build:api
 RUN npm --workspace @rag-study/api run build:ocr-smoke
@@ -25,6 +26,7 @@ COPY apps/api/package.json ./apps/api/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/contracts/package.json ./packages/contracts/package.json
 RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /app/apps/api/db/migrations ./apps/api/db/migrations
 USER node
 
 # Verification uses the exact runtime implementation, dependencies and native tools.
