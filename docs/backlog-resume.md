@@ -57,6 +57,13 @@ constraint review; avoid blanket decoder or library additions. Pending tooling,
 minimum-privilege credentials, SDK adoption and paid/exporter activation retain
 their explicit separate decisions. Do not mark partial tickets complete.
 
+The [MCP index/passage review](operations/mcp-projection-guarantees.md) now records
+the existing constraint/configuration/output guarantees against the published
+source. It adds no runtime change or dependency. The next bounded BE-12 review
+is OAuth client redirect metadata: the JSON array length is constrained in SQL,
+but element type/URI validation still relies on the original registration writer.
+Preserve the existing URI policy and PKCE/resource/refresh behavior.
+
 ## Completed bounded delivery and next work
 
 FE-11 and the bounded BE-12 configuration/record increment are now validated and

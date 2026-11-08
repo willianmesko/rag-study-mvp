@@ -104,7 +104,6 @@ guards remain part of the boundary.
 
 | Priority / location | Concrete remaining work | Acceptance and trade-off |
 | --- | --- | --- |
-| P2: remaining MCP index/passage projections | Source/status/quality mappings are now checked and published; passage security already fails closed | Inventory the active-index/passage projections and existing registry/output guards before adding checks. Preserve dimension/version pins, ten/five-item caps, private URL/PII redaction, skipped unsafe previews, read-only/cancellation and all role checks. |
 | P2: remaining action/OAuth/embedding mappings | Scalar/array row assumptions rely on constraints and repeated application authorization | Document those existing guarantees and missing checks per sink. Preserve approval fences, tool allowlists, PKCE/resource/refresh behavior, dimension pins and server-owned model policy. Do not confuse TypeScript assertions with authorization, or add provider calls while validating stored metadata. |
 | P3: document/demo/knowledge projections | Metadata fields already have explicit allowlists/clamps and unknown security becomes high risk | Inventory which values are interpreted versus deliberately ignored. Preserve absence/unknown metadata and bounded previews instead of making legacy optional fields break whole libraries. Keep actual scope/SQL/UX regressions. |
 
@@ -114,6 +113,12 @@ Partial original/preview projections are also [published](operations/ingestion-p
 with their own driver/nullable-join checks, unknown-security policy, scoped
 three-passage cap, Buffer identity and actual negative-count corruption/repair.
 Their decoder intentionally does not require full-job fields or parse file bytes.
+The [MCP index/passage review](operations/mcp-projection-guarantees.md) records
+the existing physical scalar constraints, configured-identity match, unknown
+security policy, checked input/output transports and exact-source fixtures.
+Those projections deliberately retain their present constraints/guards rather
+than adding a generic duplicate decoder. New adapters or bypassing entry points
+must revisit that decision; BE-09 live privileges remain separate.
 Each remaining family needs its own
 reviewed fixture and behavior-preserving proof. A passing targeted decoder does
 not close the inventory or imply complete SQL/JSON coverage.
