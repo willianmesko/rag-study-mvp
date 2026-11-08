@@ -1,5 +1,9 @@
 # Observability review and access guide
 
+This is the historical inventory at source 151ccef. The subsequent
+[stream-tracing correction](release-2026-11-08-stream-tracing.md) records its own
+implementation, validation and publication status. Hosted activation is separate.
+
 Reviewed on 2026-11-08, using the America/Sao_Paulo time zone (UTC−3).
 The observed API deployment is `151ccef257f79882754d64d6c3bf49d234ad84fc`.
 This review inspected source, the Render Dashboard/MCP, the signed-in Lumora

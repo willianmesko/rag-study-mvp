@@ -27,6 +27,12 @@ status section where they appear.
 
 ## In progress
 
+- **In validation:** safe LangSmith tracing for streamed/fallback answers, with
+  original event/result/error behavior, nested/history suppression and eleven
+  network-free SDK tests. Local harness/architecture pass; exact-source CI and
+  observed publication remain pending. Activation stays separate. See the
+  [release record](operations/release-2026-11-08-stream-tracing.md).
+
 - **Validated measurement, ticket partial:** BE-13 instrumented sustained cohort
   passed at `75f7583`: ten workspaces, 50,000 chunks, ten clients, 30 mixed minutes,
   10,022 mixed pairs, zero unexpected failures, six completed unique ingestions
@@ -173,6 +179,8 @@ See the [verified status and access guide](operations/observability-review-2026-
   nested graph tracing is suppressed. Use the existing adapter and local fake
   trace client to prove safe coverage, correlation, cancellation, history policy
   and sanitized failures; preserve public answer contracts and avoid raw content.
+  Eleven focused cases and the local harness now pass; final CI/publication
+  remain pending in the release record above.
 - [ ] Confirm the existing LangSmith account/region and project- versus
   agent/environment-based destination before configuring credentials. Verify
   installed SDK compatibility rather than automatically adding/upgrading tools.

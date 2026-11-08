@@ -16,9 +16,45 @@ must not be described as an active hosted receiver.
 
 The review also identifies a concrete LangSmith coverage gap: normal chat prefers
 answerStream, whose decorator delegates without creating the outer trace, while
-nested graph tracing is intentionally suppressed. Fix/test safe stream coverage
-before enabling export. The local setup below remains an optional procedure,
+nested graph tracing is intentionally suppressed. The subsequent
+[bounded correction](release-2026-11-08-stream-tracing.md) records safe stream
+coverage and its validation/publication status. Export activation stays separate.
+The local setup below remains an optional procedure,
 not evidence that its viewers or an external destination are already running.
+
+## Responsibilities and production choices
+
+| Component | Responsibility in this project |
+| --- | --- |
+| Node.js provider/usage adapters | Measure operation time and retain provider-reported tokens/dollars, with explicitly configured estimates where needed. |
+| PostgreSQL usage ledger | Persist authorized workspace/model/operation records for product reports, quotas and cost reconciliation. |
+| React/TanStack Query | Display authorized aggregate data; it does not calculate provider billing. |
+| OpenTelemetry SDK | Create bounded operational spans, counters and histograms in the application. |
+| OTel Collector | Receive/export telemetry to the selected storage/viewer; the local configuration is optional. |
+| Prometheus | Store time-series metrics and evaluate alert rules. Notification routing is separate. |
+| Grafana | Display dashboards from metric/other data sources; a dashboard alone does not collect data. |
+| Jaeger | Store/query/display distributed trace trees in the optional local setup. |
+| LangSmith | Inspect AI workflow traces/evaluations after deliberate activation and safe receipt verification. |
+| Render | Capture application stdout and expose platform features allowed by the service/workspace plan. |
+
+A production design can retain its own usage ledger for customer-facing quotas
+and reconciliation while sending telemetry to an observability platform. The
+provider remains authoritative for its invoice; an observed/estimated product
+ledger and a sampled trace store have different coverage and retention.
+
+[Grafana Cloud](https://grafana.com/docs/grafana-cloud/learn-and-build/telemetry-signals/)
+can consolidate logs, metrics, traces and profiles. An integrated APM/AI platform
+such as [Datadog](https://docs.datadoghq.com/llm_observability/) offers another
+route. [Langfuse](https://langfuse.com/docs/observability/overview) is an
+AI-focused alternative with tracing, evaluation and prompt capabilities.
+These are alternatives to evaluate against budget, privacy, retention and
+integration needs, not new services activated by this repository.
+
+For the current demonstration, retain Render logs and the product ledger,
+then validate the existing LangSmith integration. Select one broader receiver
+only when operational needs justify it; avoid parallel platforms for the same
+job. Render logs alone do not expose an AI request's grounded-source behavior
+or a complete cross-service trace tree.
 
 ## Signal flow
 
