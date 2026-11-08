@@ -10,6 +10,7 @@ import { seedCorpus, sha256, samples, uuid } from "./fixtures.mjs";
 import { capacityProfile, corpusVersion } from "./profiles.mjs";
 import { captureFailureState } from "./diagnostics.mjs";
 import { eventLoopResolutionMs } from "./event-loop-probe.mjs";
+import { validateGuardedCheckoutReceipt } from "./checkout-probe.mjs";
 import { captureWorkflowQueues, verifyWorkflowQueueFixture } from "./workflow-queues.mjs";
 import { headersFor, jsonResponse, referenceRecall, trafficPhase, uploadBurst, verifyIngestedSources } from "./traffic.mjs";
 
@@ -17,11 +18,12 @@ const require = createRequire(new URL("../../apps/api/package.json", import.meta
 const { Pool } = require("pg");
 const root = fileURLToPath(new URL("../../", import.meta.url));
 let stage = "arguments", interrupted = false;
-const report = { kind: "lumora.capacity-lab", version: 2, profile: "pilot", passed: false, startedAt: new Date().toISOString() };
+const report = { kind: "lumora.capacity-lab", version: 3, profile: "pilot", passed: false, startedAt: new Date().toISOString() };
 const commonLimitations = ["Deterministic 1024-d vectors do not measure semantic quality or multilingual accuracy.",
   "Synthetic auth, embeddings, chat, tokens and timings; no actual provider billing.", "One API process; no multi-replica burst-limit proof.",
   "Markdown only; no large OCR/PDF/DOCX or crash/restart load.",
-  "Pool checkout wait is not measured; event-loop histograms include 20-ms sampling overhead.",
+  "Guarded checkout includes queue/connection/setup; direct pool queries and pure pool queue wait are not measured.",
+  "Native event-loop and in-memory checkout collection add measurement overhead; bucket data is not exact percentiles.",
   "No Render capacity, field performance or production sizing conclusion."];
 
 async function main() {
@@ -38,6 +40,7 @@ async function main() {
     source: /^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA ?? "") ? process.env.GITHUB_SHA : null,
     limitations, observationLimit: 1000, queueMetricsVersion: 1, poolWaitMs: null,
     eventLoop: { source: "api-process-native", resolutionMs: eventLoopResolutionMs, phases: [] }, actualProviderCostUsd: null });
+  report.guardedCheckout = { source: "api-process-otel", phases: [] };
   let lab, pool, monitoring, poolFault = false;
   const cancelled = new AbortController();
   let stopMonitoring = false;
@@ -74,12 +77,15 @@ async function main() {
     };
     const captureProbe = async (name) => {
       const { status, body } = await jsonResponse(api.probeOrigin + "/metrics", { signal: cancelled.signal });
-      assert.equal(status, 200); assert.deepEqual(Object.keys(body).sort(), ["delayMs", "samples", "utilization"]);
+      assert.equal(status, 200); assert.deepEqual(Object.keys(body).sort(), ["delayMs", "guardedCheckout", "samples", "utilization"]);
       assert.ok(Number.isSafeInteger(body.samples) && body.samples > 0);
       assert.deepEqual(Object.keys(body.delayMs).sort(), ["max", "mean", "min", "p50", "p95", "p99", "stddev"]);
       assert.ok(Object.values(body.delayMs).every((value) => Number.isFinite(value) && value >= 0));
       assert.ok(Number.isFinite(body.utilization) && body.utilization >= 0 && body.utilization <= 1);
-      report.eventLoop.phases.push({ name, ...body });
+      const checkout = validateGuardedCheckoutReceipt(body.guardedCheckout);
+      assert.ok(checkout.outcomes.find(({ outcome }) => outcome === "acquired").count > 0);
+      const { guardedCheckout: _checkout, ...eventLoop } = body;
+      report.eventLoop.phases.push({ name, ...eventLoop }); report.guardedCheckout.phases.push({ name, ...checkout });
     };
     stage = "membership";
     const denied = await jsonResponse(api.origin + "/v1/search?q=synthetic", {

@@ -27,6 +27,12 @@ status section where they appear.
 
 ## In progress
 
+- **In validation:** guarded PostgreSQL client-acquisition timing, using the
+  installed OpenTelemetry SDK with bounded, private lab collection. It includes
+  connection/setup and is not labelled pure pool queue wait. Actual SQL/image
+  validation and publication remain pending. See the
+  [plan](operations/postgres-checkout-measurement.md).
+
 Frontend and API are live at `577e5007283ecafcf5372c8034849b39697515ff` after all four
 [CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42450042196) passed. Publication, assets, icon, health, private-route protection
 and a bounded error-log window were verified on 2026-11-08 UTC.

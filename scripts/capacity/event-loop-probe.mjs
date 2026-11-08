@@ -18,22 +18,29 @@ export function nativeDelaySnapshot(histogram, utilization) {
 }
 
 // Lab-only preload: no environment/file/application reads and no request data in receipts.
-export function createEventLoopProbe() {
+export function createEventLoopProbe({ checkout } = {}) {
   const histogram = monitorEventLoopDelay({ resolution: eventLoopResolutionMs });
   histogram.enable();
   let baseline = performance.eventLoopUtilization();
+  let collecting = false;
   const server = createServer({ maxHeaderSize: 4096, requestTimeout: 1000, headersTimeout: 1000 }, (request, response) => {
     const send = (status, value) => {
       response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
       response.end(JSON.stringify(value));
     };
-    if (request.method === "POST" && request.url === "/reset") {
-      histogram.reset(); baseline = performance.eventLoopUtilization(); return send(200, { reset: true });
-    }
-    if (request.method === "GET" && request.url === "/metrics")
-      return send(200, nativeDelaySnapshot(histogram, performance.eventLoopUtilization(baseline).utilization));
-    send(404, { error: "not_found" });
+    if (!((request.method === "POST" && request.url === "/reset") || (request.method === "GET" && request.url === "/metrics")))
+      return send(404, { error: "not_found" });
+    if (collecting) return send(409, { error: "probe_busy" });
+    collecting = true;
+    void (async () => {
+      const checkouts = checkout ? await checkout.collect() : undefined;
+      if (request.method === "POST") {
+        histogram.reset(); baseline = performance.eventLoopUtilization(); return send(200, { reset: true });
+      }
+      send(200, { ...nativeDelaySnapshot(histogram, performance.eventLoopUtilization(baseline).utilization),
+        ...(checkouts ? { guardedCheckout: checkouts } : {}) });
+    })().catch(() => send(503, { error: "probe_unavailable" })).finally(() => { collecting = false; });
   });
-  server.on("close", () => histogram.disable());
+  server.on("close", () => { histogram.disable(); void checkout?.shutdown().catch(() => {}); });
   return server;
 }

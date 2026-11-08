@@ -587,6 +587,8 @@ feature-owned locations during BE-07's migration.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
+- [ ] Guarded API checkout measurement: OpenTelemetry records acquisition/cancellation/failure duration without SQL or identities; direct pool queries and pure queue wait remain explicitly unmeasured. Native behavior and in-memory delta probe checks pass. The max=1 real-SQL fixture, both actual version-three image-based paths, final CI and publication remain pending. See the [bounded plan](operations/postgres-checkout-measurement.md).
+
 - [x] Scoped durable queue/ready/running/lease/approval measurements are validated and active in CI at `2c2ed48`: 15 native cases, both actual image-based pilots and all four normal jobs pass. Six-row pre-start SQL fixtures prove readiness, disjoint leases, ages, scope and exact cleanup without dispatching work. Both pilots retain 14 valid runtime observations. This measures states, not recovery or sustained capacity. See the [evidence](operations/capacity-workflow-queues.md).
 
 - [x] The lab-only native API-process probe is active and validated in CI: 14 native cases, both actual version-two short profiles and all normal gates pass. No dependency/exporter or production endpoint is added. Empty samples stay unknown and pool wait remains separate. Earlier reports are unchanged. See the [measurement evidence](operations/capacity-event-loop-plan.md).

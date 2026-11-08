@@ -1,4 +1,5 @@
 import type { ClientBase, Pool, PoolClient } from "pg";
+import { recordPostgresCheckout } from "./checkout-metrics.js";
 
 export const postgresDeadlineProfiles = {
   runtime: { statementMs: 30_000, lockMs: 3_000, idleTransactionMs: 30_000 },
@@ -69,30 +70,33 @@ export async function initializePostgresDeadlines(
  * acquisition without ever submitting the cancelled operation to PostgreSQL. */
 export function acquirePostgresClient(pool: Pool, signal: AbortSignal): Promise<PoolClient> {
   signal.throwIfAborted();
+  const started = performance.now();
   return new Promise((resolve, reject) => {
     let settled = false;
-    const abort = () => {
+    const fail = (reason: unknown, outcome: "cancelled" | "failed") => {
       if (settled) return;
       settled = true;
       signal.removeEventListener("abort", abort);
-      reject(signal.reason);
+      recordPostgresCheckout(outcome, started);
+      reject(reason);
     };
+    const abort = () => fail(signal.reason, "cancelled");
     signal.addEventListener("abort", abort, { once: true });
-    const pending = pool.connect();
+    let pending: Promise<PoolClient>;
+    try { pending = pool.connect(); }
+    catch (error) { fail(error, "failed"); return; }
     pending.then((client) => {
       signal.removeEventListener("abort", abort);
       if (settled || signal.aborted) {
         client.release();
-        if (!settled) reject(signal.reason);
+        if (!settled) abort();
         return;
       }
       settled = true;
+      recordPostgresCheckout("acquired", started);
       resolve(client);
     }, (error: unknown) => {
-      signal.removeEventListener("abort", abort);
-      if (settled) return;
-      settled = true;
-      reject(error);
+      fail(error, "failed");
     });
     if (signal.aborted) abort();
   });

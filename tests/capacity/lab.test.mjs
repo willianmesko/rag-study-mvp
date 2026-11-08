@@ -9,6 +9,61 @@ import { capacityProfile, chunkIdentityNumber, corpusVersion } from "../../scrip
 import { safeFailureRows } from "../../scripts/capacity/diagnostics.mjs";
 import { createEventLoopProbe, nativeDelaySnapshot } from "../../scripts/capacity/event-loop-probe.mjs";
 import { queueReceipt, captureWorkflowQueues } from "../../scripts/capacity/workflow-queues.mjs";
+import { createRequire } from "node:module";
+import { createCheckoutProbe, guardedCheckoutReceipt, checkoutBoundsSeconds, validateGuardedCheckoutReceipt } from "../../scripts/capacity/checkout-probe.mjs";
+
+test("guarded checkout receipts distinguish empty windows, measured zeros and invalid or private data", () => {
+  const empty = guardedCheckoutReceipt([]);
+  assert.ok(empty.outcomes.every(({ count, sumMs, minMs, maxMs }) => count === 0 && sumMs === null && minMs === null && maxMs === null));
+  const value = { count: 1, sum: 0, min: 0, max: 0,
+    buckets: { boundaries: checkoutBoundsSeconds, counts: [1, ...Array(checkoutBoundsSeconds.length).fill(0)] }, private: "PRIVATE_STATE" };
+  const zero = guardedCheckoutReceipt([{ attributes: { outcome: "acquired" }, value }]);
+  assert.equal(zero.outcomes[0].sumMs, 0); assert.equal(zero.outcomes[0].minMs, 0);
+  assert.ok(!JSON.stringify(zero).includes("PRIVATE_STATE"));
+  assert.throws(() => guardedCheckoutReceipt([{ attributes: { outcome: "PRIVATE" }, value }]));
+  for (const patch of [{ count: -1 }, { count: "1" }, { sum: NaN }, { min: 2 }, { buckets: { boundaries: [], counts: [] } }])
+    assert.throws(() => guardedCheckoutReceipt([{ attributes: { outcome: "acquired" }, value: { ...value, ...patch } }]));
+  assert.throws(() => validateGuardedCheckoutReceipt({ ...zero, PRIVATE_STATE: true }));
+  assert.throws(() => validateGuardedCheckoutReceipt({ ...empty, outcomes: [{ ...empty.outcomes[0], sumMs: 0 }, ...empty.outcomes.slice(1)] }));
+});
+
+test("the actual in-memory SDK probe keeps delta windows and only the fixed checkout labels", async (t) => {
+  const checkout = createCheckoutProbe(), server = createEventLoopProbe({ checkout });
+  server.listen(0, "127.0.0.1"); await once(server, "listening");
+  t.after(async () => { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); });
+  const base = "http://127.0.0.1:" + server.address().port;
+  const { metrics } = createRequire(import.meta.url)("@opentelemetry/api");
+  const histogram = metrics.getMeter("lumora.database", "1.0").createHistogram("lumora.database.checkout.duration", { unit: "s" });
+  await fetch(base + "/reset", { method: "POST" });
+  for (const outcome of ["acquired", "cancelled", "failed"]) histogram.record(.025, { outcome, private: "PRIVATE_SQL" });
+  metrics.getMeter("PRIVATE_METER").createCounter("PRIVATE_INSTRUMENT").add(1, { private: "PRIVATE_BODY" });
+  const response = await fetch(base + "/metrics"), body = await response.json();
+  assert.equal(response.status, 200); const receipt = validateGuardedCheckoutReceipt(body.guardedCheckout);
+  assert.deepEqual(receipt.outcomes.map(({ count }) => count), [1, 1, 1]);
+  assert.ok(Buffer.byteLength(JSON.stringify(body)) < 4096); assert.ok(!JSON.stringify(body).includes("PRIVATE_"));
+  const next = (await (await fetch(base + "/metrics")).json()).guardedCheckout;
+  assert.ok(next.outcomes.every(({ count }) => count === 0));
+  histogram.record(.05, { outcome: "acquired" }); await fetch(base + "/reset", { method: "POST" });
+  const cleared = (await (await fetch(base + "/metrics")).json()).guardedCheckout;
+  assert.ok(cleared.outcomes.every(({ count }) => count === 0));
+});
+
+test("probe collection failure is safe and overlapping reads do not split a measurement window", async (t) => {
+  let finish, entered, failing = false;
+  const started = new Promise((resolve) => { entered = resolve; });
+  const pending = new Promise((resolve) => { finish = resolve; });
+  const server = createEventLoopProbe({ checkout: { async collect() { entered(); if (failing) throw new Error("PRIVATE_ERROR"); await pending; return guardedCheckoutReceipt([]); }, async shutdown() {} } });
+  server.listen(0, "127.0.0.1"); await once(server, "listening");
+  t.after(async () => { finish(); server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); });
+  const base = "http://127.0.0.1:" + server.address().port;
+  const first = fetch(base + "/metrics");
+  await started;
+  const busy = await fetch(base + "/metrics");
+  assert.equal(busy.status, 409); assert.deepEqual(await busy.json(), { error: "probe_busy" });
+  finish(); assert.equal((await first).status, 200); failing = true;
+  const failed = await fetch(base + "/metrics"); assert.equal(failed.status, 503);
+  assert.deepEqual(await failed.json(), { error: "probe_unavailable" });
+});
 
 test("durable queue receipts keep confirmed zeros, unknown ages and disjoint lease counts without raw state", async () => {
   const empty = () => ["chat", "evaluation", "ingestion"].map((kind) => ({ kind, queued: 0, ready: 0,
