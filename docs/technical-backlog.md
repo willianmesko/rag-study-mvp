@@ -18,11 +18,11 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-13, BE-14, FE-08 | 5 |
 | Pending implementation or final validation/publication | BE-09 | 1 |
 
-The latest batch is live on frontend and API at `c8452e12240c8031733ac59a13f714568b79bd1d`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42436598494) passed.
+The latest batch is live on frontend and API at `df20190c4f90ce6d8df10126e56985a824343eaf`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42438247236) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
-CI passed 410 UX cases/46 deliberate skips, 90 PostgreSQL cases, the isolated
+CI passed 410 UX cases/46 deliberate skips, 91 PostgreSQL cases, the isolated
 cutover, 78 architecture fixtures, seven harness checks, four native route-state,
 six artifact and three payload cases. The Render build independently passed
 both actual OCR cases with zero skips and zero project test artifacts in the
@@ -298,7 +298,8 @@ feature-owned locations during BE-07's migration.
 - [x] Judge/reranker response boundaries are validated and published: safe fixed errors, one choice/16-claim bounds, requested rerank cardinality and retained native usage. Twenty-three focused cases, both graphs, seven harness checks and all four fresh CI gates passed. Jina quality/activation stays separate. See the [release record](operations/release-2026-11-08-provider-assessment-boundaries.md).
 - [x] Persisted chat replay boundaries are CI validated and published. Six new row/event cases plus actual SQL corruption/isolation/repair preserve cursor/ordering/expiry and reject malformed JSON through the existing fixed server error. All four gates and the repeated exact-source capacity pilot passed. See the [release record](operations/release-2026-11-08-replay-record-boundaries.md).
 - [x] Workflow stored-budget and encrypted JSON diagnostics are CI validated and published, including real corrupt/restore SQL and preserved encryption/approval/recovery tests. Input/admission validation, key/AAD formats and budget ceilings remain unchanged. See the [release record](operations/release-2026-11-08-workflow-record-boundaries.md).
-- [ ] MCP quality-report stored rows are locally validated with a shared decimal-ratio schema, real zero/null semantics, bounded pages and rollback/release. Twenty-two focused cases, seven harness checks and both graphs passed; fresh SQL/CI/publication remain required. See the [candidate record](operations/release-2026-11-08-mcp-quality-records.md).
+- [x] MCP quality-report stored rows are CI validated and published with shared decimal-ratio semantics, preserved zero/null values, bounded pages and rollback/release. Twenty-two focused cases, seven harness checks, both graphs, 91 real SQL cases, the exact-source pilot and both deployments passed. See the [release record](operations/release-2026-11-08-mcp-quality-records.md).
+- [ ] Ingestion event/details reads are locally validated using shared stage/status/details schemas and checked driver dates/timing. Fourteen focused cases, seven harness checks and both graphs pass; fresh SQL/CI/publication remain required. See the [candidate record](operations/release-2026-11-08-ingestion-event-records.md).
 - [ ] Remaining BE-12: follow the [concrete boundary inventory](backend-configuration-and-records.md#remaining-boundary-inventory-be-12) for ingestion event JSON, usage aggregates, remaining MCP projections, action/OAuth/embedding assumptions and document metadata. Preserve existing constraints, optional fields and security guards; targeted decoding does not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate

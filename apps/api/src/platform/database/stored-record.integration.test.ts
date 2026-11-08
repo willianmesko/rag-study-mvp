@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { PgEvaluationRepository } from "../../modules/evaluations/infrastructure/postgres/pg-evaluation-repository.js";
 import { PgMcpReadRepository } from "../../modules/mcp/infrastructure/postgres/pg-mcp-read-repository.js";
+import { PgIngestionJobRepository } from "../../modules/ingestion/infrastructure/postgres/pg-ingestion-job-repository.js";
 import { PgSemanticAnswerCache } from "../../modules/chat/infrastructure/postgres/pg-semantic-answer-cache.js";
 import { StoredRecordError } from "./stored-record.js";
 import { PgWorkspaceModelPolicyRepository } from "../../modules/chat/infrastructure/postgres/pg-workspace-model-policy-repository.js";
@@ -54,6 +55,30 @@ test("PostgreSQL MCP quality records preserve driver decimal/null/Date values an
   assert.ok(report.createdAt instanceof Date);
   assert.deepEqual(await reads.getQualityReport(randomUUID(), 10, new AbortController().signal), []);
   assert.equal((await reads.getQualityReport(tenant, 1, new AbortController().signal)).length, 1);
+});
+
+test("PostgreSQL timeline details reject non-object JSON, preserve scope and recover after repair", options, async (t) => {
+  const { pool, tenant } = await fixture(t), repository = new PgIngestionJobRepository(pool), jobId = randomUUID();
+  await pool.query(`INSERT INTO ingestion_jobs(id,tenant_id,source,filename,mime_type,payload,status,error)
+    VALUES($1,$2,'synthetic-timeline','fixture.md','text/markdown',$3,'failed','synthetic terminal fixture')`,
+  [jobId, tenant, Buffer.from("Synthetic fixture, never queued.")]);
+  const details = { characters: 0, language: "und", ocr: { used: false } };
+  await repository.recordEvent({ jobId, tenantId: tenant, stage: "text_extraction", status: "completed", durationMs: 0, details });
+  const [stored] = await repository.listEvents(jobId, tenant, 100);
+  assert.ok(stored); assert.equal(stored.durationMs, 0); assert.deepEqual(stored.details, details);
+  assert.ok(stored.createdAt instanceof Date);
+  assert.deepEqual(await repository.listEvents(jobId, randomUUID(), 100), []);
+  try {
+    await pool.query("UPDATE ingestion_job_events SET details=$4::jsonb WHERE id=$1 AND job_id=$2 AND tenant_id=$3",
+      [stored.id, jobId, tenant, '["PRIVATE_EVENT_SENTINEL"]']);
+    await assert.rejects(repository.listEvents(jobId, tenant, 100), (error: unknown) => error instanceof StoredRecordError &&
+      error.code === "invalid_stored_record" && !String(error).includes("PRIVATE_EVENT_SENTINEL") && !("cause" in error));
+  } finally {
+    await pool.query("UPDATE ingestion_job_events SET details=$4::jsonb WHERE id=$1 AND job_id=$2 AND tenant_id=$3",
+      [stored.id, jobId, tenant, JSON.stringify(details)]);
+  }
+  assert.deepEqual((await repository.listEvents(jobId, tenant, 100))[0]?.details, details);
+  assert.equal((await pool.query("SELECT status FROM ingestion_jobs WHERE id=$1", [jobId])).rows[0]?.status, "failed");
 });
 
 test("PostgreSQL semantic-cache records decode JSON passages without losing model/workspace isolation", options, async (t) => {

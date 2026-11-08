@@ -2,6 +2,9 @@ import { currentExecution } from "../../../../platform/workflows/execution-conte
 import { WorkflowGuardError } from "../../../../platform/workflows/types.js";
 import { lockWorkflowFence } from "../../../../platform/database/workflow-fence.js";
 import type { Pool, PoolClient } from "pg";
+import { ingestionEventSchema } from "@rag-study/contracts";
+import { z } from "zod";
+import { decodeStoredRecord } from "../../../../platform/database/stored-record.js";
 import {
   ExistingIngestionSourceError,
   UploadAdmissionError,
@@ -58,24 +61,23 @@ const map = (row: Row): IngestionJob => ({
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
-type EventRow = {
-  id: string;
-  job_id: string;
-  stage: string;
-  status: IngestionJobEvent["status"];
-  duration_ms: number | null;
-  details: Record<string, unknown>;
-  created_at: Date;
-};
-const mapEvent = (row: EventRow): IngestionJobEvent => ({
-  id: row.id,
-  jobId: row.job_id,
-  stage: row.stage,
-  status: row.status,
-  durationMs: row.duration_ms,
-  details: row.details,
-  createdAt: row.created_at,
+const eventRow = z.object({
+  id: z.uuid(), job_id: z.uuid(), stage: ingestionEventSchema.shape.stage,
+  status: ingestionEventSchema.shape.status, duration_ms: z.number().int().nonnegative().nullable(),
+  details: ingestionEventSchema.shape.details, created_at: z.date()
 });
+const mapEvent = (value: unknown): IngestionJobEvent => {
+  const row = decodeStoredRecord(eventRow, value);
+  return {
+    id: row.id,
+    jobId: row.job_id,
+    stage: row.stage,
+    status: row.status,
+    durationMs: row.duration_ms,
+    details: row.details,
+    createdAt: row.created_at,
+  };
+};
 type PassagePreviewRow = { total_chunks: number } & (
   | { chunk_id: null; ordinal: null; content: null; metadata: null }
   | { chunk_id: string; ordinal: number; content: string; metadata: unknown }
@@ -433,7 +435,7 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
     tenantId: string,
     limit: number,
   ): Promise<IngestionJobEvent[]> {
-    const result = await this.pool.query<EventRow>(
+    const result = await this.pool.query<Record<string, unknown>>(
       "SELECT id, job_id, stage, status, duration_ms, details, created_at FROM ingestion_job_events WHERE job_id = $1 AND tenant_id = $2 ORDER BY created_at ASC LIMIT $3",
       [jobId, tenantId, limit],
     );
