@@ -121,6 +121,27 @@ test("PostgreSQL MCP source projections preserve SQL character clamps, unknown m
   assert.deepEqual(document?.document, source); assert.deepEqual(document?.passages, []);
 });
 
+test("PostgreSQL full ingestion snapshots preserve byte/storage shape and reject corrupt counts before processing", options, async (t) => {
+  const { pool, tenant } = await fixture(t), repository = new PgIngestionJobRepository(pool), id = randomUUID();
+  const payload = Buffer.from("Synthetic terminal fixture, never queued.");
+  await pool.query(`INSERT INTO ingestion_jobs(id,tenant_id,source,filename,mime_type,payload,status,progress,chunk_count,high_risk_chunks)
+    VALUES($1,$2,'synthetic-full-job','fixture.md','text/markdown',$3,'failed',0,0,0)`, [id, tenant, payload]);
+  const job = await repository.readForProcessing(id, tenant);
+  assert.ok(job); assert.deepEqual(job.payload, payload); assert.equal(job.chunkCount, 0);
+  assert.equal(job.highRiskChunks, 0); assert.equal(job.admissionAttempts, 0);
+  assert.equal(await repository.readForProcessing(id, randomUUID()), null);
+  assert.equal((await repository.list(tenant, 10))[0]?.chunkCount, 0);
+  try {
+    await pool.query("UPDATE ingestion_jobs SET high_risk_chunks=-1 WHERE id=$1 AND tenant_id=$2", [id, tenant]);
+    await assert.rejects(repository.readForProcessing(id, tenant), StoredRecordError);
+    await assert.rejects(repository.list(tenant, 10), StoredRecordError);
+  } finally {
+    await pool.query("UPDATE ingestion_jobs SET high_risk_chunks=NULL WHERE id=$1 AND tenant_id=$2", [id, tenant]);
+  }
+  assert.equal((await repository.readForProcessing(id, tenant))?.highRiskChunks, null);
+  assert.equal((await repository.readForProcessing(id, tenant))?.status, "failed");
+});
+
 test("PostgreSQL semantic-cache records decode JSON passages without losing model/workspace isolation", options, async (t) => {
   const { pool, tenant } = await fixture(t), repo = new PgSemanticAnswerCache(pool, 1024);
   const embedding = Array<number>(1024).fill(0); embedding[0] = 1;

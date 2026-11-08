@@ -20,47 +20,11 @@ import type {
 } from "../../application/ports/ingestion-job-repository.js";
 import { indexedOriginalPredicate } from "../../../../platform/database/indexed-original.js";
 import { readStoredChunkSecurity } from "../../../../platform/database/stored-chunk-security.js";
+import { decodeIngestionJob, type StoredIngestionJobRow as Row } from "./stored-ingestion-job.js";
 
-type Row = {
-  admission_attempts?: number;
-  id: string;
-  tenant_id: string;
-  document_id: string | null;
-  source: string;
-  title: string | null;
-  filename: string;
-  mime_type: string;
-  payload: Buffer | null;
-  storage_path: string | null;
-  status: IngestionJob["status"];
-  progress: number;
-  error: string | null;
-  chunk_count: number | null;
-  high_risk_chunks: number | null;
-  created_at: Date;
-  updated_at: Date;
-};
 const columns =
   "admission_attempts, id, tenant_id, document_id, source, title, filename, mime_type, payload, storage_path, status, progress, error, chunk_count, high_risk_chunks, created_at, updated_at";
-const map = (row: Row): IngestionJob => ({
-  admissionAttempts: row.admission_attempts ?? 0,
-  id: row.id,
-  tenantId: row.tenant_id,
-  documentId: row.document_id,
-  source: row.source,
-  title: row.title,
-  filename: row.filename,
-  mimeType: row.mime_type,
-  payload: row.payload,
-  storagePath: row.storage_path,
-  status: row.status,
-  progress: row.progress,
-  error: row.error,
-  chunkCount: row.chunk_count,
-  highRiskChunks: row.high_risk_chunks,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-});
+
 const eventRow = z.object({
   id: z.uuid(), job_id: z.uuid(), stage: ingestionEventSchema.shape.stage,
   status: ingestionEventSchema.shape.status, duration_ms: z.number().int().nonnegative().nullable(),
@@ -90,7 +54,7 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
       `SELECT ${columns} FROM ingestion_jobs WHERE id=$1 AND tenant_id=$2`,
       [jobId, tenantId],
     );
-    return r.rows[0] ? map(r.rows[0]) : null;
+    return r.rows[0] ? decodeIngestionJob(r.rows[0]) : null;
   }
   async findIdempotent(
     tenantId: string,
@@ -102,7 +66,7 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
     );
     if (result.rows[0] && result.rows[0].request_hash !== admission.requestHash)
       throw new UploadAdmissionError("idempotency_conflict");
-    return result.rows[0] ? map(result.rows[0]) : null;
+    return result.rows[0] ? decodeIngestionJob(result.rows[0]) : null;
   }
   async usesStoragePath(tenantId: string, path: string) {
     return Boolean(
@@ -132,7 +96,7 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
           if (previous.rows[0]) {
             if (previous.rows[0].request_hash !== admission.requestHash)
               throw new UploadAdmissionError("idempotency_conflict");
-            return map(previous.rows[0]);
+            return decodeIngestionJob(previous.rows[0]);
           }
         }
         if (options?.onlyIfMissing) {
@@ -195,7 +159,7 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
             admission?.requestHash ?? null,
           ],
         );
-        const job = map(result.rows[0]!);
+        const job = decodeIngestionJob(result.rows[0]!);
         await client.query(
           "INSERT INTO ingestion_job_events(job_id,tenant_id,stage,status,details) VALUES($1,$2,'queued','completed',$3::jsonb)",
           [
@@ -241,7 +205,7 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
       AND NOT EXISTS(SELECT 1 FROM workflow_runs r WHERE r.tenant_id=j.tenant_id AND r.run_id=j.id AND r.kind='ingestion' AND r.status IN ('queued','running','waiting_approval'))
       ORDER BY created_at FOR UPDATE OF j SKIP LOCKED LIMIT 1)
       UPDATE ingestion_jobs j SET status='processing',admission_attempts=admission_attempts+1,progress=20,error=NULL,updated_at=NOW() FROM candidate WHERE j.id=candidate.id RETURNING j.*`);
-    return result.rows[0] ? map(result.rows[0]) : null;
+    return result.rows[0] ? decodeIngestionJob(result.rows[0]) : null;
   }
   private async guarded<T>(
     tenantId: string,
@@ -303,7 +267,7 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
       [tenantId, limit],
     );
     return result.rows.map(({ payload: _payload, ...row }) =>
-      map({ ...row, payload: null }),
+      decodeIngestionJob({ ...row, payload: null }),
     );
   }
   async previewPassages(input: {
@@ -382,7 +346,7 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
        RETURNING ${columns}`,
       [tenantId, documentId],
     );
-    return result.rows[0] ? map(result.rows[0]) : null;
+    return result.rows[0] ? decodeIngestionJob(result.rows[0]) : null;
   }
   async listStoragePathsForDocument(
     documentId: string,
