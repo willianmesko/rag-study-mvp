@@ -4,7 +4,7 @@ import test, { type TestContext } from "node:test";
 import type { AuditEventRepository } from "../../modules/usage/application/ports/audit-event-repository.js";
 import { PublicHtmlFetchError } from "../../modules/ingestion/application/ports/public-html-fetcher.js";
 import type { QueueDocumentUploadUseCase } from "../../modules/ingestion/application/use-cases/queue-document-upload.js";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import { buildApp } from "../http-server.js";
 
 const endpoint = "/v1/admin/uploads/url";
@@ -16,9 +16,7 @@ const url = "https://example.com/guide";
 const page = { url: "https://example.com/guides/rag", filename: "example.com.html", payload: Buffer.from("<h1>RAG guide</h1>") };
 
 async function fixture(t: TestContext, options: { role?: "viewer"; allowed?: boolean; error?: PublicHtmlFetchError } = {}) {
-  const savedConfig = { SUPABASE_URL: config.SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY: config.SUPABASE_PUBLISHABLE_KEY, API_KEY: config.API_KEY };
-  Object.assign(config, { SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key", API_KEY: undefined });
-  t.after(() => { Object.assign(config, savedConfig); });
+  const configuration = parseRuntimeConfiguration({ SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key" });
   t.mock.method(globalThis, "fetch", async (address: string) => {
     assert.equal(String(address), `${authUrl}/auth/v1/user`);
     return Response.json({ id: userId, aud: "authenticated", role: "authenticated" });
@@ -44,7 +42,7 @@ async function fixture(t: TestContext, options: { role?: "viewer"; allowed?: boo
     queueDocumentUpload: { execute: queue },
     consumeAdminUploadQuota,
     recordAuditEvent: audit
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, download, consumeAdminUploadQuota, queue, audit };
 }

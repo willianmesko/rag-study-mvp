@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import type { WorkspaceOnboardingProgress } from "@rag-study/contracts";
 import type { WorkspaceOnboardingScope } from "../../modules/workspaces/application/ports/workspace-onboarding-repository.js";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import { buildApp } from "../http-server.js";
 
 const authUrl = "https://guide.example.test";
@@ -16,9 +16,7 @@ const url = (workspaceId = primary) => `/v1/workspaces/${workspaceId}/onboarding
 const headers = (session = "actor-a", workspaceId = primary) => ({ authorization: `Bearer ${session}`, "x-workspace-id": workspaceId });
 
 async function fixture(t: TestContext) {
-  const previous = { SUPABASE_URL: config.SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY: config.SUPABASE_PUBLISHABLE_KEY, API_KEY: config.API_KEY };
-  Object.assign(config, { SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-key", API_KEY: undefined });
-  t.after(() => { Object.assign(config, previous); });
+  const configuration = parseRuntimeConfiguration({ SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-key" });
   t.mock.method(globalThis, "fetch", async (input: string, init?: RequestInit) => {
     assert.equal(String(input), `${authUrl}/auth/v1/user`);
     const authorization = new Headers(init?.headers).get("authorization");
@@ -37,7 +35,7 @@ async function fixture(t: TestContext) {
     workspaceOnboarding: { get, save },
     findMembership: async (userId: string, tenantId: string) => tenantId === primary || (tenantId === secondary && userId === actor)
       ? { tenantId, tenantName: "Guide fixture", tenantSlug: "guide-fixture", role: "viewer" } : null
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, get, save };
 }

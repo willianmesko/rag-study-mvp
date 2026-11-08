@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { mcpReadToolInputSchemas, type McpReadToolName } from "@rag-study/contracts";
 import type { AuditEventRepository } from "../../modules/usage/application/ports/audit-event-repository.js";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import { buildApp } from "../http-server.js";
 
 const tenantId = "11000000-0000-4000-8000-000000000001";
@@ -13,10 +13,7 @@ const userHeaders = { authorization: "Bearer signed-in-fixture", "x-workspace-id
 const toolHeaders = { authorization: `Bearer ${mcpToken}`, "x-workspace-id": tenantId };
 
 async function fixture(t: TestContext, options: { role?: "owner" | "viewer"; allowed?: boolean; auditFails?: boolean; result?: unknown } = {}) {
-  const overrides = { SUPABASE_URL: "https://mcp-auth.example.test", SUPABASE_PUBLISHABLE_KEY: "fixture-public", API_KEY: undefined };
-  const saved = Object.fromEntries(Object.keys(overrides).map((key) => [key, config[key as keyof typeof config]]));
-  Object.assign(config, overrides);
-  t.after(() => Object.assign(config, saved));
+  const configuration = parseRuntimeConfiguration({ SUPABASE_URL: "https://mcp-auth.example.test", SUPABASE_PUBLISHABLE_KEY: "fixture-public" });
   t.mock.method(globalThis, "fetch", async (address: string) => {
     assert.equal(String(address), "https://mcp-auth.example.test/auth/v1/user");
     return Response.json({ id: userId, aud: "authenticated", role: "authenticated" });
@@ -46,7 +43,7 @@ async function fixture(t: TestContext, options: { role?: "owner" | "viewer"; all
     findMembership: async (actor: string, tenant: string) => actor === userId && tenant === tenantId
       ? { tenantId, tenantName: "Legal", tenantSlug: "legal", role: options.role ?? "viewer" } : null,
     recordAuditEvent: audit
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, execute, audit, issue, revoke };
 }

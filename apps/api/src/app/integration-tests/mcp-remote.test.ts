@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { McpOAuth } from "../../modules/mcp/application/oauth.js";
 import type { McpOAuthRepository, McpPrincipal } from "../../modules/mcp/application/remote-types.js";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import { buildApp } from "../http-server.js";
 
 const tenantId = "11000000-0000-4000-8000-000000000001";
@@ -10,15 +10,14 @@ const userId = "22000000-0000-4000-8000-000000000001";
 const token = "lumora_mcp_at_" + "a".repeat(43);
 const headers = { host: "api.example", authorization: `Bearer ${token}`, accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-11-25" };
 async function fixture(t: TestContext, options: { denied?: boolean; auditFails?: boolean } = {}) {
-  const saved = { API_KEY: config.API_KEY, ALLOWED_ORIGINS: config.ALLOWED_ORIGINS, MCP_REMOTE_ALLOWED_ORIGINS: config.MCP_REMOTE_ALLOWED_ORIGINS };
-  Object.assign(config, { API_KEY: "fixture-api-key-for-normal-apis", ALLOWED_ORIGINS: ["https://app.example"], MCP_REMOTE_ALLOWED_ORIGINS: ["https://trusted-assistant.example"] });
-  t.after(() => Object.assign(config, saved));
+  const configuration = parseRuntimeConfiguration({ API_KEY: "fixture-api-key-for-normal-apis",
+    ALLOWED_ORIGINS: "https://app.example", MCP_REMOTE_ALLOWED_ORIGINS: "https://trusted-assistant.example" });
   const principal: McpPrincipal = { tenantId, userId, grantId: tenantId, clientId: "client", role: "viewer", allowedTools: ["list_sources"], expiresAt: new Date(Date.now() + 600000) };
   const oauth = new McpOAuth({ verify: async () => principal } as unknown as McpOAuthRepository, "https://api.example/mcp", "https://app.example");
   const execute = t.mock.fn(async () => ({ sources: [] }));
   const audit = t.mock.fn(async () => { if (options.auditFails) throw new Error("audit unavailable"); });
   const controls = { admit: async () => !options.denied, begin: async () => tenantId, alive: async () => true, finish: async () => {}, cancel: t.mock.fn(async () => {}) };
-  const app = await buildApp({ remoteMcp: { oauth, tools: { execute }, controls }, recordAuditEvent: audit } as unknown as Parameters<typeof buildApp>[0]);
+  const app = await buildApp({ remoteMcp: { oauth, tools: { execute }, controls }, recordAuditEvent: audit } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, execute, audit, controls };
 }

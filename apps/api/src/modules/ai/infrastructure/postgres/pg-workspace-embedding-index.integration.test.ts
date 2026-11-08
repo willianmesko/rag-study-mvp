@@ -7,7 +7,7 @@ import { EmbeddingIndexChangedError, workspaceEmbeddingDimensions, type Embeddin
 import { IngestDocumentUseCase } from "../../../ingestion/application/use-cases/ingest-document.js";
 import { rebuildWorkspaceEmbeddings } from "../../../knowledge/application/use-cases/rebuild-workspace-embeddings.js";
 import { SearchDocumentsUseCase } from "../../../knowledge/application/use-cases/search-documents.js";
-import { config } from "../../../../config.js";
+import { parseRuntimeConfiguration } from "../../../../app/configuration/environment.js";
 import { createConfiguredProviderBindings } from "../../../../app/composition/provider-registry.js";
 import { createWorkspaceEmbeddingAdapter, createWorkspaceEmbeddingProvider } from "../embedding/workspace-embedding-provider.js";
 import { PassThroughReranker } from "../reranking/pass-through-reranker.js";
@@ -30,12 +30,8 @@ test("a workspace embedding cutover is complete, scoped, cache-invalidating and 
   const pool = new Pool({ connectionString: databaseUrl });
   const tenantId = randomUUID();
   const otherTenant = randomUUID();
-  const oldConfig = { provider: config.EMBEDDING_PROVIDER, model: config.OLLAMA_EMBEDDING_MODEL };
-  config.EMBEDDING_PROVIDER = "ollama";
-  config.OLLAMA_EMBEDDING_MODEL = oldModel.model;
+  const configuration = parseRuntimeConfiguration({ EMBEDDING_PROVIDER: "ollama", OLLAMA_EMBEDDING_MODEL: oldModel.model });
   t.after(async () => {
-    config.EMBEDDING_PROVIDER = oldConfig.provider;
-    config.OLLAMA_EMBEDDING_MODEL = oldConfig.model;
     try {
       await pool.query("DELETE FROM documents WHERE tenant_id IN ($1, $2)", [tenantId, otherTenant]);
       await pool.query("DELETE FROM tenants WHERE id IN ($1, $2)", [tenantId, otherTenant]);
@@ -63,7 +59,7 @@ test("a workspace embedding cutover is complete, scoped, cache-invalidating and 
   const index = new PgWorkspaceEmbeddingIndex(pool);
   const documents = new PgDocumentRepository(pool, dimensions);
   const cache = new PgSemanticAnswerCache(pool, dimensions);
-  const bindings = createConfiguredProviderBindings(config);
+  const bindings = createConfiguredProviderBindings(configuration);
   const adapter = (identity: EmbeddingModelIdentity) => createWorkspaceEmbeddingAdapter(identity, bindings.registry);
   const provider = createWorkspaceEmbeddingProvider(index, bindings.defaultEmbedding, adapter);
   const ingest = new IngestDocumentUseCase(provider, documents, { chunkSize: 1000, chunkOverlap: 100, embeddingConcurrency: 2 });

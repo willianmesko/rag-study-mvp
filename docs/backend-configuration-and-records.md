@@ -39,8 +39,10 @@ every vendor SDK environment read is gone or all settings are deeply immutable.
 The [four-family fixture follow-up](operations/release-2026-11-07-isolated-http-fixtures.md)
 migrates query scope/cancellation, knowledge readiness, demo discovery and
 workspace isolation to the same explicit parser/factory contract. Its record
-distinguishes local validation from publication. Fifteen other fixture files
-still mutate the compatibility singleton; their migration remains open.
+distinguishes local validation from publication. The
+[remaining-fixture candidate](operations/release-2026-11-07-isolated-resource-fixtures.md)
+also migrates the remaining 15 mutable consumers and one read-only assembly
+import; its real database/cutover CI and publication are still required.
 
 ## Database boundary
 

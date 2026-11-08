@@ -286,7 +286,8 @@ feature-owned locations during BE-07's migration.
 - [x] Embedding-response increment is CI verified and published. Titan/Ollama/OpenRouter use dimension-first finite-vector decoding, bounded single-result envelopes and honest usage receipts. See the [release record](operations/release-2026-11-07-embedding-responses.md).
 - [x] Chat-response candidate is locally validated; CI/publication pending. OpenRouter/Ollama validate JSON/stream envelopes and deltas, retain native usage on invalid output and preserve real connection cancellation. See the [candidate record](operations/release-2026-11-07-chat-response-boundaries.md).
 - [x] Four HTTP fixture families now use independently parsed configuration and explicit production policy; 25 focused checks and the full local harness passed. CI/publication are pending; 15 legacy files remain. See the [candidate record](operations/release-2026-11-07-isolated-http-fixtures.md).
-- [ ] Remaining BE-12: migrate older shared-config fixtures incrementally; inventory/decode other externally influenced repository JSON and unchecked row assumptions. Two migrated row families do not establish complete SQL coverage.
+- [x] Remaining configuration fixtures are migrated locally: the original 19 mutable files and the read-only assembly consumer use explicit settings; the final inventory of 96 tests finds no legacy imports/writes. Focused HTTP/assembly and strict checks pass; actual database/cutover CI and publication are pending. See the [candidate record](operations/release-2026-11-07-isolated-resource-fixtures.md).
+- [ ] Remaining BE-12: complete fixture release evidence; inventory/decode other externally influenced repository JSON and unchecked row assumptions. Two migrated row families do not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
 

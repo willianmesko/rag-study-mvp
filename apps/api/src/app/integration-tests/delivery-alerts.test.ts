@@ -3,22 +3,14 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { randomUUID } from "node:crypto";
 import { buildApp } from "../http-server.js";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 const tenantId = randomUUID(),
   userId = randomUUID(),
   id = randomUUID();
 async function fixture(t: TestContext, role = "owner") {
-  const saved = {
-    SUPABASE_URL: config.SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY: config.SUPABASE_PUBLISHABLE_KEY,
-    API_KEY: config.API_KEY,
-  };
-  Object.assign(config, {
-    SUPABASE_URL: "https://fixture.example.com",
-    SUPABASE_PUBLISHABLE_KEY: "fixture",
-    API_KEY: undefined,
+  const configuration = parseRuntimeConfiguration({
+    SUPABASE_URL: "https://fixture.example.com", SUPABASE_PUBLISHABLE_KEY: "fixture"
   });
-  t.after(() => Object.assign(config, saved));
   t.mock.method(globalThis, "fetch", async () =>
     Response.json({ id: userId, aud: "authenticated", role: "authenticated" }),
   );
@@ -30,7 +22,7 @@ async function fixture(t: TestContext, role = "owner") {
       user === userId && workspace === tenantId
         ? { tenantId, tenantName: "Fixture", tenantSlug: "fixture", role }
         : null,
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, replay, status };
 }

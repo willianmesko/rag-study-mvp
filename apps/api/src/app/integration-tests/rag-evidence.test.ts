@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import type { AuditEventRepository } from "../../modules/usage/application/ports/audit-event-repository.js";
 import type { AnswerQuestionResult } from "../../modules/chat/application/ports/question-answering-workflow.js";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import type { RetrievedChunk } from "../../modules/knowledge/domain/document.js";
 import { buildApp } from "../http-server.js";
 
@@ -23,10 +23,7 @@ const blockedMatch: RetrievedChunk = {
 };
 
 async function fixture(t: TestContext, role: "editor" | "viewer" = "editor") {
-  const configOverrides = { SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key", API_KEY: undefined };
-  const previousConfig = { SUPABASE_URL: config.SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY: config.SUPABASE_PUBLISHABLE_KEY, API_KEY: config.API_KEY };
-  Object.assign(config, configOverrides);
-  t.after(() => { Object.assign(config, previousConfig); });
+  const configuration = parseRuntimeConfiguration({ SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key" });
   t.mock.method(globalThis, "fetch", async (address: string) => {
     assert.equal(String(address), `${authUrl}/auth/v1/user`);
     return Response.json({ id: userId, aud: "authenticated", role: "authenticated" });
@@ -49,7 +46,7 @@ async function fixture(t: TestContext, role: "editor" | "viewer" = "editor") {
     answerQuestion: { execute: async () => answer },
     previewIngestionPassages: preview,
     recordAuditEvent: audit
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, preview, audit };
 }

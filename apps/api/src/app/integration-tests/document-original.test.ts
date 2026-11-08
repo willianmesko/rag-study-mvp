@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import type { AuditEventRepository } from "../../modules/usage/application/ports/audit-event-repository.js";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import type { DocumentInput } from "../../modules/knowledge/domain/document.js";
 import { buildApp } from "../http-server.js";
 
@@ -18,18 +18,9 @@ const originalPath = (id: string) => `/v1/admin/documents/${id}/original`;
 const pdf = { filename: "source.pdf", mimeType: "application/pdf", payload: Buffer.from("%PDF-fixture\n") };
 
 async function fixture(t: TestContext, original = pdf) {
-  const configOverrides = {
-    SUPABASE_URL: supabaseUrl,
-    SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key",
-    API_KEY: undefined,
-    DEMO_MODE: true,
-    ALLOWED_ORIGINS: [webOrigin],
-    RATE_LIMIT_MAX: 60
-  };
-  const previousConfig = Object.fromEntries(Object.keys(configOverrides).map((key) => [key, config[key as keyof typeof config]]));
-  Object.assign(config, configOverrides);
-  t.after(() => {
-    Object.assign(config, previousConfig);
+  const configuration = parseRuntimeConfiguration({
+    SUPABASE_URL: supabaseUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key",
+    DEMO_MODE: "true", ADMIN_API_KEY: "synthetic-demo-admin-key", ALLOWED_ORIGINS: webOrigin, RATE_LIMIT_MAX: "60"
   });
 
   t.mock.method(globalThis, "fetch", async (url: string, init?: RequestInit) => {
@@ -56,7 +47,7 @@ async function fixture(t: TestContext, original = pdf) {
     getDocumentOriginal: { execute: getDocumentOriginal },
     recordAuditEvent
   } satisfies Partial<Parameters<typeof buildApp>[0]>;
-  const app = await buildApp(dependencies as unknown as Parameters<typeof buildApp>[0]);
+  const app = await buildApp(dependencies as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, listMemberships, findMembership, getDocumentOriginal, recordAuditEvent };
 }
@@ -154,19 +145,15 @@ test("a PDF filename and MIME type cannot override the original's bytes", async 
 });
 
 test("direct text ingestion preserves metadata but cannot set the original's ingestion job", async (t) => {
-  const previousConfig = { API_KEY: config.API_KEY, ADMIN_API_KEY: config.ADMIN_API_KEY, DEMO_MODE: config.DEMO_MODE };
   const adminKey = "fixture-direct-ingestion-key";
-  Object.assign(config, { API_KEY: undefined, ADMIN_API_KEY: adminKey, DEMO_MODE: true });
-  t.after(() => {
-    Object.assign(config, previousConfig);
-  });
+  const configuration = parseRuntimeConfiguration({ ADMIN_API_KEY: adminKey, DEMO_MODE: "true" });
 
   const ingest = t.mock.fn(async (_input: DocumentInput) => ({ id: documentId, chunkCount: 1, highRiskChunks: 0 }));
   const app = await buildApp({
     ingestDocument: { execute: ingest },
     consumeAdminUploadQuota: async () => ({ allowed: true, used: 0, limit: 1_000 }),
     recordAuditEvent: async () => {}
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
 
   const input = { source: "fixture", title: "Direct text", text: "A sample document." };
@@ -179,5 +166,5 @@ test("direct text ingestion preserves metadata but cannot set the original's ing
   });
   assert.equal(response.statusCode, 201);
   assert.equal(ingest.mock.callCount(), 1);
-  assert.deepEqual(ingest.mock.calls[0]?.arguments, [{ ...input, metadata, tenantId: config.DEFAULT_TENANT_ID }]);
+  assert.deepEqual(ingest.mock.calls[0]?.arguments, [{ ...input, metadata, tenantId: configuration.DEFAULT_TENANT_ID }]);
 });

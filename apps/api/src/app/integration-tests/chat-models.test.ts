@@ -7,7 +7,7 @@ import type { UsageMetricsRepository } from "../../modules/usage/application/por
 import { AnswerQuestionUseCase } from "../../modules/chat/application/use-cases/answer-question.js";
 import { CompareAnswersUseCase } from "../../modules/chat/application/use-cases/compare-answers.js";
 import { RouteAnswerUseCase } from "../../modules/chat/application/use-cases/route-answer.js";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import type { RetrievedChunk } from "../../modules/knowledge/domain/document.js";
 import { LangGraphRagWorkflow } from "../../modules/chat/infrastructure/langgraph/langgraph-rag-workflow.js";
 import { buildApp } from "../http-server.js";
@@ -34,10 +34,8 @@ async function fixture(t: TestContext, {
   failureModel?: string; maxTotalOutputTokens?: number; denyFallbackQuota?: boolean;
 } = {}) {
   const authUrl = "https://models.example.test";
-  const overrides = { SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key", API_KEY: undefined, DEMO_MODE: true };
-  const previous = Object.fromEntries(Object.keys(overrides).map((key) => [key, config[key as keyof typeof config]]));
-  Object.assign(config, overrides);
-  t.after(() => Object.assign(config, previous));
+  const configuration = parseRuntimeConfiguration({ SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key",
+    DEMO_MODE: "true", ADMIN_API_KEY: "synthetic-demo-admin-key" });
   t.mock.method(globalThis, "fetch", async (address: string) => {
     assert.equal(String(address), `${authUrl}/auth/v1/user`, "Provider requests are not allowed in this test.");
     return Response.json({ id: userId, aud: "authenticated", role: "authenticated" });
@@ -88,7 +86,7 @@ async function fixture(t: TestContext, {
     recordAuditEvent: async () => {},
     findMembership: async (actor: string, requested: string) => actor === userId && requested === tenantId
       ? { tenantId, tenantName: "Legal", tenantSlug: "legal", role } : null
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, consumeQuestionQuota, embed, retrieve, baseline: baseline!, alternate: alternate!, record, policies };
 }

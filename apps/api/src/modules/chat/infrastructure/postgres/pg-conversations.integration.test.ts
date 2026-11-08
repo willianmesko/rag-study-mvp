@@ -10,7 +10,7 @@ import { WorkflowStateCodec } from "../../../../platform/workflows/workflow-stat
 import { ConversationError } from "../../application/ports/conversation-repository.js";
 import { ConversationDelivery } from "../../application/conversations/delivery.js";
 import { buildApp } from "../../../../app/http-server.js";
-import { config } from "../../../../config.js";
+import { parseRuntimeConfiguration } from "../../../../app/configuration/environment.js";
 import { safeHttpLogSerializers } from "../../../../platform/http/safe-logging.js";
 import { setTimeout as delay } from "node:timers/promises";
 import {
@@ -565,23 +565,13 @@ test(
     await t.test(
       "HTTP history, JSON admission, stream replay, comparison and cancellation preserve private ordered history",
       async (t) => {
-        const previous = {
-          SUPABASE_URL: config.SUPABASE_URL,
-          SUPABASE_PUBLISHABLE_KEY: config.SUPABASE_PUBLISHABLE_KEY,
-          API_KEY: config.API_KEY,
-          AGENT_TIMEOUT_MS: config.AGENT_TIMEOUT_MS,
-          RATE_LIMIT_MAX: config.RATE_LIMIT_MAX,
-          QA_RATE_LIMIT_MAX: config.QA_RATE_LIMIT_MAX,
-        };
-        Object.assign(config, {
+        const configuration = parseRuntimeConfiguration({
           SUPABASE_URL: "https://conversation-auth.example.test",
           SUPABASE_PUBLISHABLE_KEY: "fixture",
-          API_KEY: undefined,
-          AGENT_TIMEOUT_MS: 8000,
-          RATE_LIMIT_MAX: 1000,
-          QA_RATE_LIMIT_MAX: 500,
+          AGENT_TIMEOUT_MS: "8000",
+          RATE_LIMIT_MAX: "1000",
+          QA_RATE_LIMIT_MAX: "500",
         });
-        t.after(() => Object.assign(config, previous));
         t.mock.method(
           globalThis,
           "fetch",
@@ -688,7 +678,7 @@ test(
               }));
             },
           },
-        } as unknown as Parameters<typeof buildApp>[0]);
+        } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
         try {
           const cid = randomUUID(),
             headers = {

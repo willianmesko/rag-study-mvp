@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import { buildApp } from "../http-server.js";
 const tenantId = "22e83cdd-ee9f-42c0-b508-56ca0eb3416a",
   other = "129f4b64-1268-4029-82b3-3d56f6c419b9",
@@ -8,17 +8,7 @@ const tenantId = "22e83cdd-ee9f-42c0-b508-56ca0eb3416a",
   runId = "f3b16d6a-5627-40f1-8ea7-70988d0720b1";
 const headers = { authorization: "Bearer fixture", "x-workspace-id": tenantId };
 async function fixture(t: TestContext, role: "owner" | "viewer" = "owner") {
-  const previous = {
-    SUPABASE_URL: config.SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY: config.SUPABASE_PUBLISHABLE_KEY,
-    API_KEY: config.API_KEY,
-  };
-  Object.assign(config, {
-    SUPABASE_URL: "https://workflows.example.test",
-    SUPABASE_PUBLISHABLE_KEY: "fixture",
-    API_KEY: undefined,
-  });
-  t.after(() => Object.assign(config, previous));
+  const configuration = parseRuntimeConfiguration({ SUPABASE_URL: "https://workflows.example.test", SUPABASE_PUBLISHABLE_KEY: "fixture" });
   t.mock.method(globalThis, "fetch", async () =>
     Response.json({ id: userId, aud: "authenticated", role: "authenticated" }),
   );
@@ -74,7 +64,7 @@ async function fixture(t: TestContext, role: "owner" | "viewer" = "owner") {
       actor === userId && tenant === tenantId
         ? { tenantId, tenantName: "Fixture", tenantSlug: "fixture", role }
         : null,
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, start, approve, cancel, audit };
 }

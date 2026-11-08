@@ -1,25 +1,16 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { usageResponseSchema } from "@rag-study/contracts";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import { buildApp } from "../http-server.js";
 const tenant = "4c648f8c-1eaa-4276-b2df-32d8a18be961",
   other = "9484df30-1cec-42e3-a64a-15a90d38faf9",
   user = "0b41d067-2ad6-4546-8c24-72f723fa2a75";
 async function fixture(t: TestContext, role = "owner") {
-  const saved = {
-    SUPABASE_URL: config.SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY: config.SUPABASE_PUBLISHABLE_KEY,
-    API_KEY: config.API_KEY,
-    USAGE_ALERT_THRESHOLD_USD: config.USAGE_ALERT_THRESHOLD_USD,
-  };
-  Object.assign(config, {
-    SUPABASE_URL: "https://usage.example.test",
-    SUPABASE_PUBLISHABLE_KEY: "fixture",
-    API_KEY: undefined,
-    USAGE_ALERT_THRESHOLD_USD: 0.5,
+  const configuration = parseRuntimeConfiguration({
+    SUPABASE_URL: "https://usage.example.test", SUPABASE_PUBLISHABLE_KEY: "fixture",
+    USAGE_ALERT_THRESHOLD_USD: "0.5"
   });
-  t.after(() => Object.assign(config, saved));
   t.mock.method(globalThis, "fetch", async () =>
     Response.json({ id: user, aud: "authenticated", role: "authenticated" }),
   );
@@ -45,7 +36,7 @@ async function fixture(t: TestContext, role = "owner") {
             role,
           }
         : null,
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, summarize };
 }

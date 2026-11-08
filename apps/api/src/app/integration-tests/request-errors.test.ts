@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import { buildApp } from "../http-server.js";
 import { frameworkRequestFailure } from "../../platform/http/request-errors.js";
 
@@ -8,11 +8,9 @@ const workspaceId = "11000000-0000-4000-8000-000000000001";
 const userId = "22000000-0000-4000-8000-000000000001";
 
 async function fixture(t: TestContext, options: { max?: number; workspaceFailure?: Error } = {}) {
-  const previous = { API_KEY: config.API_KEY, DEMO_MODE: config.DEMO_MODE, UPLOAD_MAX_BYTES: config.UPLOAD_MAX_BYTES,
-    RATE_LIMIT_MAX: config.RATE_LIMIT_MAX, SUPABASE_URL: config.SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY: config.SUPABASE_PUBLISHABLE_KEY };
-  Object.assign(config, { API_KEY: undefined, DEMO_MODE: true, UPLOAD_MAX_BYTES: 1024, RATE_LIMIT_MAX: options.max ?? 100,
+  const configuration = parseRuntimeConfiguration({ DEMO_MODE: "true", ADMIN_API_KEY: "synthetic-demo-admin-key",
+    UPLOAD_MAX_BYTES: "1024", RATE_LIMIT_MAX: String(options.max ?? 100),
     SUPABASE_URL: "https://auth.example.test", SUPABASE_PUBLISHABLE_KEY: "fixture-public-key" });
-  t.after(() => Object.assign(config, previous));
   const networkFetch = globalThis.fetch;
   t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
     const url = input instanceof Request ? input.url : String(input);
@@ -24,7 +22,7 @@ async function fixture(t: TestContext, options: { max?: number; workspaceFailure
     createWorkspace: async () => { throw options.workspaceFailure ?? new Error("private database detail"); },
     findMembership: async () => ({ tenantId: workspaceId, tenantName: "Team", tenantSlug: "team", role: "owner" }),
     changeWorkspaceMemberRole: changeRole,
-  } as unknown as Parameters<typeof buildApp>[0]);
+  } as unknown as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, changeRole };
 }

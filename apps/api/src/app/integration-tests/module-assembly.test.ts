@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { Pool } from "pg";
 import type { WorkspaceChatModelPolicy } from "@rag-study/contracts";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import type { ModelRuntimeIdentity, ModelRuntimeProviders } from "../../modules/ai/index.js";
 import type { QuotaRepository } from "../../modules/usage/index.js";
 import { createConfiguredProviderBindings } from "../composition/provider-registry.js";
@@ -19,6 +19,7 @@ import { createWorkflowRuntime, workspaceWorkflowOptionsFromConfiguration } from
 
 const tenantId = "20000000-0000-4000-8000-000000000001";
 const actorKey = "user:fixture";
+const baseConfiguration = parseRuntimeConfiguration({});
 
 function fixture(t: TestContext) {
   const pool = new Pool();
@@ -26,7 +27,7 @@ function fixture(t: TestContext) {
   t.mock.method(globalThis, "fetch", async () => { throw new Error("Assembly attempted provider IO."); });
   t.after(() => pool.end());
   const configuration = {
-    ...config, CHAT_PROVIDER: "ollama" as const, OLLAMA_CHAT_MODEL: "fixture-default", LANGSMITH_TRACING: false,
+    ...baseConfiguration, CHAT_PROVIDER: "ollama" as const, OLLAMA_CHAT_MODEL: "fixture-default", LANGSMITH_TRACING: false,
     CHAT_MAX_OUTPUT_TOKENS: 500, RAG_CLAIM_MODE: "extractive" as const,
     CHAT_ADDITIONAL_MODELS: [{ id: "second", label: "Second", model: "fixture-second", provider: "ollama" as const, inputCostPer1kUsd: 0, outputCostPer1kUsd: 0 }],
   };
@@ -35,7 +36,7 @@ function fixture(t: TestContext) {
   const knowledge = createKnowledgeServices({
     ...createPostgresKnowledgeBindings(pool, 1024),
     originals: { isEnabled: () => false, put: async () => { throw new Error("Unexpected upload"); }, get: async () => { throw new Error("Unexpected original read"); }, remove: async () => { throw new Error("Unexpected original deletion"); } },
-    embeddings, reranker: createConfiguredProviderBindings({ ...config, RERANKER_PROVIDER: "none" }).registry.createReranker(),
+    embeddings, reranker: createConfiguredProviderBindings({ ...baseConfiguration, RERANKER_PROVIDER: "none" }).registry.createReranker(),
     sourceJobs: { findIndexedOriginal: async () => null, listStoragePathsForDocument: async () => [], deleteForDocument: async () => {} },
     searchOptions: { defaultTopK: 5, vectorCandidateMultiplier: 4, keywordCandidateMultiplier: 4, reciprocalRankConstant: 60, rerankerCandidateMultiplier: 4, defaultTenantId: tenantId },
   });
@@ -53,7 +54,7 @@ function fixture(t: TestContext) {
     embeddings, searchDocuments, semanticCache: chat.semanticCache,
     usageMetrics: { record: async () => {}, summarize: async () => { throw new Error("Unexpected ledger query"); } },
     workspaceModelPolicies: policies, quota: { consumeQuestion }, aiProviders: providers,
-    ...createChatWorkflowBindings(chat.chatRuns, { enabled: false, projectName: config.LANGSMITH_PROJECT }),
+    ...createChatWorkflowBindings(chat.chatRuns, { enabled: false, projectName: baseConfiguration.LANGSMITH_PROJECT }),
     options: chatRuntimeOptionsFromConfiguration(configuration),
   });
   return { pool, configuration, knowledge, chat, embeddings, searchDocuments, policies, providers, requests, consumeQuestion, runtime, setPolicy: (value: WorkspaceChatModelPolicy) => { policy = value; } };
@@ -84,7 +85,7 @@ test("chat assembly rechecks workspace policies and preserves evaluation caps, c
 
 test("MCP assembly keeps actions independent and shares controls without eagerly resolving a disabled read index", (t) => {
   const f = fixture(t);
-  const configuration = { ...config, MCP_REMOTE_ENABLED: true, MCP_PUBLIC_URL: "https://api.example.test/mcp", APP_BASE_URL: "https://app.example.test", AGENT_ACTIONS_ENABLED: true };
+  const configuration = { ...baseConfiguration, MCP_REMOTE_ENABLED: true, MCP_PUBLIC_URL: "https://api.example.test/mcp", APP_BASE_URL: "https://app.example.test", AGENT_ACTIONS_ENABLED: true };
   const limits = {
     callsPerMinute: configuration.MCP_CALLS_PER_MINUTE, callsPerDay: configuration.MCP_CALLS_PER_DAY,
     providerCallsPerDay: configuration.MCP_PROVIDER_CALLS_PER_DAY, inputTokensPerDay: configuration.MCP_INPUT_TOKENS_PER_DAY,

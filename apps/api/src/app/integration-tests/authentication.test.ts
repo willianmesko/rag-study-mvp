@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { IncomingMessage } from "node:http";
 import { Socket } from "node:net";
 import test, { type TestContext } from "node:test";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import { buildApp } from "../http-server.js";
 import { RequestIdentity } from "../../modules/identity/http/request-identity.js";
 
@@ -16,19 +16,19 @@ const headers = { authorization: "Bearer session", "x-workspace-id": tenantId };
 const membership = { tenantId, tenantName: "Fixture", tenantSlug: "fixture", role: "owner" as const };
 const createdAt = new Date("2026-01-01T00:00:00.000Z");
 
-function configure(t: TestContext, timeoutMs = 1000) {
-  const overrides = { SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "public-fixture", SUPABASE_SERVICE_ROLE_KEY: "admin-fixture", API_KEY: undefined, PROVIDER_TIMEOUT_MS: timeoutMs };
-  const previous = Object.fromEntries(Object.keys(overrides).map((key) => [key, config[key as keyof typeof config]]));
-  Object.assign(config, overrides);
-  t.after(() => { Object.assign(config, previous); });
+function fixtureConfiguration(timeoutMs = 1000) {
+  const configuration = parseRuntimeConfiguration({ SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "public-fixture",
+    SUPABASE_SERVICE_ROLE_KEY: "admin-fixture", PROVIDER_TIMEOUT_MS: "1000" });
+  // The short timeout is an explicit HTTP test setting; production parsing keeps its minimum.
+  return { ...configuration, PROVIDER_TIMEOUT_MS: timeoutMs };
 }
 
-async function appFixture(t: TestContext, overrides: Partial<Parameters<typeof buildApp>[0]> = {}) {
+async function appFixture(t: TestContext, overrides: Partial<Parameters<typeof buildApp>[0]> = {}, configuration = fixtureConfiguration()) {
   const listMemberships = t.mock.fn(async () => [membership]);
   const findMembership = t.mock.fn(async () => membership);
   const listDocuments = t.mock.fn(async () => []);
   const listWorkspaceMembers = t.mock.fn(async () => [{ userId: actorId, role: "owner" as const, createdAt }]);
-  const app = await buildApp({ listMemberships, findMembership, listDocuments, listWorkspaceMembers, ...overrides } as Parameters<typeof buildApp>[0]);
+  const app = await buildApp({ listMemberships, findMembership, listDocuments, listWorkspaceMembers, ...overrides } as Parameters<typeof buildApp>[0], { configuration, isProduction: true });
   t.after(() => app.close());
   return { app, listMemberships, findMembership, listDocuments, listWorkspaceMembers };
 }
@@ -57,7 +57,6 @@ test("request disconnection cancels verification and removes request listeners",
 });
 
 test("invalid and missing sessions never reach memberships, workspace creation or the directory", async (t) => {
-  configure(t);
   const fetch = t.mock.method(globalThis, "fetch", async () => Response.json({ message: "PRIVATE_INVALID_SESSION_SENTINEL", code: "session_not_found" }, { status: 401 }));
   const createWorkspace = t.mock.fn(async () => membership);
   const { app, listMemberships, findMembership, listWorkspaceMembers } = await appFixture(t, { createWorkspace });
@@ -76,7 +75,6 @@ test("invalid and missing sessions never reach memberships, workspace creation o
 });
 
 test("valid identity never caches a revoked database membership or a downgraded role", async (t) => {
-  configure(t);
   const fetch = t.mock.method(globalThis, "fetch", async () => Response.json({ id: actorId, user_metadata: { tenantId, role: "owner" } }));
   let role: "owner" | "viewer" | null = "owner";
   const findMembership = t.mock.fn(async () => role ? { ...membership, role } : null);
@@ -93,7 +91,6 @@ test("valid identity never caches a revoked database membership or a downgraded 
 });
 
 test("member directory starts with selected-tenant membership IDs and can load users beyond the first thousand", async (t) => {
-  configure(t);
   const order: string[] = [];
   const fetched: string[] = [];
   t.mock.method(globalThis, "fetch", async (input: string) => {
@@ -121,12 +118,11 @@ test("member directory starts with selected-tenant membership IDs and can load u
 });
 
 test("stalled Auth yields a safe bounded failure before any private data query", async (t) => {
-  configure(t, 20);
   let aborted = false;
   t.mock.method(globalThis, "fetch", async (_input: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
     init!.signal!.addEventListener("abort", () => { aborted = true; reject(new Error("PRIVATE_TRANSPORT_SENTINEL")); }, { once: true });
   }));
-  const { app, listMemberships, findMembership } = await appFixture(t);
+  const { app, listMemberships, findMembership } = await appFixture(t, {}, fixtureConfiguration(20));
   let guard!: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_resolve, reject) => { guard = setTimeout(() => reject(new Error("Authentication request was not bounded.")), 1500); });
   try {
@@ -141,7 +137,6 @@ test("stalled Auth yields a safe bounded failure before any private data query",
 });
 
 test("member identity failures preserve safe HTTP errors and removed identities remain nullable", async (t) => {
-  configure(t);
   let status = 503;
   t.mock.method(globalThis, "fetch", async (input: string) => new URL(String(input)).pathname === "/auth/v1/user"
     ? Response.json({ id: actorId })

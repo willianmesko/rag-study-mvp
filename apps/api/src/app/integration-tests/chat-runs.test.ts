@@ -7,7 +7,7 @@ import { chatRunEventSchema, type ChatRunEvent } from "@rag-study/contracts";
 import type { ChatRunRepository, ChatRunScope, ChatRunSnapshot } from "../../modules/chat/application/ports/chat-run-repository.js";
 import type { AnswerQuestionResult } from "../../modules/chat/application/ports/question-answering-workflow.js";
 import type { AnswerQuestionUseCase } from "../../modules/chat/application/use-cases/answer-question.js";
-import { config } from "../../config.js";
+import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import { buildApp } from "../http-server.js";
 
 const fetchHttp = globalThis.fetch;
@@ -66,12 +66,8 @@ class FixtureChatRuns implements ChatRunRepository {
 }
 
 async function fixture(t: TestContext, execute: AnswerQuestionUseCase["execute"]) {
-  const previous = { SUPABASE_URL: config.SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY: config.SUPABASE_PUBLISHABLE_KEY,
-    API_KEY: config.API_KEY, AGENT_TIMEOUT_MS: config.AGENT_TIMEOUT_MS, RATE_LIMIT_MAX: config.RATE_LIMIT_MAX,
-    QA_RATE_LIMIT_MAX: config.QA_RATE_LIMIT_MAX };
-  Object.assign(config, { SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key", API_KEY: undefined,
-    AGENT_TIMEOUT_MS: 8_000, RATE_LIMIT_MAX: 60, QA_RATE_LIMIT_MAX: 20 });
-  t.after(() => { Object.assign(config, previous); });
+  const configuration = parseRuntimeConfiguration({ SUPABASE_URL: authUrl, SUPABASE_PUBLISHABLE_KEY: "fixture-publishable-key",
+    AGENT_TIMEOUT_MS: "8000", RATE_LIMIT_MAX: "60", QA_RATE_LIMIT_MAX: "20" });
   t.mock.method(globalThis, "fetch", async (url: string, init?: RequestInit) => {
     assert.equal(String(url), `${authUrl}/auth/v1/user`);
     const authorization = new Headers(init?.headers).get("authorization");
@@ -91,7 +87,7 @@ async function fixture(t: TestContext, execute: AnswerQuestionUseCase["execute"]
   } as unknown as Parameters<typeof buildApp>[0];
 
   async function listen() {
-    const app = await buildApp(dependencies);
+    const app = await buildApp(dependencies, { configuration, isProduction: true });
     t.after(() => app.close());
     return app.listen({ host: "127.0.0.1", port: 0 });
   }
