@@ -1,6 +1,6 @@
 # Lumora: end-to-end learning walkthrough
 
-**Status:** two lessons prepared; interactive teaching sessions and learner outcomes pending.
+**Status:** three lessons prepared; interactive teaching sessions and learner outcomes pending.
 
 The project is a learning platform as well as a product demonstration. This
 walkthrough will explain the actual implementation from first principles and
@@ -91,6 +91,10 @@ teaching session or any learner outcome below.
 The second [prepared lesson](learning/02-node-types-and-execution.md) explains
 the actual Node/TypeScript/module structure, async work, typed ports, runtime
 validation, cancellation and transaction/resource lifetimes.
+The third [prepared lesson](learning/03-modules-and-dependency-direction.md)
+follows actual module factories, ports, adapters, resource ownership and frontend
+Public APIs, with a disposable architecture exercise. Preparation does not mark
+the learning outcomes complete.
 
 ### 1. Product journey and the system map
 

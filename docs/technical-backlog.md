@@ -18,15 +18,17 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-13, BE-14, FE-08 | 5 |
 | Pending implementation or final validation/publication | BE-09 | 1 |
 
-The latest batch is live on frontend and API at `bbc1adad13e958ed952ba22d2dfb203a5bd692c7`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42444829972) passed.
+The latest batch is live on frontend and API at `ce17d1d51623d4145764f01f0d8e762bd7d66224`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42448152261) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
-CI passed 410 UX cases/46 deliberate skips, 95 PostgreSQL cases, the isolated
+CI passed 410 UX cases/46 deliberate skips, 97 PostgreSQL cases, the isolated
 cutover, 78 architecture fixtures, seven harness checks, four native route-state,
 six artifact and three payload cases. The Render build independently passed
 both actual OCR cases with zero skips and zero project test artifacts in the
-final application tree. The [combined receipt](operations/release-2026-11-08-records-and-capacity.md) records the newly published read boundaries and separate capacity proofs. Both live SHAs, public assets, health, protected routes
+final application tree. The [partial-projection receipt](operations/ingestion-projection-boundaries.md)
+records the current original/preview delivery; the earlier
+[combined receipt](operations/release-2026-11-08-records-and-capacity.md) retains its pinned read-boundary and separate capacity evidence. Both live SHAs, public assets, health, protected routes
 and a bounded error-log window were verified.
 
 See the [artifact receipt](operations/release-2026-11-07-runtime-artifacts.md),
@@ -303,8 +305,8 @@ feature-owned locations during BE-07's migration.
 - [x] Usage summary projections are CI validated and published: finite decimal/exponent strings, safe integer counts, checked dimensions/dates and honest empty-window/legacy semantics. Six focused cases, seven harness checks, both graphs and the real SQL NaN corrupt/restore fixture pass. See the [record](operations/release-2026-11-08-usage-summary-records.md) and [combined publication](operations/release-2026-11-08-records-and-capacity.md).
 - [x] MCP source/status projections are CI validated and published: six new cases/18 focused passes, Unicode/optional metadata, existing output guards and read-only scope/rollback/release. Two real SQL fixtures pass after correcting setup/cleanup without weakening constraints. See the [record](operations/release-2026-11-08-mcp-ingestion-records.md).
 - [x] Full ingestion-job records are CI validated and published through a narrow infrastructure helper: four new cases/17 focused passes, original Buffer identity, payload-free list SQL, null/zero values and admission fallback. Real failed-job corrupt/restore and fresh 95-case SQL proof pass. See the [record](operations/release-2026-11-08-ingestion-job-records.md).
-- [ ] Partial original/preview projections: adapter-local driver/nullable-join checks, 28 focused cases, seven harness checks and both graphs pass locally. Actual SQL fixtures cover current-source scope, three-passage ordering/cap, empty joins and negative-count repair. Fresh actual SQL/CI and publication are pending. See the [bounded plan](operations/ingestion-projection-boundaries.md).
-- [ ] Remaining BE-12: follow the [concrete boundary inventory](backend-configuration-and-records.md#remaining-boundary-inventory-be-12) for partial original/preview projections, remaining MCP index/passage mappings, action/OAuth/embedding assumptions and document metadata. Preserve existing constraints, optional fields and security guards; targeted decoding does not establish complete SQL coverage.
+- [x] Partial original/preview projections are CI verified and published: adapter-local driver/nullable-join checks, 28 focused cases, seven harness checks, both graphs, 97 real SQL cases, both short image-based paths and all four normal gates pass. SQL fixtures preserve current-source scope, three-passage ordering/cap, empty joins, private/legacy originals and negative-count repair. Both exact-source deployments and public checks passed. See the [receipt](operations/ingestion-projection-boundaries.md).
+- [ ] Remaining BE-12: follow the [concrete boundary inventory](backend-configuration-and-records.md#remaining-boundary-inventory-be-12) for remaining MCP index/passage mappings, action/OAuth/embedding assumptions and document metadata. Preserve existing constraints, optional fields and security guards; targeted decoding does not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
 

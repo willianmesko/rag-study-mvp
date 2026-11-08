@@ -27,8 +27,8 @@ status section where they appear.
 
 ## In progress
 
-Frontend and API are live at `bbc1adad13e958ed952ba22d2dfb203a5bd692c7` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42444829972) passed. Publication, assets, icon, health, private-route protection
+Frontend and API are live at `ce17d1d51623d4145764f01f0d8e762bd7d66224` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42448152261) passed. Publication, assets, icon, health, private-route protection
 and a bounded error-log window were verified on 2026-11-08 UTC.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
@@ -90,22 +90,25 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
   ages preserve nulls; scope and cleanup are verified without dispatching fixture
   work. This does not validate recovery or sustained queue capacity. See the
   [evidence](operations/capacity-workflow-queues.md).
-- **Prepared, teaching pending:** the first two walkthrough lessons explain the
-  product/request map and Node/TypeScript execution with source references.
+- **Prepared, teaching pending:** the first three walkthrough lessons explain the
+  product/request map, Node/TypeScript execution and module/adapter boundaries
+  with diagrams, source references and provider-free exercises.
   [Learning outcomes](learning-walkthrough.md) remain unchecked.
-- **In validation:** partial ingestion original/preview boundaries preserve
+- **Published increment, ticket partial:** partial ingestion original/preview boundaries preserve
   private originals, unknown-security blocking and scoped three-passage limits.
-  Twenty-eight focused cases, seven harness checks and both graphs pass locally;
-  fresh actual SQL/CI and publication remain pending. See the
-  [plan](operations/ingestion-projection-boundaries.md).
+  Twenty-eight focused cases, seven harness checks, both graphs, 97 real SQL
+  cases and all four normal gates pass; both deployments and public checks are
+  verified. See the [receipt](operations/ingestion-projection-boundaries.md).
 
 The [technical backlog](technical-backlog.md) now records **21 published tickets,
 five partial tickets and one pending ticket**. The current CI passed 410 UX
-checks/46 intentional skips, 95 PostgreSQL checks, the isolated cutover, 78
+checks/46 intentional skips, 97 PostgreSQL checks, the isolated cutover, 78
 architecture fixtures, the full harness, four native route-state and three
 payload-budget cases. Prior releases remain in their dated operational records.
-The [combined receipt](operations/release-2026-11-08-records-and-capacity.md) links
-the exact source, both live services, public checks and measurement limits.
+The [current receipt](operations/ingestion-projection-boundaries.md) links the
+exact source, both live services, public checks and measurement limits. The
+[combined receipt](operations/release-2026-11-08-records-and-capacity.md) retains
+its earlier, separately pinned evidence.
 Operational activation and the learning walkthrough retain separate status.
 
 OAuth extension-parameter compatibility and standard MCP icon metadata are live.

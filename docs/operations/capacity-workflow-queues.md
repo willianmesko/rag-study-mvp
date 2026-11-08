@@ -82,6 +82,8 @@ were present in both phases; API pool waiting and real provider cost remain
 unknown. This short evidence does not replace the separately pinned sustained
 result or complete BE-13.
 
-This is a CI-only delivery. The live application remains at `bbc1ada` as recorded
-in the [combined release receipt](release-2026-11-08-records-and-capacity.md);
-another Render deployment is neither required nor claimed.
+This was a CI-only delivery: the application remained at `bbc1ada` and no Render
+deployment was triggered for it. The subsequent
+[original/preview release](ingestion-projection-boundaries.md) publishes
+`ce17d1d` with this unchanged tooling included. These queue measurements do not
+add a production endpoint.

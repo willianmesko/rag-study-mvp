@@ -9,9 +9,9 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `bbc1adad13e958ed952ba22d2dfb203a5bd692c7`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42444829972).
-- [Release evidence](operations/release-2026-11-08-records-and-capacity.md) records
+- Source: `ce17d1d51623d4145764f01f0d8e762bd7d66224`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42448152261).
+- [Release evidence](operations/ingestion-projection-boundaries.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -36,14 +36,20 @@ normal jobs, 95 real SQL cases, both observed live services and public checks.
 The [sustained result](operations/capacity-sustained-result.md) is separately
 pinned to 7c37d96; the [native probe](operations/capacity-event-loop-plan.md) has
 separate final-source short-run evidence. No unmeasured value was backfilled.
-The first two learning chapters are prepared, with learner outcomes still open.
+The subsequent [partial original/preview delivery](operations/ingestion-projection-boundaries.md)
+is published at `ce17d1d`, after all four normal CI jobs, 97 actual SQL cases
+and both short image-based paths passed. Both exact-source Render deployments,
+the independent OCR build receipt and public checks are verified. The current
+delivery includes the earlier published code; old measurements keep their pinned
+sources. Three learning chapters are prepared, with learner outcomes still open.
 
 The [queue measurement follow-up](operations/capacity-workflow-queues.md) is also
 validated and active in CI at `2c2ed48`: 15 native cases, both actual SQL/image
 pilots and all four normal jobs pass. Both retain 14 valid queue observations;
 the durable run has 99 completed chats, six ingestions and 526 checkpoints.
-This tooling-only change needs no application deployment; live source remains
-`bbc1ada`. Recovery and sustained queue capacity are not claimed.
+This tooling-only change needed no application deployment. It is now included
+in the later `ce17d1d` application delivery. Recovery and sustained queue capacity
+are not claimed.
 
 Next safe measurement: API checkout wait before making a scaling decision,
 then a sustained run with the new instrumentation. Remaining BE-12 projection work needs concrete sink/
