@@ -27,11 +27,12 @@ status section where they appear.
 
 ## In progress
 
-- **Running isolated measurement:** BE-13 sustained follow-up with native
-  event-loop, workflow queues and guarded-checkout timing; ten workspaces,
-  50,000 synthetic chunks, ten clients and 30 mixed minutes. Results, comparison
-  and fresh CI remain pending. No production deployment is part of this run.
-  See the [launch](operations/capacity-sustained-run.md#instrumented-follow-up-2026-11-08-utc).
+- **Validated measurement, ticket partial:** BE-13 instrumented sustained cohort
+  passed at `75f7583`: ten workspaces, 50,000 chunks, ten clients, 30 mixed minutes,
+  10,022 mixed pairs, zero unexpected failures, six completed unique ingestions
+  and safe cleanup. Both phase receipts and 618 queue/resource samples are reviewed;
+  all four fresh quality jobs pass. No application redeployment was needed.
+  See the [process, reproduction and comparative result](operations/capacity-instrumented-sustained-result.md).
 
 - **Published increment, ticket partial:** guarded PostgreSQL client-acquisition
   timing with the existing OpenTelemetry API, native/real-SQL tests and bounded,

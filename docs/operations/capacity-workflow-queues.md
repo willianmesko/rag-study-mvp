@@ -1,5 +1,17 @@
 # BE-13 durable queue observations
 
+## Later sustained evidence
+
+The [instrumented sustained result](capacity-instrumented-sustained-result.md)
+at `75f7583` now adds 618 successful periodic observations during the declared
+long cohort. Chat ready/running maxima are seven/three; maximum sampled ready
+age is 2,156.344 ms. Ingestion ready/running maxima are two/one, with maximum
+ready age 1,217.953 ms. No expired/missing leases appear in runtime samples.
+Six unique jobs complete, with source_read-start queue p95 3,951.558 ms; these
+ages measure different populations. All ten workspaces progress, durable rows
+terminate and owned cleanup passes. No restart/recovery or evaluation load is
+claimed. The original short evidence below stays pinned and unchanged.
+
 ## Evidence and bounded plan
 
 The [sustained result](capacity-sustained-result.md) has 5.6-second p95 time from

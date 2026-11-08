@@ -82,8 +82,8 @@ an exporter, create a dashboard or claim that production samples were received.
 The existing SDK's pull MetricReader/histogram avoids a new library and avoids
 patching pg.Pool globally. The trade-off is deliberate partial coverage and
 bucketed distributions rather than exact quantiles. Pure pool waiting, remaining
-direct paths, an instrumented sustained cohort, large-file/restart/slow-reader
-and replica scenarios remain open. Keep BE-13 partial.
+direct paths, large-file/restart/slow-reader and replica scenarios remain open.
+The later instrumented sustained cohort is recorded separately below. Keep BE-13 partial.
 
 ## Exact-source CI evidence
 
@@ -127,6 +127,17 @@ remains 31 files / 52,893 bytes with SHA-256
 the image applies 31 migrations, then zero on repeat in the disposable database.
 The minimal read-only MCP image check also passes. No dependency, configuration,
 pool size, schema, service plan, exporter or provider is changed.
+
+## Later sustained evidence
+
+The separate [instrumented sustained result](capacity-instrumented-sustained-result.md)
+at `75f7583` passed with 10,022 mixed pairs, both native/checkout phase receipts
+and 618 valid queue/resource observations. Guarded acquired counts are 6,552
+in control and 180,504 in mixed; the mixed maximum is 87.707841 ms. The mixed
+p95 falls in (0, 1] ms without revealing an exact percentile. All six unique
+ingestions, terminal workflow/checkpoint checks, owned cleanup and fresh normal
+CI pass. Code is unchanged from this published delivery; no redeploy or exporter
+activation is required. Direct paths and pure pool queue wait remain unknown.
 
 ## Publication
 

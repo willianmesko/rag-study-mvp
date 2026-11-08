@@ -65,10 +65,21 @@ exact-source services are live and public checks pass. No dependency, database
 grant, model, exporter, pool size or topology changed. Earlier reports remain
 pinned and unmodified; `poolWaitMs` stays unknown.
 
-Next safe measurement: a separately declared sustained cohort using the new
-event-loop/queue/guarded-checkout instrumentation. Guarded checkout includes
-connection setup; pure queue wait and remaining direct paths still need distinct
-measurement before a scaling decision. Remaining BE-12 projection work needs concrete sink/
+The subsequent [instrumented sustained cohort](operations/capacity-instrumented-sustained-result.md)
+passed at `75f7583`: 10,022 mixed pairs in 30 minutes, zero unexpected failures,
+six completed unique ingestions/new-source checks, both phase probe windows,
+618 valid observations and safe cleanup. All four fresh normal jobs pass.
+There are 10,392 completed chats, six ingestions and 62,364 checkpoints. The first
+report remains immutable. Application/lab code is unchanged from `151ccef`;
+the launch and evidence require no production deployment. The public source and
+21 published/five partial/one pending ticket totals remain unchanged.
+
+Next BE-13 work needs a separately declared bounded scenario for slow readers,
+cancellation/reconnect or restart recovery; inspect SQL/lock/pure queue behavior
+before a scaling decision. Guarded checkout includes connection setup; pure
+queue wait and remaining direct paths still need distinct measurement.
+Real-provider/hosted capacity and larger workload tiers retain separate budgets
+and acceptance criteria. Remaining BE-12 projection work needs concrete sink/
 constraint review; avoid blanket decoder or library additions. Pending tooling,
 minimum-privilege credentials, SDK adoption and paid/exporter activation retain
 their explicit separate decisions. Do not mark partial tickets complete.
@@ -86,7 +97,8 @@ assumptions, embedding version/staged-row mappings and document/demo/knowledge
 metadata. Inspect concrete sinks and existing constraints before adding guards;
 do not turn every TypeScript row annotation into a generic schema task. BE-13
 still needs pure pool queue wait/remaining direct paths and the remaining
-documented instrumented sustained/load/recovery scenarios. BE-08/FE-08, BE-09
+documented load/recovery scenarios. The instrumented sustained scenario is now
+validated, but does not complete the ticket. BE-08/FE-08, BE-09
 and BE-14 retain their explicit tooling/activation/
 SDK decisions. The table remains 21 published, five partial and one pending.
 
@@ -117,8 +129,9 @@ fresh CI gates. They do not activate a reranker or change a model/prompt.
 The BE-14 migration-resource follow-up is also validated and published; the
 actual image applied 31 migrations and repeated zero in a disposable database.
 The BE-13 pilot and checked persisted replay are now validated and published.
-The pilot has reviewed, versioned synthetic results and remains partial for
-sustained load, pool/event-loop timing and multi-replica behavior.
+That first pilot has reviewed, versioned synthetic results, but did not establish
+sustained load, pool/event-loop timing or multi-replica behavior. The later
+sustained/instrumented receipts above retain their own coverage and limits.
 BE-12 workflow diagnostic boundaries and BE-16 are also validated and published.
 The owned-source/post-ingestion pilot and compiler diagnostics are also CI
 validated and active. MCP quality-report stored rows are also CI validated and

@@ -1,5 +1,15 @@
 # BE-13 bounded sustained capacity experiment
 
+## Latest validation
+
+The later [instrumented sustained cohort](capacity-instrumented-sustained-result.md)
+passed at `75f7583`, with all four fresh normal CI jobs. It retains version-three
+native event-loop, guarded-checkout and workflow-queue evidence, 10,022 mixed
+pairs, six completed unique ingestions, zero unexpected failures and successful
+owned cleanup. Its comparison leaves the first sustained report immutable.
+The original planning and short/sustained history below retain their sources;
+BE-13 remains partial for the explicitly untested workloads/hosted services.
+
 ## Evidence and next decision
 
 The reviewed short pilots prove the harness, scoped sources, ingestion replay
@@ -35,9 +45,9 @@ Artifact/cache storage has separate allowances; retain small bounded JSON
 measurements, not container images or corpus dumps. No paid LLM or hosting
 service is added. The measured run remains required before drawing conclusions.
 
-Even a passed sustained run will not complete BE-13: pool/event-loop timing,
-large PDF/DOCX/OCR bursts, restart/slow-reader cases and multi-replica limits
-remain separate. Do not change the production topology based on a short pilot
+The later cohort now adds sustained native event-loop/guarded-checkout timing.
+BE-13 still needs pure pool queue wait/remaining direct paths, large PDF/DOCX/OCR
+bursts, restart/slow-reader cases and multi-replica limits. Do not change the production topology based on a short pilot
 or call simulated-provider timing real-model performance.
 
 ## Status

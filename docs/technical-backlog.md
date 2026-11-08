@@ -34,6 +34,10 @@ retains its original/preview evidence; the
 [combined receipt](operations/release-2026-11-08-records-and-capacity.md) retains its pinned read-boundary and separate capacity evidence. Both live SHAs, public assets, health, protected routes
 and a bounded error-log window were verified.
 
+The later measurement-only [instrumented sustained result](operations/capacity-instrumented-sustained-result.md)
+passed at `75f7583` with all four fresh normal CI jobs. Application/lab code is
+unchanged from the published source; no redeployment was needed. BE-13 stays partial.
+
 See the [artifact receipt](operations/release-2026-11-07-runtime-artifacts.md),
 [FE-11 receipt](operations/release-2026-11-07-url-state.md) and
 [BE-12 receipt](operations/release-2026-11-07-configuration-records.md).
@@ -589,7 +593,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
-- [ ] **In progress:** rerun the fixed sustained cohort with the published native event-loop, durable-queue and guarded-checkout instrumentation. Require both phase receipts, completed/deduplicated ingestion and source checks, scoped terminal workflows and safe cleanup. Keep the first sustained report immutable and compare cohorts with source/runner/measurement caveats. See the [reviewed launch](operations/capacity-sustained-run.md#instrumented-follow-up-2026-11-08-utc).
+- [x] **Instrumented sustained cohort validated:** source `75f7583` passed all four normal CI jobs and the fixed 30-minute/50,000-chunk/ten-workspace workload: 10,022 mixed pairs, zero unexpected failures, six completed unique ingestions and all new-source checks. Both phase event-loop/guarded-checkout windows, 618 queue/resource observations, 10,392 completed chat rows, six ingestion rows, 62,364 checkpoints and safe cleanup are reviewed. Search p95 is 204.445 ms; validated completion p95 is 2,510.180 ms. The old report stays immutable; provider/hosting, source/runner and partial measurement caveats remain explicit. No application change or redeployment was needed. See the [process and comparative result](operations/capacity-instrumented-sustained-result.md).
 
 - [x] Guarded API checkout measurement is validated and published at `151ccef`: the existing OpenTelemetry API records acquisition/cancellation/failure duration without SQL or identities. Seven native cases, eighteen capacity/probe cases, the max=1 real-SQL contention/cancellation fixture, both actual version-three short image-based paths and all four normal CI jobs pass. Both exact-source services and public checks are verified. Direct pool queries and pure queue wait remain unmeasured; hosted metric export is not activated. See the [measurement and release evidence](operations/postgres-checkout-measurement.md).
 
@@ -602,7 +606,7 @@ feature-owned locations during BE-07's migration.
 
 - [x] Authoritative fixture ownership for newly ingested IDs and chunk/document pairing are CI validated. Nine native cases, the full normal gates and the actual lab passed, including six new-source searches/answers and six scoped ownership lookups. This is not the sustained baseline. See the [evidence](operations/release-2026-11-08-capacity-source-ownership.md).
 
-- **Measured, ticket partial:** the [first sustained result](operations/capacity-sustained-result.md) supplies the declared 50,000-chunk mixed workload. The [native probe](operations/capacity-event-loop-plan.md), [queue/lease measurements](operations/capacity-workflow-queues.md) and [guarded-checkout histogram](operations/postgres-checkout-measurement.md) have separate short-run evidence. Pure pool queue wait, remaining direct-query paths, a sustained run with the new instrumentation, large-file/restart/slow-reader and replica scenarios remain open. No topology change is inferred from one synthetic run.
+- **Measured, ticket partial:** the [first sustained result](operations/capacity-sustained-result.md) and separate [instrumented sustained cohort](operations/capacity-instrumented-sustained-result.md) retain their exact sources and measurement coverage. Native event-loop, workflow queues/leases and guarded acquisition now have long-run evidence. Pure pool queue wait, remaining direct-query paths, large-file/reindex/evaluation bursts, restart/slow-reader/cancellation pressure, tenant flood and replica scenarios remain open, along with separately budgeted real-provider/hosted measurements. No production topology change or exact checkout percentile is inferred from these synthetic runs.
 
 - [ ] **P2 measurement · M–L · Medium operational risk.** Scope:
   [capacity plan](backend-scalability-review.md), synthetic load fixtures,

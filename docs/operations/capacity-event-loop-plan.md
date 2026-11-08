@@ -30,14 +30,15 @@ like-instrumented cohorts and do not turn the sampling interval into an SLO.
 Report format version two identifies the added instrumentation and per-phase
 eventLoop structure (delayMs distribution and separate utilization ratio).
 Earlier version-one reports remain unchanged and
-their unmeasured values remain null. The currently running sustained source
-7c37d96 has no probe; do not backfill new measurements into its result.
+their unmeasured values remain null. At the time of this original plan, sustained
+source 7c37d96 had no probe; do not backfill new measurements into its result.
 
 Validate empty/invalid samples, fixed HTTP surface and cleanup locally, then
 both actual short image-based paths in fresh CI. Their duration is enough to
 prove measurement delivery; it does not replace an instrumented sustained run.
 Instrumentation has overhead, which is part of the reported lab environment.
-BE-13 retains sustained/instrumented, pool, large-file, restart and replica work.
+BE-13 retains pool, large-file, restart and replica work; the instrumented
+sustained follow-up is now recorded separately below.
 
 ## Status
 
@@ -54,4 +55,14 @@ has 586/1,184 native samples across its phases; the
 [legacy report](../../reports/capacity/reviewed/pilot-bbc1ada.json) has
 567/1,183. All owned process exits/cleanup pass. See the [combined publication](release-2026-11-08-records-and-capacity.md).
 The earlier sustained version-one result remains unchanged with null event-loop
-measurements. An instrumented sustained scenario still needs separate evidence.
+measurements.
+
+## Later sustained evidence
+
+The separate [instrumented sustained cohort](capacity-instrumented-sustained-result.md)
+passed at `75f7583`: 2,779 control and 82,518 mixed native samples. Mixed timer
+histogram p95 is 21.201 ms, p99 99.811 ms, max 214.172 ms and utilization 29.16%,
+at the declared 20 ms resolution. The 30-minute workload, 10,022 mixed pairs,
+guarded acquisition/queue observations and limits are in that result. Both
+probe windows, owned cleanup and all four fresh normal CI jobs pass. Earlier
+reports remain immutable. Timer delay is not request latency or a CPU/GC diagnosis.

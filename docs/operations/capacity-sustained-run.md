@@ -28,8 +28,22 @@ provider cost. Do not overwrite or backfill the first sustained report.
 Retain the exact launch SHA and fresh runner/image identities. Compare the
 two sustained cohorts descriptively: source changes, instrumentation overhead
 and shared-runner variation preclude attributing differences to a single cause
-or calling one paired before/after regression test. This run is in progress;
-the measured report and normal CI outcomes are required before marking it done.
+or calling one paired before/after regression test. The run is now validated;
+the [reviewed result](capacity-instrumented-sustained-result.md) records the
+complete report, reproduction, comparison and remaining acceptance criteria.
+
+Launch source: `75f758392f424c672eee9f2bf2369308ce3182bd`.
+[Capacity lab 42496102159](https://github.com/willianmesko/rag-study-mvp/actions/runs/42496102159)
+passed with 10,022 mixed pairs, zero unexpected failures, six completed unique
+ingestions, valid native/checkout/queue evidence and successful owned cleanup.
+All four fresh
+[normal quality jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42496102160)
+passed: 410 UX cases/46 intentional profile skips, 100 actual PostgreSQL cases
+without skips, isolated index cutover, architecture/harness checks and actual
+API/MCP image verification. Both native OCR cases passed without skips; the
+runtime inventory remains 498 files / 1,566,557 bytes / 14 roots / zero project
+test artifacts. Both phase windows, scoped terminal rows/checkpoints and all
+618 periodic observations are reviewed. The earlier report remains unchanged.
 
 ## Reviewed execution
 

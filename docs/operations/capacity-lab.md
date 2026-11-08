@@ -39,8 +39,10 @@ The [native probe](capacity-event-loop-plan.md) has separate version-two short
 image-based proof. The later [guarded-checkout increment](postgres-checkout-measurement.md)
 adds version-three short reports at `151ccef`, retaining event-loop and queue
 evidence while measuring guarded acquisition, including connection setup.
-Pure pool queue wait and direct-query paths remain unmeasured. The previous
-sustained report is not backfilled. Earlier results below are
+The later [instrumented sustained cohort](capacity-instrumented-sustained-result.md)
+at `75f7583` passed with 10,022 mixed pairs, 618 valid observations and both
+phase receipts. Pure pool queue wait and direct-query paths remain unmeasured.
+The previous sustained report is not backfilled. Earlier results below are
 historical reviewed pilots; their different sources/corpora and unmeasured
 fields remain intact. BE-13 still has the stated remaining acceptance criteria.
 
@@ -146,11 +148,13 @@ polls at 500 ms; observed completion cadence must not be attributed entirely to
 model time. The report intentionally omits token events on cache hits from the
 first-validated-text samples (45 samples for 68 mixed completions).
 
-BE-13 remains partial. Next measurements: controlled cold/warm cohorts, at least
+At this original pilot checkpoint, next measurements were controlled cold/warm cohorts, at least
 30 minutes/10 workspaces/50,000 chunks/10 streams, real pool/event-loop timing,
 PDF/DOCX/OCR and durable-worker scenarios, slow readers/cancellation, crash
 recovery and multi-replica limiter behavior. Keep the current topology until
-those results support a change. Real-provider runs require a separate spend cap.
+those results support a change. The current evidence section above records the
+later sustained/instrumented scenarios; remaining work is in the technical
+backlog. Real-provider runs require a separate spend cap.
 
 ## Repeated pilot with checked replay and chunk ownership
 

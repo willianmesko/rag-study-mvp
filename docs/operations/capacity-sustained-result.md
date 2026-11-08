@@ -102,3 +102,13 @@ Growth/stress tiers and a model-performance release baseline remain separate.
 The report's passed flag means this bounded workload completed with its declared
 guards and cleanup. It does not complete every scalability acceptance criterion
 or activate the optional model-performance gate.
+
+## Later instrumented cohort
+
+The separate [version-three follow-up](capacity-instrumented-sustained-result.md)
+at `75f7583` has now passed with native event-loop, scoped workflow-queue and
+guarded-checkout observations. It records 10,022 mixed pairs, six completed
+unique ingestions and zero unexpected failures. Its process, comparison,
+reproduction and partial coverage are documented separately. This first report,
+its exact source and null measurements remain unchanged; the instrumented
+sustained scenario is no longer pending, but BE-13's other scenarios remain open.
