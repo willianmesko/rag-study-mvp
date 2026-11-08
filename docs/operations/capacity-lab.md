@@ -51,6 +51,16 @@ docker build --tag lumora-api:capacity-ci --file apps/api/Dockerfile .
 npm run bench:capacity -- --image lumora-api:capacity-ci --report-id pilot
 ```
 
+The bounded follow-up profiles are described in the
+[sustained experiment plan](capacity-sustained-plan.md). Run the separate
+`--profile durable-pilot --report-id durable-pilot` fixture before selecting
+`--profile sustained`. The latter intentionally takes 30 minutes of mixed load,
+uses a different versioned corpus and has a 45-minute total deadline. Its
+implementation is not a measured capacity result; see the plan for validation
+status. Normal CI selection runs both short profiles and retains separate JSON
+reports. Durable proof also checks completed workflow rows and persisted
+checkpoints; a configuration flag alone is insufficient.
+
 No host application environment file is needed or read. The synthetic Docker
 configuration is explicit; real cloud credentials are never forwarded. Reports
 are written under reports/capacity and ignored as per-run output. Reviewed results

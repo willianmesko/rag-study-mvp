@@ -4,7 +4,7 @@ Lumora is a general-purpose knowledge workspace for teams across industries.
 Goals and document types guide the experience. IT and legal scenarios are
 optional study examples.
 
-Last reviewed on 2026-11-07.
+Last reviewed on 2026-11-08 UTC.
 
 The [resume checkpoint](backlog-resume.md) records FE-06 as complete and published:
 administrative query ownership, conversation readers and incremental history.
@@ -27,8 +27,8 @@ status section where they appear.
 
 ## In progress
 
-Frontend and API are live at `df20190c4f90ce6d8df10126e56985a824343eaf` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42438247236) passed. Publication, assets, icon, health, private-route protection
+Frontend and API are live at `17d8aa7f208afb40ee60cc87f08141f4d6a9489f` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42440266107) passed. Publication, assets, icon, health, private-route protection
 and a bounded error-log window were verified on 2026-11-08 UTC.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
@@ -69,12 +69,16 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
   compiler-failure diagnostics. See the [evidence](operations/release-2026-11-08-capacity-source-ownership.md).
 - **Published increment, ticket partial:** MCP quality-report stored rows and
   shared numeric semantics. See the [receipt](operations/release-2026-11-08-mcp-quality-records.md).
-- **In validation:** ingestion timeline event/details reads and driver timing
-  semantics. Fresh actual SQL/CI and application publication remain required.
+- **Published increment, ticket partial:** checked ingestion timeline details
+  and driver timing, with real SQL/constraint-safe fixture cleanup. See the
+  [receipt](operations/release-2026-11-08-ingestion-event-records.md).
+- **In validation:** bounded short/durable/sustained capacity profiles; actual
+  durable pilot and sustained evidence remain pending. See the
+  [experiment plan](operations/capacity-sustained-plan.md).
 
 The [technical backlog](technical-backlog.md) now records **21 published tickets,
 five partial tickets and one pending ticket**. The current CI passed 410 UX
-checks/46 intentional skips, 91 PostgreSQL checks, the isolated cutover, 78
+checks/46 intentional skips, 92 PostgreSQL checks, the isolated cutover, 78
 architecture fixtures, the full harness, four native route-state and three
 payload-budget cases. Prior releases remain in their dated operational records.
 Operational activation and the learning walkthrough retain separate status.

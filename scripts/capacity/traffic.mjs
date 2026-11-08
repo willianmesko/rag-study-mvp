@@ -84,7 +84,7 @@ export async function referenceRecall(base, pool, corpus) {
   const measurements = [];
   for (const [index, workspace] of corpus.workspaces.entries()) {
     for (const ordinal of [3, 31, 67]) {
-      const query = `${key(ordinal)} ${index === 1 ? "qual é o procedimento de retenção?" : "what is the retention procedure?"}`;
+      const query = `${key(ordinal)} ${workspace.language === "pt" ? "qual é o procedimento de retenção?" : "what is the retention procedure?"}`;
       const literal = `[${vectorFor(query).join(",")}]`;
       // + 0 forces exact sorting rather than claiming ANN as its own reference.
       const exact = await pool.query(`SELECT c.id FROM chunks c JOIN documents d ON d.id=c.document_id
@@ -101,7 +101,7 @@ export async function referenceRecall(base, pool, corpus) {
         const plan = await pool.query("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + sql, [workspace.tenantId, literal]);
         plans = safePlan(plan.rows[0]["QUERY PLAN"][0].Plan);
       }
-      measurements.push({ language: index === 1 ? "pt" : "en", workspace: index, recallAt5: exact.rows.filter(({ id }) => actual.has(id)).length / 5,
+      measurements.push({ language: workspace.language, workspace: index, recallAt5: exact.rows.filter(({ id }) => actual.has(id)).length / 5,
         ...(plans ? { vectorCandidatePlan: plans } : {}) });
     }
   }
@@ -119,7 +119,7 @@ export async function trafficPhase(base, corpus, { name, seconds, clients = 2, s
     while (performance.now() < end && !cancellation.aborted) {
       const workspace = corpus.workspaces[iteration % corpus.workspaces.length];
       const actor = workspace.actors[1 + iteration % (workspace.actors.length - 1)];
-      const query = `${key(iteration % 90)} ${workspace === corpus.workspaces[1] ? "qual é o procedimento de retenção?" : "what is the retention procedure?"}`;
+      const query = `${key(iteration % workspace.count)} ${workspace.language === "pt" ? "qual é o procedimento de retenção?" : "what is the retention procedure?"}`;
       attempted++;
       try {
         const started = performance.now();
@@ -135,11 +135,13 @@ export async function trafficPhase(base, corpus, { name, seconds, clients = 2, s
         if (stream.firstText !== null) firstText.push(stream.firstText);
         if (stream.cacheHit) cacheHits++;
       } catch (error) {
+        if (cancellation.aborted) break;
         failed++;
         const reason = error instanceof assert.AssertionError ? "assertion_failed" : error?.name === "TimeoutError" ? "deadline" : "request_failed";
         failureCodes[reason] = (failureCodes[reason] ?? 0) + 1;
         // A scope/citation assertion must fail the pilot, never be hidden as latency.
-        if (error instanceof assert.AssertionError) { fatal ??= error; stopped.abort(); }
+        if (error instanceof assert.AssertionError) fatal ??= error;
+        stopped.abort();
       }
       iteration += clients; await delay(150);
     }

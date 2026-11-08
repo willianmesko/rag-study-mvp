@@ -6,7 +6,8 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { docker, startLab, assertImage } from "./docker-lab.mjs";
-import { seedCorpus, sha256, samples, workspaceCounts } from "./fixtures.mjs";
+import { seedCorpus, sha256, samples } from "./fixtures.mjs";
+import { capacityProfile, corpusVersion } from "./profiles.mjs";
 import { headersFor, jsonResponse, referenceRecall, trafficPhase, uploadBurst, verifyIngestedSources } from "./traffic.mjs";
 
 const require = createRequire(new URL("../../apps/api/package.json", import.meta.url));
@@ -14,28 +15,33 @@ const { Pool } = require("pg");
 const root = fileURLToPath(new URL("../../", import.meta.url));
 let stage = "arguments", interrupted = false;
 const report = { kind: "lumora.capacity-lab", version: 1, profile: "pilot", passed: false, startedAt: new Date().toISOString() };
-const limitations = ["Short pilot, not the sustained 30-minute baseline.", "Deterministic 1024-d vectors do not measure semantic quality.",
+const commonLimitations = ["Deterministic 1024-d vectors do not measure semantic quality or multilingual accuracy.",
   "Synthetic auth, embeddings, chat, tokens and timings; no actual provider billing.", "One API process; no multi-replica burst-limit proof.",
-  "Legacy in-process ingestion, Markdown only; no durable workflow, OCR/PDF/DOCX or crash/restart load.",
+  "Markdown only; no large OCR/PDF/DOCX or crash/restart load.",
   "Pool checkout wait and event-loop delay are not measured.", "No Render capacity, field performance or production sizing conclusion."];
 
 async function main() {
-  const { values } = parseArgs({ options: { image: { type: "string", default: "lumora-api:capacity-ci" }, "report-id": { type: "string", default: "pilot" } }, strict: true, allowPositionals: false });
+  const { values } = parseArgs({ options: { image: { type: "string", default: "lumora-api:capacity-ci" },
+    profile: { type: "string", default: "pilot" }, "report-id": { type: "string", default: "pilot" } }, strict: true, allowPositionals: false });
+  const profile = capacityProfile(values.profile), counts = profile.counts;
+  const limitations = [...commonLimitations, ...(profile.name !== "sustained" ? ["Short pilot, not the sustained 30-minute baseline."] : []),
+    ...(profile.durable ? [] : ["Legacy in-process ingestion; durable workflow load is not enabled."])];
   assertImage(values.image); assert.match(values["report-id"], /^[a-zA-Z0-9_-]{1,80}$/);
   const output = resolve(root, "reports/capacity", values["report-id"] + ".json");
-  Object.assign(report, { corpus: { workspaces: workspaceCounts.length, chunks: workspaceCounts.reduce((a, b) => a + b), distribution: workspaceCounts,
-    actorsPerWorkspace: 20, dimensions: 1024, seed: "capacity-fixture-v1" }, lockfileSha256: sha256(await readFile(resolve(root, "package-lock.json"))),
+  Object.assign(report, { profile: profile.name, configuration: profile,
+    corpus: { workspaces: counts.length, chunks: counts.reduce((a, b) => a + b), distribution: counts,
+    actorsPerWorkspace: 20, dimensions: 1024, seed: corpusVersion }, lockfileSha256: sha256(await readFile(resolve(root, "package-lock.json"))),
     source: /^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA ?? "") ? process.env.GITHUB_SHA : null,
-    limitations, poolWaitMs: null, eventLoopDelayMs: null, actualProviderCostUsd: null });
+    limitations, observationLimit: 1000, poolWaitMs: null, eventLoopDelayMs: null, actualProviderCostUsd: null });
   let lab, pool, monitoring, poolFault = false;
   const cancelled = new AbortController();
   let stopMonitoring = false;
   const observations = [];
   const stop = () => { interrupted = true; cancelled.abort(); void lab?.cleanup(); };
-  const deadline = setTimeout(stop, 240_000); deadline.unref();
+  const deadline = setTimeout(stop, profile.deadlineMs); deadline.unref();
   process.once("SIGINT", stop); process.once("SIGTERM", stop);
   try {
-    stage = "start_lab"; lab = await startLab(root, values.image);
+    stage = "start_lab"; lab = await startLab(root, values.image, profile);
     assert.equal(new URL(lab.databaseUrl).pathname, "/capacity_fixture");
     pool = new Pool({ connectionString: lab.databaseUrl, max: 2, connectionTimeoutMillis: 1000, statement_timeout: 5000, application_name: "lumora-capacity-observer" });
     pool.on("error", () => { poolFault = true; });
@@ -46,7 +52,8 @@ async function main() {
     }
     assert.ok(ready && !interrupted);
     stage = "migrate"; await lab.migrate(await readFile(resolve(root, "tests/fixtures/supabase-auth.sql"), "utf8"));
-    stage = "seed"; const corpus = await seedCorpus(pool);
+    stage = "seed"; const seedStarted = performance.now(), corpus = await seedCorpus(pool, counts, cancelled.signal);
+    report.seedDurationMs = Math.round(performance.now() - seedStarted);
     stage = "api_readiness"; const api = await lab.startApi();
     ready = false;
     for (let attempt = 0; attempt < 40 && !interrupted; attempt++) {
@@ -63,6 +70,11 @@ async function main() {
     const blocked = await jsonResponse(api.origin + "/v1/admin/uploads", { method: "POST", headers: headersFor(corpus.workspaces[0], corpus.workspaces[0].actors[1]), body: viewer });
     assert.equal(blocked.status, 403, "Viewer upload was not denied.");
     stage = "reference_recall"; report.referenceRecall = await referenceRecall(api.origin, pool, corpus);
+    const clearOwnedCache = async () => {
+      if (profile.cold) await pool.query("DELETE FROM semantic_model_answer_cache WHERE tenant_id=ANY($1::uuid[])",
+        [corpus.workspaces.map(({ tenantId }) => tenantId)]);
+    };
+    await clearOwnedCache();
     const versions = await pool.query("SELECT current_setting('server_version') AS postgres, (SELECT extversion FROM pg_extension WHERE extname='vector') AS vector");
     report.database = versions.rows[0];
     monitoring = (async () => {
@@ -77,18 +89,22 @@ async function main() {
             .trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)).map(({ Name, CPUPerc, MemUsage, PIDs }) => ({
               role: Name === api.container ? "api" : Name === lab.postgres ? "postgres" : Name === lab.provider ? "provider" : "unknown",
               cpuPercent: CPUPerc, memoryUsage: MemUsage, processes: PIDs }));
-          observations.push({ elapsedMs: Date.now() - Date.parse(report.startedAt), ...state.rows[0], containers: stats });
-        } catch { observations.push({ observationFailed: true }); }
+          if (observations.length < 1000) observations.push({ elapsedMs: Date.now() - Date.parse(report.startedAt), ...state.rows[0], containers: stats });
+        } catch { if (observations.length < 1000) observations.push({ observationFailed: true }); }
         await delay(1000);
       }
     })();
-    stage = "baseline"; const baseline = await trafficPhase(api.origin, corpus, { name: "api_only", seconds: 12, signal: cancelled.signal });
+    stage = "baseline"; const baseline = await trafficPhase(api.origin, corpus, { name: "api_only", seconds: profile.controlSeconds, clients: profile.clients, signal: cancelled.signal });
+    report.phases = [baseline];
+    assert.equal(baseline.failed, 0, "Control traffic failed.");
+    await clearOwnedCache();
     stage = "mixed";
     const [mixed, jobs] = await Promise.all([
-      trafficPhase(api.origin, corpus, { name: "with_ingestion", seconds: 24, signal: cancelled.signal }),
+      trafficPhase(api.origin, corpus, { name: "with_ingestion", seconds: profile.mixedSeconds, clients: profile.clients, signal: cancelled.signal }),
       uploadBurst(api.origin, corpus.workspaces[0], 6, cancelled.signal)
     ]);
     report.phases = [baseline, mixed];
+    assert.equal(mixed.failed, 0, "Mixed traffic failed.");
     stage = "ingestion_drain";
     let rows = [];
     for (let attempt = 0; attempt < 45 && !interrupted; attempt++) {
@@ -106,6 +122,22 @@ async function main() {
     report.ingestion = { accepted: 6, replayed: 6, uniqueJobs: rows.length, completed: rows.length, queueWaitMs: samples(queueWait.rows.map(({ wait_ms }) => Number(wait_ms))) };
     stage = "new_source_verification";
     report.postIngestionVerification = await verifyIngestedSources(api.origin, corpus, 6, cancelled.signal);
+    stage = "durable_receipt";
+    const ownedTenants = corpus.workspaces.map(({ tenantId }) => tenantId);
+    const workflowRows = async () => (await pool.query(`SELECT kind,status,count(*)::int AS count FROM workflow_runs
+      WHERE tenant_id=ANY($1::uuid[]) GROUP BY kind,status ORDER BY kind,status`, [ownedTenants])).rows;
+    let runs = await workflowRows();
+    for (let attempt = 0; attempt < 20 && runs.some(({ status }) => ["queued", "running"].includes(status)); attempt++) {
+      cancelled.signal.throwIfAborted(); await delay(500); runs = await workflowRows();
+    }
+    const checkpointCount = (await pool.query("SELECT count(*)::int AS count FROM workflow_checkpoints WHERE tenant_id=ANY($1::uuid[])", [ownedTenants])).rows[0].count;
+    report.durableWorkflows = { enabled: profile.durable, runs, checkpoints: checkpointCount };
+    if (profile.durable) {
+      assert.ok(runs.every(({ status }) => status === "completed"), "A durable synthetic workflow did not complete.");
+      assert.ok(runs.some(({ kind, count }) => kind === "chat" && count > 0), "Durable chat was not exercised.");
+      assert.ok(runs.some(({ kind, count }) => kind === "ingestion" && count === 6), "Durable ingestion was not exercised.");
+      assert.ok(checkpointCount > 0, "Durable execution produced no checkpoints.");
+    } else { assert.equal(runs.length, 0); assert.equal(checkpointCount, 0); }
     report.provider = (await jsonResponse(lab.providerOrigin + "/fixture/stats")).body;
     report.resources = await lab.receipt();
     assert.ok(report.resources.images.every(({ oomKilled, running, publishedPorts }) => !oomKilled && running && publishedPorts === 0), "A fixture process stopped, exhausted memory or published a host port.");

@@ -2,6 +2,12 @@ name: Capacity lab
 
 on:
   workflow_dispatch:
+    inputs:
+      profile:
+        description: Bounded synthetic workload
+        type: choice
+        default: pilot
+        options: [pilot, durable-pilot, sustained]
   push:
     branches: [main]
     paths:
@@ -13,14 +19,17 @@ on:
       - "packages/contracts/**"
       - "package-lock.json"
       - ".github/workflows/capacity-lab.yml"
+      - "docs/operations/capacity-sustained-run.md"
 
 permissions:
   contents: read
 
 jobs:
-  isolated-pilot:
+  isolated-capacity:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: ${{ (inputs.profile == 'sustained' || contains(github.event.head_commit.message, '[capacity-sustained]')) && 48 || 15 }}
+    env:
+      CAPACITY_PROFILE: ${{ inputs.profile || (contains(github.event.head_commit.message, '[capacity-sustained]') && 'sustained') || 'pilot' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,13 +42,16 @@ jobs:
         run: node --test tests/capacity/lab.test.mjs
       - name: Build the actual API image with required native OCR checks
         run: docker build --tag lumora-api:capacity-ci --file apps/api/Dockerfile .
-      - name: Run isolated mixed-workload pilot
-        run: node scripts/capacity/run.mjs --image lumora-api:capacity-ci --report-id ${{ github.sha }}
+      - name: Run selected isolated workload
+        run: node scripts/capacity/run.mjs --image lumora-api:capacity-ci --profile "$CAPACITY_PROFILE" --report-id ${{ github.sha }}
+      - name: Prove the durable path with a separate short fixture
+        if: env.CAPACITY_PROFILE == 'pilot'
+        run: node scripts/capacity/run.mjs --image lumora-api:capacity-ci --profile durable-pilot --report-id ${{ github.sha }}-durable
       - name: Retain safe pilot measurements
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: capacity-pilot-${{ github.sha }}
+          name: capacity-${{ github.sha }}
           path: reports/capacity/*.json
           if-no-files-found: warn
           retention-days: 30

@@ -9,9 +9,9 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `df20190c4f90ce6d8df10126e56985a824343eaf`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42438247236).
-- [Release evidence](operations/release-2026-11-08-mcp-quality-records.md) records
+- Source: `17d8aa7f208afb40ee60cc87f08141f4d6a9489f`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42440266107).
+- [Release evidence](operations/release-2026-11-08-ingestion-event-records.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,

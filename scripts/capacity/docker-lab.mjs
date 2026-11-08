@@ -32,7 +32,7 @@ export function containerOrigin(info, network, port) {
   assert.equal(Object.keys(info.HostConfig?.PortBindings ?? {}).length, 0, "The internal lab must not publish host ports.");
   return "http://" + ip + ":" + port;
 }
-export async function startLab(root, image) {
+export async function startLab(root, image, profile) {
   assertImage(image);
   assert.equal(process.platform, "linux", "The pilot requires a local Linux Docker host; fixture tests remain portable.");
   const name = "lumora-capacity-" + randomBytes(6).toString("hex"), label = "lumora.capacity.run=" + name;
@@ -85,7 +85,11 @@ export async function startLab(root, image) {
       SUPABASE_URL: "http://provider:11434", SUPABASE_PUBLISHABLE_KEY: "capacity-fixture-public",
       OLLAMA_BASE_URL: "http://provider:11434", EMBEDDING_PROVIDER: "ollama", CHAT_PROVIDER: "ollama",
       OLLAMA_EMBEDDING_MODEL: fixtureModel, OLLAMA_CHAT_MODEL: fixtureModel, RERANKER_PROVIDER: "none",
-      RAG_CLAIM_MODE: "extractive", REQUIRE_STRUCTURED_ANSWER: "true", WORKFLOWS_ENABLED: "false",
+      RAG_CLAIM_MODE: "extractive", REQUIRE_STRUCTURED_ANSWER: "true", WORKFLOWS_ENABLED: String(profile.durable),
+      ...(profile.durable ? { WORKFLOW_STATE_KEY: randomBytes(32).toString("base64") } : {}),
+      SEMANTIC_CACHE_TTL_SECONDS: String(profile.cacheTtlSeconds), AGENT_MAX_STEPS: "30",
+      ESTIMATED_INPUT_COST_PER_1K_USD: "0", ESTIMATED_OUTPUT_COST_PER_1K_USD: "0",
+      USAGE_ALERT_THRESHOLD_USD: "100000",
       INGESTION_WORKER_INTERVAL_MS: "1000", LANGSMITH_TRACING: "false", OTEL_ENABLED: "false",
       RATE_LIMIT_MAX: "10000", QA_RATE_LIMIT_MAX: "1000", RATE_LIMIT_WINDOW_MS: "1000",
       DAILY_TENANT_QA_LIMIT: "100000", DAILY_USER_QA_LIMIT: "10000", DAILY_ADMIN_UPLOAD_BYTES_LIMIT: "100000000",

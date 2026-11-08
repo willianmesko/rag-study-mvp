@@ -5,6 +5,33 @@ import { actorFromToken, dimensions, key, samples, statement, tokenFor, uuid, ve
 import { assertImage, containerOrigin } from "../../scripts/capacity/docker-lab.mjs";
 import { assertSources, decodeFrame, safePlan, verifySources } from "../../scripts/capacity/traffic.mjs";
 import { createFixtureServer } from "../../scripts/capacity/provider.mjs";
+import { capacityProfile, chunkIdentityNumber, corpusVersion } from "../../scripts/capacity/profiles.mjs";
+
+test("capacity profiles cap scale, duration and clients while keeping the sustained cohort explicit", () => {
+  for (const name of ["pilot", "durable-pilot", "sustained"]) {
+    const profile = capacityProfile(name);
+    assert.ok(Object.isFrozen(profile) && Object.isFrozen(profile.counts));
+    assert.ok(profile.clients >= 1 && profile.clients <= 10);
+    assert.ok(profile.counts.length <= 10 && profile.counts.reduce((a, b) => a + b) <= 50000);
+    assert.ok(profile.mixedSeconds <= 1800 && profile.deadlineMs <= 2700000);
+    assert.ok(profile.deadlineMs > (profile.controlSeconds + profile.mixedSeconds) * 1000);
+  }
+  const large = capacityProfile("sustained");
+  assert.equal(large.counts.length, 10); assert.equal(large.counts.reduce((a, b) => a + b), 50000);
+  assert.equal(large.counts[0], 40000); assert.equal(large.clients, 10);
+  assert.equal(large.mixedSeconds, 1800); assert.equal(large.cacheTtlSeconds, 60); assert.equal(large.durable, true);
+  assert.equal(capacityProfile("durable-pilot").durable, true);
+  for (const name of ["__proto__", "stress", "sustained --timeout=9999", ""]) assert.throws(() => capacityProfile(name));
+  assert.equal(corpusVersion, "capacity-corpus-v2");
+});
+test("synthetic chunk identities remain unique across the skewed 50000-chunk corpus", () => {
+  const ids = new Set();
+  for (const [workspace, count] of capacityProfile("sustained").counts.entries()) {
+    for (let ordinal = 0; ordinal < count; ordinal++) ids.add(chunkIdentityNumber(workspace, ordinal));
+  }
+  assert.equal(ids.size, 50000);
+  for (const [workspace, ordinal] of [[-1, 0], [10, 0], [0, -1], [0, 40000]]) assert.throws(() => chunkIdentityNumber(workspace, ordinal));
+});
 
 test("fixture vectors are reproducible, normalized, 1024-dimensional and change with the query key", () => {
   const first = vectorFor("K00003 retained"), same = vectorFor("K00003 mantido"), other = vectorFor("K00031 retained");
