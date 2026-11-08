@@ -9,11 +9,12 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `151ccef257f79882754d64d6c3bf49d234ad84fc`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42494273559).
-- [Release evidence](operations/postgres-checkout-measurement.md) records all four
-  green jobs, 100 actual SQL cases, both short version-three image-based capacity
-  pilots, both observed live deployments and public checks.
+- API source: `db8d236b4007fb29e0d387cb6574be3371f764c6`.
+- Compatible unchanged frontend: `151ccef257f79882754d64d6c3bf49d234ad84fc`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42517044431).
+- [Release evidence](operations/release-2026-11-08-stream-tracing.md) records all
+  four green jobs, 100 actual SQL cases, both short image-based capacity paths,
+  eleven focused SDK cases, the observed API-only rollout and public checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
   conservative reranking and FSD/module checks are in that delivery. Capability
@@ -71,8 +72,9 @@ six completed unique ingestions/new-source checks, both phase probe windows,
 618 valid observations and safe cleanup. All four fresh normal jobs pass.
 There are 10,392 completed chats, six ingestions and 62,364 checkpoints. The first
 report remains immutable. Application/lab code is unchanged from `151ccef`;
-the launch and evidence require no production deployment. The public source and
-21 published/five partial/one pending ticket totals remain unchanged.
+the launch and evidence required no production deployment. At that checkpoint,
+the public source was unchanged. The 21 published/five partial/one pending ticket
+totals remain unchanged by the later bounded stream-tracing correction.
 
 The owner explicitly requested that real public-demo validation remain in the
 [backlog](backlog.md#6-production-capacity-and-operations): actual Render,
@@ -86,14 +88,18 @@ is complete. Live API logs and owner usage/model-cost views are verified.
 LANGSMITH_TRACING=false, no LangSmith key or OTLP settings, no linked environment
 groups, no running local monitoring containers and Render Free chart restrictions
 are recorded. An authenticated LangSmith project/trace was not inspected.
-Existing chat selects answerStream, whose LangSmith decorator bypasses the
-outer trace; nested graph tracing is explicitly suppressed. Fix/test this
-concrete P1 gap before enabling export, then confirm region/destination and one
-safe received trace. Ledger extension requires actual new-operation evidence;
+The concrete P1 stream/fallback gap is now [corrected and published](operations/release-2026-11-08-stream-tracing.md)
+at API source `db8d236`. Eleven real-SDK cases with no network, the seven-check
+harness, both graphs, all four fresh CI jobs and both short actual image paths
+pass. The observed API-only deployment and public checks pass; frontend remains
+at `151ccef`. Safe root summaries preserve original business behavior and suppress
+history/nested/ambient payloads. Next confirm region/destination/key and a safe
+received trace before claiming hosted activation. Ledger extension requires actual new-operation evidence;
 the inspected historical window is answer-only. Keep the data policy and avoid
 creating another monitoring stack or enabling providers merely for this review.
 The [follow-up checklist](backlog.md#observability-review-and-access-guide) keeps
-activation and its prerequisites pending. No application deployment was needed.
+activation and receiver verification pending. The initial inventory needed no
+application deployment; the subsequent stream correction did and is published.
 
 Other BE-13 work needs a separately declared bounded scenario for slow readers,
 cancellation/reconnect or restart recovery; inspect SQL/lock/pure queue behavior

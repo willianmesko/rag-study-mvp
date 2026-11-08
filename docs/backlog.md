@@ -27,10 +27,11 @@ status section where they appear.
 
 ## In progress
 
-- **In validation:** safe LangSmith tracing for streamed/fallback answers, with
-  original event/result/error behavior, nested/history suppression and eleven
-  network-free SDK tests. Local harness/architecture pass; exact-source CI and
-  observed publication remain pending. Activation stays separate. See the
+- **Complete and published:** safe LangSmith tracing for streamed/fallback
+  answers at API source `db8d236`, with original event/result/error behavior,
+  nested/history suppression and eleven network-free SDK cases. All four fresh
+  quality jobs, both short capacity profiles, the observed API deployment and
+  public checks pass. Hosted activation stays separate. See the
   [release record](operations/release-2026-11-08-stream-tracing.md).
 
 - **Validated measurement, ticket partial:** BE-13 instrumented sustained cohort
@@ -46,9 +47,11 @@ status section where they appear.
   setup and is not labelled pure pool queue wait. Hosted metric export remains
   a separate activation. See the [evidence](operations/postgres-checkout-measurement.md).
 
-Frontend and API are live at `151ccef257f79882754d64d6c3bf49d234ad84fc` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42494273559) passed. Publication, assets, icon, health, private-route protection
-and a bounded error-log window were verified on 2026-11-08 UTC.
+API source `db8d236b4007fb29e0d387cb6574be3371f764c6` is live after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42517044431)
+passed. The compatible frontend remains at `151ccef257f79882754d64d6c3bf49d234ad84fc`.
+Publication, assets, icon, health, private-route protection and a bounded error-log
+window were verified on 2026-11-08 UTC. The API-only rollout added no frontend build.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
   URLs and recoverable drafts. See the [release receipt](operations/release-2026-11-07-url-state.md).
@@ -174,13 +177,14 @@ See the [verified status and access guide](operations/observability-review-2026-
 - [x] Update the [operations guide](operations/observability.md) and the
   LangSmith activation item below with verified evidence and remaining work.
   The capacity lab's private in-memory collection is not hosted trace delivery.
-- [ ] **P1: fix/test LangSmith streamed and fallback answer coverage.** The
-  current answerStream decorator bypasses the traceable outer wrapper, and
-  nested graph tracing is suppressed. Use the existing adapter and local fake
-  trace client to prove safe coverage, correlation, cancellation, history policy
-  and sanitized failures; preserve public answer contracts and avoid raw content.
-  Eleven focused cases and the local harness now pass; final CI/publication
-  remain pending in the release record above.
+- [x] **P1: safe LangSmith streamed/fallback coverage is validated and published**
+  at API source `db8d236`. Eleven real-SDK/in-memory-client cases preserve stream
+  backpressure/order, cancellation, original results/errors, concurrent scope,
+  history/ambient suppression and safe summaries without network calls. The
+  seven-check harness, both architecture graphs, all four fresh CI jobs and both
+  short actual capacity paths pass. The exact API deploy and public checks are
+  verified. See the [receipt](operations/release-2026-11-08-stream-tracing.md).
+  The unchanged frontend remains at `151ccef`; hosted trace activation stays open.
 - [ ] Confirm the existing LangSmith account/region and project- versus
   agent/environment-based destination before configuring credentials. Verify
   installed SDK compatibility rather than automatically adding/upgrading tools.

@@ -18,16 +18,20 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-13, BE-14, FE-08 | 5 |
 | Pending implementation or final validation/publication | BE-09 | 1 |
 
-The latest batch is live on frontend and API at `151ccef257f79882754d64d6c3bf49d234ad84fc`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42494273559) passed.
+The API is live at `db8d236b4007fb29e0d387cb6574be3371f764c6` after all four
+[CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42517044431)
+passed. The compatible unchanged frontend remains at
+`151ccef257f79882754d64d6c3bf49d234ad84fc`.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
 CI passed 410 UX cases/46 deliberate skips, 100 PostgreSQL cases, the isolated
 cutover, 78 architecture fixtures, seven harness checks, four native route-state,
 six artifact and three payload cases. The Render build independently passed
 both actual OCR cases with zero skips and zero project test artifacts in the
-final application tree. The [guarded-checkout receipt](operations/postgres-checkout-measurement.md)
-records the current delivery and both short version-three capacity reports.
+final application tree. The [stream-tracing receipt](operations/release-2026-11-08-stream-tracing.md)
+records the API-only rollout, eleven focused SDK cases and public checks.
+The earlier [guarded-checkout receipt](operations/postgres-checkout-measurement.md)
+retains its exact-source short version-three capacity evidence.
 The earlier [OAuth/vector receipt](operations/release-2026-11-08-oauth-vector-boundaries.md)
 retains its pinned evidence. The [partial-projection receipt](operations/ingestion-projection-boundaries.md)
 retains its original/preview evidence; the
@@ -35,8 +39,9 @@ retains its original/preview evidence; the
 and a bounded error-log window were verified.
 
 The later measurement-only [instrumented sustained result](operations/capacity-instrumented-sustained-result.md)
-passed at `75f7583` with all four fresh normal CI jobs. Application/lab code is
-unchanged from the published source; no redeployment was needed. BE-13 stays partial.
+passed at `75f7583` with all four fresh normal CI jobs. At that launch, application/
+lab code matched `151ccef`; the subsequent stream fix is not relabelled as that
+long-run measurement. No redeployment was needed for the cohort. BE-13 stays partial.
 
 See the [artifact receipt](operations/release-2026-11-07-runtime-artifacts.md),
 [FE-11 receipt](operations/release-2026-11-07-url-state.md) and
@@ -593,7 +598,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
-- [ ] **Hosted demo validation explicitly pending:** run a separately bounded end-to-end cohort using actual Render hosting, Supabase Auth/PostgreSQL and the selected real OpenRouter model. Declare synthetic scope, deployment/model identity, duration/request/concurrency/spend limits and stop conditions before execution. Retain real latency/usage/error evidence and a safe comparative report; passing the isolated cohort certifies only its declared conditions. See [production capacity and operations](backlog.md#6-production-capacity-and-operations). The completed [observability inventory](operations/observability-review-2026-11-08.md) verifies active logs/product metrics and disabled LangSmith/OTLP; safe streamed trace coverage and actual receiver delivery remain follow-ups.
+- [ ] **Hosted demo validation explicitly pending:** run a separately bounded end-to-end cohort using actual Render hosting, Supabase Auth/PostgreSQL and the selected real OpenRouter model. Declare synthetic scope, deployment/model identity, duration/request/concurrency/spend limits and stop conditions before execution. Retain real latency/usage/error evidence and a safe comparative report; passing the isolated cohort certifies only its declared conditions. See [production capacity and operations](backlog.md#6-production-capacity-and-operations). The completed [observability inventory](operations/observability-review-2026-11-08.md) verifies active logs/product metrics and disabled LangSmith/OTLP; safe streamed coverage is now [published](operations/release-2026-11-08-stream-tracing.md), while hosted receiver activation/delivery remains pending.
 
 - [x] **Instrumented sustained cohort validated:** source `75f7583` passed all four normal CI jobs and the fixed 30-minute/50,000-chunk/ten-workspace workload: 10,022 mixed pairs, zero unexpected failures, six completed unique ingestions and all new-source checks. Both phase event-loop/guarded-checkout windows, 618 queue/resource observations, 10,392 completed chat rows, six ingestion rows, 62,364 checkpoints and safe cleanup are reviewed. Search p95 is 204.445 ms; validated completion p95 is 2,510.180 ms. The old report stays immutable; provider/hosting, source/runner and partial measurement caveats remain explicit. No application change or redeployment was needed. See the [process and comparative result](operations/capacity-instrumented-sustained-result.md).
 

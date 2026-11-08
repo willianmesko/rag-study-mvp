@@ -17,8 +17,9 @@ must not be described as an active hosted receiver.
 The review also identifies a concrete LangSmith coverage gap: normal chat prefers
 answerStream, whose decorator delegates without creating the outer trace, while
 nested graph tracing is intentionally suppressed. The subsequent
-[bounded correction](release-2026-11-08-stream-tracing.md) records safe stream
-coverage and its validation/publication status. Export activation stays separate.
+[published correction](release-2026-11-08-stream-tracing.md) adds safe stream
+coverage with eleven focused SDK cases and observed API rollout at db8d236.
+Export activation and safe receiver verification stay separate.
 The local setup below remains an optional procedure,
 not evidence that its viewers or an external destination are already running.
 

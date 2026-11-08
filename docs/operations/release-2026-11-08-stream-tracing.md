@@ -62,12 +62,40 @@ preserved; implementation uses the synchronized clean checkout.
 
 ## CI, rollout and activation
 
-Fresh exact-source CI, actual image/SQL proof and observed publication remain
-pending. Publish after all required jobs pass, observe the returned Render
-deploy IDs become live and verify public health/protection. A push or accepted
-deployment request is not publication. This change needs no database migration.
+Exact source: `db8d236b4007fb29e0d387cb6574be3371f764c6`.
+All four [quality jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42517044431)
+pass: 410 UX cases/46 intentional profile skips, 100 actual SQL cases without
+skips, isolated cutover, 78 architecture fixtures, seven harness checks and the
+actual API/MCP image checks. Both [short capacity profiles](https://github.com/willianmesko/rag-study-mvp/actions/runs/42517044552)
+pass at the same source. These are distinct from the earlier sustained cohort.
 
-Keep the previously reviewed tracing configuration unchanged for this rollout.
+The actual image passes two native OCR cases with zero skips, retains 498 runtime
+files / 1,571,006 bytes / 14 roots / zero project test artifacts, and retains the
+31-file / 52,893-byte SQL catalog with SHA-256
+`f3d3581a9a83a1568390cc0d249968dcec8016d09596a1004e043f6d711c253b`.
+The disposable image fixture applies all migrations then zero on repeat.
+
+API deploy `dep-dbod8lbm8hqs7388a7m0` matches the exact tested source and was
+observed live at **17:00:24 America/Sao_Paulo (20:00:24.597846 UTC), 2026-11-08**.
+The independent Render build log at 19:58:54 UTC confirms two real OCR passes
+without skips and the exact runtime/SQL inventory above. The unchanged frontend
+remains at `151ccef`, deploy `dep-dbo9b2gu01pc73ejn5s0`; it needed no redeployment.
+No schema, provider, secret, plan or telemetry flag changed.
+
+Public verification started at 20:01:07 UTC and passed: frontend HTTP 200 with
+the existing main/lazy/CSS action/lifecycle markers and 256×256 PNG icon; API
+health 200 with OCR/durable capabilities and a server-owned correlation ID;
+unauthenticated MCP, owner alerts, conversations and legacy ingestion all 401;
+OAuth resource/name/S256 discovery and expected malformed-request 400/415.
+The error/fatal application-log query for 20:00:25–20:01:10 UTC succeeded with
+zero records and no additional page. This is a bounded window, not an uptime SLO.
+
+The correction is validated and published. Public checks invoked no model or
+document operation. Actual LangSmith receipt, signed-in real-provider chat and
+third-party consent were not exercised; this is not a claim of hosted activation.
+Rollback needs no schema/data rewrite. Historical benchmark reports stay pinned.
+
+The previously reviewed tracing configuration is unchanged by this rollout.
 Next confirm account region/destination, supply its key through the existing
 secret mechanism and deliberately activate LangSmith. Verify a controlled safe
 trace in the intended receiver before claiming it active, including stream
