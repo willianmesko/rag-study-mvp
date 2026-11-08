@@ -116,6 +116,7 @@ jobs:
           EVAL_PERFORMANCE_LIMITS: ${{ vars.EVAL_PERFORMANCE_LIMITS }}
       - name: Verify native state, runtime artifacts and frontend budgets
         run: |
+          npm run test:capacity
           npm run test:frontend-state
           npm run test:runtime-artifacts
           npm run test:frontend-budget

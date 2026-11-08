@@ -9,9 +9,9 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `e3840b31a5c915aba4927d2ff38548711ba11a36`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42430999939).
-- [Release evidence](operations/release-2026-11-08-provider-assessment-boundaries.md) records
+- Source: `e6fb0b095914cc30fbe898d9b3121e76b775458c`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42433702660).
+- [Release evidence](operations/release-2026-11-08-runtime-migration-resources.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -52,8 +52,10 @@ the isolated cutover and all other gates passed. Conversation record/recovery
 validation is now published after 88 actual SQL cases and all four CI gates.
 Judge/reranker response boundaries are validated and published with all four
 fresh CI gates. They do not activate a reranker or change a model/prompt.
-The active BE-14 follow-up packages existing migration SQL and validates the
-actual API image against a disposable database, before the BE-13 capacity pilot.
+The BE-14 migration-resource follow-up is also validated and published; the
+actual image applied 31 migrations and repeated zero in a disposable database.
+Active next: the BE-13 isolated capacity pilot, with synthetic providers and
+no conclusion yet about sustained load or production sizing.
 
 ## Completed explicit follow-up: BE-15
 

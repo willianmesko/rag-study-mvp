@@ -27,8 +27,8 @@ status section where they appear.
 
 ## In progress
 
-Frontend and API are live at `e3840b31a5c915aba4927d2ff38548711ba11a36` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42430999939) passed. Publication, assets, icon, health, private-route protection
+Frontend and API are live at `e6fb0b095914cc30fbe898d9b3121e76b775458c` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42433702660) passed. Publication, assets, icon, health, private-route protection
 and a bounded error-log window were verified on 2026-11-08 UTC.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
@@ -55,8 +55,11 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
 - **Published increment, ticket partial:** judge/reranker response boundaries.
   See the [receipt](operations/release-2026-11-08-provider-assessment-boundaries.md).
   This does not enable Jina or change model/prompt selection.
-- **In validation:** API-image SQL resources and safe migration CLI failures,
-  a prerequisite for the isolated capacity lab. No hosted migration is run.
+- **Published increment, ticket partial:** API-image SQL resources and safe
+  migration CLI failures. The [receipt](operations/release-2026-11-08-runtime-migration-resources.md)
+  records actual image/SQL/OCR proof and both live services.
+- **In validation:** BE-13 isolated mixed-workload capacity pilot with synthetic
+  data/providers. This is not the sustained baseline or a production sizing claim.
 
 The [technical backlog](technical-backlog.md) now records **20 published tickets,
 four partial tickets and two pending tickets**. The current CI passed 410 UX

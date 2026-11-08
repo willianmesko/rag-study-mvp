@@ -1,0 +1,40 @@
+name: Capacity lab
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/capacity/**"
+      - "tests/capacity/**"
+      - ".github/workflows/capacity-lab.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build:contracts
+      - name: Validate lab guards and deterministic provider fixture
+        run: node --test tests/capacity/lab.test.mjs
+      - name: Build the actual API image with required native OCR checks
+        run: docker build --tag lumora-api:capacity-ci --file apps/api/Dockerfile .
+      - name: Run isolated mixed-workload pilot
+        run: node scripts/capacity/run.mjs --image lumora-api:capacity-ci --report-id ${{ github.sha }}
+      - name: Retain safe pilot measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capacity-pilot-${{ github.sha }}
+          path: reports/capacity/*.json
+          if-no-files-found: warn
+          retention-days: 30

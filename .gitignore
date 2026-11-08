@@ -17,3 +17,6 @@ reports/frontend-performance/runs/*.json
 
 # Private compiler output for image-level OCR verification only.
 apps/api/ocr-smoke-build/
+
+# Per-run isolated capacity reports are retained as CI artifacts.
+reports/capacity/*.json

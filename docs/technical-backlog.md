@@ -18,13 +18,13 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08 | 4 |
 | Pending implementation | BE-09, BE-13 | 2 |
 
-The latest batch is live on frontend and API at `e3840b31a5c915aba4927d2ff38548711ba11a36`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42430999939) passed.
+The latest batch is live on frontend and API at `e6fb0b095914cc30fbe898d9b3121e76b775458c`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42433702660) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
 CI passed 410 UX cases/46 deliberate skips, 88 PostgreSQL cases, the isolated
 cutover, 78 architecture fixtures, seven harness checks, four native route-state,
-three artifact and three payload cases. The Render build independently passed
+six artifact and three payload cases. The Render build independently passed
 both actual OCR cases with zero skips and zero project test artifacts in the
 final application tree. Both live SHAs, public assets, health, protected routes
 and a bounded error-log window were verified.
@@ -465,7 +465,7 @@ feature-owned locations during BE-07's migration.
 - [x] Align manifest/`.nvmrc` with the existing Node 24 CI/container baseline.
 - [x] Production/test-artifact separation is CI verified and published. Explicit runtime roots, clean output inventory and a separate mandatory two-pass native OCR stage are implemented. The final image contains no project test/helper files. See the [release record](operations/release-2026-11-07-runtime-artifacts.md) for actual image checks and the local Docker disk limit.
 - [x] Actual minimal MCP image/permission handshake passed in fresh CI, including five tools, restricted runtime and rejection of the unavailable write tool. The [image gate](operations/mcp-image-verification.md) is required on every release.
-- [ ] Runtime migration resources and safe CLI failures are in validation. Copy the reviewed catalog into API images, verify its digest and run the actual image twice against a fresh disposable database. See the [bounded plan](operations/release-2026-11-08-runtime-migration-resources.md). No hosted migration or SDK upgrade is included.
+- [x] Runtime SQL resources and safe migration CLI failures are published. Fresh CI matched all 31 source/image files by digest, applied 31 migrations and reapplied zero using the actual read-only API image. Both production images include the catalog. See the [receipt](operations/release-2026-11-08-runtime-migration-resources.md). No hosted migration or SDK upgrade is included.
 - [ ] Apply the reviewed compatible Auth fix with its complete regression/release evidence. The candidate SDK has not been installed.
 - **Review evidence:** the [dated dependency/OCR review](operations/dependency-hygiene-2026-11-07.md)
   verifies that two low audit entries represent one Auth advisory. The only
@@ -554,6 +554,8 @@ feature-owned locations during BE-07's migration.
   [release record](operations/release-2026-11-07-frontend-performance.md).
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
+
+- **Active bounded increment:** the [isolated pilot](operations/capacity-lab.md) uses synthetic providers and a skewed three-workspace corpus. Native fixture/guard tests pass; actual image/load execution remains pending. The full sustained baseline, pool/event-loop metrics and multi-replica proof remain open.
 
 - [ ] **P2 measurement · M–L · Medium operational risk.** Scope:
   [capacity plan](backend-scalability-review.md), synthetic load fixtures,
