@@ -18,16 +18,17 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-13, BE-14, FE-08 | 5 |
 | Pending implementation or final validation/publication | BE-09 | 1 |
 
-The latest batch is live on frontend and API at `ce17d1d51623d4145764f01f0d8e762bd7d66224`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42448152261) passed.
+The latest batch is live on frontend and API at `577e5007283ecafcf5372c8034849b39697515ff`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42450042196) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
-CI passed 410 UX cases/46 deliberate skips, 97 PostgreSQL cases, the isolated
+CI passed 410 UX cases/46 deliberate skips, 99 PostgreSQL cases, the isolated
 cutover, 78 architecture fixtures, seven harness checks, four native route-state,
 six artifact and three payload cases. The Render build independently passed
 both actual OCR cases with zero skips and zero project test artifacts in the
-final application tree. The [partial-projection receipt](operations/ingestion-projection-boundaries.md)
-records the current original/preview delivery; the earlier
+final application tree. The [OAuth/vector receipt](operations/release-2026-11-08-oauth-vector-boundaries.md)
+records the current delivery. The earlier [partial-projection receipt](operations/ingestion-projection-boundaries.md)
+retains its original/preview evidence; the
 [combined receipt](operations/release-2026-11-08-records-and-capacity.md) retains its pinned read-boundary and separate capacity evidence. Both live SHAs, public assets, health, protected routes
 and a bounded error-log window were verified.
 
@@ -307,8 +308,8 @@ feature-owned locations during BE-07's migration.
 - [x] Full ingestion-job records are CI validated and published through a narrow infrastructure helper: four new cases/17 focused passes, original Buffer identity, payload-free list SQL, null/zero values and admission fallback. Real failed-job corrupt/restore and fresh 95-case SQL proof pass. See the [record](operations/release-2026-11-08-ingestion-job-records.md).
 - [x] Partial original/preview projections are CI verified and published: adapter-local driver/nullable-join checks, 28 focused cases, seven harness checks, both graphs, 97 real SQL cases, both short image-based paths and all four normal gates pass. SQL fixtures preserve current-source scope, three-passage ordering/cap, empty joins, private/legacy originals and negative-count repair. Both exact-source deployments and public checks passed. See the [receipt](operations/ingestion-projection-boundaries.md).
 - [x] MCP index/passage guarantee review is recorded against the published `ce17d1d` source: physical UUID/provider/model/dimension constraints, configured identity matching, unknown-security blocking, input/output/byte caps and existing actual SQL/cancellation/role fixtures justify retaining the current bounded path. This adds no generic decoder, dependency or production change. See the [review](operations/mcp-projection-guarantees.md); BE-09 activation is separate.
-- [ ] OAuth client metadata increment: adapter-local redirect-array decoding reuses the current canonical callback policy, preserves labels/expiry/nulls and fails with fixed errors before registration commit. Twenty-three focused cases, seven harness checks and both graphs pass locally; one actual SQL corruption/repair fixture is added. Fresh actual CI and publication are pending. See the [plan](operations/oauth-client-record-boundaries.md).
-- [ ] Provider vector representability increment: reproduced acceptance of zero/float32-overflow/all-underflow vectors, then fixed the shared provider decoder without rounding valid output. Sixteen focused cases, seven final combined harness checks and both graphs pass; native usage survives invalid responses. The actual SQL conversion fixture, fresh CI and combined publication remain pending. No historical vectors/cache are rewritten. See the [plan](operations/embedding-vector-representability.md).
+- [x] OAuth client metadata increment is CI verified and published: adapter-local redirect-array decoding reuses the existing canonical callback policy, preserves labels/expiry/nulls and fails with fixed errors before registration commit. Twenty-three focused cases, all seven harness checks, both graphs, the actual SQL corruption/repair fixture and final 99-case SQL gate pass. Both exact-source deployments and public checks pass. See the [record](operations/oauth-client-record-boundaries.md).
+- [x] Provider vector representability increment is CI verified and published: reproduced zero/float32-overflow/all-underflow acceptance, then fixed the shared decoder without rounding valid output. Sixteen focused cases, the final harness/graphs, actual SQL conversion/zero-cosine/overflow fixture, 99-case SQL gate and both short image-based paths pass. Reported usage survives invalid responses; both deployments/public checks pass. No historical vectors/cache are rewritten. See the [record](operations/embedding-vector-representability.md).
 - [ ] Remaining BE-12: follow the [concrete boundary inventory](backend-configuration-and-records.md#remaining-boundary-inventory-be-12) for action/OAuth/embedding assumptions and document metadata. Preserve existing constraints, optional fields and security guards; targeted decoding does not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate

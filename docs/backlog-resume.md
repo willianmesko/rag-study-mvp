@@ -9,9 +9,9 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `ce17d1d51623d4145764f01f0d8e762bd7d66224`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42448152261).
-- [Release evidence](operations/ingestion-projection-boundaries.md) records
+- Source: `577e5007283ecafcf5372c8034849b39697515ff`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42450042196).
+- [Release evidence](operations/release-2026-11-08-oauth-vector-boundaries.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -41,7 +41,11 @@ is published at `ce17d1d`, after all four normal CI jobs, 97 actual SQL cases
 and both short image-based paths passed. Both exact-source Render deployments,
 the independent OCR build receipt and public checks are verified. The current
 delivery includes the earlier published code; old measurements keep their pinned
-sources. Three learning chapters are prepared, with learner outcomes still open.
+sources. The subsequent [OAuth/vector delivery](operations/release-2026-11-08-oauth-vector-boundaries.md)
+is published at `577e500`: all four normal gates, 99 actual SQL cases, both short
+image-based paths, both observed live services, independent native OCR and public
+checks pass. The error/fatal log window is empty. Four learning chapters are
+prepared, with all learner outcomes still open.
 
 The [queue measurement follow-up](operations/capacity-workflow-queues.md) is also
 validated and active in CI at `2c2ed48`: 15 native cases, both actual SQL/image
@@ -59,10 +63,19 @@ their explicit separate decisions. Do not mark partial tickets complete.
 
 The [MCP index/passage review](operations/mcp-projection-guarantees.md) now records
 the existing constraint/configuration/output guarantees against the published
-source. It adds no runtime change or dependency. The next bounded BE-12 review
-is OAuth client redirect metadata: the JSON array length is constrained in SQL,
-but element type/URI validation still relies on the original registration writer.
-Preserve the existing URI policy and PKCE/resource/refresh behavior.
+source. It adds no runtime change or dependency. OAuth client redirect metadata
+is now decoded at the PostgreSQL boundary with the existing canonical URI policy;
+the provider vector decoder also enforces finite/nonzero float32 representation.
+These increments are included in the current published delivery. No historical
+data, model, migration or provider was changed.
+
+Remaining BE-12 review: action rows/leases/events, OAuth request/grant/principal
+assumptions, embedding version/staged-row mappings and document/demo/knowledge
+metadata. Inspect concrete sinks and existing constraints before adding guards;
+do not turn every TypeScript row annotation into a generic schema task. BE-13
+still needs scoped API checkout timing and the remaining documented load/recovery
+scenarios. BE-08/FE-08, BE-09 and BE-14 retain their explicit tooling/activation/
+SDK decisions. The table remains 21 published, five partial and one pending.
 
 ## Completed bounded delivery and next work
 

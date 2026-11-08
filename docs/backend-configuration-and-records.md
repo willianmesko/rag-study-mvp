@@ -104,7 +104,7 @@ guards remain part of the boundary.
 
 | Priority / location | Concrete remaining work | Acceptance and trade-off |
 | --- | --- | --- |
-| P2: remaining action/OAuth/embedding mappings | Scalar/array row assumptions rely on constraints and repeated application authorization | Document those existing guarantees and missing checks per sink. Preserve approval fences, tool allowlists, PKCE/resource/refresh behavior, dimension pins and server-owned model policy. Do not confuse TypeScript assertions with authorization, or add provider calls while validating stored metadata. |
+| P2: remaining action/OAuth/embedding mappings | Action leases/events, OAuth requests/grants/principals and embedding version/staged rows still need their own sink/constraint review; client redirect JSON is now decoded | Document existing guarantees and missing checks per sink. Preserve approval fences, tool allowlists, PKCE/resource/refresh behavior, dimension pins and server-owned model policy. Do not confuse TypeScript assertions with authorization, or add provider calls while validating stored metadata. |
 | P3: document/demo/knowledge projections | Metadata fields already have explicit allowlists/clamps and unknown security becomes high risk | Inventory which values are interpreted versus deliberately ignored. Preserve absence/unknown metadata and bounded previews instead of making legacy optional fields break whole libraries. Keep actual scope/SQL/UX regressions. |
 
 Usage summaries, full ingestion jobs, timeline and MCP source/status/quality
@@ -119,6 +119,13 @@ security policy, checked input/output transports and exact-source fixtures.
 Those projections deliberately retain their present constraints/guards rather
 than adding a generic duplicate decoder. New adapters or bypassing entry points
 must revisit that decision; BE-09 live privileges remain separate.
+OAuth client redirect arrays are now [decoded on reads](operations/oauth-client-record-boundaries.md)
+with the existing canonical callback policy, rather than relying solely on the
+original registration writer. The shared provider decoder also checks
+[float32 representability and nonzero vectors](operations/embedding-vector-representability.md)
+without normalizing valid values or losing reported usage. Both increments have
+99-case real SQL and observed publication proof in the
+[current receipt](operations/release-2026-11-08-oauth-vector-boundaries.md).
 Each remaining family needs its own
 reviewed fixture and behavior-preserving proof. A passing targeted decoder does
 not close the inventory or imply complete SQL/JSON coverage.

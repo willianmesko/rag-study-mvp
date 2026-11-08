@@ -1,6 +1,6 @@
 # Lumora: end-to-end learning walkthrough
 
-**Status:** three lessons prepared; interactive teaching sessions and learner outcomes pending.
+**Status:** four lessons prepared; interactive teaching sessions and learner outcomes pending.
 
 The project is a learning platform as well as a product demonstration. This
 walkthrough will explain the actual implementation from first principles and
@@ -95,6 +95,9 @@ The third [prepared lesson](learning/03-modules-and-dependency-direction.md)
 follows actual module factories, ports, adapters, resource ownership and frontend
 Public APIs, with a disposable architecture exercise. Preparation does not mark
 the learning outcomes complete.
+The fourth [prepared lesson](learning/04-identity-workspaces-and-access.md)
+explains the actual login/session verification, workspace selection, role checks,
+SQL/RLS boundaries, invitations and the separate Supabase dashboard account.
 
 ### 1. Product journey and the system map
 

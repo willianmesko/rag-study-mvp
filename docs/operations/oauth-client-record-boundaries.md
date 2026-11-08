@@ -45,6 +45,10 @@ registration rollback/release. One actual SQL corruption/repair case is added
 to the disposable database suite. All seven harness checks and both architecture
 graphs pass locally (453/1,809 structural modules/dependencies, 452/1,314
 runtime). The optional model-performance gate was not executed. Fresh actual
-SQL/image/UX CI and publication remain pending. Local Docker is still unavailable
-because the existing VM is full; that is not an actual-SQL pass. No dependency
-version or lockfile changed.
+SQL/image/UX CI and publication also passed in the
+[combined delivery](release-2026-11-08-oauth-vector-boundaries.md) at `577e500`:
+99 SQL cases, all four normal gates, both short image-based paths, both observed
+live services and public checks. The earlier OAuth-only `f05105d` passed 98 SQL
+cases and all other gates but was not deployed separately. Local Docker is still
+unavailable because the existing VM is full; fresh Linux CI provides actual
+database/image proof. No dependency version or lockfile changed.

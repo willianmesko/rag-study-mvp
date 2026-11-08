@@ -55,7 +55,9 @@ gap across the shared decoder and all three adapters. After the bounded fix,
 each rejected adapter response. All seven final combined harness checks and both
 graphs pass locally (453/1,809 structural modules/dependencies, 452/1,314 runtime).
 The optional model-performance gate is not executed. Fresh actual SQL/image/UX
-CI and combined publication remain pending.
+CI and combined publication also passed at `577e500`: 99 SQL cases, all four
+normal gates, both short image-based paths, both observed live services and
+public checks. See the [combined receipt](release-2026-11-08-oauth-vector-boundaries.md).
 
 A disposable SQL-only fixture checks actual float32 conversion, zero-vector
 cosine NaN and overflow rejection, then proves the connection remains usable.

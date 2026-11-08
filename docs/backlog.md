@@ -27,8 +27,8 @@ status section where they appear.
 
 ## In progress
 
-Frontend and API are live at `ce17d1d51623d4145764f01f0d8e762bd7d66224` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42448152261) passed. Publication, assets, icon, health, private-route protection
+Frontend and API are live at `577e5007283ecafcf5372c8034849b39697515ff` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42450042196) passed. Publication, assets, icon, health, private-route protection
 and a bounded error-log window were verified on 2026-11-08 UTC.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
@@ -90,8 +90,9 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
   ages preserve nulls; scope and cleanup are verified without dispatching fixture
   work. This does not validate recovery or sustained queue capacity. See the
   [evidence](operations/capacity-workflow-queues.md).
-- **Prepared, teaching pending:** the first three walkthrough lessons explain the
-  product/request map, Node/TypeScript execution and module/adapter boundaries
+- **Prepared, teaching pending:** the first four walkthrough lessons explain the
+  product/request map, Node/TypeScript execution, module/adapter boundaries
+  and identity/workspace/role/RLS policies
   with diagrams, source references and provider-free exercises.
   [Learning outcomes](learning-walkthrough.md) remain unchecked.
 - **Published increment, ticket partial:** partial ingestion original/preview boundaries preserve
@@ -99,23 +100,24 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
   Twenty-eight focused cases, seven harness checks, both graphs, 97 real SQL
   cases and all four normal gates pass; both deployments and public checks are
   verified. See the [receipt](operations/ingestion-projection-boundaries.md).
-- **In validation:** OAuth client redirect metadata is checked on reads using
+- **Published increment, ticket partial:** OAuth client redirect metadata is checked on reads using
   the existing canonical-URI policy. Twenty-three focused cases, seven harness
-  checks and both graphs pass locally; actual SQL/CI and publication remain pending. PKCE, resource binding,
+  checks, both graphs, actual corruption/repair SQL and the fresh 99-case SQL gate
+  pass; both deployments and public checks are verified. PKCE, resource binding,
   consent and membership checks are unchanged. See the
-  [plan](operations/oauth-client-record-boundaries.md).
-- **In validation:** provider embeddings reject zero vectors after float32
+  [record](operations/oauth-client-record-boundaries.md).
+- **Published increment, ticket partial:** provider embeddings reject zero vectors after float32
   conversion and coordinates that overflow that format, without changing valid
-  output or usage receipts. Sixteen focused cases pass. A real SQL conversion
-  fixture and the combined OAuth/vector release remain pending. See the
-  [plan](operations/embedding-vector-representability.md).
+  output or usage receipts. Sixteen focused cases, real SQL conversion/zero-cosine/
+  overflow proof and all final CI gates pass. Both services and public checks
+  are verified. See the [record](operations/embedding-vector-representability.md).
 
 The [technical backlog](technical-backlog.md) now records **21 published tickets,
 five partial tickets and one pending ticket**. The current CI passed 410 UX
-checks/46 intentional skips, 97 PostgreSQL checks, the isolated cutover, 78
+checks/46 intentional skips, 99 PostgreSQL checks, the isolated cutover, 78
 architecture fixtures, the full harness, four native route-state and three
 payload-budget cases. Prior releases remain in their dated operational records.
-The [current receipt](operations/ingestion-projection-boundaries.md) links the
+The [current receipt](operations/release-2026-11-08-oauth-vector-boundaries.md) links the
 exact source, both live services, public checks and measurement limits. The
 [combined receipt](operations/release-2026-11-08-records-and-capacity.md) retains
 its earlier, separately pinned evidence.
