@@ -1,14 +1,10 @@
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
-import { decodeStoredRecord } from "../../../../platform/database/stored-record.js";
+import { decodeStoredRecord, storedRatioSchema as ratio } from "../../../../platform/database/stored-record.js";
 import type { CreateEvaluationRun, EvaluationRepository, EvaluationRun } from "../../application/ports/evaluation-repository.js";
 import { currentExecution } from '../../../../platform/workflows/execution-context.js';
 import { lockWorkflowFence } from '../../../../platform/database/workflow-fence.js';
 
-// PostgreSQL numeric uses decimal strings by default. Do not coerce null/empty
-// values into fictional zero measurements or accept NaN/Infinity.
-const ratio = z.union([z.number(), z.string().max(80).regex(/^-?\d+(?:\.\d+)?$/).transform(Number)])
-  .pipe(z.number().min(0).max(1));
 const evaluationRow = z.object({
   id: z.uuid(), tenant_id: z.uuid(), dataset_name: z.string(), dataset_version: z.string(),
   commit_sha: z.string().nullable(), embedding_provider: z.string(), embedding_model: z.string(),

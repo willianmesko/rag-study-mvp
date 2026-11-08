@@ -298,7 +298,8 @@ feature-owned locations during BE-07's migration.
 - [x] Judge/reranker response boundaries are validated and published: safe fixed errors, one choice/16-claim bounds, requested rerank cardinality and retained native usage. Twenty-three focused cases, both graphs, seven harness checks and all four fresh CI gates passed. Jina quality/activation stays separate. See the [release record](operations/release-2026-11-08-provider-assessment-boundaries.md).
 - [x] Persisted chat replay boundaries are CI validated and published. Six new row/event cases plus actual SQL corruption/isolation/repair preserve cursor/ordering/expiry and reject malformed JSON through the existing fixed server error. All four gates and the repeated exact-source capacity pilot passed. See the [release record](operations/release-2026-11-08-replay-record-boundaries.md).
 - [x] Workflow stored-budget and encrypted JSON diagnostics are CI validated and published, including real corrupt/restore SQL and preserved encryption/approval/recovery tests. Input/admission validation, key/AAD formats and budget ceilings remain unchanged. See the [release record](operations/release-2026-11-08-workflow-record-boundaries.md).
-- [ ] Remaining BE-12: inventory/decode other externally influenced repository JSON and unchecked row assumptions. Targeted row decoding does not establish complete SQL coverage.
+- [ ] MCP quality-report stored rows are locally validated with a shared decimal-ratio schema, real zero/null semantics, bounded pages and rollback/release. Twenty-two focused cases, seven harness checks and both graphs passed; fresh SQL/CI/publication remain required. See the [candidate record](operations/release-2026-11-08-mcp-quality-records.md).
+- [ ] Remaining BE-12: follow the [concrete boundary inventory](backend-configuration-and-records.md#remaining-boundary-inventory-be-12) for ingestion event JSON, usage aggregates, remaining MCP projections, action/OAuth/embedding assumptions and document metadata. Preserve existing constraints, optional fields and security guards; targeted decoding does not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
 
@@ -323,7 +324,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-08 + FE-08 — Incremental correctness, architecture and test gates
 
-- **In validation:** bounded compiler stdout diagnostics in the typecheck harness step. A removed synthetic TS2322 fixture proved visibility/exit/early stop, and the normal harness passed. Other provider/evaluation stdout remains excluded. This does not close promise/Hook tooling. See the [candidate record](operations/release-2026-11-08-capacity-source-ownership.md).
+- [x] Bounded compiler stdout diagnostics are CI validated and active in the typecheck harness step. A removed synthetic TS2322 fixture proved visibility/exit/early stop, and the normal harness passed. Other provider/evaluation stdout remains excluded. This does not close promise/Hook tooling. See the [evidence](operations/release-2026-11-08-capacity-source-ownership.md).
 
 - [ ] **P2 · M per track · Medium risk.** Scope: workspace scripts, TypeScript,
   selected lint/graph configuration, CI and focused frontend test helpers.
@@ -575,7 +576,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
-- **Next bounded increment in validation:** authoritative fixture ownership for newly ingested IDs, chunk/document pairing and six post-ingestion searches/answers. Nine native cases and seven harness checks pass; fresh image/load proof remains pending. See the [candidate record](operations/release-2026-11-08-capacity-source-ownership.md).
+- [x] Authoritative fixture ownership for newly ingested IDs and chunk/document pairing are CI validated. Nine native cases, the full normal gates and the actual lab passed, including six new-source searches/answers and six scoped ownership lookups. This is not the sustained baseline. See the [evidence](operations/release-2026-11-08-capacity-source-ownership.md).
 
 - **Active bounded increment:** the [isolated pilot](operations/capacity-lab.md) uses synthetic providers and a skewed three-workspace corpus. Native fixture/guard tests and an actual corrected image/load pilot passed. The chunk-ID guard passed repeated measured runs, including 104 completed pairs at the latest application source; the reviewed report records its exact source and limits. The full sustained baseline, pool/event-loop metrics and multi-replica proof remain open.
 

@@ -1,4 +1,6 @@
 import type { Pool, PoolClient } from "pg";
+import { z } from "zod";
+import { decodeStoredRecord, storedRatioSchema as ratio } from "../../../../platform/database/stored-record.js";
 import {
   maxMcpPassageChars, type McpEvaluationRecord, type McpIngestionRecord, type McpPassageRecord,
   type McpReadRepository, type McpSearchRecord, type McpSourceRecord
@@ -27,19 +29,11 @@ type IngestionRow = {
   chunk_count: number | null;
   updated_at: Date;
 };
-type EvaluationRow = {
-  id: string;
-  dataset_name: string;
-  dataset_version: string;
-  total_cases: number;
-  hit_rate: string;
-  mean_reciprocal_rank: string;
-  faithfulness: string | null;
-  context_precision: string | null;
-  injection_pass_rate: string;
-  passed: boolean;
-  created_at: Date;
-};
+const qualityPage = z.array(z.object({
+  id: z.uuid(), dataset_name: z.string(), dataset_version: z.string(), total_cases: z.number().int().nonnegative(),
+  hit_rate: ratio, mean_reciprocal_rank: ratio, faithfulness: ratio.nullable(), context_precision: ratio.nullable(),
+  injection_pass_rate: ratio, passed: z.boolean(), created_at: z.date()
+})).max(10);
 
 const sourceColumns = `d.id, left(d.source, 1001) AS source, left(d.title, 1001) AS title,
   left(d.metadata ->> 'format', 16) AS format, left(d.metadata ->> 'language', 16) AS language,
@@ -87,20 +81,20 @@ export class PgMcpReadRepository implements McpReadRepository, McpHybridReadRepo
   }
 
   getQualityReport(tenantId: string, limit: number, signal: AbortSignal): Promise<McpEvaluationRecord[]> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 10) throw new Error("Invalid MCP quality-report limit.");
     return this.read(signal, async (client) => {
-      const { rows } = await client.query<EvaluationRow>(
+      const { rows } = await client.query<Record<string, unknown>>(
         `SELECT id, left(dataset_name, 1001) AS dataset_name, left(dataset_version, 1001) AS dataset_version,
                 total_cases, hit_rate, mean_reciprocal_rank, faithfulness, context_precision,
                 injection_pass_rate, passed, created_at
          FROM public.evaluation_runs WHERE tenant_id = $1 ORDER BY created_at DESC, id LIMIT $2`,
         [tenantId, limit]
       );
-      return rows.map((row) => ({
+      return decodeStoredRecord(qualityPage, rows).map((row) => ({
         id: row.id, datasetName: row.dataset_name, datasetVersion: row.dataset_version,
-        totalCases: row.total_cases, hitRate: Number(row.hit_rate), meanReciprocalRank: Number(row.mean_reciprocal_rank),
-        faithfulness: row.faithfulness === null ? null : Number(row.faithfulness),
-        contextPrecision: row.context_precision === null ? null : Number(row.context_precision),
-        injectionPassRate: Number(row.injection_pass_rate), passed: row.passed, createdAt: row.created_at
+        totalCases: row.total_cases, hitRate: row.hit_rate, meanReciprocalRank: row.mean_reciprocal_rank,
+        faithfulness: row.faithfulness, contextPrecision: row.context_precision,
+        injectionPassRate: row.injection_pass_rate, passed: row.passed, createdAt: row.created_at
       }));
     });
   }

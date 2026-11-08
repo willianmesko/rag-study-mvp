@@ -31,4 +31,23 @@ normal release gates remain required. No image/load pass is claimed locally
 because the Docker VM remains full. No application/runtime, dependency, schema,
 cloud key or hosted setting changes are included in this increment.
 
-Implementation and local validation complete; fresh CI/load proof pending.
+Implementation and CI/load validation complete at
+794d48710077b601dad80f899dd74cc8cb581957. This increment changes repository/CI
+tools; the current application deployment is c8452e1 and contains no runtime
+difference from the corresponding application source in this tooling commit.
+
+All four [quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42437536924)
+passed, including 410 UX cases/46 intentional profile skips, 90 actual SQL cases,
+the cutover, 78 architecture fixtures, seven harness checks, four route cases,
+six artifact cases, nine native capacity cases and three payload cases. The
+[actual capacity run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42437536912)
+passed at the same source. The [reviewed report](../../reports/capacity/reviewed/pilot-794d487.json)
+records 95 measured-phase pairs plus six additional new-source searches/answers,
+six authoritative ownership reads, complete chunk/document association checks,
+all six deduplicated ingestions and three zero-exit/no-OOM process shutdowns.
+Cleanup reported zero failures. The separate compiler-diagnostic probe is an
+intentional local failure, not a passing normal harness result.
+
+The full sustained BE-13 baseline, pool/event-loop measurements and multi-replica
+proof remain open. Promise/Hook tooling in BE-08/FE-08 is also still open. This
+CI tooling increment does not require a separate Render application rollout.

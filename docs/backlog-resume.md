@@ -56,10 +56,12 @@ The BE-14 migration-resource follow-up is also validated and published; the
 actual image applied 31 migrations and repeated zero in a disposable database.
 The BE-13 pilot and checked persisted replay are now validated and published.
 The pilot has reviewed, versioned synthetic results and remains partial for
-sustained load, pool/event-loop timing and multi-replica behavior. Active next:
+sustained load, pool/event-loop timing and multi-replica behavior.
 BE-12 workflow diagnostic boundaries and BE-16 are also validated and published.
-Active next: BE-13 owned-source resolution/post-ingestion verification and BE-08
-compiler-failure diagnostics. Dependency/hosted-role decisions remain open.
+The owned-source/post-ingestion pilot and compiler diagnostics are also CI
+validated and active. Active next: checked MCP quality-report stored rows, with
+22 focused checks, seven harness checks and both graphs already passing locally.
+Fresh SQL/CI/publication are required. Dependency/hosted-role decisions remain open.
 
 ## Completed explicit follow-up: BE-15
 

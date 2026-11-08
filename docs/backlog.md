@@ -65,8 +65,10 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
   exact-source measured document/chunk ownership guards. See the [receipt](operations/release-2026-11-08-replay-record-boundaries.md).
 - **Published:** BE-16 production authentication for legacy JSON ingestion;
   workflow stored-budget/encrypted JSON diagnostics are also published.
-- **In validation:** newly ingested source ownership checks and compiler-failure
-  diagnostics. These are developer/CI tools; no application feature changes are included.
+- **Validated and active in CI:** newly ingested source ownership checks and
+  compiler-failure diagnostics. See the [evidence](operations/release-2026-11-08-capacity-source-ownership.md).
+- **In validation:** MCP quality-report stored rows and shared numeric semantics.
+  Fresh actual SQL/CI and application publication remain required.
 
 The [technical backlog](technical-backlog.md) now records **21 published tickets,
 five partial tickets and one pending ticket**. The current CI passed 410 UX

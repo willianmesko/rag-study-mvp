@@ -3,6 +3,7 @@ import test from "node:test";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { PgEvaluationRepository } from "../../modules/evaluations/infrastructure/postgres/pg-evaluation-repository.js";
+import { PgMcpReadRepository } from "../../modules/mcp/infrastructure/postgres/pg-mcp-read-repository.js";
 import { PgSemanticAnswerCache } from "../../modules/chat/infrastructure/postgres/pg-semantic-answer-cache.js";
 import { StoredRecordError } from "./stored-record.js";
 import { PgWorkspaceModelPolicyRepository } from "../../modules/chat/infrastructure/postgres/pg-workspace-model-policy-repository.js";
@@ -37,6 +38,22 @@ test("PostgreSQL evaluation records preserve decimal/null metrics, tenant scope 
     assert.ok(error instanceof StoredRecordError); assert.equal(error.message, "Stored data failed validation.");
     assert.ok(!JSON.stringify(error).includes("PRIVATE_SENTINEL")); return true;
   });
+});
+
+test("PostgreSQL MCP quality records preserve driver decimal/null/Date values and workspace isolation", options, async (t) => {
+  const { pool, tenant } = await fixture(t), repository = new PgEvaluationRepository(pool);
+  const created = await repository.create({ tenantId: tenant, datasetName: "synthetic MCP", datasetVersion: "1", commitSha: null,
+    embeddingProvider: "fixture", embeddingModel: "fixed", chatProvider: "fixture", chatModel: "fixed",
+    totalCases: 4, hitRate: 0.75, meanReciprocalRank: 0.625, faithfulness: null, contextPrecision: 0,
+    injectionPassRate: 1, passed: false, durationMs: 12, failureDetails: {} });
+  const reads = new PgMcpReadRepository(pool);
+  const [report] = await reads.getQualityReport(tenant, 10, new AbortController().signal);
+  assert.ok(report); assert.equal(report.id, created.id);
+  assert.equal(report.hitRate, 0.75); assert.equal(report.meanReciprocalRank, 0.625);
+  assert.equal(report.faithfulness, null); assert.equal(report.contextPrecision, 0); assert.equal(report.passed, false);
+  assert.ok(report.createdAt instanceof Date);
+  assert.deepEqual(await reads.getQualityReport(randomUUID(), 10, new AbortController().signal), []);
+  assert.equal((await reads.getQualityReport(tenant, 1, new AbortController().signal)).length, 1);
 });
 
 test("PostgreSQL semantic-cache records decode JSON passages without losing model/workspace isolation", options, async (t) => {

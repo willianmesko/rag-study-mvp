@@ -94,3 +94,24 @@ and [parameterized queries](https://node-postgres.com/features/queries).
 Rollback restores the prior application source; no database or environment
 rollback is required. Sanitized failures intentionally need diagnosis/repair of
 corrupt records rather than a fictional metric or unvalidated cached response.
+
+## Remaining boundary inventory (BE-12)
+
+The following items keep BE-12 partial. They are scoped follow-ups, not a claim
+that each typed database scalar is exploitable or that every adapter requires a
+new generic schema layer. PostgreSQL constraints and existing projection/security
+guards remain part of the boundary.
+
+| Priority / location | Concrete remaining work | Acceptance and trade-off |
+| --- | --- | --- |
+| P2: ingestion repository map/mapEvent | Row mappings assert job fields and details JSON; JSONB alone permits non-object details | Validate the interpreted object/status/count/Date shape through fixed stored-data errors; preserve supported OCR/event metadata, nullable progress measurements and scoped retry/cancellation. Test actual object/array corruption and repair without logging content. Avoid decoding the whole source payload again. |
+| P2: usage summary totals | Number(row[field] ?? 0) combines missing and present values | Keep intentional no-data/SQL COALESCE zero totals. Distinguish invalid present numeric/boolean/Date data from absence, preserve native-versus-estimated ledger coverage and null unknown billing. Compare real aggregate driver types and old-ledger fixtures; never backfill fictional usage. |
+| P2: remaining MCP source/status mappings | Source/status/date mappings still use asserted physical row types; passage security already fails closed | Inventory each projection and existing output guards before adding decoders. Preserve ten/five-item caps, private URL/PII redaction, skipped unsafe previews, read-only/cancellation and all role checks. Add missing shape checks only where a concrete consumer interprets data. |
+| P2: remaining action/OAuth/embedding mappings | Scalar/array row assumptions rely on constraints and repeated application authorization | Document those existing guarantees and missing checks per sink. Preserve approval fences, tool allowlists, PKCE/resource/refresh behavior, dimension pins and server-owned model policy. Do not confuse TypeScript assertions with authorization, or add provider calls while validating stored metadata. |
+| P3: document/demo/knowledge projections | Metadata fields already have explicit allowlists/clamps and unknown security becomes high risk | Inventory which values are interpreted versus deliberately ignored. Preserve absence/unknown metadata and bounded previews instead of making legacy optional fields break whole libraries. Keep actual scope/SQL/UX regressions. |
+
+The MCP quality-report projection now has a locally validated checked decoder;
+its [release record](operations/release-2026-11-08-mcp-quality-records.md) tracks
+fresh SQL and publication separately. Each remaining family needs its own
+reviewed fixture and behavior-preserving proof. A passing targeted decoder does
+not close the inventory or imply complete SQL/JSON coverage.
