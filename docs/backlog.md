@@ -153,21 +153,35 @@ A real completed ChatGPT connection still needs client consent/verification.
 
 ### Observability review and access guide
 
-This is the next requested review after recording public-demo validation as pending.
+The initial review is complete; activation and concrete follow-ups remain open.
+See the [verified status and access guide](operations/observability-review-2026-11-08.md).
 
-- [ ] Review the current logs, operational metrics, AI traces and LangSmith
+- [x] Review the current logs, operational metrics, AI traces and LangSmith
   adapter. Separate implemented code, configured settings and evidence of
   actual delivery; do not infer activation from an SDK or successful deploy.
-- [ ] Document where to view each signal, required access, correlation between
+- [x] Document where to view each signal, required access, correlation between
   a request and its workflow/provider stages, and coverage of model identity,
   tokens, latency, errors and reported versus estimated costs.
-- [ ] Confirm safe trace-data handling and gaps in receiver/alarm configuration.
-  Verify the selected receiver with a controlled nonsensitive trace when its
-  configuration is available. Keep exporter activation and billable provider
-  calls separate from the initial inventory; never print credential values.
-- [ ] Update the [operations guide](operations/observability.md) and the
+- [x] Inventory trace-data controls and receiver/alarm configuration gaps. The
+  Render service has LANGSMITH_TRACING=false, no LangSmith key/OTLP settings,
+  and no linked environment groups. The local monitoring stack is stopped.
+- [x] Update the [operations guide](operations/observability.md) and the
   LangSmith activation item below with verified evidence and remaining work.
   The capacity lab's private in-memory collection is not hosted trace delivery.
+- [ ] **P1: fix/test LangSmith streamed and fallback answer coverage.** The
+  current answerStream decorator bypasses the traceable outer wrapper, and
+  nested graph tracing is suppressed. Use the existing adapter and local fake
+  trace client to prove safe coverage, correlation, cancellation, history policy
+  and sanitized failures; preserve public answer contracts and avoid raw content.
+- [ ] Confirm the existing LangSmith account/region and project- versus
+  agent/environment-based destination before configuring credentials. Verify
+  installed SDK compatibility rather than automatically adding/upgrading tools.
+- [ ] Verify the selected receiver with a controlled nonsensitive trace when
+  configuration is available. Keep exporter activation and billable provider
+  calls separate from this completed inventory; never print credential values.
+- [ ] Verify new ledger operation categories with controlled, budgeted fixtures.
+  The reviewed owner dashboard shows historical answer-only coverage; existing
+  code for other AI stages is not proof that those categories have live records.
 
 ### 4. Portuguese and English retrieval and answers
 
@@ -329,7 +343,9 @@ routine lessons. This teaching work does not interrupt the current implementatio
   activation, and cache invalidation are implemented. BE-05 must execute its
   dedicated integration suite in CI without skips first.
 - [ ] Enable and validate the existing LangSmith adapter only with credentials
-  and an approved trace-data policy.
+  and an approved trace-data policy, after the streamed coverage follow-up above.
+  The [review](operations/observability-review-2026-11-08.md) confirms disabled
+  current configuration, not successful hosted trace delivery.
 - [ ] Verify real invitation delivery and onboarding through the existing
   Supabase Auth invitation endpoint. Configure a transactional sender if needed.
 - [ ] Provision a least-privilege connection and separately hosted worker before

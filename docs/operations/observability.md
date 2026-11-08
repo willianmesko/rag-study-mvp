@@ -5,6 +5,21 @@ passages, document names, emails, IPs, bearer tokens, URLs, provider responses o
 exception stacks to the tracing backend. Product records remain separately
 protected by membership and conversation ownership.
 
+## Verified deployment status and access
+
+The [2026-11-08 review](observability-review-2026-11-08.md) records live evidence
+and direct access links. API JSON logs and the owner-only product usage dashboard
+are active. LangSmith is disabled in the reviewed service configuration; its key
+and an OTLP receiver are not configured. The local Compose monitoring stack is
+stopped, and Render Free restricts CPU/memory charts. Implemented instrumentation
+must not be described as an active hosted receiver.
+
+The review also identifies a concrete LangSmith coverage gap: normal chat prefers
+answerStream, whose decorator delegates without creating the outer trace, while
+nested graph tracing is intentionally suppressed. Fix/test safe stream coverage
+before enabling export. The local setup below remains an optional procedure,
+not evidence that its viewers or an external destination are already running.
+
 ## Signal flow
 
 ```mermaid

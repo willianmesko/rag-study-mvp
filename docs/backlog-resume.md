@@ -81,12 +81,19 @@ measured results and a separate comparison. The isolated pass establishes only
 the conditions recorded in its report; no hosted-capacity claim is inferred.
 No hosted load or billable call was started by this backlog update.
 
-**Next requested review:** inspect [current observability and access](backlog.md#observability-review-and-access-guide),
-including LangSmith, logs, metrics, AI traces, correlation and cost coverage.
-Distinguish code from actual hosted activation, preserve the trace-data policy,
-and document how to inspect evidence without exposing credentials. Existing
-LangSmith/OTLP activation remains pending until verified; do not create another
-monitoring stack merely to perform the review.
+The requested [observability inventory](operations/observability-review-2026-11-08.md)
+is complete. Live API logs and owner usage/model-cost views are verified.
+LANGSMITH_TRACING=false, no LangSmith key or OTLP settings, no linked environment
+groups, no running local monitoring containers and Render Free chart restrictions
+are recorded. An authenticated LangSmith project/trace was not inspected.
+Existing chat selects answerStream, whose LangSmith decorator bypasses the
+outer trace; nested graph tracing is explicitly suppressed. Fix/test this
+concrete P1 gap before enabling export, then confirm region/destination and one
+safe received trace. Ledger extension requires actual new-operation evidence;
+the inspected historical window is answer-only. Keep the data policy and avoid
+creating another monitoring stack or enabling providers merely for this review.
+The [follow-up checklist](backlog.md#observability-review-and-access-guide) keeps
+activation and its prerequisites pending. No application deployment was needed.
 
 Other BE-13 work needs a separately declared bounded scenario for slow readers,
 cancellation/reconnect or restart recovery; inspect SQL/lock/pure queue behavior
