@@ -17,8 +17,18 @@ export function assertSources(sources, workspace, documents, chunks) {
   assert.ok(sources.length > 0, "The synthetic question must have a grounded source.");
   for (const source of sources) {
     assert.equal(documents.get(source.documentId), workspace.tenantId, "Cross-workspace source detected.");
-    if (chunks) assert.equal(chunks.get(source.chunkId), workspace.tenantId, "Cross-workspace chunk detected.");
+    if (chunks) {
+      assert.equal(chunks.get(source.chunkId)?.tenantId, workspace.tenantId, "Cross-workspace chunk detected.");
+      assert.equal(chunks.get(source.chunkId)?.documentId, source.documentId, "Chunk/document association changed.");
+    }
   }
+}
+export async function verifySources(sources, workspace, corpus) {
+  if (sources.some(({ documentId, chunkId }) => !corpus.documents.has(documentId) || !corpus.chunks.has(chunkId))) {
+    assert.equal(typeof corpus.hydrateSourceOwners, "function", "Unknown sources require authoritative fixture ownership.");
+    await corpus.hydrateSourceOwners(workspace.tenantId, sources);
+  }
+  assertSources(sources, workspace, corpus.documents, corpus.chunks);
 }
 export function decodeFrame(frame) {
   const data = frame.split("\n").filter((line) => line.startsWith("data: "));
@@ -56,7 +66,7 @@ async function streamAnswer(base, workspace, actor, question, corpus, cancellati
         if (!event) continue;
         firstEvent ??= performance.now() - started;
         assert.ok(!["error", "cancelled"].includes(event.type), "Synthetic stream terminated without an answer.");
-        if (event.type === "citations") assertSources(event.sources, workspace, corpus.documents, corpus.chunks);
+        if (event.type === "citations") await verifySources(event.sources, workspace, corpus);
         if (event.type === "token" && event.delta) firstText ??= performance.now() - started;
         if (event.type === "completed") result = event.response;
       }
@@ -65,8 +75,8 @@ async function streamAnswer(base, workspace, actor, question, corpus, cancellati
     assert.ok(result, "Synthetic stream ended before completion.");
     assert.equal(result.refusalReason ?? null, null, "The grounded synthetic question was refused.");
     assert.equal(result.answer, statement);
-    assertSources(result.sources, workspace, corpus.documents, corpus.chunks);
-    if (result.contextSources?.length) assertSources(result.contextSources, workspace, corpus.documents, corpus.chunks);
+    await verifySources(result.sources, workspace, corpus);
+    if (result.contextSources?.length) await verifySources(result.contextSources, workspace, corpus);
     return { completion: performance.now() - started, firstEvent, firstText, cacheHit: result.cacheHit === true };
   } finally { await reader.cancel().catch(() => undefined); reader.releaseLock(); }
 }
@@ -82,7 +92,7 @@ export async function referenceRecall(base, pool, corpus) {
       const response = await jsonResponse(base + "/v1/search?" + new URLSearchParams({ q: query, topK: "5" }), { headers: headersFor(workspace) });
       assert.equal(response.status, 200);
       const results = searchResponseSchema.parse(response.body).results;
-      assertSources(results, workspace, corpus.documents, corpus.chunks);
+      await verifySources(results, workspace, corpus);
       const actual = new Set(results.map(({ chunkId }) => chunkId));
       let plans;
       if (ordinal === 3) {
@@ -115,8 +125,8 @@ export async function trafficPhase(base, corpus, { name, seconds, clients = 2, s
         const started = performance.now();
         const response = await jsonResponse(base + "/v1/search?" + new URLSearchParams({ q: query, topK: "5" }), { headers: headersFor(workspace, actor), signal: cancellation });
         assert.equal(response.status, 200, "Synthetic search admission failed.");
-        assertSources(searchResponseSchema.parse(response.body).results, workspace, corpus.documents, corpus.chunks);
         const searchTime = performance.now() - started;
+        await verifySources(searchResponseSchema.parse(response.body).results, workspace, corpus);
         search.push(searchTime); perWorkspace[iteration % corpus.workspaces.length].search.push(searchTime);
         const stream = await streamAnswer(base, workspace, actor, query, corpus, cancellation);
         completion.push(stream.completion);
@@ -158,4 +168,20 @@ export async function uploadBurst(base, workspace, count = 6, signal = new Abort
     await delay(500);
   }
   return ids;
+}
+export async function verifyIngestedSources(base, corpus, count, signal) {
+  const workspace = corpus.workspaces[0];
+  for (let index = 0; index < count; index++) {
+    signal.throwIfAborted();
+    const question = key(90000 + index) + " what is the retention procedure?";
+    const response = await jsonResponse(base + "/v1/search?" + new URLSearchParams({ q: question, topK: "1" }), {
+      headers: headersFor(workspace), signal
+    });
+    assert.equal(response.status, 200);
+    const sources = searchResponseSchema.parse(response.body).results;
+    assert.equal(sources.length, 1); assert.equal(sources[0].source, `capacity/upload-${index}.md`);
+    await verifySources(sources, workspace, corpus);
+    await streamAnswer(base, workspace, workspace.actors[1], question, corpus, signal);
+  }
+  return { searches: count, answers: count, newlyIngestedSourcesChecked: count };
 }

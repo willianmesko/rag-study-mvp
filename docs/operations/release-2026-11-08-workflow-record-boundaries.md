@@ -26,8 +26,8 @@ Existing workflow recovery, rotation, approval and replay gates remain required.
 
 ## Status
 
-Implementation and local validation are complete; actual SQL/image CI and
-publication remain pending. Eight focused cases passed without skips, including
+Implementation, validation and publication are complete at
+`c8452e12240c8031733ac59a13f714568b79bd1d`. Eight focused cases passed without skips, including
 three new stored-budget cases and one new codec case covering malformed JSON
 and invalid UTF-8, plus preserved key/AAD/rotation and workflow-policy checks.
 The final combined source passed all seven local harness checks; the optional
@@ -42,3 +42,32 @@ The complete harness passed after that correction; the failed attempt is not
 counted as validation. Dependency, encryption key and hosted settings remain
 unchanged. Fresh normal gates and the actual exact-source capacity pilot are
 required before publication.
+
+## Published evidence
+
+All four [quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42436598494)
+passed: 410 UX cases/46 deliberate profile skips, 90 actual PostgreSQL cases
+without skips, the isolated cutover, 78 architecture fixtures, seven harness
+checks, four native route-state, six artifact, eight capacity-fixture and three
+payload cases. The separate exact-source [capacity pilot](https://github.com/willianmesko/rag-study-mvp/actions/runs/42436598528)
+passed 104 scoped pairs, all six deduplicated ingestions and clean process exits.
+Both dependency graphs passed (450 structural/1,786 edges; 449 runtime/1,293).
+The actual API image applied 31 migrations and repeated zero against its own
+fixture. Native OCR passed twice with zero skips, and both CI and the actual
+Render build reported 490 files/1,549,859 bytes, 14 entry roots, zero project test
+artifacts and the unchanged reviewed 31-file SQL catalog digest.
+
+Both services were observed LIVE at the exact source on 2026-11-08:
+
+- API `dep-dbntidff3r2c739k5qo0`: 02:08:43.891300 UTC.
+- Web `dep-dbntienf3r2c739k5t9g`: 02:07:40.257665 UTC.
+
+The public check at 02:09:24 UTC verified entry/lazy/CSS assets, original icon
+bytes, health/readiness, correlation, protected routes, discovery and safe malformed
+requests. An empty unauthenticated legacy write returned 401; no document,
+quota/model admission, private question, hosted SQL or secret was used.
+
+The first error-log query returned Render/Loki 503. A repeated bounded query
+succeeded and found no error/fatal events in 02:08:43–02:09:59 UTC. The unavailable
+attempt is not counted as a clean result. No deploy was repeated to address the
+logging service's temporary read failure.

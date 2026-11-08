@@ -103,6 +103,9 @@ for (const check of selectedChecks) {
   results.push(summary);
   process.stdout.write(`[harness] ${check.id}: ${summary.passed ? "passed" : "failed"} (${summary.durationMs} ms)\n`);
   if (!summary.passed) {
+    // TypeScript writes compiler diagnostics to stdout. Keep those visible
+    // without dumping provider/evaluation output or private runtime records.
+    if (check.id === "typecheck") process.stderr.write(result.stdout.slice(-8_000));
     process.stderr.write(result.stderr.slice(-4_000));
     break;
   }

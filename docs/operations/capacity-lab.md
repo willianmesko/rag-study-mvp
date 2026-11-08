@@ -145,3 +145,18 @@ cache hits were 24 and the first-validated-text count 44. Differences from the
 first successful pilot are diagnostic runner/cache samples, not a regression
 baseline or a causal performance improvement. The same stated omissions and
 sustained-load acceptance criteria still apply.
+
+## In validation: newly ingested source ownership
+
+The seed-only owner maps cannot establish ownership for IDs minted by a real
+upload. A legitimate newly indexed passage could therefore fail the pilot merely
+because it was absent from the seed. Resolve unknown IDs against this run's
+owned fixture with a tenant-filtered, bounded read, then verify the chunk/document
+pair as well as tenant ownership. Response tenant fields are never authoritative.
+
+Nine native fixture cases pass; the seven-check local harness passes. After the
+six jobs complete, the candidate also searches and answers against each new
+source, outside measured traffic phases. This forces the real ownership lookup
+instead of relying on whether a new passage happened to enter another query's
+top five. An actual fresh image/load run remains pending. No production code or
+SQL schema changes in this increment; sustained BE-13 criteria remain open.

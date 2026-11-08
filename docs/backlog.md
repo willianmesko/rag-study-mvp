@@ -27,8 +27,8 @@ status section where they appear.
 
 ## In progress
 
-Frontend and API are live at `fff266c525fc276d8486d3164549b1567f5461fc` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42435430674) passed. Publication, assets, icon, health, private-route protection
+Frontend and API are live at `c8452e12240c8031733ac59a13f714568b79bd1d` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42436598494) passed. Publication, assets, icon, health, private-route protection
 and a bounded error-log window were verified on 2026-11-08 UTC.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
@@ -63,12 +63,14 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
   synthetic pairs and six deduplicated ingestions; sustained capacity remains open.
 - **Published increment, ticket partial:** checked persisted chat replay and
   exact-source measured document/chunk ownership guards. See the [receipt](operations/release-2026-11-08-replay-record-boundaries.md).
-- **In validation:** workflow stored-budget/encrypted JSON diagnostics and the
-  P1 legacy-ingestion production authentication follow-up (BE-16).
+- **Published:** BE-16 production authentication for legacy JSON ingestion;
+  workflow stored-budget/encrypted JSON diagnostics are also published.
+- **In validation:** newly ingested source ownership checks and compiler-failure
+  diagnostics. These are developer/CI tools; no application feature changes are included.
 
-The [technical backlog](technical-backlog.md) now records **20 published tickets,
-five partial tickets and two pending tickets**. The current CI passed 410 UX
-checks/46 intentional skips, 88 PostgreSQL checks, the isolated cutover, 78
+The [technical backlog](technical-backlog.md) now records **21 published tickets,
+five partial tickets and one pending ticket**. The current CI passed 410 UX
+checks/46 intentional skips, 90 PostgreSQL checks, the isolated cutover, 78
 architecture fixtures, the full harness, four native route-state and three
 payload-budget cases. Prior releases remain in their dated operational records.
 Operational activation and the learning walkthrough retain separate status.

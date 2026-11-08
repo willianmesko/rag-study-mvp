@@ -7,7 +7,7 @@ import { parseArgs } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { docker, startLab, assertImage } from "./docker-lab.mjs";
 import { seedCorpus, sha256, samples, workspaceCounts } from "./fixtures.mjs";
-import { headersFor, jsonResponse, referenceRecall, trafficPhase, uploadBurst } from "./traffic.mjs";
+import { headersFor, jsonResponse, referenceRecall, trafficPhase, uploadBurst, verifyIngestedSources } from "./traffic.mjs";
 
 const require = createRequire(new URL("../../apps/api/package.json", import.meta.url));
 const { Pool } = require("pg");
@@ -104,12 +104,15 @@ async function main() {
       WHERE j.id=ANY($1::uuid[]) GROUP BY j.id,j.created_at`, [jobs]);
     assert.equal(queueWait.rowCount, 6);
     report.ingestion = { accepted: 6, replayed: 6, uniqueJobs: rows.length, completed: rows.length, queueWaitMs: samples(queueWait.rows.map(({ wait_ms }) => Number(wait_ms))) };
+    stage = "new_source_verification";
+    report.postIngestionVerification = await verifyIngestedSources(api.origin, corpus, 6, cancelled.signal);
     report.provider = (await jsonResponse(lab.providerOrigin + "/fixture/stats")).body;
     report.resources = await lab.receipt();
     assert.ok(report.resources.images.every(({ oomKilled, running, publishedPorts }) => !oomKilled && running && publishedPorts === 0), "A fixture process stopped, exhausted memory or published a host port.");
     assert.equal(poolFault, false); assert.equal(interrupted, false);
     assert.ok(report.phases.every(({ attempted, failed, completedMs }) => attempted >= 3 && failed === 0 && completedMs.count >= 3));
     report.guards = { crossWorkspaceReadDenied: true, viewerUploadDenied: true, sourceScopeCheckedOnEveryResult: true,
+      chunkDocumentAssociationChecked: true, unknownSourcesResolvedInFixtureDatabase: true, ownershipLookups: corpus.ownershipLookups,
       uploadDeduplicated: true, lostJobs: 0, externalNetwork: false };
     report.passed = true;
   } catch (error) {

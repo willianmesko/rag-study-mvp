@@ -3,7 +3,7 @@ import test from "node:test";
 import { once } from "node:events";
 import { actorFromToken, dimensions, key, samples, statement, tokenFor, uuid, vectorFor } from "../../scripts/capacity/fixtures.mjs";
 import { assertImage, containerOrigin } from "../../scripts/capacity/docker-lab.mjs";
-import { assertSources, decodeFrame, safePlan } from "../../scripts/capacity/traffic.mjs";
+import { assertSources, decodeFrame, safePlan, verifySources } from "../../scripts/capacity/traffic.mjs";
 import { createFixtureServer } from "../../scripts/capacity/provider.mjs";
 
 test("fixture vectors are reproducible, normalized, 1024-dimensional and change with the query key", () => {
@@ -30,9 +30,25 @@ test("source guards reject an empty answer or a source owned by another workspac
   assert.throws(() => assertSources([], workspace, documents));
   assert.throws(() => assertSources([{ documentId: uuid(3, 2) }], workspace, documents));
   assert.throws(() => assertSources([{ documentId: uuid(3, 99) }], workspace, documents));
-  const chunks = new Map([[uuid(4, 1), uuid(2, 1)], [uuid(4, 2), uuid(2, 2)]]);
+  const chunks = new Map([[uuid(4, 1), { tenantId: uuid(2, 1), documentId: uuid(3, 1) }],
+    [uuid(4, 2), { tenantId: uuid(2, 2), documentId: uuid(3, 2) }]]);
   assert.doesNotThrow(() => assertSources([{ documentId: uuid(3, 1), chunkId: uuid(4, 1) }], workspace, documents, chunks));
   assert.throws(() => assertSources([{ documentId: uuid(3, 1), chunkId: uuid(4, 2) }], workspace, documents, chunks));
+  documents.set(uuid(3, 3), uuid(2, 1));
+  assert.throws(() => assertSources([{ documentId: uuid(3, 3), chunkId: uuid(4, 1) }], workspace, documents, chunks));
+});
+test("new ingestion sources require scoped authoritative ownership instead of trusting response fields", async () => {
+  const workspace = { tenantId: uuid(2, 1) }, source = { documentId: uuid(3, 9), chunkId: uuid(4, 9), tenantId: uuid(2, 1) };
+  let lookups = 0;
+  const corpus = { documents: new Map(), chunks: new Map(), async hydrateSourceOwners(tenantId, sources) {
+    assert.equal(tenantId, workspace.tenantId); assert.deepEqual(sources, [source]); lookups++;
+    corpus.documents.set(source.documentId, tenantId);
+    corpus.chunks.set(source.chunkId, { tenantId, documentId: source.documentId });
+  } };
+  await verifySources([source], workspace, corpus); await verifySources([source], workspace, corpus);
+  assert.equal(lookups, 1);
+  await assert.rejects(verifySources([source], workspace, { documents: new Map(), chunks: new Map(), hydrateSourceOwners: async () => {} }));
+  await assert.rejects(verifySources([source], workspace, { documents: new Map(), chunks: new Map() }));
 });
 test("Linux fixture endpoints come only from the owned private network and never publish host ports", () => {
   const info = (ip, bindings = {}) => ({ NetworkSettings: { Networks: { owned: { IPAddress: ip } } }, HostConfig: { PortBindings: bindings } });

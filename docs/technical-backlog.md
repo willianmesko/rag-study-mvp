@@ -14,15 +14,15 @@ live activation remain in the [product backlog](backlog.md).
 
 | Status | Tickets | Count |
 | --- | --- | --- |
-| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-07, FE-09–FE-11 | 20 |
+| Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, BE-16, FE-01–FE-07, FE-09–FE-11 | 21 |
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-13, BE-14, FE-08 | 5 |
-| Pending implementation or final validation/publication | BE-09, BE-16 | 2 |
+| Pending implementation or final validation/publication | BE-09 | 1 |
 
-The latest batch is live on frontend and API at `fff266c525fc276d8486d3164549b1567f5461fc`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42435430674) passed.
+The latest batch is live on frontend and API at `c8452e12240c8031733ac59a13f714568b79bd1d`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42436598494) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
-CI passed 410 UX cases/46 deliberate skips, 89 PostgreSQL cases, the isolated
+CI passed 410 UX cases/46 deliberate skips, 90 PostgreSQL cases, the isolated
 cutover, 78 architecture fixtures, seven harness checks, four native route-state,
 six artifact and three payload cases. The Render build independently passed
 both actual OCR cases with zero skips and zero project test artifacts in the
@@ -297,7 +297,7 @@ feature-owned locations during BE-07's migration.
 - [x] Conversation-record/recovery increment is CI verified and published: unknown pending input is checked before dispatch, invalid items fail independently, and summary/turn views use fixed stored-data errors. Fifteen focused cases, both graphs, seven harness checks and 88 actual SQL cases passed. See the [release record](operations/release-2026-11-08-conversation-record-boundaries.md).
 - [x] Judge/reranker response boundaries are validated and published: safe fixed errors, one choice/16-claim bounds, requested rerank cardinality and retained native usage. Twenty-three focused cases, both graphs, seven harness checks and all four fresh CI gates passed. Jina quality/activation stays separate. See the [release record](operations/release-2026-11-08-provider-assessment-boundaries.md).
 - [x] Persisted chat replay boundaries are CI validated and published. Six new row/event cases plus actual SQL corruption/isolation/repair preserve cursor/ordering/expiry and reject malformed JSON through the existing fixed server error. All four gates and the repeated exact-source capacity pilot passed. See the [release record](operations/release-2026-11-08-replay-record-boundaries.md).
-- [ ] Workflow stored-budget and encrypted JSON diagnostics are locally validated and await fresh SQL/CI/publication. Input/admission validation, key/AAD formats and budget ceilings remain unchanged. See the [candidate record](operations/release-2026-11-08-workflow-record-boundaries.md).
+- [x] Workflow stored-budget and encrypted JSON diagnostics are CI validated and published, including real corrupt/restore SQL and preserved encryption/approval/recovery tests. Input/admission validation, key/AAD formats and budget ceilings remain unchanged. See the [release record](operations/release-2026-11-08-workflow-record-boundaries.md).
 - [ ] Remaining BE-12: inventory/decode other externally influenced repository JSON and unchecked row assumptions. Targeted row decoding does not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
@@ -322,6 +322,8 @@ feature-owned locations during BE-07's migration.
   All four CI jobs and both deployment receipts are recorded in the release evidence.
 
 ### BE-08 + FE-08 — Incremental correctness, architecture and test gates
+
+- **In validation:** bounded compiler stdout diagnostics in the typecheck harness step. A removed synthetic TS2322 fixture proved visibility/exit/early stop, and the normal harness passed. Other provider/evaluation stdout remains excluded. This does not close promise/Hook tooling. See the [candidate record](operations/release-2026-11-08-capacity-source-ownership.md).
 
 - [ ] **P2 · M per track · Medium risk.** Scope: workspace scripts, TypeScript,
   selected lint/graph configuration, CI and focused frontend test helpers.
@@ -478,9 +480,9 @@ feature-owned locations during BE-07's migration.
 
 ### BE-16 — Production authentication for legacy JSON ingestion
 
-- [ ] **P1 · S · High security impact, bounded compatibility risk.** Scope:
+- [x] **P1 · S · High security impact, bounded compatibility risk · CI verified and published.** Scope:
   HTTP production policy, ingestion controller, environment guidance and route
-  regressions. Implemented locally; full CI and publication remain required.
+  regressions. All four gates, the exact-source pilot and both deployments passed.
 - **Finding:** without DEMO_MODE or a global API_KEY, production queries require
   identity but the older POST /v1/documents route can admit a default-corpus
   write. Reproduced with synthetic dependencies (201 before the fix). The current
@@ -573,7 +575,9 @@ feature-owned locations during BE-07's migration.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
-- **Active bounded increment:** the [isolated pilot](operations/capacity-lab.md) uses synthetic providers and a skewed three-workspace corpus. Native fixture/guard tests and an actual corrected image/load pilot passed. The final chunk-ID guard also passed a repeated measured run with 103 completed pairs; the reviewed report records its exact source and limits. The full sustained baseline, pool/event-loop metrics and multi-replica proof remain open.
+- **Next bounded increment in validation:** authoritative fixture ownership for newly ingested IDs, chunk/document pairing and six post-ingestion searches/answers. Nine native cases and seven harness checks pass; fresh image/load proof remains pending. See the [candidate record](operations/release-2026-11-08-capacity-source-ownership.md).
+
+- **Active bounded increment:** the [isolated pilot](operations/capacity-lab.md) uses synthetic providers and a skewed three-workspace corpus. Native fixture/guard tests and an actual corrected image/load pilot passed. The chunk-ID guard passed repeated measured runs, including 104 completed pairs at the latest application source; the reviewed report records its exact source and limits. The full sustained baseline, pool/event-loop metrics and multi-replica proof remain open.
 
 - [ ] **P2 measurement · M–L · Medium operational risk.** Scope:
   [capacity plan](backend-scalability-review.md), synthetic load fixtures,

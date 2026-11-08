@@ -9,9 +9,9 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `fff266c525fc276d8486d3164549b1567f5461fc`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42435430674).
-- [Release evidence](operations/release-2026-11-08-replay-record-boundaries.md) records
+- Source: `c8452e12240c8031733ac59a13f714568b79bd1d`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42436598494).
+- [Release evidence](operations/release-2026-11-08-legacy-ingestion-auth.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -57,8 +57,9 @@ actual image applied 31 migrations and repeated zero in a disposable database.
 The BE-13 pilot and checked persisted replay are now validated and published.
 The pilot has reviewed, versioned synthetic results and remains partial for
 sustained load, pool/event-loop timing and multi-replica behavior. Active next:
-BE-12 workflow diagnostic boundaries plus BE-16, the concrete P1 legacy JSON
-ingestion authentication follow-up. Dependency/hosted-role decisions remain open.
+BE-12 workflow diagnostic boundaries and BE-16 are also validated and published.
+Active next: BE-13 owned-source resolution/post-ingestion verification and BE-08
+compiler-failure diagnostics. Dependency/hosted-role decisions remain open.
 
 ## Completed explicit follow-up: BE-15
 

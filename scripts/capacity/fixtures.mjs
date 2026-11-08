@@ -58,7 +58,7 @@ export async function seedCorpus(pool) {
           embedding: `[${vectorFor(key(ordinal)).join(",")}]`,
           metadata: { security: { promptInjectionRisk: "low", signals: [] } } };
       });
-      for (const row of rows) chunks.set(row.id, tenantId);
+      for (const row of rows) chunks.set(row.id, { tenantId, documentId });
       await pool.query(`INSERT INTO chunks(id,document_id,ordinal,content,embedding,metadata)
         SELECT x.id,$1,x.ordinal,x.content,x.embedding::vector,x.metadata
         FROM jsonb_to_recordset($2::jsonb) AS x(id uuid,ordinal integer,content text,embedding text,metadata jsonb)`,
@@ -66,5 +66,19 @@ export async function seedCorpus(pool) {
     }
   }
   await pool.query("ANALYZE chunks"); await pool.query("ANALYZE documents");
-  return { workspaces, documents, chunks };
+  const tenantIds = new Set(workspaces.map(({ tenantId }) => tenantId));
+  let ownershipLookups = 0;
+  return { workspaces, documents, chunks, get ownershipLookups() { return ownershipLookups; },
+    async hydrateSourceOwners(tenantId, sources) {
+      if (!tenantIds.has(tenantId) || sources.length > 20) throw new Error("Invalid fixture ownership lookup.");
+      const result = await pool.query(`SELECT c.id AS chunk_id,d.id AS document_id FROM chunks c
+        JOIN documents d ON d.id=c.document_id WHERE d.tenant_id=$1 AND c.id=ANY($2::uuid[])`,
+      [tenantId, [...new Set(sources.map(({ chunkId }) => chunkId))]]);
+      ownershipLookups++;
+      for (const row of result.rows) {
+        documents.set(row.document_id, tenantId);
+        chunks.set(row.chunk_id, { tenantId, documentId: row.document_id });
+      }
+    }
+  };
 }
