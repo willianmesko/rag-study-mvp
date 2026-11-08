@@ -1,7 +1,7 @@
 # 2. Node.js, TypeScript and execution boundaries
 
-Prepared from the module/runtime structure at `7c37d96` and the separately
-queued read-boundary improvements documented in the release records. This is
+Prepared from the module/runtime structure at `7c37d96` and the subsequent
+read-boundary improvements documented in the release records. This is
 teaching material; implementation, CI, publication and learner progress are
 different states. Recheck the current source before the shared exercise.
 
@@ -179,7 +179,7 @@ fixtures test SQL/transaction/driver behavior. Browser tests exercise navigation
 and interaction. Actual image checks verify packaged runtime resources and OCR.
 The capacity lab measures an isolated process under a stated synthetic load.
 
-The event-loop histogram planned for that lab runs in the API process, not the
+The lab-only event-loop histogram runs in the API process, not the
 driver. Its timer-based delay, sampling resolution, utilization, Docker CPU and
 request latency are different measurements. Missing checkout-wait data cannot
 be inferred from them. Previously unmeasured reports must stay unmeasured.

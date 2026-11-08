@@ -18,15 +18,15 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-13, BE-14, FE-08 | 5 |
 | Pending implementation or final validation/publication | BE-09 | 1 |
 
-The latest batch is live on frontend and API at `17d8aa7f208afb40ee60cc87f08141f4d6a9489f`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42440266107) passed.
+The latest batch is live on frontend and API at `bbc1adad13e958ed952ba22d2dfb203a5bd692c7`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42444829972) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
-CI passed 410 UX cases/46 deliberate skips, 92 PostgreSQL cases, the isolated
+CI passed 410 UX cases/46 deliberate skips, 95 PostgreSQL cases, the isolated
 cutover, 78 architecture fixtures, seven harness checks, four native route-state,
 six artifact and three payload cases. The Render build independently passed
 both actual OCR cases with zero skips and zero project test artifacts in the
-final application tree. Both live SHAs, public assets, health, protected routes
+final application tree. The [combined receipt](operations/release-2026-11-08-records-and-capacity.md) records the newly published read boundaries and separate capacity proofs. Both live SHAs, public assets, health, protected routes
 and a bounded error-log window were verified.
 
 See the [artifact receipt](operations/release-2026-11-07-runtime-artifacts.md),
@@ -300,10 +300,10 @@ feature-owned locations during BE-07's migration.
 - [x] Workflow stored-budget and encrypted JSON diagnostics are CI validated and published, including real corrupt/restore SQL and preserved encryption/approval/recovery tests. Input/admission validation, key/AAD formats and budget ceilings remain unchanged. See the [release record](operations/release-2026-11-08-workflow-record-boundaries.md).
 - [x] MCP quality-report stored rows are CI validated and published with shared decimal-ratio semantics, preserved zero/null values, bounded pages and rollback/release. Twenty-two focused cases, seven harness checks, both graphs, 91 real SQL cases, the exact-source pilot and both deployments passed. See the [release record](operations/release-2026-11-08-mcp-quality-records.md).
 - [x] Ingestion timeline records are CI validated and published: shared stage/status/details schemas, checked driver dates/timing and fixed safe errors. Fourteen focused cases, seven harness checks, both graphs, 92 real SQL cases, the actual pilot and both deployments passed. Fixture cleanup retains the foreign-key constraint. See the [release record](operations/release-2026-11-08-ingestion-event-records.md).
-- [ ] Usage summary projections are locally validated with finite decimal/exponent strings, safe integer counts, checked dimensions/dates and honest empty-window/legacy semantics. Six focused cases, seven harness checks and both graphs pass; real SQL/CI/publication remain pending. See the [candidate record](operations/release-2026-11-08-usage-summary-records.md).
-- [ ] MCP source and ingestion-status projections are locally validated: six new cases, 18 focused passes, all seven harness checks and both dependency graphs. Optional/Unicode metadata, existing output guards, read-only scope and rollback/release are preserved. Two real SQL fixtures and exact-source publication remain pending. See the [candidate record](operations/release-2026-11-08-mcp-ingestion-records.md).
-- [ ] Full ingestion-job records are locally validated through a narrow infrastructure helper: four new cases, 17 focused passes, seven harness checks and both graphs. Original Buffer identity, payload-free list SQL, null/zero values and admission fallback are preserved. One real failed-job corrupt/restore SQL fixture and publication remain pending. See the [candidate record](operations/release-2026-11-08-ingestion-job-records.md).
-- [ ] Remaining BE-12: follow the [concrete boundary inventory](backend-configuration-and-records.md#remaining-boundary-inventory-be-12) for remaining ingestion job fields, usage aggregates, remaining MCP projections, action/OAuth/embedding assumptions and document metadata. Preserve existing constraints, optional fields and security guards; targeted decoding does not establish complete SQL coverage.
+- [x] Usage summary projections are CI validated and published: finite decimal/exponent strings, safe integer counts, checked dimensions/dates and honest empty-window/legacy semantics. Six focused cases, seven harness checks, both graphs and the real SQL NaN corrupt/restore fixture pass. See the [record](operations/release-2026-11-08-usage-summary-records.md) and [combined publication](operations/release-2026-11-08-records-and-capacity.md).
+- [x] MCP source/status projections are CI validated and published: six new cases/18 focused passes, Unicode/optional metadata, existing output guards and read-only scope/rollback/release. Two real SQL fixtures pass after correcting setup/cleanup without weakening constraints. See the [record](operations/release-2026-11-08-mcp-ingestion-records.md).
+- [x] Full ingestion-job records are CI validated and published through a narrow infrastructure helper: four new cases/17 focused passes, original Buffer identity, payload-free list SQL, null/zero values and admission fallback. Real failed-job corrupt/restore and fresh 95-case SQL proof pass. See the [record](operations/release-2026-11-08-ingestion-job-records.md).
+- [ ] Remaining BE-12: follow the [concrete boundary inventory](backend-configuration-and-records.md#remaining-boundary-inventory-be-12) for partial original/preview projections, remaining MCP index/passage mappings, action/OAuth/embedding assumptions and document metadata. Preserve existing constraints, optional fields and security guards; targeted decoding does not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
 
@@ -580,14 +580,14 @@ feature-owned locations during BE-07's migration.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
-- [ ] A lab-only native API-process event-loop probe and version-two per-phase receipts pass 14 local cases. No new dependency/exporter or production endpoint is introduced. Empty samples remain unknown and pool wait stays separate. Both actual short image-based paths and fresh CI are pending. Earlier reports are unchanged. See the [measurement plan](operations/capacity-event-loop-plan.md).
+- [x] The lab-only native API-process probe is active and validated in CI: 14 native cases, both actual version-two short profiles and all normal gates pass. No dependency/exporter or production endpoint is added. Empty samples stay unknown and pool wait remains separate. Earlier reports are unchanged. See the [measurement evidence](operations/capacity-event-loop-plan.md).
 
-- [x] Fixed pilot/durable-pilot/sustained profiles and safe diagnostics are validated (12 native cases and all four normal CI jobs). Both short image-based paths passed at `39547aa`; the durable database has 93 completed chats, six completed ingestions and 502 checkpoints. The earlier queue-start instrumentation mismatch is recorded. The sustained experiment still needs its actual result; these are not production scale evidence. See the [bounded plan](operations/capacity-sustained-plan.md).
-- [ ] The reviewed 30-minute/50,000-chunk run is selected next. Report the exact source, artifact, completed workloads, per-workspace measurements and missing metrics before drawing conclusions. See the [launch record](operations/capacity-sustained-run.md).
+- [x] Fixed pilot/durable-pilot/sustained profiles and safe diagnostics are validated (12 native cases and all four normal CI jobs). Both short image-based paths passed at `39547aa`; the durable database has 93 completed chats, six completed ingestions and 502 checkpoints. The earlier queue-start instrumentation mismatch is recorded. The later sustained result is recorded separately; these short runs are not production scale evidence. See the [bounded plan](operations/capacity-sustained-plan.md).
+- [x] The first sustained experiment passed at pinned source `7c37d96`: ten workspaces/50,000 chunks, ten clients, 30 mixed minutes, 7,748 mixed pairs, six completed ingestions and zero unexpected failures. The [reviewed result](operations/capacity-sustained-result.md) retains per-workspace measurements, observed waits and missing metrics. This does not close BE-13 or certify production scale.
 
 - [x] Authoritative fixture ownership for newly ingested IDs and chunk/document pairing are CI validated. Nine native cases, the full normal gates and the actual lab passed, including six new-source searches/answers and six scoped ownership lookups. This is not the sustained baseline. See the [evidence](operations/release-2026-11-08-capacity-source-ownership.md).
 
-- **Active bounded increment:** the [isolated pilot](operations/capacity-lab.md) uses synthetic providers and a skewed three-workspace corpus. Native fixture/guard tests and an actual corrected image/load pilot passed. The chunk-ID guard passed repeated measured runs, including 104 completed pairs at the latest application source; the reviewed report records its exact source and limits. The full sustained baseline, pool/event-loop metrics and multi-replica proof remain open.
+- **Measured, ticket partial:** the [first sustained result](operations/capacity-sustained-result.md) now supplies the declared 50,000-chunk mixed workload, while the [native probe](operations/capacity-event-loop-plan.md) has separate short-run evidence. Queue/lease and API checkout waiting, an instrumented sustained run, large-file/restart/slow-reader and replica scenarios remain open. No topology change is inferred from one synthetic run.
 
 - [ ] **P2 measurement · M–L · Medium operational risk.** Scope:
   [capacity plan](backend-scalability-review.md), synthetic load fixtures,

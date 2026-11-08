@@ -38,5 +38,5 @@ gate is unexecuted until a measured baseline is selected. Strict API typecheckin
 also includes the extended legacy/corrupt/restore SQL fixture.
 
 The SQL and write path are unchanged. No hosting setting, key, dependency or
-schema migration is required. Actual PostgreSQL/normal CI and publication are
-still pending; local unit success is not reported as real SQL proof.
+schema migration is required. Actual PostgreSQL/normal CI and publication are complete. See the [combined publication](release-2026-11-08-records-and-capacity.md)
+for the exact passing source and both observed live deployments.

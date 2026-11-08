@@ -31,6 +31,15 @@ is removed only after its owned containers stop. No Docker prune is permitted.
 An interrupt triggers bounded cleanup. The local Docker VM is full, so actual
 image/load proof must run on a fresh CI runner; local pure tests cannot substitute.
 
+## Current evidence, 2026-11-08 UTC
+
+The [sustained result](capacity-sustained-result.md) now covers the declared
+50,000-chunk/ten-workspace/30-minute mixed cohort at pinned source 7c37d96.
+The [native probe](capacity-event-loop-plan.md) has separate version-two short
+image-based proof at the final application source. Earlier results below are
+historical reviewed pilots; their different sources/corpora and unmeasured
+fields remain intact. BE-13 still has the stated remaining acceptance criteria.
+
 ## Status
 
 The pilot is implemented; eight native guard/provider cases pass with zero

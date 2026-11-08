@@ -9,9 +9,9 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `17d8aa7f208afb40ee60cc87f08141f4d6a9489f`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42440266107).
-- [Release evidence](operations/release-2026-11-08-ingestion-event-records.md) records
+- Source: `bbc1adad13e958ed952ba22d2dfb203a5bd692c7`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42444829972).
+- [Release evidence](operations/release-2026-11-08-records-and-capacity.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -27,6 +27,23 @@ The saved administrative and native TypeScript slices are now implemented.
 Their [release record](operations/release-2026-11-07-query-ownership.md) records
 all four green CI gates, both live deployments and production checks. No conversation
 transport or pagination refactor has been bundled into the administrative slice.
+
+## Latest autonomous checkpoint, 2026-11-08 UTC
+
+The [combined record](operations/release-2026-11-08-records-and-capacity.md)
+confirms published usage/MCP/full-job boundaries at bbc1ada, all four green
+normal jobs, 95 real SQL cases, both observed live services and public checks.
+The [sustained result](operations/capacity-sustained-result.md) is separately
+pinned to 7c37d96; the [native probe](operations/capacity-event-loop-plan.md) has
+separate final-source short-run evidence. No unmeasured value was backfilled.
+The first two learning chapters are prepared, with learner outcomes still open.
+
+Next safe measurement: distinguish queued/leased durable workflows from the
+narrow ingestion_jobs queued-age gauge, then measure API checkout wait before
+making a scaling decision. Remaining BE-12 projection work needs concrete sink/
+constraint review; avoid blanket decoder or library additions. Pending tooling,
+minimum-privilege credentials, SDK adoption and paid/exporter activation retain
+their explicit separate decisions. Do not mark partial tickets complete.
 
 ## Completed bounded delivery and next work
 

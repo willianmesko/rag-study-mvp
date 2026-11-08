@@ -47,7 +47,8 @@ The three fixed profiles and corpus version two are implemented. All
 chunk IDs. A durable profile must also show completed chat/ingestion rows and
 persisted checkpoints in its owned database; enabling a flag is not execution
 proof. Both short image-based paths and all four normal CI jobs now pass at
-39547aa. The sustained run still needs its separately recorded result.
+39547aa. The [first sustained result](capacity-sustained-result.md) is now recorded at
+7c37d96, with its own exact source and measurement limits.
 The workflow runs both short profiles on a normal selected push. The
 [reviewed launch](capacity-sustained-run.md) selects the next bounded long run.
 
@@ -91,4 +92,4 @@ these short cohorts. API caps remain 512 MiB/0.5 CPU, PostgreSQL 2 GiB/2 CPU and
 provider 256 MiB/1 CPU. The fixture's graph guard is explicitly 30 steps, provider
 deadline 10 seconds, and quotas are high but finite; these are lab settings,
 not a claim about production configuration. Keys are ephemeral and never appear
-in reports. All four [normal CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42441662380) also passed. The sustained run still needs its own evidence.
+in reports. All four [normal CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42441662380) also passed. The [first sustained result](capacity-sustained-result.md) now records its own exact source and limitations.

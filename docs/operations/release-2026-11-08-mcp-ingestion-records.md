@@ -32,8 +32,8 @@ plus existing MCP read/transport guards passed (18 focused cases, zero skips).
 All seven harness checks and both dependency graphs pass (450 structural
 modules/1,795 edges and 449 runtime modules/1,303 edges). Two disposable SQL
 cases cover negative-count corrupt/restore and SQL-clamped Unicode/unknown
-metadata with scope isolation. Actual PostgreSQL/CI and publication are pending;
-local checks do not count as SQL proof. The optional performance gate is still
+metadata with scope isolation. Actual PostgreSQL/CI and publication are complete;
+the [combined publication](release-2026-11-08-records-and-capacity.md) records the exact-source 95-case proof and live services. The optional performance gate is still
 unexecuted. No dependency, schema, grant or hosted setting changed.
 
 ## Related source projection
@@ -58,3 +58,7 @@ Supply synthetic terminal-job bytes and explicitly delete only that helper's
 owned documents after its jobs and before its tenant. No application logic or
 hosted schema is changed by this correction. Fresh exact-source CI is required;
 the failed attempt is not counted as passing SQL proof.
+
+The corrected bbc1ada source later passed all 95 actual SQL cases and all normal
+gates. Both services are published and checked; the combined receipt records
+that later outcome separately from the failed fixture attempt.

@@ -48,6 +48,10 @@ checks pass. The helper opens no sampler/server when imported by the driver;
 only the API preload starts one inside its owned container. The final production
 Dockerfile/CMD and application runtime code are unchanged by instrumentation.
 
-Actual short image-based proof and normal CI remain required. The active long
-run and its production candidate are unchanged by this preparation. Its
-version-one result must retain null event-loop measurements.
+Both actual short image-based paths and all normal jobs pass at bbc1ada.
+The [durable report](../../reports/capacity/reviewed/durable-pilot-bbc1ada.json)
+has 586/1,184 native samples across its phases; the
+[legacy report](../../reports/capacity/reviewed/pilot-bbc1ada.json) has
+567/1,183. All owned process exits/cleanup pass. See the [combined publication](release-2026-11-08-records-and-capacity.md).
+The earlier sustained version-one result remains unchanged with null event-loop
+measurements. An instrumented sustained scenario still needs separate evidence.

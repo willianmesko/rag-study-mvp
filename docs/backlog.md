@@ -27,8 +27,8 @@ status section where they appear.
 
 ## In progress
 
-Frontend and API are live at `17d8aa7f208afb40ee60cc87f08141f4d6a9489f` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42440266107) passed. Publication, assets, icon, health, private-route protection
+Frontend and API are live at `bbc1adad13e958ed952ba22d2dfb203a5bd692c7` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42444829972) passed. Publication, assets, icon, health, private-route protection
 and a bounded error-log window were verified on 2026-11-08 UTC.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
@@ -58,9 +58,7 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
 - **Published increment, ticket partial:** API-image SQL resources and safe
   migration CLI failures. The [receipt](operations/release-2026-11-08-runtime-migration-resources.md)
   records actual image/SQL/OCR proof and both live services.
-- **Validated pilot, ticket partial:** BE-13 isolated mixed-workload capacity
-  lab. The [reviewed result](operations/capacity-lab.md) contains 102 completed
-  synthetic pairs and six deduplicated ingestions; sustained capacity remains open.
+- **Validated measurement, ticket partial:** BE-13 now has a [30-minute result](operations/capacity-sustained-result.md) for ten workspaces/50,000 chunks and 7,748 mixed pairs. The broader scalability acceptance criteria remain open.
 - **Published increment, ticket partial:** checked persisted chat replay and
   exact-source measured document/chunk ownership guards. See the [receipt](operations/release-2026-11-08-replay-record-boundaries.md).
 - **Published:** BE-16 production authentication for legacy JSON ingestion;
@@ -73,28 +71,30 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
   and driver timing, with real SQL/constraint-safe fixture cleanup. See the
   [receipt](operations/release-2026-11-08-ingestion-event-records.md).
 - **Validated in CI:** bounded capacity profiles and both short image-based
-  paths, including completed durable rows/checkpoints. The selected sustained
-  experiment still needs its actual result. See the
+  paths, including completed durable rows/checkpoints. The sustained result is
+  recorded separately with explicit limits. See the
   [experiment plan](operations/capacity-sustained-plan.md).
-- **In validation:** usage summary read boundaries preserve actual zero,
-  estimated/reported provenance and older ledger coverage; local checks pass.
-  See the [candidate record](operations/release-2026-11-08-usage-summary-records.md).
-- **In validation:** MCP source/status and full ingestion-job projections,
+- **Published increment, ticket partial:** usage summaries preserve actual zero,
+  reported/estimated provenance and legacy coverage with fresh real SQL proof.
+  See the [record](operations/release-2026-11-08-usage-summary-records.md).
+- **Published increment, ticket partial:** MCP source/status and full ingestion-job projections,
   preserving null/zero, original bytes and existing permission/output guards.
   See the [MCP](operations/release-2026-11-08-mcp-ingestion-records.md) and
-  [job](operations/release-2026-11-08-ingestion-job-records.md) candidate records.
-- **In validation:** lab-only native event-loop measurements, with no new
-  dependency or production endpoint. Local fixture cases pass; actual image
-  delivery remains required. See the [plan](operations/capacity-event-loop-plan.md).
+  [job](operations/release-2026-11-08-ingestion-job-records.md) release records.
+- **Validated and active in CI:** native API-process event-loop measurements;
+  both actual short image-based paths pass with no new dependency or production
+  endpoint. See the [evidence](operations/capacity-event-loop-plan.md).
 - **Prepared, teaching pending:** the first two walkthrough lessons explain the
   product/request map and Node/TypeScript execution with source references.
   [Learning outcomes](learning-walkthrough.md) remain unchecked.
 
 The [technical backlog](technical-backlog.md) now records **21 published tickets,
 five partial tickets and one pending ticket**. The current CI passed 410 UX
-checks/46 intentional skips, 92 PostgreSQL checks, the isolated cutover, 78
+checks/46 intentional skips, 95 PostgreSQL checks, the isolated cutover, 78
 architecture fixtures, the full harness, four native route-state and three
 payload-budget cases. Prior releases remain in their dated operational records.
+The [combined receipt](operations/release-2026-11-08-records-and-capacity.md) links
+the exact source, both live services, public checks and measurement limits.
 Operational activation and the learning walkthrough retain separate status.
 
 OAuth extension-parameter compatibility and standard MCP icon metadata are live.

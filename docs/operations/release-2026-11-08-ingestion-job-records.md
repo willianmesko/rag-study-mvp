@@ -41,7 +41,8 @@ preserved, and the list SQL still omits payload. The optional performance gate
 remains unexecuted. One new disposable failed-job SQL fixture corrupts/restores
 its own high-risk count and proves read/list reuse without queueing work.
 
-Fresh SQL/image/normal CI and publication remain pending. No hosted data,
+Fresh SQL/image/normal CI and publication are complete. The [combined publication](release-2026-11-08-records-and-capacity.md)
+records the exact-source 95-case proof and observed live services. No hosted data,
 dependency, grant, key, provider or schema change was made. The partial original
 and preview projections retain their existing independent shape/guards; this
 increment does not claim every stored record has been decoded.

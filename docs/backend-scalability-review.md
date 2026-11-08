@@ -12,7 +12,7 @@ budgets.
 
 This is a source and configuration review. The repository defines a free-plan
 API deployment and CI quality checks, but these do not establish production
-capacity. No deployment, provider quota, or load test was inspected or run.
+capacity. At the time of that original review, no deployment, provider quota, or load test had been inspected or run.
 [Service configuration](../render.yaml#L26) · [CI quality gate](../.github/workflows/quality-gates.yml)
 
 ## Workflow update, 2026-11-07
@@ -22,7 +22,7 @@ The [LangGraph delivery](durable-workflows.md) now adds renewable fenced leases,
 native encrypted checkpoints, graceful worker release, persistent resource
 reservations, provider/OCR cancellation, and resumable authenticated chat.
 The shared database and in-process worker remain intentional low-cost choices.
-There is no throughput/load-test evidence yet; separate workers, shared burst
+As of that dated update there was no throughput/load-test evidence; separate workers, shared burst
 limits, connection budgeting, and tenant-skewed retrieval benchmarks remain open.
 
 The later [backend architecture review](backend-architecture-review.md) evaluates
@@ -34,9 +34,31 @@ that all of its earlier defects remain present.
 The next architecture batch organizes the backend as feature modules, a shared
 technical platform and explicit application composition. See the
 [module guide](backend-modules.md). Workload-specific SQL limits and bounded
-shutdown add reliability safeguards, while the mixed-load benchmark remains
-unexecuted. A directory refactor does not establish capacity or justify another
-hosting service by itself.
+shutdown add reliability safeguards. The initially unexecuted mixed-load benchmark
+now has the separately scoped evidence below. A directory refactor by itself
+does not establish capacity or justify another hosting service.
+
+## Measurement update, 2026-11-08
+
+The [first sustained synthetic result](operations/capacity-sustained-result.md)
+now records ten workspaces/50,000 chunks, ten clients and 30 mixed minutes at
+pinned source 7c37d96: 7,748 mixed search/answer pairs, six completed uploads,
+zero unexpected failures and successful owned cleanup. Mixed search p95 was
+337.523 ms and validated completion p95 3,065.374 ms. Read the report before
+interpreting those values as product capacity.
+
+The heavy workspace completed fewer pairs and had higher search latency;
+62/617 observations sampled a lock waiter. These are clues for per-stage SQL,
+lock, pool and queue measurement, not proof that a particular service/index must
+be replaced. Active-query count is not checkout wait, and queued-job age omits
+already admitted durable work. Later native event-loop measurements have only
+short-run evidence and do not backfill the long report.
+
+Keep the current demonstration topology. Real Auth/provider latency/billing,
+large-file/reindex/evaluation bursts, slow readers, restarts, replica limits and
+instrumented sustained/pool/lease waiting remain open. No production sizing or
+real-provider SLO is certified. The original findings below remain dated
+historical evidence; the technical backlog/receipts track corrected behavior.
 
 ## Original findings and priorities
 

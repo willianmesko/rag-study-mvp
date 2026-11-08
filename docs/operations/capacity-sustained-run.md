@@ -55,14 +55,14 @@ the report itself. A failed experiment remains evidence, not a passing baseline.
 
 ## Status
 
-Selected by this reviewed launch commit. No sustained result is claimed yet.
-Record the actual source, CI URL and reviewed artifact when the run completes.
-The candidate also contains the separately documented usage-summary decoder;
-its fresh SQL and normal gates remain mandatory before application publication.
+The run passed at source `7c37d96e2fbf1da961bae1816b7534799517a9bb` in
+[Capacity lab 42442232215](https://github.com/willianmesko/rag-study-mvp/actions/runs/42442232215).
+The [reviewed result](capacity-sustained-result.md) records the 30-minute mixed
+phase, 7,748 mixed pairs, six completed ingestions, observed waits, immutable
+report and remaining criteria. All four original normal gates passed separately.
+No unmeasured event-loop/pool/provider cost values were backfilled.
 
-The active run is [Capacity lab 42442232215](https://github.com/willianmesko/rag-study-mvp/actions/runs/42442232215)
-at source `7c37d96e2fbf1da961bae1816b7534799517a9bb`. All four
-[normal gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42442232284)
-passed separately. Subsequent source/MCP/job/probe changes require their own
-fresh normal/image-based pilot evidence before a combined application release.
-This run remains pinned to its original source and has no event-loop probe.
+Subsequent source/MCP/job/probe changes passed their own fresh 95-case SQL,
+normal gates and both short actual image-based profiles before the
+[combined release](release-2026-11-08-records-and-capacity.md). The long run is
+not relabelled as a measurement of that later source. BE-13 stays partial.

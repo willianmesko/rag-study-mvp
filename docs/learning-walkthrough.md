@@ -1,6 +1,6 @@
 # Lumora: end-to-end learning walkthrough
 
-**Status:** planned, after the current modular-architecture delivery.
+**Status:** two lessons prepared; interactive teaching sessions and learner outcomes pending.
 
 The project is a learning platform as well as a product demonstration. This
 walkthrough will explain the actual implementation from first principles and
