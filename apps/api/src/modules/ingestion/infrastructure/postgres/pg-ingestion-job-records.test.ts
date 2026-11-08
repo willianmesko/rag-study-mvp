@@ -52,3 +52,59 @@ test("private-storage snapshots and absence retain their existing semantics", as
   assert.equal(await fixture([]).repository.readForProcessing(jobId, tenantId), null);
   assert.deepEqual(await fixture([]).repository.list(tenantId, 10), []);
 });
+
+test("original projections preserve Buffer identity and private references without requiring full-job fields", async () => {
+  const payload = Buffer.from("PRIVATE_SYNTHETIC_FILE"), input = { tenantId, documentId: jobId };
+  const saved = { filename: "🧭 reference.pdf", mime_type: "custom/legacy", payload, storage_path: "private/reference" };
+  const { repository, queries } = fixture([saved]);
+  const original = await repository.findIndexedOriginal(input);
+  assert.ok(original); assert.equal(original.payload, payload); assert.equal(original.storagePath, saved.storage_path);
+  assert.equal(original.filename, saved.filename); assert.equal(original.mimeType, saved.mime_type);
+  assert.deepEqual(queries[0]?.values, [tenantId, jobId]);
+  assert.equal((await fixture([{ ...saved, payload: null }]).repository.findIndexedOriginal(input))?.payload, null);
+  assert.equal((await fixture([{ ...saved, storage_path: null }]).repository.findIndexedOriginal(input))?.storagePath, null);
+  assert.equal(await fixture([]).repository.findIndexedOriginal(input), null);
+});
+
+test("invalid original driver values fail without reflecting bytes, filenames or private references", async () => {
+  const original = { filename: "PRIVATE_NAME", mime_type: "application/pdf", payload: Buffer.from("PRIVATE_FILE"), storage_path: "PRIVATE_PATH" };
+  for (const patch of [{ filename: null }, { mime_type: null }, { payload: "PRIVATE_FILE" }, { payload: new Uint8Array([1]) }, { storage_path: 7 }])
+    await assert.rejects(fixture([{ ...original, ...patch }]).repository.findIndexedOriginal({ tenantId, documentId: jobId }),
+      (error: unknown) => error instanceof StoredRecordError && !String(error).includes("PRIVATE_") &&
+        !JSON.stringify(error).includes("PRIVATE_") && !("cause" in error));
+});
+
+const previewRow = () => ({ total_chunks: 4, chunk_id: jobId, ordinal: 0, content: "Synthetic passage.",
+  metadata: { security: { promptInjectionRisk: "low", signals: [] }, ocr: { used: true }, language: "es" } });
+
+test("passage projections preserve order, metadata security, SQL scope and the three-row cap", async () => {
+  const first = previewRow(), second = { ...previewRow(), chunk_id: tenantId, ordinal: 1, metadata: { security: { promptInjectionRisk: "high", signals: ["instruction"] } } };
+  const { repository, queries } = fixture([first, second]);
+  const preview = await repository.previewPassages({ tenantId, jobId });
+  assert.ok(preview); assert.equal(preview.totalChunks, 4);
+  assert.deepEqual(preview.passages.map(({ chunkId, ordinal }) => [chunkId, ordinal]), [[jobId, 0], [tenantId, 1]]);
+  assert.equal(preview.passages[0]?.security.promptInjectionRisk, "low");
+  assert.equal(preview.passages[1]?.security.promptInjectionRisk, "high");
+  assert.deepEqual(queries[0]?.values, [jobId, tenantId]); assert.match(queries[0]!.sql, /LIMIT 3/);
+  assert.match(queries[0]!.sql, /d\.metadata ->> 'ingestionJobId' = j\.id::text/);
+  await assert.rejects(fixture(Array(4).fill(first)).repository.previewPassages({ tenantId, jobId }), StoredRecordError);
+});
+
+test("empty joined passages and confirmed zeros retain their meaning; unknown metadata remains high risk", async () => {
+  const input = { tenantId, jobId };
+  assert.equal(await fixture([]).repository.previewPassages(input), null);
+  assert.deepEqual(await fixture([{ total_chunks: 0, chunk_id: null, ordinal: null, content: null, metadata: null }]).repository.previewPassages(input),
+    { totalChunks: 0, passages: [] });
+  for (const metadata of [null, undefined, [], "PRIVATE_METADATA", { language: "und" }, { security: { promptInjectionRisk: "unknown" } }]) {
+    const preview = await fixture([{ ...previewRow(), metadata }]).repository.previewPassages(input);
+    assert.equal(preview?.passages[0]?.security.promptInjectionRisk, "high");
+  }
+});
+
+test("corrupt preview counts and partial LEFT JOIN shapes fail with fixed diagnostics", async () => {
+  for (const patch of [{ total_chunks: -1 }, { total_chunks: null }, { total_chunks: "0" }, { total_chunks: Number.NaN },
+    { total_chunks: Number.POSITIVE_INFINITY }, { total_chunks: 0.5 }, { ordinal: -1 }, { ordinal: null }, { chunk_id: "PRIVATE_ID" },
+    { chunk_id: null }, { content: null }, { content: "" }])
+    await assert.rejects(fixture([{ ...previewRow(), ...patch }]).repository.previewPassages({ tenantId, jobId }),
+      (error: unknown) => error instanceof StoredRecordError && !String(error).includes("PRIVATE_") && !("cause" in error));
+});

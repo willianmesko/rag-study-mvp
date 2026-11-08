@@ -19,8 +19,8 @@ import type {
   IngestionPassagePreview,
 } from "../../application/ports/ingestion-job-repository.js";
 import { indexedOriginalPredicate } from "../../../../platform/database/indexed-original.js";
-import { readStoredChunkSecurity } from "../../../../platform/database/stored-chunk-security.js";
 import { decodeIngestionJob, type StoredIngestionJobRow as Row } from "./stored-ingestion-job.js";
+import { decodeIndexedOriginal, decodePassagePreview } from "./stored-ingestion-projections.js";
 
 const columns =
   "admission_attempts, id, tenant_id, document_id, source, title, filename, mime_type, payload, storage_path, status, progress, error, chunk_count, high_risk_chunks, created_at, updated_at";
@@ -42,11 +42,6 @@ const mapEvent = (value: unknown): IngestionJobEvent => {
     createdAt: row.created_at,
   };
 };
-type PassagePreviewRow = { total_chunks: number } & (
-  | { chunk_id: null; ordinal: null; content: null; metadata: null }
-  | { chunk_id: string; ordinal: number; content: string; metadata: unknown }
-);
-
 export class PgIngestionJobRepository implements IngestionJobRepository {
   constructor(private readonly pool: Pool) {}
   async readForProcessing(jobId: string, tenantId: string) {
@@ -274,7 +269,7 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
     jobId: string;
     tenantId: string;
   }): Promise<IngestionPassagePreview | null> {
-    const result = await this.pool.query<PassagePreviewRow>(
+    const result = await this.pool.query(
       `SELECT COALESCE(j.chunk_count, (SELECT COUNT(*)::int FROM chunks WHERE document_id = d.id)) AS total_chunks,
               c.id AS chunk_id, c.ordinal, c.content, c.metadata
        FROM ingestion_jobs j
@@ -291,32 +286,14 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
        ORDER BY c.ordinal`,
       [input.jobId, input.tenantId],
     );
-    const first = result.rows[0];
-    if (!first) return null;
-    return {
-      totalChunks: first.total_chunks,
-      passages: result.rows.flatMap((row) =>
-        row.chunk_id === null
-          ? []
-          : [
-              {
-                chunkId: row.chunk_id,
-                ordinal: row.ordinal,
-                content: row.content,
-                security: readStoredChunkSecurity(row.metadata),
-              },
-            ],
-      ),
-    };
+    return decodePassagePreview(result.rows);
   }
 
   async findIndexedOriginal(input: {
     documentId: string;
     tenantId: string;
   }): Promise<IndexedOriginal | null> {
-    const result = await this.pool.query<
-      Pick<Row, "filename" | "mime_type" | "payload" | "storage_path">
-    >(
+    const result = await this.pool.query(
       `SELECT j.filename, j.mime_type, j.payload, j.storage_path
        FROM documents d
        JOIN ingestion_jobs j ON ${indexedOriginalPredicate}
@@ -324,14 +301,7 @@ export class PgIngestionJobRepository implements IngestionJobRepository {
       [input.tenantId, input.documentId],
     );
     const row = result.rows[0];
-    return row
-      ? {
-          filename: row.filename,
-          mimeType: row.mime_type,
-          payload: row.payload,
-          storagePath: row.storage_path,
-        }
-      : null;
+    return row ? decodeIndexedOriginal(row) : null;
   }
 
   async requeueDocument(

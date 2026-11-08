@@ -93,6 +93,11 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
 - **Prepared, teaching pending:** the first two walkthrough lessons explain the
   product/request map and Node/TypeScript execution with source references.
   [Learning outcomes](learning-walkthrough.md) remain unchecked.
+- **In validation:** partial ingestion original/preview boundaries preserve
+  private originals, unknown-security blocking and scoped three-passage limits.
+  Twenty-eight focused cases, seven harness checks and both graphs pass locally;
+  fresh actual SQL/CI and publication remain pending. See the
+  [plan](operations/ingestion-projection-boundaries.md).
 
 The [technical backlog](technical-backlog.md) now records **21 published tickets,
 five partial tickets and one pending ticket**. The current CI passed 410 UX

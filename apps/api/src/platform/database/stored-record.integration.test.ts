@@ -144,6 +144,50 @@ test("PostgreSQL full ingestion snapshots preserve byte/storage shape and reject
   assert.equal((await repository.readForProcessing(id, tenant))?.status, "failed");
 });
 
+test("PostgreSQL preview projections keep current-source scope, ordered caps and repaired count semantics", options, async (t) => {
+  const { pool, tenant } = await fixture(t), repository = new PgIngestionJobRepository(pool), job = randomUUID(), document = randomUUID();
+  await pool.query("INSERT INTO documents(id,tenant_id,source,metadata) VALUES($1,$2,'synthetic-preview',$3)",
+    [document, tenant, { ingestionJobId: job }]);
+  await pool.query(`INSERT INTO ingestion_jobs(id,tenant_id,document_id,source,filename,mime_type,status,chunk_count)
+    VALUES($1,$2,$3,'synthetic-preview','fixture.md','text/markdown','completed',NULL)`, [job, tenant, document]);
+  const input = { jobId: job, tenantId: tenant };
+  assert.deepEqual(await repository.previewPassages(input), { totalChunks: 0, passages: [] });
+  const vector = `[1,${Array(1023).fill(0).join(",")}]`;
+  for (const ordinal of [3, 1, 2, 0])
+    await pool.query("INSERT INTO chunks(document_id,ordinal,content,embedding,metadata) VALUES($1,$2,$3,$4::vector,$5::jsonb)",
+      [document, ordinal, `Synthetic passage ${ordinal}.`, vector,
+        JSON.stringify(ordinal === 0 ? { security: { promptInjectionRisk: "low", signals: [] }, language: "es", ocr: { used: true } } : ["unknown legacy metadata"])]);
+  const preview = await repository.previewPassages(input);
+  assert.ok(preview); assert.equal(preview.totalChunks, 4); assert.deepEqual(preview.passages.map(({ ordinal }) => ordinal), [0, 1, 2]);
+  assert.equal(preview.passages[0]?.security.promptInjectionRisk, "low");
+  assert.equal(preview.passages[1]?.security.promptInjectionRisk, "high");
+  assert.equal(await repository.previewPassages({ ...input, tenantId: randomUUID() }), null);
+  try {
+    await pool.query("UPDATE ingestion_jobs SET chunk_count=-1 WHERE id=$1 AND tenant_id=$2", [job, tenant]);
+    await assert.rejects(repository.previewPassages(input), StoredRecordError);
+  } finally { await pool.query("UPDATE ingestion_jobs SET chunk_count=NULL WHERE id=$1 AND tenant_id=$2", [job, tenant]); }
+  assert.equal((await repository.previewPassages(input))?.totalChunks, 4);
+  await pool.query("UPDATE documents SET metadata='{}'::jsonb WHERE id=$1 AND tenant_id=$2", [document, tenant]);
+  assert.equal(await repository.previewPassages(input), null, "An old job does not preview a replacement document.");
+});
+
+test("PostgreSQL original projections preserve legacy/private alternatives and the indexed-revision predicate", options, async (t) => {
+  const { pool, tenant } = await fixture(t), repository = new PgIngestionJobRepository(pool), job = randomUUID(), document = randomUUID();
+  const payload = Buffer.from("Synthetic original bytes, never dispatched.");
+  await pool.query("INSERT INTO documents(id,tenant_id,source,metadata) VALUES($1,$2,'synthetic-original',$3)",
+    [document, tenant, { ingestionJobId: job }]);
+  await pool.query(`INSERT INTO ingestion_jobs(id,tenant_id,document_id,source,filename,mime_type,payload,status)
+    VALUES($1,$2,$3,'synthetic-original','🧭 fixture.pdf','custom/legacy',$4,'completed')`, [job, tenant, document, payload]);
+  const input = { documentId: document, tenantId: tenant }, original = await repository.findIndexedOriginal(input);
+  assert.ok(original); assert.deepEqual(original.payload, payload); assert.equal(original.storagePath, null);
+  assert.equal(original.filename, "🧭 fixture.pdf"); assert.equal(original.mimeType, "custom/legacy");
+  assert.equal(await repository.findIndexedOriginal({ ...input, tenantId: randomUUID() }), null);
+  await pool.query("UPDATE ingestion_jobs SET payload=NULL,storage_path='synthetic-private/reference' WHERE id=$1 AND tenant_id=$2", [job, tenant]);
+  assert.deepEqual(await repository.findIndexedOriginal(input), { filename: "🧭 fixture.pdf", mimeType: "custom/legacy", payload: null, storagePath: "synthetic-private/reference" });
+  await pool.query("UPDATE documents SET metadata='{}'::jsonb WHERE id=$1 AND tenant_id=$2", [document, tenant]);
+  assert.equal(await repository.findIndexedOriginal(input), null, "An old original does not follow a replacement document.");
+});
+
 test("PostgreSQL semantic-cache records decode JSON passages without losing model/workspace isolation", options, async (t) => {
   const { pool, tenant } = await fixture(t), repo = new PgSemanticAnswerCache(pool, 1024);
   const embedding = Array<number>(1024).fill(0); embedding[0] = 1;
