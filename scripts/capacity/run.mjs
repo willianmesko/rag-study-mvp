@@ -10,6 +10,7 @@ import { seedCorpus, sha256, samples, uuid } from "./fixtures.mjs";
 import { capacityProfile, corpusVersion } from "./profiles.mjs";
 import { captureFailureState } from "./diagnostics.mjs";
 import { eventLoopResolutionMs } from "./event-loop-probe.mjs";
+import { captureWorkflowQueues, verifyWorkflowQueueFixture } from "./workflow-queues.mjs";
 import { headersFor, jsonResponse, referenceRecall, trafficPhase, uploadBurst, verifyIngestedSources } from "./traffic.mjs";
 
 const require = createRequire(new URL("../../apps/api/package.json", import.meta.url));
@@ -35,7 +36,7 @@ async function main() {
     corpus: { workspaces: counts.length, chunks: counts.reduce((a, b) => a + b), distribution: counts,
     actorsPerWorkspace: 20, dimensions: 1024, seed: corpusVersion }, lockfileSha256: sha256(await readFile(resolve(root, "package-lock.json"))),
     source: /^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA ?? "") ? process.env.GITHUB_SHA : null,
-    limitations, observationLimit: 1000, poolWaitMs: null,
+    limitations, observationLimit: 1000, queueMetricsVersion: 1, poolWaitMs: null,
     eventLoop: { source: "api-process-native", resolutionMs: eventLoopResolutionMs, phases: [] }, actualProviderCostUsd: null });
   let lab, pool, monitoring, poolFault = false;
   const cancelled = new AbortController();
@@ -58,6 +59,8 @@ async function main() {
     stage = "migrate"; await lab.migrate(await readFile(resolve(root, "tests/fixtures/supabase-auth.sql"), "utf8"));
     stage = "seed"; const seedStarted = performance.now(), corpus = await seedCorpus(pool, counts, cancelled.signal);
     report.seedDurationMs = Math.round(performance.now() - seedStarted);
+    stage = "queue_metric_fixture";
+    report.workflowQueueFixture = await verifyWorkflowQueueFixture(pool, corpus.workspaces[0]);
     stage = "api_readiness"; const api = await lab.startApi();
     ready = false;
     for (let attempt = 0; attempt < 40 && !interrupted; attempt++) {
@@ -102,11 +105,12 @@ async function main() {
             (SELECT count(*)::int FROM pg_stat_activity WHERE datname=current_database() AND state='active' AND pid<>pg_backend_pid()) AS active_connections,
             (SELECT count(*)::int FROM ingestion_jobs WHERE status='queued') AS queued,
             (SELECT coalesce(max(extract(epoch FROM(now()-created_at))*1000),0)::float8 FROM ingestion_jobs WHERE status='queued') AS oldest_queue_ms`);
+          const workflowQueues = await captureWorkflowQueues(pool, corpus.workspaces.map(({ tenantId }) => tenantId));
           const stats = (await docker(["stats", "--no-stream", "--format", "{{json .}}", api.container, lab.postgres, lab.provider]))
             .trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)).map(({ Name, CPUPerc, MemUsage, PIDs }) => ({
               role: Name === api.container ? "api" : Name === lab.postgres ? "postgres" : Name === lab.provider ? "provider" : "unknown",
               cpuPercent: CPUPerc, memoryUsage: MemUsage, processes: PIDs }));
-          if (observations.length < 1000) observations.push({ elapsedMs: Date.now() - Date.parse(report.startedAt), ...state.rows[0], containers: stats });
+          if (observations.length < 1000) observations.push({ elapsedMs: Date.now() - Date.parse(report.startedAt), ...state.rows[0], workflowQueues, containers: stats });
         } catch { if (observations.length < 1000) observations.push({ observationFailed: true }); }
         await delay(1000);
       }
@@ -169,13 +173,16 @@ async function main() {
     assert.ok(report.resources.images.every(({ oomKilled, running, publishedPorts }) => !oomKilled && running && publishedPorts === 0), "A fixture process stopped, exhausted memory or published a host port.");
     assert.equal(poolFault, false); assert.equal(interrupted, false);
     assert.ok(report.phases.every(({ attempted, failed, completedMs }) => attempted >= 3 && failed === 0 && completedMs.count >= 3));
+    assert.ok(observations.some(({ workflowQueues }) => workflowQueues?.length === 3), "No durable queue observation was captured.");
     report.guards = { crossWorkspaceReadDenied: true, viewerUploadDenied: true, sourceScopeCheckedOnEveryResult: true,
       chunkDocumentAssociationChecked: true, unknownSourcesResolvedInFixtureDatabase: true, ownershipLookups: corpus.ownershipLookups,
-      uploadDeduplicated: true, lostJobs: 0, externalNetwork: false };
+      uploadDeduplicated: true, durableQueueFixtureAndObservationChecked: true, lostJobs: 0, externalNetwork: false };
     report.passed = true;
   } catch (error) {
     cancelled.abort();
     report.failure = { stage, reason: interrupted ? "interrupted_or_deadline" : "capacity_pilot_failed",
+      ...(["ERROR", "FATAL", "PANIC"].includes(error?.severity) && /^[A-Z0-9]{5}$/.test(error?.code ?? "")
+        ? { sqlState: error.code } : {}),
       ...(stage === "start_lab" && typeof error?.setupStage === "string" && /^[a-z_]{1,40}$/.test(error.setupStage) ? { setupStage: error.setupStage } : {}) };
     if (stage === "start_lab" && error?.cleanup) report.setupCleanup = error.cleanup;
     if (pool) report.failureState = await captureFailureState(pool, counts.map((_, index) => uuid(2, index + 1)))

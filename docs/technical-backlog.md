@@ -580,6 +580,8 @@ feature-owned locations during BE-07's migration.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
+- [ ] Durable queue/ready/running/lease/approval measurements are locally validated (15 native cases). The before-start six-row SQL fixture must prove grouping, backoff/lease ages, scope and exact cleanup without dispatching work; runtime observations remain required. Fresh actual image-based/normal CI is pending. See the [plan](operations/capacity-workflow-queues.md).
+
 - [x] The lab-only native API-process probe is active and validated in CI: 14 native cases, both actual version-two short profiles and all normal gates pass. No dependency/exporter or production endpoint is added. Empty samples stay unknown and pool wait remains separate. Earlier reports are unchanged. See the [measurement evidence](operations/capacity-event-loop-plan.md).
 
 - [x] Fixed pilot/durable-pilot/sustained profiles and safe diagnostics are validated (12 native cases and all four normal CI jobs). Both short image-based paths passed at `39547aa`; the durable database has 93 completed chats, six completed ingestions and 502 checkpoints. The earlier queue-start instrumentation mismatch is recorded. The later sustained result is recorded separately; these short runs are not production scale evidence. See the [bounded plan](operations/capacity-sustained-plan.md).

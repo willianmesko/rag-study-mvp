@@ -8,6 +8,23 @@ import { createFixtureServer } from "../../scripts/capacity/provider.mjs";
 import { capacityProfile, chunkIdentityNumber, corpusVersion } from "../../scripts/capacity/profiles.mjs";
 import { safeFailureRows } from "../../scripts/capacity/diagnostics.mjs";
 import { createEventLoopProbe, nativeDelaySnapshot } from "../../scripts/capacity/event-loop-probe.mjs";
+import { queueReceipt, captureWorkflowQueues } from "../../scripts/capacity/workflow-queues.mjs";
+
+test("durable queue receipts keep confirmed zeros, unknown ages and disjoint lease counts without raw state", async () => {
+  const empty = () => ["chat", "evaluation", "ingestion"].map((kind) => ({ kind, queued: 0, ready: 0,
+    running: 0, leased: 0, expiredLeases: 0, missingLeases: 0, waitingApproval: 0, oldestReadyMs: null, oldestExpiredLeaseMs: null }));
+  assert.deepEqual(queueReceipt(empty()), empty());
+  const rows = empty(); Object.assign(rows[0], { queued: 2, ready: 1, running: 3, leased: 1,
+    expiredLeases: 1, missingLeases: 1, waitingApproval: 1, oldestReadyMs: 1, oldestExpiredLeaseMs: 2, cipher: "PRIVATE_STATE" });
+  assert.equal(queueReceipt(rows)[0].running, 3); assert.ok(!JSON.stringify(queueReceipt(rows)).includes("PRIVATE_STATE"));
+  for (const patch of [{ ready: 3 }, { running: 4 }, { oldestReadyMs: null }, { oldestExpiredLeaseMs: NaN }, { queued: "2" }])
+    assert.throws(() => queueReceipt([{ ...rows[0], ...patch }, ...rows.slice(1)]));
+  assert.throws(() => queueReceipt([{ ...empty()[0], oldestReadyMs: 0 }, ...empty().slice(1)]));
+  let queries = 0;
+  await assert.rejects(captureWorkflowQueues({ query() { queries++; } }, []));
+  await assert.rejects(captureWorkflowQueues({ query() { queries++; } }, ["not-a-synthetic-workspace"]));
+  assert.equal(queries, 0);
+});
 
 test("native delay snapshots distinguish no samples from real zero and emit only allowed measurements", () => {
   const empty = nativeDelaySnapshot({ count: 0, min: Number.MAX_SAFE_INTEGER, max: 0, mean: NaN, stddev: NaN,
