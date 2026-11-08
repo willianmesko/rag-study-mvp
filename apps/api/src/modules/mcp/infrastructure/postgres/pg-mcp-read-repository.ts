@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
+import { uploadJobSchema } from "@rag-study/contracts";
 import { decodeStoredRecord, storedRatioSchema as ratio } from "../../../../platform/database/stored-record.js";
 import {
   maxMcpPassageChars, type McpEvaluationRecord, type McpIngestionRecord, type McpPassageRecord,
@@ -11,24 +12,21 @@ import type { EmbeddingModelIdentity } from "../../../ai/index.js";
 import { toVectorLiteral } from "../../../../platform/database/pgvector.js";
 import { postgresDeadlineProfiles, withPostgresTransaction } from "../../../../platform/database/sql-boundary.js";
 
-type SourceRow = {
-  id: string;
-  source: string;
-  title: string | null;
-  format: string | null;
-  language: string | null;
-  chunk_count: number;
-  updated_at: Date;
-};
+const sourceRowSchema = z.object({
+  id: z.uuid(), source: z.string(), title: z.string().nullable(),
+  format: z.string().nullable(), language: z.string().nullable(),
+  chunk_count: z.number().int().nonnegative(), updated_at: z.date(),
+});
+const sourcePage = z.array(sourceRowSchema).max(10);
+type SourceRow = z.output<typeof sourceRowSchema>;
 type PassageRow = { chunk_id: string; ordinal: number; content: string; security_metadata: unknown };
-type IngestionRow = {
-  id: string;
-  document_id: string | null;
-  status: McpIngestionRecord["status"];
-  progress: number;
-  chunk_count: number | null;
-  updated_at: Date;
-};
+const ingestionStatusRow = z.object({
+  id: z.uuid(), document_id: z.uuid().nullable(),
+  status: uploadJobSchema.shape.status,
+  progress: uploadJobSchema.shape.progress.pipe(z.number().int()),
+  chunk_count: uploadJobSchema.shape.chunkCount,
+  updated_at: z.date(),
+});
 const qualityPage = z.array(z.object({
   id: z.uuid(), dataset_name: z.string(), dataset_version: z.string(), total_cases: z.number().int().nonnegative(),
   hit_rate: ratio, mean_reciprocal_rank: ratio, faithfulness: ratio.nullable(), context_precision: ratio.nullable(),
@@ -52,8 +50,9 @@ export class PgMcpReadRepository implements McpReadRepository, McpHybridReadRepo
   }
 
   listSources(tenantId: string, limit: number, signal: AbortSignal): Promise<McpSourceRecord[]> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 10) throw new Error("Invalid MCP source limit.");
     return this.read(signal, async (client) => {
-      const { rows } = await client.query<SourceRow>(
+      const { rows } = await client.query<Record<string, unknown>>(
         `SELECT ${sourceColumns}
          FROM (
            SELECT id, source, title, metadata, updated_at FROM public.documents
@@ -62,21 +61,23 @@ export class PgMcpReadRepository implements McpReadRepository, McpHybridReadRepo
          ORDER BY d.updated_at DESC, d.id`,
         [tenantId, limit]
       );
-      return rows.map(mapSource);
+      return decodeStoredRecord(sourcePage, rows).map(mapSource);
     });
   }
 
   getIngestionStatus(tenantId: string, jobId: string, signal: AbortSignal): Promise<McpIngestionRecord | null> {
     return this.read(signal, async (client) => {
-      const { rows: [row] } = await client.query<IngestionRow>(
+      const { rows: [stored] } = await client.query<Record<string, unknown>>(
         `SELECT id, document_id, status, progress, chunk_count, updated_at
          FROM public.ingestion_jobs WHERE tenant_id = $1 AND id = $2`,
         [tenantId, jobId]
       );
-      return row ? {
+      if (!stored) return null;
+      const row = decodeStoredRecord(ingestionStatusRow, stored);
+      return {
         id: row.id, documentId: row.document_id, status: row.status, progress: row.progress,
         chunkCount: row.chunk_count, updatedAt: row.updated_at
-      } : null;
+      };
     });
   }
 
@@ -101,11 +102,12 @@ export class PgMcpReadRepository implements McpReadRepository, McpHybridReadRepo
 
   getDocument(tenantId: string, documentId: string, limit: number, signal: AbortSignal) {
     return this.read(signal, async (client) => {
-      const { rows: [document] } = await client.query<SourceRow>(
+      const { rows: [storedDocument] } = await client.query<Record<string, unknown>>(
         `SELECT ${sourceColumns} FROM public.documents d WHERE d.tenant_id = $1 AND d.id = $2`,
         [tenantId, documentId]
       );
-      if (!document) return null;
+      if (!storedDocument) return null;
+      const document = decodeStoredRecord(sourceRowSchema, storedDocument);
       signal.throwIfAborted();
       const { rows } = await client.query<PassageRow>(
         `SELECT ${passageColumns}

@@ -84,6 +84,11 @@ cache paths, durable execution and conditional branches in the relevant chapter.
 
 ## Chapters and learning outcomes
 
+The first [prepared lesson](learning/01-product-and-system-map.md) follows a
+document and a question through the actual modules, with diagrams, source links
+and a provider-free starting exercise. Preparation does not complete the
+teaching session or any learner outcome below.
+
 ### 1. Product journey and the system map
 
 - [ ] Explore sign-in, onboarding, workspaces, document library, processing,

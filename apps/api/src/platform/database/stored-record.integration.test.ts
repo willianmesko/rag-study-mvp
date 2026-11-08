@@ -86,6 +86,41 @@ test("PostgreSQL timeline details reject non-object JSON, preserve scope and rec
   assert.equal((await pool.query("SELECT status FROM ingestion_jobs WHERE id=$1", [jobId])).rows[0]?.status, "failed");
 });
 
+test("PostgreSQL MCP ingestion status preserves nulls and rejects a negative stored count without losing scope", options, async (t) => {
+  const { pool, tenant } = await fixture(t), reads = new PgMcpReadRepository(pool), id = randomUUID();
+  await pool.query(`INSERT INTO ingestion_jobs(id,tenant_id,source,filename,mime_type,status,progress,chunk_count)
+    VALUES($1,$2,'synthetic-status','fixture.md','text/markdown','failed',0,0)`, [id, tenant]);
+  const signal = new AbortController().signal;
+  const status = await reads.getIngestionStatus(tenant, id, signal);
+  assert.ok(status); assert.equal(status.documentId, null); assert.equal(status.chunkCount, 0);
+  assert.equal(status.progress, 0); assert.ok(status.updatedAt instanceof Date);
+  assert.equal(await reads.getIngestionStatus(randomUUID(), id, signal), null);
+  try {
+    await pool.query("UPDATE ingestion_jobs SET chunk_count=-1 WHERE id=$1 AND tenant_id=$2", [id, tenant]);
+    await assert.rejects(reads.getIngestionStatus(tenant, id, signal), (error: unknown) =>
+      error instanceof StoredRecordError && error.code === "invalid_stored_record" && !("cause" in error));
+  } finally {
+    await pool.query("UPDATE ingestion_jobs SET chunk_count=NULL WHERE id=$1 AND tenant_id=$2", [id, tenant]);
+  }
+  assert.equal((await reads.getIngestionStatus(tenant, id, signal))?.chunkCount, null);
+  assert.equal((await pool.query("SELECT status FROM ingestion_jobs WHERE id=$1", [id])).rows[0]?.status, "failed");
+});
+
+test("PostgreSQL MCP source projections preserve SQL character clamps, unknown metadata and workspace isolation", options, async (t) => {
+  const { pool, tenant } = await fixture(t), reads = new PgMcpReadRepository(pool), id = randomUUID();
+  await pool.query("INSERT INTO documents(id,tenant_id,source,title,metadata) VALUES($1,$2,$3,$4,$5)",
+    [id, tenant, "synthetic/source", "🧭".repeat(1010), { format: "custom", language: "es" }]);
+  const signal = new AbortController().signal;
+  const [source] = await reads.listSources(tenant, 10, signal);
+  assert.ok(source); assert.equal(source.id, id); assert.equal(source.chunkCount, 0);
+  assert.equal(source.title, "🧭".repeat(1001)); assert.equal(source.format, "custom");
+  assert.equal(source.language, "es"); assert.ok(source.updatedAt instanceof Date);
+  assert.deepEqual(await reads.listSources(randomUUID(), 10, signal), []);
+  assert.equal(await reads.getDocument(randomUUID(), id, 2, signal), null);
+  const document = await reads.getDocument(tenant, id, 2, signal);
+  assert.deepEqual(document?.document, source); assert.deepEqual(document?.passages, []);
+});
+
 test("PostgreSQL semantic-cache records decode JSON passages without losing model/workspace isolation", options, async (t) => {
   const { pool, tenant } = await fixture(t), repo = new PgSemanticAnswerCache(pool, 1024);
   const embedding = Array<number>(1024).fill(0); embedding[0] = 1;
