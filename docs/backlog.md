@@ -27,6 +27,12 @@ status section where they appear.
 
 ## In progress
 
+- **Running isolated measurement:** BE-13 sustained follow-up with native
+  event-loop, workflow queues and guarded-checkout timing; ten workspaces,
+  50,000 synthetic chunks, ten clients and 30 mixed minutes. Results, comparison
+  and fresh CI remain pending. No production deployment is part of this run.
+  See the [launch](operations/capacity-sustained-run.md#instrumented-follow-up-2026-11-08-utc).
+
 - **Published increment, ticket partial:** guarded PostgreSQL client-acquisition
   timing with the existing OpenTelemetry API, native/real-SQL tests and bounded,
   private SDK collection in both short capacity pilots. It includes connection

@@ -1,5 +1,36 @@
 # BE-13 sustained synthetic run
 
+## Instrumented follow-up, 2026-11-08 UTC
+
+The owner requested the sustained profile again with the newly published native
+event-loop, durable queue and guarded-checkout instrumentation. The application
+and lab code are unchanged from `151ccef257f79882754d64d6c3bf49d234ad84fc`;
+the [short-profile proof](postgres-checkout-measurement.md) passed both actual
+image paths, all four normal jobs and the real max=1 SQL fixture. A fresh local
+preflight passes all eighteen capacity/probe cases without skips.
+
+This reviewed launch selects the existing fixed sustained profile using the
+[capacity-sustained] marker. Retain the same corpus version two, ten workspaces,
+50,000 chunks, ten clients, 60-second control, 1,800-second mixed phase, resource
+caps, deterministic providers, ephemeral key and owned cleanup described below.
+The process/CI deadlines remain 45/48 minutes. No benchmark threshold, application
+behavior, dependency, provider, schema, hosting plan or production configuration
+changes. No production deployment is required for this measurement-only commit.
+
+Require version-three results with nonempty API-process event-loop samples and
+delta guarded-checkout histograms in both phases, valid scoped workflow queue
+observations, all six deduplicated ingestions/new-source checks, durable terminal
+rows/checkpoints, isolation guards and successful process/resource cleanup.
+Checkout includes connection/setup and aggregates guarded paths across pools;
+direct queries and pure pool queue wait remain unmeasured. Preserve null actual
+provider cost. Do not overwrite or backfill the first sustained report.
+
+Retain the exact launch SHA and fresh runner/image identities. Compare the
+two sustained cohorts descriptively: source changes, instrumentation overhead
+and shared-runner variation preclude attributing differences to a single cause
+or calling one paired before/after regression test. This run is in progress;
+the measured report and normal CI outcomes are required before marking it done.
+
 ## Reviewed execution
 
 The corrected short legacy and durable paths passed in
