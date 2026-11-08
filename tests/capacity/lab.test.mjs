@@ -6,6 +6,15 @@ import { assertImage, containerOrigin } from "../../scripts/capacity/docker-lab.
 import { assertSources, decodeFrame, safePlan, verifySources } from "../../scripts/capacity/traffic.mjs";
 import { createFixtureServer } from "../../scripts/capacity/provider.mjs";
 import { capacityProfile, chunkIdentityNumber, corpusVersion } from "../../scripts/capacity/profiles.mjs";
+import { safeFailureRows } from "../../scripts/capacity/diagnostics.mjs";
+
+test("failed-load diagnostics retain fixed workflow stages and counts without raw stored errors", () => {
+  assert.deepEqual(safeFailureRows([{ status: "failed", stage: "embedding", error_code: "budget_exceeded", count: 6 }]),
+    [{ status: "failed", stage: "embedding", reason: "budget_exceeded", count: 6 }]);
+  const safe = safeFailureRows([{ status: "PRIVATE_STATUS", stage: "PRIVATE_STAGE", error_code: "PRIVATE_ERROR", count: "PRIVATE_COUNT", message: "PRIVATE_MESSAGE" }]);
+  assert.deepEqual(safe, [{ status: "other", stage: "other", reason: "other", count: null }]);
+  assert.ok(!JSON.stringify(safe).includes("PRIVATE_"));
+});
 
 test("capacity profiles cap scale, duration and clients while keeping the sustained cohort explicit", () => {
   for (const name of ["pilot", "durable-pilot", "sustained"]) {

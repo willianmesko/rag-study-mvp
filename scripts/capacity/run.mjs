@@ -6,8 +6,9 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { docker, startLab, assertImage } from "./docker-lab.mjs";
-import { seedCorpus, sha256, samples } from "./fixtures.mjs";
+import { seedCorpus, sha256, samples, uuid } from "./fixtures.mjs";
 import { capacityProfile, corpusVersion } from "./profiles.mjs";
+import { captureFailureState } from "./diagnostics.mjs";
 import { headersFor, jsonResponse, referenceRecall, trafficPhase, uploadBurst, verifyIngestedSources } from "./traffic.mjs";
 
 const require = createRequire(new URL("../../apps/api/package.json", import.meta.url));
@@ -113,13 +114,18 @@ async function main() {
       await delay(1000);
     }
     assert.equal(rows.length, 6); assert.ok(rows.every(({ status, chunk_count }) => status === "completed" && chunk_count > 0), "An ingestion job was lost or unsuccessful.");
+    stage = "ingestion_measurements";
     const duplicateCount = await pool.query("SELECT count(*)::int AS count FROM ingestion_jobs WHERE tenant_id=$1 AND source LIKE 'capacity/upload-%'", [corpus.workspaces[0].tenantId]);
     assert.equal(duplicateCount.rows[0].count, 6);
+    // Legacy work emits processing/started; the durable graph's first work is
+    // source_read/started. Require all six observed starts on the selected path.
+    const queueWaitStartStage = profile.durable ? "source_read" : "processing";
     const queueWait = await pool.query(`SELECT extract(epoch FROM(min(e.created_at)-j.created_at))*1000 AS wait_ms
-      FROM ingestion_jobs j JOIN ingestion_job_events e ON e.job_id=j.id AND e.stage='processing' AND e.status='started'
-      WHERE j.id=ANY($1::uuid[]) GROUP BY j.id,j.created_at`, [jobs]);
+      FROM ingestion_jobs j JOIN ingestion_job_events e ON e.job_id=j.id AND e.stage=$2 AND e.status='started'
+      WHERE j.id=ANY($1::uuid[]) GROUP BY j.id,j.created_at`, [jobs, queueWaitStartStage]);
     assert.equal(queueWait.rowCount, 6);
-    report.ingestion = { accepted: 6, replayed: 6, uniqueJobs: rows.length, completed: rows.length, queueWaitMs: samples(queueWait.rows.map(({ wait_ms }) => Number(wait_ms))) };
+    report.ingestion = { accepted: 6, replayed: 6, uniqueJobs: rows.length, completed: rows.length, queueWaitStartStage,
+      queueWaitMs: samples(queueWait.rows.map(({ wait_ms }) => Number(wait_ms))) };
     stage = "new_source_verification";
     report.postIngestionVerification = await verifyIngestedSources(api.origin, corpus, 6, cancelled.signal);
     stage = "durable_receipt";
@@ -152,6 +158,8 @@ async function main() {
     report.failure = { stage, reason: interrupted ? "interrupted_or_deadline" : "capacity_pilot_failed",
       ...(stage === "start_lab" && typeof error?.setupStage === "string" && /^[a-z_]{1,40}$/.test(error.setupStage) ? { setupStage: error.setupStage } : {}) };
     if (stage === "start_lab" && error?.cleanup) report.setupCleanup = error.cleanup;
+    if (pool) report.failureState = await captureFailureState(pool, counts.map((_, index) => uuid(2, index + 1)))
+      .catch(() => ({ unavailable: true }));
     process.exitCode = 1;
   } finally {
     clearTimeout(deadline); process.off("SIGINT", stop); process.off("SIGTERM", stop);

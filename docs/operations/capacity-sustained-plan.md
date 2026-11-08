@@ -49,3 +49,23 @@ persisted checkpoints in its owned database; enabling a flag is not execution
 proof. Short image-based proof, normal CI and the sustained run remain pending.
 The workflow runs both short profiles on a normal selected push. No sustained
 commit marker has been sent yet.
+
+## First durable attempt
+
+At `b72c52b`, the [actual lab](https://github.com/willianmesko/rag-study-mvp/actions/runs/42441083950)
+passed the legacy pilot (104 completed pairs and six completed uploads). The
+durable cohort completed its 91 search/answer pairs but failed ingestion_drain.
+All three containers exited zero and owned cleanup passed; no sustained run was
+launched. The failure report did not retain job/workflow terminal categories,
+so it does not establish the underlying cause. Add fixed-category/count-only
+failure receipts before retrying. Do not weaken job-completion or budget guards
+to make the pilot pass, and do not call that failed cohort a durable baseline.
+
+Source review found a concrete instrumentation mismatch: the queue-wait query
+required processing/started, which only the legacy worker emits. The durable
+graph starts with source_read/started. Select that actual first-work event for
+the durable profile, retain the six-event/completed-job assertions and record
+queueWaitStartStage so the definition is explicit. Give measurements their own
+failure stage and retain safe status/stage/reason counts if a later assertion
+fails. This is a harness correction; no application budget or completion rule
+changes. A fresh actual durable run is still required to confirm the outcome.
