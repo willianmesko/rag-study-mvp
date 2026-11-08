@@ -59,6 +59,7 @@ consumer.
 
 ## Status
 
+Validated and published at `4f778664d71bc03d215dd6e7f5bdb537cd5102cd`.
 All sixteen files in this follow-up are migrated. Together with the preceding
 four-family increment, the original 19 mutable fixtures and the read-only
 assembly consumer now use explicit synthetic settings. A final inventory of
@@ -70,9 +71,18 @@ families passed 48 focused cases; all seven local harness checks then passed.
 The three assembly/no-eager-IO cases passed after their migration, and strict
 API/web types passed after all edits, including both database fixtures. The
 architecture graph remains clean at 450 structural modules / 1,775 edges and
-449 runtime modules / 1,281 edges. Fresh exact-source CI must still exercise
-the actual database/cutover cases; these were not run on the full local Docker
-VM. Publication requires the next complete release gates. No library, schema,
+449 runtime modules / 1,281 edges. Fresh exact-source CI subsequently exercised
+the actual database/cutover cases as recorded below; these were not run on the
+full local Docker VM. The complete release gates passed. No library, schema,
 runtime behavior or production configuration is changed. BE-12 remains partial
 for the stored-record/JSON inventory; removing fixture mutation does not close
 that separate boundary work.
+
+All four [exact-source CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42428605858)
+subsequently passed, including actual durable-conversation SQL and embedding
+cutover fixtures with no skips, the restricted MCP image and 410 UX cases / 46
+deliberate skips. The full SQL job passed 87 cases. Both services were observed
+live at that source and public health/protection/assets/log checks passed.
+See the [shared publication receipt](release-2026-11-08-workspace-stored-records.md#publication)
+for deployment IDs, timestamps, native OCR and verification limits. The earlier
+local Docker limitation remains a local limitation, not missing CI coverage.

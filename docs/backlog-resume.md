@@ -9,9 +9,9 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `59f83e27b5aed045c1b93b5a1b5941cd0c97f566`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42427346385).
-- [Release evidence](operations/release-2026-11-07-chat-response-boundaries.md) records
+- Source: `4f778664d71bc03d215dd6e7f5bdb537cd5102cd`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42428605858).
+- [Release evidence](operations/release-2026-11-08-workspace-stored-records.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -47,8 +47,9 @@ the [real minimal-MCP-image CI check](operations/mcp-image-verification.md).
 The bounded embedding-response increment and native return/unused checks are
 also published. Checked provider chat frames and the four-family explicit HTTP
 fixture migration are now published together. Remaining configuration fixtures
-are migrated locally and await real database/cutover CI. Additional workspace
-stored-record decoding is being validated; these follow-ups are not yet published.
+and workspace stored-record decoding are also published after 87 real SQL cases,
+the isolated cutover and all other gates passed. Conversation record/recovery
+validation is locally complete and awaits fresh CI/publication.
 
 ## Completed explicit follow-up: BE-15
 

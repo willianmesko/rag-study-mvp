@@ -14,6 +14,8 @@ export type ConversationSubmission = ConversationScope & {
   mode: "answer" | "comparison";
   input: QuestionInput | QuestionComparisonInput;
 };
+/** Recovery reads persisted JSON; its mode/input are not trusted until decoded. */
+export type PendingConversationSubmission = ConversationScope & { runId: string; mode: unknown; input: unknown };
 export class ConversationError extends Error {
   constructor(
     readonly code:
@@ -69,13 +71,7 @@ export interface ConversationRepository {
     value: "up" | "down" | null,
   ): Promise<void>;
   admit(input: ConversationSubmission): Promise<ConversationTurn>;
-  pending(
-    limit: number,
-  ): Promise<
-    (ConversationSubmission & {
-      input: QuestionInput | QuestionComparisonInput;
-    })[]
-  >;
+  pending(limit: number): Promise<PendingConversationSubmission[]>;
   turn(
     scope: ConversationScope,
     runId: string,

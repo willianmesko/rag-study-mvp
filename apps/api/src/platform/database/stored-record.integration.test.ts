@@ -7,6 +7,7 @@ import { PgSemanticAnswerCache } from "../../modules/chat/infrastructure/postgre
 import { StoredRecordError } from "./stored-record.js";
 import { PgWorkspaceModelPolicyRepository } from "../../modules/chat/infrastructure/postgres/pg-workspace-model-policy-repository.js";
 import { PgWorkspaceOnboardingRepository } from "../../modules/workspaces/infrastructure/postgres/pg-workspace-onboarding-repository.js";
+import { PgConversationRepository } from "../../modules/chat/infrastructure/postgres/pg-conversation-repository.js";
 
 const databaseUrl = process.env.MCP_TEST_DATABASE_URL;
 const options = { skip: !databaseUrl, timeout: 30_000 };
@@ -87,4 +88,29 @@ test("PostgreSQL onboarding preserves monotonic progress and independent user/wo
   assert.equal(await repo.get({ ...scope, tenantId: randomUUID() }), null);
   const raw = await pool.query("SELECT furthest_step FROM workspace_onboarding WHERE tenant_id=$1 AND user_id=$2", [tenant, userId]);
   assert.equal(typeof raw.rows[0]?.furthest_step, "number");
+});
+
+test("PostgreSQL conversation corruption fails safely and its scoped terminal transition preserves other pending work", options, async (t) => {
+  const { pool, tenant } = await fixture(t), repo = new PgConversationRepository(pool), userId = randomUUID();
+  await pool.query("INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'owner')", [tenant, userId]);
+  const owner = { tenantId: tenant, userId }, badId = randomUUID(), goodId = randomUUID(), badRun = randomUUID(), goodRun = randomUUID();
+  await repo.create(owner, badId, "Synthetic corrupt fixture");
+  await repo.create(owner, goodId, "Synthetic valid fixture");
+  const bad = { ...owner, conversationId: badId }, good = { ...owner, conversationId: goodId };
+  await repo.admit({ ...bad, runId: badRun, mode: "answer", input: { question: "Synthetic first question?" } });
+  await repo.admit({ ...good, runId: goodRun, mode: "answer", input: { question: "Synthetic second question?" } });
+  const corrupt = { question: 17, detail: "PRIVATE_SENTINEL" };
+  await pool.query("UPDATE conversation_turns SET input=$4::jsonb WHERE tenant_id=$1 AND owner_id=$2 AND run_id=$3", [tenant, userId, badRun, JSON.stringify(corrupt)]);
+  await assert.rejects(repo.turn(bad, badRun), StoredRecordError);
+  await assert.rejects(repo.messages(bad, 10), StoredRecordError);
+  assert.equal((await repo.messages(good, 10)).turns[0]?.question, "Synthetic second question?");
+  // Dispatch, shutdown and per-item recovery isolation are exercised through
+  // the application ports; this SQL case stays scoped to its own records.
+  await repo.fail(bad, badRun);
+  const status = await pool.query("SELECT status,failure_code FROM conversation_turns WHERE tenant_id=$1 AND run_id=$2", [tenant, badRun]);
+  assert.deepEqual(status.rows[0], { status: "failed", failure_code: "execution_failed" });
+  assert.equal((await repo.turn(good, goodRun))?.status, "queued");
+  // Repair is explicit; the application never replaces a corrupt question.
+  await pool.query("UPDATE conversation_turns SET input=$3::jsonb WHERE tenant_id=$1 AND run_id=$2", [tenant, badRun, JSON.stringify({ question: "Synthetic first question?" })]);
+  assert.equal((await repo.turn(bad, badRun))?.status, "failed");
 });

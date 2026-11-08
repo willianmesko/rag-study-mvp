@@ -4,11 +4,13 @@ import type { Pool, PoolClient } from "pg";
 import { applyPostgresDeadlines, postgresDeadlineProfiles } from "../../../../platform/database/sql-boundary.js";
 import {
   conversationTurnSchema,
+  conversationSummarySchema,
   questionComparisonResponseSchema,
   type ConversationSummary,
   type ConversationTurn,
   type QuestionComparisonResponse,
 } from "@rag-study/contracts";
+import { decodeStoredRecord } from "../../../../platform/database/stored-record.js";
 import {
   ConversationError,
   type ConversationOwner,
@@ -26,14 +28,12 @@ type SummaryRow = Omit<
   ConversationSummary,
   "createdAt" | "updatedAt" | "expiresAt"
 > & { createdAt: Date; updatedAt: Date; expiresAt: Date };
-const summaryView = (row: SummaryRow): ConversationSummary => ({
-  id: row.id,
-  title: row.title,
-  turnCount: row.turnCount,
-  createdAt: row.createdAt.toISOString(),
-  updatedAt: row.updatedAt.toISOString(),
-  expiresAt: row.expiresAt.toISOString(),
-});
+const summaryRowSchema = conversationSummarySchema.extend({
+  createdAt: z.date(), updatedAt: z.date(), expiresAt: z.date()
+}).strip().transform((row) => ({ ...row,
+  createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(), expiresAt: row.expiresAt.toISOString()
+})).pipe(conversationSummarySchema);
+const summaryView = (row: unknown): ConversationSummary => decodeStoredRecord(summaryRowSchema, row);
 type TurnRow = {
   run_id: string;
   user_message_id: string;
@@ -42,15 +42,20 @@ type TurnRow = {
   sequence: number;
   mode: "answer" | "comparison";
   status: ConversationTurn["status"];
-  input: ConversationTurn["input"];
+  input: unknown;
   response: unknown;
   feedback: "up" | "down" | null;
   failure_code: string | null;
   created_at: Date;
   completed_at: Date | null;
 };
-const turnView = (row: TurnRow): ConversationTurn =>
-  conversationTurnSchema.parse({
+const turnEnvelope = z.object({
+  input: z.object({ question: z.unknown() }).passthrough(),
+  created_at: z.date(), completed_at: z.date().nullable()
+}).passthrough();
+const turnView = (value: unknown): ConversationTurn => {
+  const row = decodeStoredRecord(turnEnvelope, value);
+  return decodeStoredRecord(conversationTurnSchema, {
     runId: row.run_id,
     userMessageId: row.user_message_id,
     assistantMessageId: row.assistant_message_id,
@@ -67,6 +72,7 @@ const turnView = (row: TurnRow): ConversationTurn =>
     createdAt: row.created_at.toISOString(),
     completedAt: row.completed_at?.toISOString() ?? null,
   });
+};
 
 export class PgConversationRepository implements ConversationRepository {
   constructor(private readonly pool: Pool) {}
@@ -265,7 +271,7 @@ export class PgConversationRepository implements ConversationRepository {
         WHERE tenant_id=$1 AND owner_id=$2 AND id=$3`,
         [...params(submission), submission.conversationId, title],
       );
-      return turnView(turn!);
+      return turnView(turn);
     });
   }
   async pending(limit: number) {
@@ -294,7 +300,7 @@ export class PgConversationRepository implements ConversationRepository {
       ON c.tenant_id=t.tenant_id AND c.owner_id=t.owner_id AND c.id=t.conversation_id WHERE ${visible} AND c.id=$3 AND t.run_id=$4`,
       [...params(scope), scope.conversationId, runId],
     );
-    return rows[0] ? turnView(rows[0]) : null;
+    return rows.length ? turnView(rows[0]) : null;
   }
   async fail(scope: ConversationScope, runId: string) {
     await this.pool.query(

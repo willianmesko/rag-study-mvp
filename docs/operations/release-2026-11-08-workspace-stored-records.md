@@ -32,8 +32,8 @@ monotonic writes without altering tables. Full exact-source CI remains required.
 
 ## Status
 
-Implementation and local validation are complete; exact-source CI/publication
-are pending. Policies decode their physical row using the existing shared policy
+Validated and published at `4f778664d71bc03d215dd6e7f5bdb537cd5102cd`.
+Policies decode their physical row using the existing shared policy
 contract; missing rows and invalid routing raise `StoredRecordError`, not
 `ZodError`. Onboarding decodes physical types and a bounded step index before
 transforming/piping through the shared progress schema. Genuinely absent GETs
@@ -47,8 +47,30 @@ passed. Both dependency graphs are clean (450 structural modules / 1,779 edges;
 
 Two new disposable PostgreSQL cases are registered in the existing required
 database job. They cover JSON routing corruption/repair, real SMALLINT progress,
-monotonic writes and user/workspace isolation. They have not been run against
-the full local Docker VM and require fresh CI proof before publication. This
+monotonic writes and user/workspace isolation. They were not run against
+the full local Docker VM; fresh CI supplies the actual SQL proof below. This
 covers two more bounded families and does not complete the remaining
 repository/JSON inventory. No migration, dependency, credential, real user
 content or paid provider call is required.
+
+## Publication
+
+All four [exact-source CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42428605858)
+passed: 87 real PostgreSQL cases / zero skips, the isolated cutover, 410 UX cases
+/ 46 deliberate skips, 78 architecture fixtures, seven harness checks, four
+native route-state, three artifact and three payload checks. The restricted MCP
+image again passed its five-tool/network-disabled/write-rejection check.
+The actual SQL job, not a local skip, proves the two added row families and the
+remaining configuration-fixture migration.
+
+| Service | Deployment | Observed live on 2026-11-08 UTC |
+| --- | --- | --- |
+| API | `dep-dbns1ijrjlhs739n54h0` | 00:23:47.739433 |
+| Web | `dep-dbns1jnf3r2c739g5rfg` | 00:23:27.607817 |
+
+The Render build at 00:23:08 UTC passed two actual native OCR cases / zero skips,
+with 490 clean runtime files, 1,539,761 bytes, 14 entries and no project test
+artifacts. Public checks at 00:24:25 UTC confirmed served assets/icon, semantic
+styles, health capabilities, correlation IDs, private-route protection and
+bounded OAuth handling. API error/fatal logs were empty from 00:23:47 to
+00:24:46 UTC. Real-provider questions and third-party consent were not exercised.

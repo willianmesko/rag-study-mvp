@@ -7,6 +7,7 @@ import { StoredRecordError } from "./stored-record.js";
 import { workspaceGuideGoals } from "@rag-study/contracts";
 import { PgWorkspaceOnboardingRepository } from "../../modules/workspaces/infrastructure/postgres/pg-workspace-onboarding-repository.js";
 import { PgWorkspaceModelPolicyRepository } from "../../modules/chat/infrastructure/postgres/pg-workspace-model-policy-repository.js";
+import { PgConversationRepository } from "../../modules/chat/infrastructure/postgres/pg-conversation-repository.js";
 
 const tenant = "11111111-1111-4111-a111-111111111111", id = "22222222-2222-4222-a222-222222222222";
 const row = () => ({
@@ -150,4 +151,35 @@ test("malformed onboarding rows never produce undefined steps or client validati
     await assert.rejects(repo.get(scope), sanitized);
     await assert.rejects(repo.save(scope, progress), sanitized);
   }
+});
+
+const owner = { tenantId: tenant, userId: id }, conversationId = "33333333-3333-4333-a333-333333333333";
+const summaryRow = () => ({ id: conversationId, title: "Synthetic conversation", turnCount: 1,
+  createdAt: new Date("2026-11-07T12:00:00Z"), updatedAt: new Date("2026-11-07T12:01:00Z"), expiresAt: new Date("2027-02-01T12:00:00Z") });
+const turnRow = () => ({ run_id: id, user_message_id: tenant, assistant_message_id: conversationId, conversation_id: conversationId,
+  sequence: 1, mode: "answer", status: "queued", input: { question: "Synthetic question?" }, response: null,
+  feedback: null, failure_code: null, created_at: summaryRow().createdAt, completed_at: null });
+
+test("conversation summary and turn views decode driver dates and checked product fields", async () => {
+  const fixture = workspaceRows([summaryRow()]);
+  const page = await new PgConversationRepository(fixture.pool).list(owner, 10);
+  assert.equal(page.conversations[0]?.createdAt, "2026-11-07T12:00:00.000Z");
+  assert.equal(page.nextCursor, null);
+  assert.match(fixture.statements[0]!.sql, /c.tenant_id=\$1 AND c.owner_id=\$2/);
+  assert.deepEqual(fixture.statements[0]!.params.slice(0, 2), [tenant, id]);
+  const repo = new PgConversationRepository(fakePool([turnRow()]));
+  const turn = await repo.turn({ ...owner, conversationId }, id);
+  assert.equal(turn?.question, "Synthetic question?"); assert.equal(turn?.createdAt, "2026-11-07T12:00:00.000Z");
+  assert.equal(turn?.answer, null);
+  assert.equal(await new PgConversationRepository(fakePool([])).turn({ ...owner, conversationId }, id), null);
+});
+
+test("invalid stored conversation dates, IDs and JSON raise safe server errors", async () => {
+  for (const value of [null, { ...summaryRow(), id: "PRIVATE_SENTINEL" }, { ...summaryRow(), createdAt: "PRIVATE_SENTINEL" },
+    { ...summaryRow(), updatedAt: new Date("invalid") }, { ...summaryRow(), turnCount: -1 }])
+    await assert.rejects(new PgConversationRepository(fakePool([value])).list(owner, 10), sanitized);
+  for (const value of [null, {}, { ...turnRow(), input: null }, { ...turnRow(), input: { question: { PRIVATE_SENTINEL: true } } },
+    { ...turnRow(), created_at: "PRIVATE_SENTINEL" }, { ...turnRow(), completed_at: new Date("invalid") },
+    { ...turnRow(), response: { answer: "PRIVATE_SENTINEL", sources: "bad" } }, { ...turnRow(), mode: "PRIVATE_SENTINEL" }])
+    await assert.rejects(new PgConversationRepository(fakePool([value])).turn({ ...owner, conversationId }, id), sanitized);
 });

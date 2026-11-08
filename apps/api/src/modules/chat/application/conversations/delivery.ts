@@ -1,21 +1,36 @@
-import type {
-  QuestionInput,
-  QuestionComparisonInput,
-  QuestionComparisonResponse,
+import {
+  questionInputSchema,
+  questionComparisonInputSchema,
+  type QuestionInput,
+  type QuestionComparisonInput,
+  type QuestionComparisonResponse,
 } from "@rag-study/contracts";
 import type {
   ConversationRepository,
   ConversationSubmission,
+  PendingConversationSubmission,
 } from "../ports/conversation-repository.js";
 import type { ChatRunRepository } from "../ports/chat-run-repository.js";
 import { withExecutionTimeout } from "../../../mcp/index.js";
+
+function decodeRecoveredSubmission(item: PendingConversationSubmission): ConversationSubmission | null {
+  if (item.mode === "answer") {
+    const parsed = questionInputSchema.safeParse(item.input);
+    return parsed.success ? { ...item, mode: "answer", input: parsed.data } : null;
+  }
+  if (item.mode === "comparison") {
+    const parsed = questionComparisonInputSchema.safeParse(item.input);
+    return parsed.success ? { ...item, mode: "comparison", input: parsed.data } : null;
+  }
+  return null;
+}
 
 /** The persisted turn is an outbox. Admission retries never create another turn. */
 export class ConversationDelivery {
   private readonly active = new Set<Promise<void>>();
   constructor(
-    private readonly records: ConversationRepository,
-    private readonly runs: ChatRunRepository,
+    private readonly records: Pick<ConversationRepository, "admit" | "pending" | "pruneExpired" | "fail" | "claimComparison" | "turn" | "completeComparison">,
+    private readonly runs: Pick<ChatRunRepository, "get">,
     private readonly startAnswer: (
       submission: ConversationSubmission & { input: QuestionInput },
     ) => Promise<void>,
@@ -38,7 +53,13 @@ export class ConversationDelivery {
     await this.records.pruneExpired();
     for (const item of await this.records.pending(10)) {
       if (this.shutdown.aborted) return;
-      await this.deliver(item);
+      const submission = decodeRecoveredSubmission(item);
+      if (!submission) {
+        await this.records.fail(item, item.runId);
+        this.report("conversation_recovery_invalid_input");
+        continue;
+      }
+      await this.deliver(submission);
     }
   }
   async close() {

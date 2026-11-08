@@ -18,11 +18,11 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08 | 4 |
 | Pending implementation | BE-09, BE-13 | 2 |
 
-The latest batch is live on frontend and API at `59f83e27b5aed045c1b93b5a1b5941cd0c97f566`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42427346385) passed.
+The latest batch is live on frontend and API at `4f778664d71bc03d215dd6e7f5bdb537cd5102cd`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42428605858) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
-CI passed 410 UX cases/46 deliberate skips, 85 PostgreSQL cases, the isolated
+CI passed 410 UX cases/46 deliberate skips, 87 PostgreSQL cases, the isolated
 cutover, 78 architecture fixtures, seven harness checks, four native route-state,
 three artifact and three payload cases. The Render build independently passed
 both actual OCR cases with zero skips and zero project test artifacts in the
@@ -40,8 +40,9 @@ actual minimal MCP image gate are also validated and published. See the
 is now published. Native compiler checks are also
 [published](operations/release-2026-11-07-native-quality.md). Automatic continuation
 has published [chat response boundaries](operations/release-2026-11-07-chat-response-boundaries.md)
-and the first four isolated HTTP fixture families. The remaining configuration
-fixtures are locally migrated and awaiting the next exact-source CI/publication.
+and all configuration fixtures. Workspace model-policy/guide record decoding
+is also [published](operations/release-2026-11-08-workspace-stored-records.md).
+Conversation record/recovery validation is the next locally validated candidate.
 BE-12 remains partial; BE-08/FE-08 retain promise/Hook work and BE-09 retains
 minimum-privilege activation. Earlier releases retain their dated evidence.
 The prior administrative/unused-check slice is recorded in the
@@ -288,9 +289,10 @@ feature-owned locations during BE-07's migration.
 - [x] Embedding-response increment is CI verified and published. Titan/Ollama/OpenRouter use dimension-first finite-vector decoding, bounded single-result envelopes and honest usage receipts. See the [release record](operations/release-2026-11-07-embedding-responses.md).
 - [x] Chat-response increment is CI verified and published. OpenRouter/Ollama validate JSON/stream envelopes and deltas, retain native usage on invalid output and preserve real connection cancellation. See the [release record](operations/release-2026-11-07-chat-response-boundaries.md).
 - [x] Four HTTP fixture families use independently parsed configuration and explicit production policy; 25 focused checks, the full harness and exact-source CI passed. Published with the chat-response increment. See the [release record](operations/release-2026-11-07-isolated-http-fixtures.md).
-- [x] Remaining configuration fixtures are migrated locally: the original 19 mutable files and the read-only assembly consumer use explicit settings; the final inventory of 96 tests finds no legacy imports/writes. Focused HTTP/assembly and strict checks pass; actual database/cutover CI and publication are pending. See the [candidate record](operations/release-2026-11-07-isolated-resource-fixtures.md).
-- [x] Workspace stored-record candidate is locally validated: policy routing and onboarding physical rows use shared contracts with fixed stored-data errors. Thirty-two focused cases, seven harness checks and both graphs pass; two new real PostgreSQL cases and publication await fresh CI. See the [candidate record](operations/release-2026-11-08-workspace-stored-records.md).
-- [ ] Remaining BE-12: complete fixture release evidence; inventory/decode other externally influenced repository JSON and unchecked row assumptions. Two migrated row families do not establish complete SQL coverage.
+- [x] Configuration fixtures are CI verified and published: the original 19 mutable files and the read-only assembly consumer use explicit settings; the source inventory of 96 tests finds no legacy imports/writes. Actual durable-conversation and cutover fixtures passed without skips. See the [release record](operations/release-2026-11-07-isolated-resource-fixtures.md).
+- [x] Workspace stored-record increment is CI verified and published: policy routing and onboarding physical rows use shared contracts with fixed stored-data errors. Thirty-two focused cases, seven harness checks, both graphs and 87 real PostgreSQL cases passed. See the [release record](operations/release-2026-11-08-workspace-stored-records.md).
+- [x] Conversation-record/recovery candidate is locally validated: unknown pending input is checked before dispatch, invalid items fail independently, and summary/turn views use fixed stored-data errors. Fifteen focused cases, strict types, both graphs and seven harness checks pass; the new SQL case and publication await fresh CI. See the [candidate record](operations/release-2026-11-08-conversation-record-boundaries.md).
+- [ ] Remaining BE-12: inventory/decode other externally influenced repository JSON and unchecked row assumptions. Targeted row decoding does not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
 

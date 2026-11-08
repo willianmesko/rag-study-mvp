@@ -32,17 +32,18 @@ explicitly. No settings are serialized to a public endpoint.
 The HTTP compatibility fallback and some older tests still use the existing
 singleton. A subsequent [provider-deadline increment](operations/release-2026-11-07-provider-deadlines.md)
 now captures transport settings per instance and loads the HTTP fallback lazily;
-its release record distinguishes local implementation from publication. Older
-fixtures and other repository families remain open. This does not claim that
+its release record distinguishes local implementation from publication. The
+configuration-fixture migration is now published; other repository families
+remain open. This does not claim that
 every vendor SDK environment read is gone or all settings are deeply immutable.
 
 The [four-family fixture follow-up](operations/release-2026-11-07-isolated-http-fixtures.md)
 migrates query scope/cancellation, knowledge readiness, demo discovery and
 workspace isolation to the same explicit parser/factory contract. Its record
 distinguishes local validation from publication. The
-[remaining-fixture candidate](operations/release-2026-11-07-isolated-resource-fixtures.md)
+[remaining-fixture increment](operations/release-2026-11-07-isolated-resource-fixtures.md)
 also migrates the remaining 15 mutable consumers and one read-only assembly
-import; its real database/cutover CI and publication are still required.
+import; its real database/cutover CI and both publications are verified.
 
 ## Database boundary
 
@@ -59,13 +60,19 @@ read-only bounded transactions, cancellation and embedding revision locks.
 The decoder does not replace server authorization or verify a claim's factual
 truth. Other repository families still require their own boundary inventory.
 
-The [workspace-record candidate](operations/release-2026-11-08-workspace-stored-records.md)
+The [published workspace-record increment](operations/release-2026-11-08-workspace-stored-records.md)
 extends this boundary to persisted model policies and guide progress. Policies
 reuse the strict routing contract; progress decodes physical types/index before
 mapping to the shared product contract. Missing GETs remain absent; corrupt or
 missing INSERT records fail with fixed server diagnostics rather than a client
 `ZodError` or incidental TypeError. Existing monotonic upsert and user/workspace
-predicates remain. Its real SQL/release evidence is still pending.
+predicates remain. Its release record includes actual SQL and live evidence.
+
+The [conversation-record candidate](operations/release-2026-11-08-conversation-record-boundaries.md)
+checks physical view fields before shared DTO decoding. Recovery input/mode is
+explicitly unknown in its port and checked item by item before provider dispatch;
+invalid queued inputs fail through the existing scoped operation, allowing other
+items to continue. Its real SQL/release evidence is still pending.
 
 ## Objective checks
 

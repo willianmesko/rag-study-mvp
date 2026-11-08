@@ -37,7 +37,7 @@ administrator-key guard. Synthetic demo keys now satisfy that guard; it was not
 weakened. A subsequent typecheck caught an incomplete dependency object for the
 private comparison instance; both instances now reuse the existing synthetic
 dependency fixture while keeping separate configurations. Fresh exact-source CI
-and publication evidence are still required. Public behavior and dependencies
+and publication evidence subsequently passed, as recorded below. Public behavior and dependencies
 remain unchanged; BE-12 stays partial.
 
 All four [exact-source CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42427346385)
