@@ -580,6 +580,8 @@ feature-owned locations during BE-07's migration.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
+- [ ] A lab-only native API-process event-loop probe and version-two per-phase receipts pass 14 local cases. No new dependency/exporter or production endpoint is introduced. Empty samples remain unknown and pool wait stays separate. Both actual short image-based paths and fresh CI are pending. Earlier reports are unchanged. See the [measurement plan](operations/capacity-event-loop-plan.md).
+
 - [x] Fixed pilot/durable-pilot/sustained profiles and safe diagnostics are validated (12 native cases and all four normal CI jobs). Both short image-based paths passed at `39547aa`; the durable database has 93 completed chats, six completed ingestions and 502 checkpoints. The earlier queue-start instrumentation mismatch is recorded. The sustained experiment still needs its actual result; these are not production scale evidence. See the [bounded plan](operations/capacity-sustained-plan.md).
 - [ ] The reviewed 30-minute/50,000-chunk run is selected next. Report the exact source, artifact, completed workloads, per-workspace measurements and missing metrics before drawing conclusions. See the [launch record](operations/capacity-sustained-run.md).
 

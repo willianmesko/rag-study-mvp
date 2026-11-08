@@ -28,7 +28,7 @@ export function containerOrigin(info, network, port) {
   const bytes = ip.split(".").map(Number);
   assert.ok(bytes[0] === 10 || (bytes[0] === 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
     (bytes[0] === 192 && bytes[1] === 168), "Only the owned private bridge is permitted.");
-  assert.ok([5432, 11434, 3000].includes(port));
+  assert.ok([5432, 11434, 3000, 3001].includes(port));
   assert.equal(Object.keys(info.HostConfig?.PortBindings ?? {}).length, 0, "The internal lab must not publish host ports.");
   return "http://" + ip + ":" + port;
 }
@@ -104,8 +104,10 @@ export async function startLab(root, image, profile) {
       },
       async startApi() {
         const api = await run("api", ["--memory=512m", "--cpus=0.5", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges",
-          "--tmpfs", "/tmp:rw,noexec,nosuid,size=32m", ...envArgs, image]);
-        return { container: api, origin: await origin(api, 3000) };
+          "--tmpfs", "/tmp:rw,noexec,nosuid,size=32m",
+          "--mount", "type=bind,src=" + resolve(root, "scripts/capacity") + ",dst=/fixture,readonly",
+          ...envArgs, image, "node", "--import", "/fixture/api-probe.mjs", "apps/api/dist/server.js"]);
+        return { container: api, origin: await origin(api, 3000), probeOrigin: await origin(api, 3001) };
       },
       async receipt() {
         const info = JSON.parse(await docker(["inspect", ...owned]));

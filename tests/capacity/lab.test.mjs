@@ -7,6 +7,33 @@ import { assertSources, decodeFrame, safePlan, verifySources } from "../../scrip
 import { createFixtureServer } from "../../scripts/capacity/provider.mjs";
 import { capacityProfile, chunkIdentityNumber, corpusVersion } from "../../scripts/capacity/profiles.mjs";
 import { safeFailureRows } from "../../scripts/capacity/diagnostics.mjs";
+import { createEventLoopProbe, nativeDelaySnapshot } from "../../scripts/capacity/event-loop-probe.mjs";
+
+test("native delay snapshots distinguish no samples from real zero and emit only allowed measurements", () => {
+  const empty = nativeDelaySnapshot({ count: 0, min: Number.MAX_SAFE_INTEGER, max: 0, mean: NaN, stddev: NaN,
+    percentile() { throw new Error("No percentile exists without samples."); } }, NaN);
+  assert.equal(empty.samples, 0); assert.equal(empty.utilization, null);
+  assert.ok(Object.values(empty.delayMs).every((value) => value === null));
+  const measured = nativeDelaySnapshot({ count: 4, min: 10_000_000, max: 40_000_000, mean: 20_000_000,
+    stddev: 0, percentile: (percentile) => percentile * 1_000_000, private: "PRIVATE_SENTINEL" }, 0);
+  assert.equal(measured.delayMs.min, 10); assert.equal(measured.delayMs.p95, 95);
+  assert.equal(measured.delayMs.mean, 20); assert.equal(measured.delayMs.stddev, 0); assert.equal(measured.utilization, 0);
+  assert.ok(!JSON.stringify(measured).includes("PRIVATE_SENTINEL"));
+});
+test("the native probe exposes only bounded metrics/reset and closes its sampler with its server", async (t) => {
+  const server = createEventLoopProbe(); server.listen(0, "127.0.0.1"); await once(server, "listening");
+  t.after(async () => { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); });
+  const base = "http://127.0.0.1:" + server.address().port;
+  const response = await fetch(base + "/metrics"), text = await response.text(), metrics = JSON.parse(text);
+  assert.equal(response.status, 200); assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.ok(Buffer.byteLength(text) < 2048);
+  assert.deepEqual(Object.keys(metrics).sort(), ["delayMs", "samples", "utilization"]);
+  assert.ok(Number.isSafeInteger(metrics.samples) && metrics.samples >= 0);
+  const reset = await fetch(base + "/reset", { method: "POST" });
+  assert.equal(reset.status, 200); assert.deepEqual(await reset.json(), { reset: true });
+  const denied = await fetch(base + "/metrics?token=PRIVATE_SENTINEL");
+  assert.equal(denied.status, 404); assert.deepEqual(await denied.json(), { error: "not_found" });
+});
 
 test("failed-load diagnostics retain fixed workflow stages and counts without raw stored errors", () => {
   assert.deepEqual(safeFailureRows([{ status: "failed", stage: "embedding", error_code: "budget_exceeded", count: 6 }]),
@@ -89,6 +116,8 @@ test("new ingestion sources require scoped authoritative ownership instead of tr
 test("Linux fixture endpoints come only from the owned private network and never publish host ports", () => {
   const info = (ip, bindings = {}) => ({ NetworkSettings: { Networks: { owned: { IPAddress: ip } } }, HostConfig: { PortBindings: bindings } });
   assert.equal(containerOrigin(info("172.18.0.2"), "owned", 5432), "http://172.18.0.2:5432");
+  assert.equal(containerOrigin(info("172.18.0.2"), "owned", 3001), "http://172.18.0.2:3001");
+  assert.throws(() => containerOrigin(info("172.18.0.2"), "owned", 4000));
   for (const ip of ["127.0.0.1", "8.8.8.8", "169.254.169.254", "::1", "malformed"]) assert.throws(() => containerOrigin(info(ip), "owned", 5432));
   assert.throws(() => containerOrigin(info("172.18.0.2"), "other", 5432));
   assert.throws(() => containerOrigin(info("172.18.0.2", { "5432/tcp": [{ HostIp: "0.0.0.0", HostPort: "5432" }] }), "owned", 5432));

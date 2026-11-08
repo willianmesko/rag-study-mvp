@@ -9,17 +9,19 @@ import { docker, startLab, assertImage } from "./docker-lab.mjs";
 import { seedCorpus, sha256, samples, uuid } from "./fixtures.mjs";
 import { capacityProfile, corpusVersion } from "./profiles.mjs";
 import { captureFailureState } from "./diagnostics.mjs";
+import { eventLoopResolutionMs } from "./event-loop-probe.mjs";
 import { headersFor, jsonResponse, referenceRecall, trafficPhase, uploadBurst, verifyIngestedSources } from "./traffic.mjs";
 
 const require = createRequire(new URL("../../apps/api/package.json", import.meta.url));
 const { Pool } = require("pg");
 const root = fileURLToPath(new URL("../../", import.meta.url));
 let stage = "arguments", interrupted = false;
-const report = { kind: "lumora.capacity-lab", version: 1, profile: "pilot", passed: false, startedAt: new Date().toISOString() };
+const report = { kind: "lumora.capacity-lab", version: 2, profile: "pilot", passed: false, startedAt: new Date().toISOString() };
 const commonLimitations = ["Deterministic 1024-d vectors do not measure semantic quality or multilingual accuracy.",
   "Synthetic auth, embeddings, chat, tokens and timings; no actual provider billing.", "One API process; no multi-replica burst-limit proof.",
   "Markdown only; no large OCR/PDF/DOCX or crash/restart load.",
-  "Pool checkout wait and event-loop delay are not measured.", "No Render capacity, field performance or production sizing conclusion."];
+  "Pool checkout wait is not measured; event-loop histograms include 20-ms sampling overhead.",
+  "No Render capacity, field performance or production sizing conclusion."];
 
 async function main() {
   const { values } = parseArgs({ options: { image: { type: "string", default: "lumora-api:capacity-ci" },
@@ -33,7 +35,8 @@ async function main() {
     corpus: { workspaces: counts.length, chunks: counts.reduce((a, b) => a + b), distribution: counts,
     actorsPerWorkspace: 20, dimensions: 1024, seed: corpusVersion }, lockfileSha256: sha256(await readFile(resolve(root, "package-lock.json"))),
     source: /^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA ?? "") ? process.env.GITHUB_SHA : null,
-    limitations, observationLimit: 1000, poolWaitMs: null, eventLoopDelayMs: null, actualProviderCostUsd: null });
+    limitations, observationLimit: 1000, poolWaitMs: null,
+    eventLoop: { source: "api-process-native", resolutionMs: eventLoopResolutionMs, phases: [] }, actualProviderCostUsd: null });
   let lab, pool, monitoring, poolFault = false;
   const cancelled = new AbortController();
   let stopMonitoring = false;
@@ -62,6 +65,19 @@ async function main() {
       await delay(500);
     }
     assert.ok(ready && !interrupted, "Synthetic API did not become ready.");
+    const resetProbe = async () => {
+      const response = await jsonResponse(api.probeOrigin + "/reset", { method: "POST", signal: cancelled.signal });
+      assert.equal(response.status, 200); assert.deepEqual(response.body, { reset: true });
+    };
+    const captureProbe = async (name) => {
+      const { status, body } = await jsonResponse(api.probeOrigin + "/metrics", { signal: cancelled.signal });
+      assert.equal(status, 200); assert.deepEqual(Object.keys(body).sort(), ["delayMs", "samples", "utilization"]);
+      assert.ok(Number.isSafeInteger(body.samples) && body.samples > 0);
+      assert.deepEqual(Object.keys(body.delayMs).sort(), ["max", "mean", "min", "p50", "p95", "p99", "stddev"]);
+      assert.ok(Object.values(body.delayMs).every((value) => Number.isFinite(value) && value >= 0));
+      assert.ok(Number.isFinite(body.utilization) && body.utilization >= 0 && body.utilization <= 1);
+      report.eventLoop.phases.push({ name, ...body });
+    };
     stage = "membership";
     const denied = await jsonResponse(api.origin + "/v1/search?q=synthetic", {
       headers: headersFor(corpus.workspaces[1], corpus.workspaces[0].actors[0])
@@ -95,17 +111,21 @@ async function main() {
         await delay(1000);
       }
     })();
-    stage = "baseline"; const baseline = await trafficPhase(api.origin, corpus, { name: "api_only", seconds: profile.controlSeconds, clients: profile.clients, signal: cancelled.signal });
+    stage = "baseline"; await resetProbe();
+    const baseline = await trafficPhase(api.origin, corpus, { name: "api_only", seconds: profile.controlSeconds, clients: profile.clients, signal: cancelled.signal });
     report.phases = [baseline];
     assert.equal(baseline.failed, 0, "Control traffic failed.");
+    stage = "baseline_metrics"; await captureProbe("api_only");
     await clearOwnedCache();
     stage = "mixed";
+    await resetProbe();
     const [mixed, jobs] = await Promise.all([
       trafficPhase(api.origin, corpus, { name: "with_ingestion", seconds: profile.mixedSeconds, clients: profile.clients, signal: cancelled.signal }),
       uploadBurst(api.origin, corpus.workspaces[0], 6, cancelled.signal)
     ]);
     report.phases = [baseline, mixed];
     assert.equal(mixed.failed, 0, "Mixed traffic failed.");
+    stage = "mixed_metrics"; await captureProbe("with_ingestion");
     stage = "ingestion_drain";
     let rows = [];
     for (let attempt = 0; attempt < 45 && !interrupted; attempt++) {
