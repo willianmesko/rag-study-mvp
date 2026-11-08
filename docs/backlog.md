@@ -84,10 +84,12 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
 - **Validated and active in CI:** native API-process event-loop measurements;
   both actual short image-based paths pass with no new dependency or production
   endpoint. See the [evidence](operations/capacity-event-loop-plan.md).
-- **In validation:** scoped durable queue/ready/running/lease/approval counters,
-  with actual ready/expired ages and no invented empty-age zeros. Fifteen native
-  cases pass; the pre-start SQL fixture and both image-based pilots await CI.
-  See the [plan](operations/capacity-workflow-queues.md).
+- **Validated and active in CI:** scoped durable queue/ready/running/lease/approval
+  counters. Fifteen native cases, both actual pre-start SQL fixtures, both
+  image-based pilots and all four normal jobs pass at `2c2ed48`. Ready/expired
+  ages preserve nulls; scope and cleanup are verified without dispatching fixture
+  work. This does not validate recovery or sustained queue capacity. See the
+  [evidence](operations/capacity-workflow-queues.md).
 - **Prepared, teaching pending:** the first two walkthrough lessons explain the
   product/request map and Node/TypeScript execution with source references.
   [Learning outcomes](learning-walkthrough.md) remain unchecked.

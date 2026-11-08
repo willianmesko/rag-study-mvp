@@ -38,9 +38,15 @@ pinned to 7c37d96; the [native probe](operations/capacity-event-loop-plan.md) ha
 separate final-source short-run evidence. No unmeasured value was backfilled.
 The first two learning chapters are prepared, with learner outcomes still open.
 
-Next safe measurement: distinguish queued/leased durable workflows from the
-narrow ingestion_jobs queued-age gauge, then measure API checkout wait before
-making a scaling decision. Remaining BE-12 projection work needs concrete sink/
+The [queue measurement follow-up](operations/capacity-workflow-queues.md) is also
+validated and active in CI at `2c2ed48`: 15 native cases, both actual SQL/image
+pilots and all four normal jobs pass. Both retain 14 valid queue observations;
+the durable run has 99 completed chats, six ingestions and 526 checkpoints.
+This tooling-only change needs no application deployment; live source remains
+`bbc1ada`. Recovery and sustained queue capacity are not claimed.
+
+Next safe measurement: API checkout wait before making a scaling decision,
+then a sustained run with the new instrumentation. Remaining BE-12 projection work needs concrete sink/
 constraint review; avoid blanket decoder or library additions. Pending tooling,
 minimum-privilege credentials, SDK adoption and paid/exporter activation retain
 their explicit separate decisions. Do not mark partial tickets complete.
@@ -77,9 +83,9 @@ sustained load, pool/event-loop timing and multi-replica behavior.
 BE-12 workflow diagnostic boundaries and BE-16 are also validated and published.
 The owned-source/post-ingestion pilot and compiler diagnostics are also CI
 validated and active. MCP quality-report stored rows are also CI validated and
-published. Active next: checked ingestion timeline event/details reads, with
-14 focused cases, seven harness checks and both graphs passing locally.
-Fresh SQL/CI/publication are required. Dependency/hosted-role decisions remain open.
+published. The subsequent ingestion timeline, usage summary, MCP source/status
+and full-job boundaries are also published in the combined receipt above.
+Dependency/hosted-role decisions remain open.
 
 ## Completed explicit follow-up: BE-15
 

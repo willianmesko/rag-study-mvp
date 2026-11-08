@@ -580,7 +580,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
-- [ ] Durable queue/ready/running/lease/approval measurements are locally validated (15 native cases). The before-start six-row SQL fixture must prove grouping, backoff/lease ages, scope and exact cleanup without dispatching work; runtime observations remain required. Fresh actual image-based/normal CI is pending. See the [plan](operations/capacity-workflow-queues.md).
+- [x] Scoped durable queue/ready/running/lease/approval measurements are validated and active in CI at `2c2ed48`: 15 native cases, both actual image-based pilots and all four normal jobs pass. Six-row pre-start SQL fixtures prove readiness, disjoint leases, ages, scope and exact cleanup without dispatching work. Both pilots retain 14 valid runtime observations. This measures states, not recovery or sustained capacity. See the [evidence](operations/capacity-workflow-queues.md).
 
 - [x] The lab-only native API-process probe is active and validated in CI: 14 native cases, both actual version-two short profiles and all normal gates pass. No dependency/exporter or production endpoint is added. Empty samples stay unknown and pool wait remains separate. Earlier reports are unchanged. See the [measurement evidence](operations/capacity-event-loop-plan.md).
 
@@ -589,7 +589,7 @@ feature-owned locations during BE-07's migration.
 
 - [x] Authoritative fixture ownership for newly ingested IDs and chunk/document pairing are CI validated. Nine native cases, the full normal gates and the actual lab passed, including six new-source searches/answers and six scoped ownership lookups. This is not the sustained baseline. See the [evidence](operations/release-2026-11-08-capacity-source-ownership.md).
 
-- **Measured, ticket partial:** the [first sustained result](operations/capacity-sustained-result.md) now supplies the declared 50,000-chunk mixed workload, while the [native probe](operations/capacity-event-loop-plan.md) has separate short-run evidence. Queue/lease and API checkout waiting, an instrumented sustained run, large-file/restart/slow-reader and replica scenarios remain open. No topology change is inferred from one synthetic run.
+- **Measured, ticket partial:** the [first sustained result](operations/capacity-sustained-result.md) now supplies the declared 50,000-chunk mixed workload, while the [native probe](operations/capacity-event-loop-plan.md) and [queue/lease measurements](operations/capacity-workflow-queues.md) have separate short-run evidence. API checkout waiting, a sustained run with the new instrumentation, large-file/restart/slow-reader and replica scenarios remain open. No topology change is inferred from one synthetic run.
 
 - [ ] **P2 measurement · M–L · Medium operational risk.** Scope:
   [capacity plan](backend-scalability-review.md), synthetic load fixtures,

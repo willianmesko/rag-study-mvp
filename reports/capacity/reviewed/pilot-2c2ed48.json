@@ -1,0 +1,1618 @@
+{
+  "kind": "lumora.capacity-lab",
+  "version": 2,
+  "profile": "pilot",
+  "passed": true,
+  "startedAt": "2026-11-08T04:31:28.628Z",
+  "configuration": {
+    "name": "pilot",
+    "counts": [
+      800,
+      100,
+      100
+    ],
+    "clients": 2,
+    "controlSeconds": 12,
+    "mixedSeconds": 24,
+    "durable": false,
+    "cacheTtlSeconds": 3600,
+    "deadlineMs": 240000,
+    "cold": false
+  },
+  "corpus": {
+    "workspaces": 3,
+    "chunks": 1000,
+    "distribution": [
+      800,
+      100,
+      100
+    ],
+    "actorsPerWorkspace": 20,
+    "dimensions": 1024,
+    "seed": "capacity-corpus-v2"
+  },
+  "lockfileSha256": "dd44e5d24f4db48f5ca4d9151f83f3fdb58ead9693ed63cddf1939161dea9c61",
+  "source": "2c2ed48e7316bc1532e6522e74400322770ee15b",
+  "limitations": [
+    "Deterministic 1024-d vectors do not measure semantic quality or multilingual accuracy.",
+    "Synthetic auth, embeddings, chat, tokens and timings; no actual provider billing.",
+    "One API process; no multi-replica burst-limit proof.",
+    "Markdown only; no large OCR/PDF/DOCX or crash/restart load.",
+    "Pool checkout wait is not measured; event-loop histograms include 20-ms sampling overhead.",
+    "No Render capacity, field performance or production sizing conclusion.",
+    "Short pilot, not the sustained 30-minute baseline.",
+    "Legacy in-process ingestion; durable workflow load is not enabled."
+  ],
+  "observationLimit": 1000,
+  "queueMetricsVersion": 1,
+  "poolWaitMs": null,
+  "eventLoop": {
+    "source": "api-process-native",
+    "resolutionMs": 20,
+    "phases": [
+      {
+        "name": "api_only",
+        "samples": 557,
+        "delayMs": {
+          "min": 18.874,
+          "p50": 20.136,
+          "p95": 21.529,
+          "p99": 81.92,
+          "max": 103.94,
+          "mean": 21.75,
+          "stddev": 9.609
+        },
+        "utilization": 0.1733390226081509
+      },
+      {
+        "name": "with_ingestion",
+        "samples": 1150,
+        "delayMs": {
+          "min": 18.399,
+          "p50": 20.152,
+          "p95": 21.283,
+          "p99": 50.397,
+          "max": 103.285,
+          "mean": 20.961,
+          "stddev": 7.045
+        },
+        "utilization": 0.1097777508135589
+      }
+    ]
+  },
+  "actualProviderCostUsd": null,
+  "seedDurationMs": 2581,
+  "workflowQueueFixture": {
+    "populated": [
+      {
+        "kind": "chat",
+        "queued": 2,
+        "ready": 1,
+        "running": 3,
+        "leased": 1,
+        "expiredLeases": 1,
+        "missingLeases": 1,
+        "waitingApproval": 0,
+        "oldestReadyMs": 1006.192,
+        "oldestExpiredLeaseMs": 1002.775
+      },
+      {
+        "kind": "evaluation",
+        "queued": 0,
+        "ready": 0,
+        "running": 0,
+        "leased": 0,
+        "expiredLeases": 0,
+        "missingLeases": 0,
+        "waitingApproval": 1,
+        "oldestReadyMs": null,
+        "oldestExpiredLeaseMs": null
+      },
+      {
+        "kind": "ingestion",
+        "queued": 0,
+        "ready": 0,
+        "running": 0,
+        "leased": 0,
+        "expiredLeases": 0,
+        "missingLeases": 0,
+        "waitingApproval": 0,
+        "oldestReadyMs": null,
+        "oldestExpiredLeaseMs": null
+      }
+    ],
+    "isolated": [
+      {
+        "kind": "chat",
+        "queued": 0,
+        "ready": 0,
+        "running": 0,
+        "leased": 0,
+        "expiredLeases": 0,
+        "missingLeases": 0,
+        "waitingApproval": 0,
+        "oldestReadyMs": null,
+        "oldestExpiredLeaseMs": null
+      },
+      {
+        "kind": "evaluation",
+        "queued": 0,
+        "ready": 0,
+        "running": 0,
+        "leased": 0,
+        "expiredLeases": 0,
+        "missingLeases": 0,
+        "waitingApproval": 0,
+        "oldestReadyMs": null,
+        "oldestExpiredLeaseMs": null
+      },
+      {
+        "kind": "ingestion",
+        "queued": 0,
+        "ready": 0,
+        "running": 0,
+        "leased": 0,
+        "expiredLeases": 0,
+        "missingLeases": 0,
+        "waitingApproval": 0,
+        "oldestReadyMs": null,
+        "oldestExpiredLeaseMs": null
+      }
+    ],
+    "empty": [
+      {
+        "kind": "chat",
+        "queued": 0,
+        "ready": 0,
+        "running": 0,
+        "leased": 0,
+        "expiredLeases": 0,
+        "missingLeases": 0,
+        "waitingApproval": 0,
+        "oldestReadyMs": null,
+        "oldestExpiredLeaseMs": null
+      },
+      {
+        "kind": "evaluation",
+        "queued": 0,
+        "ready": 0,
+        "running": 0,
+        "leased": 0,
+        "expiredLeases": 0,
+        "missingLeases": 0,
+        "waitingApproval": 0,
+        "oldestReadyMs": null,
+        "oldestExpiredLeaseMs": null
+      },
+      {
+        "kind": "ingestion",
+        "queued": 0,
+        "ready": 0,
+        "running": 0,
+        "leased": 0,
+        "expiredLeases": 0,
+        "missingLeases": 0,
+        "waitingApproval": 0,
+        "oldestReadyMs": null,
+        "oldestExpiredLeaseMs": null
+      }
+    ],
+    "workDispatched": false
+  },
+  "referenceRecall": [
+    {
+      "language": "en",
+      "workspace": 0,
+      "recallAt5": 1,
+      "vectorCandidatePlan": {
+        "Node Type": "Limit",
+        "Plan Rows": 20,
+        "Actual Rows": 20,
+        "Actual Loops": 1,
+        "Actual Total Time": 2.708,
+        "Shared Hit Blocks": 2709,
+        "Shared Read Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Sort",
+            "Plan Rows": 333,
+            "Actual Rows": 20,
+            "Actual Loops": 1,
+            "Actual Total Time": 2.705,
+            "Shared Hit Blocks": 2709,
+            "Shared Read Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Nested Loop",
+                "Plan Rows": 333,
+                "Actual Rows": 800,
+                "Actual Loops": 1,
+                "Actual Total Time": 2.605,
+                "Shared Hit Blocks": 2709,
+                "Shared Read Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Relation Name": "documents",
+                    "Plan Rows": 1,
+                    "Actual Rows": 1,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.005,
+                    "Shared Hit Blocks": 1,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  },
+                  {
+                    "Node Type": "Index Scan",
+                    "Relation Name": "chunks",
+                    "Index Name": "chunks_document_id_idx",
+                    "Plan Rows": 333,
+                    "Actual Rows": 800,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.15,
+                    "Shared Hit Blocks": 41,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "language": "en",
+      "workspace": 0,
+      "recallAt5": 1
+    },
+    {
+      "language": "en",
+      "workspace": 0,
+      "recallAt5": 1
+    },
+    {
+      "language": "pt",
+      "workspace": 1,
+      "recallAt5": 1,
+      "vectorCandidatePlan": {
+        "Node Type": "Limit",
+        "Plan Rows": 20,
+        "Actual Rows": 20,
+        "Actual Loops": 1,
+        "Actual Total Time": 0.38,
+        "Shared Hit Blocks": 340,
+        "Shared Read Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Sort",
+            "Plan Rows": 333,
+            "Actual Rows": 20,
+            "Actual Loops": 1,
+            "Actual Total Time": 0.378,
+            "Shared Hit Blocks": 340,
+            "Shared Read Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Nested Loop",
+                "Plan Rows": 333,
+                "Actual Rows": 100,
+                "Actual Loops": 1,
+                "Actual Total Time": 0.358,
+                "Shared Hit Blocks": 340,
+                "Shared Read Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Relation Name": "documents",
+                    "Plan Rows": 1,
+                    "Actual Rows": 1,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.004,
+                    "Shared Hit Blocks": 1,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  },
+                  {
+                    "Node Type": "Index Scan",
+                    "Relation Name": "chunks",
+                    "Index Name": "chunks_document_id_idx",
+                    "Plan Rows": 333,
+                    "Actual Rows": 100,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.051,
+                    "Shared Hit Blocks": 6,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "language": "pt",
+      "workspace": 1,
+      "recallAt5": 1
+    },
+    {
+      "language": "pt",
+      "workspace": 1,
+      "recallAt5": 1
+    },
+    {
+      "language": "en",
+      "workspace": 2,
+      "recallAt5": 1,
+      "vectorCandidatePlan": {
+        "Node Type": "Limit",
+        "Plan Rows": 20,
+        "Actual Rows": 20,
+        "Actual Loops": 1,
+        "Actual Total Time": 0.38,
+        "Shared Hit Blocks": 341,
+        "Shared Read Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Sort",
+            "Plan Rows": 333,
+            "Actual Rows": 20,
+            "Actual Loops": 1,
+            "Actual Total Time": 0.378,
+            "Shared Hit Blocks": 341,
+            "Shared Read Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Nested Loop",
+                "Plan Rows": 333,
+                "Actual Rows": 100,
+                "Actual Loops": 1,
+                "Actual Total Time": 0.358,
+                "Shared Hit Blocks": 341,
+                "Shared Read Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Relation Name": "documents",
+                    "Plan Rows": 1,
+                    "Actual Rows": 1,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.004,
+                    "Shared Hit Blocks": 1,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  },
+                  {
+                    "Node Type": "Index Scan",
+                    "Relation Name": "chunks",
+                    "Index Name": "chunks_document_id_idx",
+                    "Plan Rows": 333,
+                    "Actual Rows": 100,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.048,
+                    "Shared Hit Blocks": 7,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "language": "en",
+      "workspace": 2,
+      "recallAt5": 1
+    },
+    {
+      "language": "en",
+      "workspace": 2,
+      "recallAt5": 1
+    }
+  ],
+  "database": {
+    "postgres": "16.15 (Debian 16.15-1.pgdg12+2)",
+    "vector": "0.8.7"
+  },
+  "phases": [
+    {
+      "name": "api_only",
+      "seconds": 12,
+      "clients": 2,
+      "attempted": 34,
+      "failed": 0,
+      "failureCodes": {},
+      "cacheHits": 0,
+      "searchMs": {
+        "count": 34,
+        "p50": 41.88,
+        "p95": 98.069,
+        "max": 205.385
+      },
+      "completedMs": {
+        "count": 34,
+        "p50": 508.059,
+        "p95": 532.073,
+        "max": 606.924
+      },
+      "firstEventMs": {
+        "count": 34,
+        "p50": 6.181,
+        "p95": 27.149,
+        "max": 104.696
+      },
+      "firstValidatedTextMs": {
+        "count": 34,
+        "p50": 507.864,
+        "p95": 531.764,
+        "max": 606.716
+      },
+      "perWorkspace": [
+        {
+          "workspace": 0,
+          "searchMs": {
+            "count": 12,
+            "p50": 44.162,
+            "p95": 51.324,
+            "max": 51.324
+          },
+          "completedMs": {
+            "count": 12,
+            "p50": 507.867,
+            "p95": 532.073,
+            "max": 532.073
+          }
+        },
+        {
+          "workspace": 1,
+          "searchMs": {
+            "count": 11,
+            "p50": 41.71,
+            "p95": 205.385,
+            "max": 205.385
+          },
+          "completedMs": {
+            "count": 11,
+            "p50": 508.081,
+            "p95": 531.76,
+            "max": 531.76
+          }
+        },
+        {
+          "workspace": 2,
+          "searchMs": {
+            "count": 11,
+            "p50": 40.488,
+            "p95": 98.069,
+            "max": 98.069
+          },
+          "completedMs": {
+            "count": 11,
+            "p50": 508.865,
+            "p95": 606.924,
+            "max": 606.924
+          }
+        }
+      ]
+    },
+    {
+      "name": "with_ingestion",
+      "seconds": 24,
+      "clients": 2,
+      "attempted": 68,
+      "failed": 0,
+      "failureCodes": {},
+      "cacheHits": 24,
+      "searchMs": {
+        "count": 68,
+        "p50": 40.053,
+        "p95": 79.76,
+        "max": 136.719
+      },
+      "completedMs": {
+        "count": 68,
+        "p50": 507.187,
+        "p95": 560.195,
+        "max": 679.415
+      },
+      "firstEventMs": {
+        "count": 68,
+        "p50": 5.1,
+        "p95": 58.627,
+        "max": 178.224
+      },
+      "firstValidatedTextMs": {
+        "count": 44,
+        "p50": 506.832,
+        "p95": 560.073,
+        "max": 679.314
+      },
+      "perWorkspace": [
+        {
+          "workspace": 0,
+          "searchMs": {
+            "count": 23,
+            "p50": 43.367,
+            "p95": 79.76,
+            "max": 119.685
+          },
+          "completedMs": {
+            "count": 23,
+            "p50": 506.927,
+            "p95": 612.345,
+            "max": 679.415
+          }
+        },
+        {
+          "workspace": 1,
+          "searchMs": {
+            "count": 23,
+            "p50": 40.027,
+            "p95": 109.882,
+            "max": 136.719
+          },
+          "completedMs": {
+            "count": 23,
+            "p50": 507.674,
+            "p95": 508.615,
+            "max": 560.195
+          }
+        },
+        {
+          "workspace": 2,
+          "searchMs": {
+            "count": 22,
+            "p50": 38.204,
+            "p95": 43.638,
+            "max": 45.394
+          },
+          "completedMs": {
+            "count": 22,
+            "p50": 507.185,
+            "p95": 509.184,
+            "max": 587.546
+          }
+        }
+      ]
+    }
+  ],
+  "ingestion": {
+    "accepted": 6,
+    "replayed": 6,
+    "uniqueJobs": 6,
+    "completed": 6,
+    "queueWaitStartStage": "processing",
+    "queueWaitMs": {
+      "count": 6,
+      "p50": 1863.563,
+      "p95": 3308.18,
+      "max": 3308.18
+    }
+  },
+  "postIngestionVerification": {
+    "searches": 6,
+    "answers": 6,
+    "newlyIngestedSourcesChecked": 6
+  },
+  "durableWorkflows": {
+    "enabled": false,
+    "runs": [],
+    "checkpoints": 0
+  },
+  "provider": {
+    "auth": 239,
+    "embedding": 231,
+    "chat": 84,
+    "aborted": 0,
+    "active": 0,
+    "peakActive": 3
+  },
+  "resources": {
+    "internalNetwork": true,
+    "images": [
+      {
+        "image": "pgvector/pgvector:pg16",
+        "imageId": "sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f",
+        "memoryBytes": 2147483648,
+        "nanoCpus": 2000000000,
+        "oomKilled": false,
+        "running": true,
+        "readOnlyRootfs": false,
+        "publishedPorts": 0
+      },
+      {
+        "image": "node:24-alpine",
+        "imageId": "sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8",
+        "memoryBytes": 268435456,
+        "nanoCpus": 1000000000,
+        "oomKilled": false,
+        "running": true,
+        "readOnlyRootfs": true,
+        "publishedPorts": 0
+      },
+      {
+        "image": "lumora-api:capacity-ci",
+        "imageId": "sha256:2f72be0f70295e7c6c38e8c2d397d371f62163256d5ba72e69f2f0ca31c4fba5",
+        "memoryBytes": 536870912,
+        "nanoCpus": 500000000,
+        "oomKilled": false,
+        "running": true,
+        "readOnlyRootfs": true,
+        "publishedPorts": 0
+      }
+    ]
+  },
+  "guards": {
+    "crossWorkspaceReadDenied": true,
+    "viewerUploadDenied": true,
+    "sourceScopeCheckedOnEveryResult": true,
+    "chunkDocumentAssociationChecked": true,
+    "unknownSourcesResolvedInFixtureDatabase": true,
+    "ownershipLookups": 6,
+    "uploadDeduplicated": true,
+    "durableQueueFixtureAndObservationChecked": true,
+    "lostJobs": 0,
+    "externalNetwork": false
+  },
+  "observations": [
+    {
+      "elapsedMs": 21732,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "21.98%",
+          "memoryUsage": "95.24MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "5.11%",
+          "memoryUsage": "66.46MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "2.11%",
+          "memoryUsage": "18.86MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 24767,
+      "lock_waiters": 0,
+      "active_connections": 1,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "16.66%",
+          "memoryUsage": "98.22MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "5.30%",
+          "memoryUsage": "68.91MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "0.90%",
+          "memoryUsage": "18.85MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 27797,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "7.95%",
+          "memoryUsage": "101.2MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "8.47%",
+          "memoryUsage": "69.3MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.72%",
+          "memoryUsage": "18.95MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 30825,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "9.31%",
+          "memoryUsage": "103.6MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "6.13%",
+          "memoryUsage": "69.38MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.44%",
+          "memoryUsage": "19.1MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 33862,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "6.88%",
+          "memoryUsage": "103.6MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "5.28%",
+          "memoryUsage": "70.22MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.26%",
+          "memoryUsage": "19MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 36895,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 3,
+      "oldest_queue_ms": 1383.481,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "9.66%",
+          "memoryUsage": "104.3MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "9.00%",
+          "memoryUsage": "71.5MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.01%",
+          "memoryUsage": "18.86MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 39925,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "7.01%",
+          "memoryUsage": "105MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "6.65%",
+          "memoryUsage": "72.55MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "0.78%",
+          "memoryUsage": "19.2MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 42956,
+      "lock_waiters": 0,
+      "active_connections": 1,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "5.55%",
+          "memoryUsage": "104.6MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "4.67%",
+          "memoryUsage": "73.2MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.97%",
+          "memoryUsage": "19.05MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 45986,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "19.48%",
+          "memoryUsage": "104.9MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "4.90%",
+          "memoryUsage": "73.2MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.48%",
+          "memoryUsage": "19.37MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 49017,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "6.89%",
+          "memoryUsage": "105.8MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "8.61%",
+          "memoryUsage": "73.56MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.44%",
+          "memoryUsage": "19.2MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 52049,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "11.04%",
+          "memoryUsage": "105.4MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "5.86%",
+          "memoryUsage": "73.61MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.49%",
+          "memoryUsage": "19.53MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 55079,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "11.49%",
+          "memoryUsage": "106.4MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "4.33%",
+          "memoryUsage": "73.99MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.86%",
+          "memoryUsage": "19.36MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 58108,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "4.78%",
+          "memoryUsage": "105.9MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "3.91%",
+          "memoryUsage": "74.3MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "0.78%",
+          "memoryUsage": "19.77MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 61138,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "workflowQueues": [
+        {
+          "kind": "chat",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "evaluation",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        },
+        {
+          "kind": "ingestion",
+          "queued": 0,
+          "ready": 0,
+          "running": 0,
+          "leased": 0,
+          "expiredLeases": 0,
+          "missingLeases": 0,
+          "waitingApproval": 0,
+          "oldestReadyMs": null,
+          "oldestExpiredLeaseMs": null
+        }
+      ],
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "0.36%",
+          "memoryUsage": "106.1MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "3.14%",
+          "memoryUsage": "75.52MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "0.07%",
+          "memoryUsage": "19.27MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    }
+  ],
+  "cleanup": {
+    "failed": 0,
+    "stopped": [
+      {
+        "role": "api",
+        "exitCode": 0,
+        "oomKilled": false
+      },
+      {
+        "role": "provider",
+        "exitCode": 0,
+        "oomKilled": false
+      },
+      {
+        "role": "postgres",
+        "exitCode": 0,
+        "oomKilled": false
+      }
+    ]
+  },
+  "finishedAt": "2026-11-08T04:32:31.616Z"
+}
