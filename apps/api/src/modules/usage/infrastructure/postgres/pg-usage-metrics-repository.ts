@@ -6,34 +6,82 @@ import type {
 import { createHash } from "node:crypto";
 import { currentExecution } from "../../../../platform/workflows/execution-context.js";
 import { recordOperationalUsage } from "../../../../platform/observability/observer.js";
+import { z } from "zod";
+import {
+  usageModelSchema, usageOperationSchema, usageDaySchema,
+} from "@rag-study/contracts";
+import {
+  decodeStoredRecord, StoredRecordError,
+} from "../../../../platform/database/stored-record.js";
 
-type SummaryRow = Record<string, string | number | Date | null> & {
-  bucket: "total" | "model" | "operation" | "day";
-};
+// PostgreSQL returns aggregate numerics as text. Only genuine numeric values
+// may become measurements; SQL COALESCE, rather than this decoder, owns zeros.
+const amount = z.union([
+  z.number(),
+  z.string().max(80).regex(/^\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i).transform(Number),
+]).pipe(z.number().finite().nonnegative());
+const count = amount.pipe(z.number().int());
+const summaryFields = z.object({
+  requests: count,
+  cache_hits: count,
+  input_tokens: count,
+  output_tokens: count,
+  estimated_cost_usd: amount,
+  average_latency_ms: amount,
+  provider_failures: count,
+  observed_requests: count,
+  observed_cost_usd: amount,
+  effective_cost_usd: amount,
+  estimated_only_cost_usd: amount,
+  observed_cost_requests: count,
+  estimated_cost_requests: count,
+  skipped_requests: count,
+  observed_input_tokens: count,
+  observed_output_tokens: count,
+  estimated_input_tokens: count,
+  estimated_output_tokens: count,
+  p95_latency_ms: amount,
+  unpriced_requests: count,
+  extended_since: z.date().nullable(),
+  window_start: z.date(),
+  window_end: z.date(),
+});
+const summaryRowSchema = z.discriminatedUnion("bucket", [
+  summaryFields.extend({ bucket: z.literal("total") }),
+  summaryFields.extend({
+    bucket: z.literal("model"),
+    provider: usageModelSchema.shape.provider,
+    model: usageModelSchema.shape.model,
+  }),
+  summaryFields.extend({
+    bucket: z.literal("operation"), operation: usageOperationSchema.shape.operation,
+  }),
+  summaryFields.extend({ bucket: z.literal("day"), day: usageDaySchema.shape.date }),
+]);
+type SummaryRow = z.output<typeof summaryRowSchema>;
 
-function totals(row?: SummaryRow) {
-  const number = (field: string) => Number(row?.[field] ?? 0);
+function totals(row: SummaryRow) {
   return {
-    requests: number("requests"),
-    cacheHits: number("cache_hits"),
-    inputTokens: number("input_tokens"),
-    outputTokens: number("output_tokens"),
-    estimatedCostUsd: number("estimated_cost_usd"),
-    averageLatencyMs: number("average_latency_ms"),
-    providerFailures: number("provider_failures"),
-    observedRequests: number("observed_requests"),
-    observedCostUsd: number("observed_cost_usd"),
-    effectiveCostUsd: number("effective_cost_usd"),
-    estimatedOnlyCostUsd: number("estimated_only_cost_usd"),
-    observedCostRequests: number("observed_cost_requests"),
-    estimatedCostRequests: number("estimated_cost_requests"),
-    skippedRequests: number("skipped_requests"),
-    observedInputTokens: number("observed_input_tokens"),
-    observedOutputTokens: number("observed_output_tokens"),
-    estimatedInputTokens: number("estimated_input_tokens"),
-    estimatedOutputTokens: number("estimated_output_tokens"),
-    p95LatencyMs: number("p95_latency_ms"),
-    unpricedRequests: number("unpriced_requests"),
+    requests: row.requests,
+    cacheHits: row.cache_hits,
+    inputTokens: row.input_tokens,
+    outputTokens: row.output_tokens,
+    estimatedCostUsd: row.estimated_cost_usd,
+    averageLatencyMs: row.average_latency_ms,
+    providerFailures: row.provider_failures,
+    observedRequests: row.observed_requests,
+    observedCostUsd: row.observed_cost_usd,
+    effectiveCostUsd: row.effective_cost_usd,
+    estimatedOnlyCostUsd: row.estimated_only_cost_usd,
+    observedCostRequests: row.observed_cost_requests,
+    estimatedCostRequests: row.estimated_cost_requests,
+    skippedRequests: row.skipped_requests,
+    observedInputTokens: row.observed_input_tokens,
+    observedOutputTokens: row.observed_output_tokens,
+    estimatedInputTokens: row.estimated_input_tokens,
+    estimatedOutputTokens: row.estimated_output_tokens,
+    p95LatencyMs: row.p95_latency_ms,
+    unpricedRequests: row.unpriced_requests,
   };
 }
 
@@ -111,7 +159,7 @@ export class PgUsageMetricsRepository implements UsageMetricsRepository {
       throw new Error("Usage window must be between 1 and 90 days.");
     // One snapshot reconciles totals, model/operation breakdowns and UTC daily buckets.
     // The existing (tenant_id, created_at) index bounds the scan before aggregation.
-    const { rows } = await this.pool.query<SummaryRow>(
+    const result = await this.pool.query(
       `WITH scoped AS (
          SELECT provider,model,operation,(created_at AT TIME ZONE 'UTC')::date::text AS day,
            cache_hit,input_tokens,output_tokens,latency_ms,estimated_cost_usd,observed_cost_usd,usage_source,failed,pricing_known,measurement_version,created_at
@@ -144,19 +192,22 @@ export class PgUsageMetricsRepository implements UsageMetricsRepository {
        FROM scoped GROUP BY GROUPING SETS ((),(provider,model),(operation),(day))`,
       [input.tenantId, input.days],
     );
+    const rows = decodeStoredRecord(z.array(summaryRowSchema), result.rows);
     const total = rows.find((row) => row.bucket === "total");
+    if (!total || rows.filter((row) => row.bucket === "total").length !== 1)
+      throw new StoredRecordError();
     const cost = (row: ReturnType<typeof totals>) => row.effectiveCostUsd;
     return {
       ...totals(total),
-      ...(total?.extended_since instanceof Date
+      ...(total.extended_since
         ? { extendedSince: total.extended_since.toISOString() }
         : {}),
       models: rows
         .filter((row) => row.bucket === "model")
         .map((row) => ({
           ...totals(row),
-          provider: String(row.provider),
-          model: String(row.model),
+          provider: row.provider,
+          model: row.model,
         }))
         .sort(
           (a, b) =>
@@ -166,20 +217,16 @@ export class PgUsageMetricsRepository implements UsageMetricsRepository {
         ),
       operations: rows
         .filter((row) => row.bucket === "operation")
-        .map((row) => ({ ...totals(row), operation: String(row.operation) }))
+        .map((row) => ({ ...totals(row), operation: row.operation }))
         .sort(
           (a, b) => cost(b) - cost(a) || a.operation.localeCompare(b.operation),
         ),
       daily: rows
         .filter((row) => row.bucket === "day")
-        .map((row) => ({ ...totals(row), date: String(row.day) }))
+        .map((row) => ({ ...totals(row), date: row.day }))
         .sort((a, b) => a.date.localeCompare(b.date)),
-      ...(total?.window_start instanceof Date
-        ? { windowStart: total.window_start.toISOString() }
-        : {}),
-      ...(total?.window_end instanceof Date
-        ? { windowEnd: total.window_end.toISOString() }
-        : {}),
+      windowStart: total.window_start.toISOString(),
+      windowEnd: total.window_end.toISOString(),
     };
   }
 }

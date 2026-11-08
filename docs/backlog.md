@@ -72,9 +72,13 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
 - **Published increment, ticket partial:** checked ingestion timeline details
   and driver timing, with real SQL/constraint-safe fixture cleanup. See the
   [receipt](operations/release-2026-11-08-ingestion-event-records.md).
-- **In validation:** bounded short/durable/sustained capacity profiles; actual
-  durable pilot and sustained evidence remain pending. See the
+- **Validated in CI:** bounded capacity profiles and both short image-based
+  paths, including completed durable rows/checkpoints. The selected sustained
+  experiment still needs its actual result. See the
   [experiment plan](operations/capacity-sustained-plan.md).
+- **In validation:** usage summary read boundaries preserve actual zero,
+  estimated/reported provenance and older ledger coverage; local checks pass.
+  See the [candidate record](operations/release-2026-11-08-usage-summary-records.md).
 
 The [technical backlog](technical-backlog.md) now records **21 published tickets,
 five partial tickets and one pending ticket**. The current CI passed 410 UX

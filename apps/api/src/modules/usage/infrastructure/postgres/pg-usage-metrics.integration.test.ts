@@ -4,6 +4,7 @@ import test from "node:test";
 import { Pool } from "pg";
 import { usageSummarySchema } from "@rag-study/contracts";
 import { PgUsageMetricsRepository } from "./pg-usage-metrics-repository.js";
+import { StoredRecordError } from "../../../../platform/database/stored-record.js";
 const url = process.env.MCP_TEST_DATABASE_URL;
 test(
   "usage analytics reconcile cost provenance, model identity, dates and workspace boundaries",
@@ -164,6 +165,25 @@ test(
     assert.equal(noUsage.effectiveCostUsd, 0);
     assert.equal(noUsage.p95LatencyMs, 0);
     assert.deepEqual(noUsage.models, []);
+    assert.equal(noUsage.extendedSince, undefined);
+    assert.ok(noUsage.windowStart && Number.isFinite(Date.parse(noUsage.windowStart)));
+    assert.ok(noUsage.windowEnd && Number.isFinite(Date.parse(noUsage.windowEnd)));
+    await pool.query(`INSERT INTO ai_usage_events(tenant_id,actor_key,operation,provider,model,latency_ms,estimated_cost_usd,measurement_version)
+      VALUES($1,'private-fixture-actor','question_answering','fixture','legacy-estimate',10,0.002,1)`, [empty]);
+    const legacy = usageSummarySchema.parse(await repo.summarize({ tenantId: empty, days: 30 }));
+    assert.equal(legacy.requests, 1); assert.equal(legacy.effectiveCostUsd, 0.002);
+    assert.equal(legacy.estimatedOnlyCostUsd, 0.002); assert.equal(legacy.observedCostRequests, 0);
+    assert.equal(legacy.extendedSince, undefined);
+    try {
+      // NUMERIC NaN satisfies the existing nonnegative check; reject it at read.
+      const corrupt = await pool.query("UPDATE ai_usage_events SET estimated_cost_usd='NaN'::numeric WHERE tenant_id=$1", [empty]);
+      assert.equal(corrupt.rowCount, 1);
+      await assert.rejects(repo.summarize({ tenantId: empty, days: 30 }), (error: unknown) =>
+        error instanceof StoredRecordError && error.code === "invalid_stored_record" && !("cause" in error));
+    } finally {
+      await pool.query("UPDATE ai_usage_events SET estimated_cost_usd=0.002 WHERE tenant_id=$1", [empty]);
+    }
+    assert.equal((await repo.summarize({ tenantId: empty, days: 30 })).effectiveCostUsd, 0.002);
     for (const days of [0, 91, 1.5])
       await assert.rejects(
         repo.summarize({ tenantId, days }),

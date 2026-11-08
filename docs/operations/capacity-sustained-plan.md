@@ -42,13 +42,14 @@ or call simulated-provider timing real-model performance.
 
 ## Status
 
-The three fixed profiles and corpus version two are implemented locally. All
-11 portable fixture/profile cases pass, including uniqueness across the 50,000
+The three fixed profiles and corpus version two are implemented. All
+12 portable fixture/profile cases pass, including safe failure receipts and uniqueness across the 50,000
 chunk IDs. A durable profile must also show completed chat/ingestion rows and
 persisted checkpoints in its owned database; enabling a flag is not execution
-proof. Short image-based proof, normal CI and the sustained run remain pending.
-The workflow runs both short profiles on a normal selected push. No sustained
-commit marker has been sent yet.
+proof. Both short image-based paths and all four normal CI jobs now pass at
+39547aa. The sustained run still needs its separately recorded result.
+The workflow runs both short profiles on a normal selected push. The
+[reviewed launch](capacity-sustained-run.md) selects the next bounded long run.
 
 ## First durable attempt
 
@@ -68,4 +69,26 @@ the durable profile, retain the six-event/completed-job assertions and record
 queueWaitStartStage so the definition is explicit. Give measurements their own
 failure stage and retain safe status/stage/reason counts if a later assertion
 fails. This is a harness correction; no application budget or completion rule
-changes. A fresh actual durable run is still required to confirm the outcome.
+changes. The fresh actual durable run below confirmed the corrected outcome.
+
+## Corrected short proof
+
+The [fresh lab](https://github.com/willianmesko/rag-study-mvp/actions/runs/42441662257)
+passed at `39547aac0c05da350e23359b44e3fa959f1f8466`. The reviewed
+[legacy report](../../reports/capacity/reviewed/pilot-39547aa.json) records 104
+measured search/answer pairs; the [durable report](../../reports/capacity/reviewed/durable-pilot-39547aa.json)
+records 87. Each also completed six new-source search/answer checks and all six
+deduplicated uploads, with all three process exits and owned cleanup successful.
+The durable database has 93 completed chat rows, six completed ingestion rows,
+no noncompleted runs and 502 checkpoints. Queue-wait measurements use the
+explicit first-work event for each path. The earlier failed attempt remains
+recorded; no product guard was weakened to get a passing result.
+
+Both use corpus version two with 1,000 chunks and synthetic providers; neither
+is the 50,000-chunk sustained baseline. Their cache samples differ and timing
+includes durable replay polling. Do not infer that either path is faster from
+these short cohorts. API caps remain 512 MiB/0.5 CPU, PostgreSQL 2 GiB/2 CPU and
+provider 256 MiB/1 CPU. The fixture's graph guard is explicitly 30 steps, provider
+deadline 10 seconds, and quotas are high but finite; these are lab settings,
+not a claim about production configuration. Keys are ephemeral and never appear
+in reports. All four [normal CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42441662380) also passed. The sustained run still needs its own evidence.

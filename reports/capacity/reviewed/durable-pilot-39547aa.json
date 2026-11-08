@@ -1,0 +1,944 @@
+{
+  "kind": "lumora.capacity-lab",
+  "version": 1,
+  "profile": "durable-pilot",
+  "passed": true,
+  "startedAt": "2026-11-08T03:14:07.773Z",
+  "configuration": {
+    "name": "durable-pilot",
+    "counts": [
+      800,
+      100,
+      100
+    ],
+    "clients": 2,
+    "controlSeconds": 12,
+    "mixedSeconds": 24,
+    "durable": true,
+    "cacheTtlSeconds": 3600,
+    "deadlineMs": 240000,
+    "cold": false
+  },
+  "corpus": {
+    "workspaces": 3,
+    "chunks": 1000,
+    "distribution": [
+      800,
+      100,
+      100
+    ],
+    "actorsPerWorkspace": 20,
+    "dimensions": 1024,
+    "seed": "capacity-corpus-v2"
+  },
+  "lockfileSha256": "dd44e5d24f4db48f5ca4d9151f83f3fdb58ead9693ed63cddf1939161dea9c61",
+  "source": "39547aac0c05da350e23359b44e3fa959f1f8466",
+  "limitations": [
+    "Deterministic 1024-d vectors do not measure semantic quality or multilingual accuracy.",
+    "Synthetic auth, embeddings, chat, tokens and timings; no actual provider billing.",
+    "One API process; no multi-replica burst-limit proof.",
+    "Markdown only; no large OCR/PDF/DOCX or crash/restart load.",
+    "Pool checkout wait and event-loop delay are not measured.",
+    "No Render capacity, field performance or production sizing conclusion.",
+    "Short pilot, not the sustained 30-minute baseline."
+  ],
+  "observationLimit": 1000,
+  "poolWaitMs": null,
+  "eventLoopDelayMs": null,
+  "actualProviderCostUsd": null,
+  "seedDurationMs": 2311,
+  "referenceRecall": [
+    {
+      "language": "en",
+      "workspace": 0,
+      "recallAt5": 1,
+      "vectorCandidatePlan": {
+        "Node Type": "Limit",
+        "Plan Rows": 20,
+        "Actual Rows": 20,
+        "Actual Loops": 1,
+        "Actual Total Time": 2.73,
+        "Shared Hit Blocks": 2709,
+        "Shared Read Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Sort",
+            "Plan Rows": 333,
+            "Actual Rows": 20,
+            "Actual Loops": 1,
+            "Actual Total Time": 2.727,
+            "Shared Hit Blocks": 2709,
+            "Shared Read Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Nested Loop",
+                "Plan Rows": 333,
+                "Actual Rows": 800,
+                "Actual Loops": 1,
+                "Actual Total Time": 2.646,
+                "Shared Hit Blocks": 2709,
+                "Shared Read Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Relation Name": "documents",
+                    "Plan Rows": 1,
+                    "Actual Rows": 1,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.005,
+                    "Shared Hit Blocks": 1,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  },
+                  {
+                    "Node Type": "Index Scan",
+                    "Relation Name": "chunks",
+                    "Index Name": "chunks_document_id_idx",
+                    "Plan Rows": 333,
+                    "Actual Rows": 800,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.223,
+                    "Shared Hit Blocks": 41,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "language": "en",
+      "workspace": 0,
+      "recallAt5": 1
+    },
+    {
+      "language": "en",
+      "workspace": 0,
+      "recallAt5": 1
+    },
+    {
+      "language": "pt",
+      "workspace": 1,
+      "recallAt5": 1,
+      "vectorCandidatePlan": {
+        "Node Type": "Limit",
+        "Plan Rows": 20,
+        "Actual Rows": 20,
+        "Actual Loops": 1,
+        "Actual Total Time": 0.346,
+        "Shared Hit Blocks": 340,
+        "Shared Read Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Sort",
+            "Plan Rows": 333,
+            "Actual Rows": 20,
+            "Actual Loops": 1,
+            "Actual Total Time": 0.345,
+            "Shared Hit Blocks": 340,
+            "Shared Read Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Nested Loop",
+                "Plan Rows": 333,
+                "Actual Rows": 100,
+                "Actual Loops": 1,
+                "Actual Total Time": 0.328,
+                "Shared Hit Blocks": 340,
+                "Shared Read Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Relation Name": "documents",
+                    "Plan Rows": 1,
+                    "Actual Rows": 1,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.003,
+                    "Shared Hit Blocks": 1,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  },
+                  {
+                    "Node Type": "Index Scan",
+                    "Relation Name": "chunks",
+                    "Index Name": "chunks_document_id_idx",
+                    "Plan Rows": 333,
+                    "Actual Rows": 100,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.025,
+                    "Shared Hit Blocks": 6,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "language": "pt",
+      "workspace": 1,
+      "recallAt5": 1
+    },
+    {
+      "language": "pt",
+      "workspace": 1,
+      "recallAt5": 1
+    },
+    {
+      "language": "en",
+      "workspace": 2,
+      "recallAt5": 1,
+      "vectorCandidatePlan": {
+        "Node Type": "Limit",
+        "Plan Rows": 20,
+        "Actual Rows": 20,
+        "Actual Loops": 1,
+        "Actual Total Time": 0.427,
+        "Shared Hit Blocks": 341,
+        "Shared Read Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Sort",
+            "Plan Rows": 333,
+            "Actual Rows": 20,
+            "Actual Loops": 1,
+            "Actual Total Time": 0.425,
+            "Shared Hit Blocks": 341,
+            "Shared Read Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Nested Loop",
+                "Plan Rows": 333,
+                "Actual Rows": 100,
+                "Actual Loops": 1,
+                "Actual Total Time": 0.402,
+                "Shared Hit Blocks": 341,
+                "Shared Read Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Relation Name": "documents",
+                    "Plan Rows": 1,
+                    "Actual Rows": 1,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.004,
+                    "Shared Hit Blocks": 1,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  },
+                  {
+                    "Node Type": "Index Scan",
+                    "Relation Name": "chunks",
+                    "Index Name": "chunks_document_id_idx",
+                    "Plan Rows": 333,
+                    "Actual Rows": 100,
+                    "Actual Loops": 1,
+                    "Actual Total Time": 0.034,
+                    "Shared Hit Blocks": 7,
+                    "Shared Read Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "language": "en",
+      "workspace": 2,
+      "recallAt5": 1
+    },
+    {
+      "language": "en",
+      "workspace": 2,
+      "recallAt5": 1
+    }
+  ],
+  "database": {
+    "postgres": "16.15 (Debian 16.15-1.pgdg12+2)",
+    "vector": "0.8.7"
+  },
+  "phases": [
+    {
+      "name": "api_only",
+      "seconds": 12,
+      "clients": 2,
+      "attempted": 24,
+      "failed": 0,
+      "failureCodes": {},
+      "cacheHits": 0,
+      "searchMs": {
+        "count": 24,
+        "p50": 39.918,
+        "p95": 153.276,
+        "max": 154.877
+      },
+      "completedMs": {
+        "count": 24,
+        "p50": 1008.914,
+        "p95": 1102.934,
+        "max": 1584.398
+      },
+      "firstEventMs": {
+        "count": 24,
+        "p50": 8.985,
+        "p95": 29.276,
+        "max": 55.348
+      },
+      "firstValidatedTextMs": {
+        "count": 24,
+        "p50": 1008.801,
+        "p95": 1102.804,
+        "max": 1584.208
+      },
+      "perWorkspace": [
+        {
+          "workspace": 0,
+          "searchMs": {
+            "count": 9,
+            "p50": 40.189,
+            "p95": 81.347,
+            "max": 81.347
+          },
+          "completedMs": {
+            "count": 9,
+            "p50": 1008.914,
+            "p95": 1584.398,
+            "max": 1584.398
+          }
+        },
+        {
+          "workspace": 1,
+          "searchMs": {
+            "count": 8,
+            "p50": 42.894,
+            "p95": 153.276,
+            "max": 153.276
+          },
+          "completedMs": {
+            "count": 8,
+            "p50": 527.347,
+            "p95": 1102.934,
+            "max": 1102.934
+          }
+        },
+        {
+          "workspace": 2,
+          "searchMs": {
+            "count": 7,
+            "p50": 37.632,
+            "p95": 154.877,
+            "max": 154.877
+          },
+          "completedMs": {
+            "count": 7,
+            "p50": 1011.315,
+            "p95": 1094.656,
+            "max": 1094.656
+          }
+        }
+      ]
+    },
+    {
+      "name": "with_ingestion",
+      "seconds": 24,
+      "clients": 2,
+      "attempted": 63,
+      "failed": 0,
+      "failureCodes": {},
+      "cacheHits": 17,
+      "searchMs": {
+        "count": 63,
+        "p50": 38.47,
+        "p95": 152.218,
+        "max": 224.982
+      },
+      "completedMs": {
+        "count": 63,
+        "p50": 509.688,
+        "p95": 1018.803,
+        "max": 1513.332
+      },
+      "firstEventMs": {
+        "count": 63,
+        "p50": 7.699,
+        "p95": 52.841,
+        "max": 220.6
+      },
+      "firstValidatedTextMs": {
+        "count": 46,
+        "p50": 509.307,
+        "p95": 1017.392,
+        "max": 1513.112
+      },
+      "perWorkspace": [
+        {
+          "workspace": 0,
+          "searchMs": {
+            "count": 21,
+            "p50": 39.98,
+            "p95": 152.218,
+            "max": 209.479
+          },
+          "completedMs": {
+            "count": 21,
+            "p50": 509.688,
+            "p95": 1086.226,
+            "max": 1513.332
+          }
+        },
+        {
+          "workspace": 1,
+          "searchMs": {
+            "count": 21,
+            "p50": 37.067,
+            "p95": 156.65,
+            "max": 224.982
+          },
+          "completedMs": {
+            "count": 21,
+            "p50": 510.092,
+            "p95": 587.404,
+            "max": 721.598
+          }
+        },
+        {
+          "workspace": 2,
+          "searchMs": {
+            "count": 21,
+            "p50": 36.214,
+            "p95": 62.267,
+            "max": 63.01
+          },
+          "completedMs": {
+            "count": 21,
+            "p50": 509.427,
+            "p95": 554.549,
+            "max": 1018.803
+          }
+        }
+      ]
+    }
+  ],
+  "ingestion": {
+    "accepted": 6,
+    "replayed": 6,
+    "uniqueJobs": 6,
+    "completed": 6,
+    "queueWaitStartStage": "source_read",
+    "queueWaitMs": {
+      "count": 6,
+      "p50": 2058.627,
+      "p95": 3218.07,
+      "max": 3218.07
+    }
+  },
+  "postIngestionVerification": {
+    "searches": 6,
+    "answers": 6,
+    "newlyIngestedSourcesChecked": 6
+  },
+  "durableWorkflows": {
+    "enabled": true,
+    "runs": [
+      {
+        "kind": "chat",
+        "status": "completed",
+        "count": 93
+      },
+      {
+        "kind": "ingestion",
+        "status": "completed",
+        "count": 6
+      }
+    ],
+    "checkpoints": 502
+  },
+  "provider": {
+    "auth": 209,
+    "embedding": 201,
+    "chat": 76,
+    "aborted": 0,
+    "active": 0,
+    "peakActive": 2
+  },
+  "resources": {
+    "internalNetwork": true,
+    "images": [
+      {
+        "image": "pgvector/pgvector:pg16",
+        "imageId": "sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f",
+        "memoryBytes": 2147483648,
+        "nanoCpus": 2000000000,
+        "oomKilled": false,
+        "running": true,
+        "readOnlyRootfs": false,
+        "publishedPorts": 0
+      },
+      {
+        "image": "node:24-alpine",
+        "imageId": "sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8",
+        "memoryBytes": 268435456,
+        "nanoCpus": 1000000000,
+        "oomKilled": false,
+        "running": true,
+        "readOnlyRootfs": true,
+        "publishedPorts": 0
+      },
+      {
+        "image": "lumora-api:capacity-ci",
+        "imageId": "sha256:c8866897fa43460d771c99e3c06babe8b4af54bbaf0e568b879103021fe93846",
+        "memoryBytes": 536870912,
+        "nanoCpus": 500000000,
+        "oomKilled": false,
+        "running": true,
+        "readOnlyRootfs": true,
+        "publishedPorts": 0
+      }
+    ]
+  },
+  "guards": {
+    "crossWorkspaceReadDenied": true,
+    "viewerUploadDenied": true,
+    "sourceScopeCheckedOnEveryResult": true,
+    "chunkDocumentAssociationChecked": true,
+    "unknownSourcesResolvedInFixtureDatabase": true,
+    "ownershipLookups": 6,
+    "uploadDeduplicated": true,
+    "lostJobs": 0,
+    "externalNetwork": false
+  },
+  "observations": [
+    {
+      "elapsedMs": 10996,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "21.07%",
+          "memoryUsage": "97.28MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "29.81%",
+          "memoryUsage": "67.7MiB / 2GiB",
+          "processes": "11"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "0.63%",
+          "memoryUsage": "18.54MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 14023,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "31.49%",
+          "memoryUsage": "98.33MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "23.04%",
+          "memoryUsage": "77MiB / 2GiB",
+          "processes": "12"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.94%",
+          "memoryUsage": "18.92MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 17050,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "25.16%",
+          "memoryUsage": "102.1MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "20.75%",
+          "memoryUsage": "78.98MiB / 2GiB",
+          "processes": "12"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.31%",
+          "memoryUsage": "18.76MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 20078,
+      "lock_waiters": 0,
+      "active_connections": 1,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "35.25%",
+          "memoryUsage": "105.8MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "29.96%",
+          "memoryUsage": "85.11MiB / 2GiB",
+          "processes": "13"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.14%",
+          "memoryUsage": "19.04MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 23108,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "17.24%",
+          "memoryUsage": "108MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "23.11%",
+          "memoryUsage": "86.98MiB / 2GiB",
+          "processes": "13"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "0.82%",
+          "memoryUsage": "19.01MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 26137,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 3,
+      "oldest_queue_ms": 1558.774,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "25.36%",
+          "memoryUsage": "108MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "23.65%",
+          "memoryUsage": "88.79MiB / 2GiB",
+          "processes": "13"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.13%",
+          "memoryUsage": "18.9MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 29167,
+      "lock_waiters": 0,
+      "active_connections": 1,
+      "queued": 1,
+      "oldest_queue_ms": 2953.952,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "23.83%",
+          "memoryUsage": "109.7MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "19.29%",
+          "memoryUsage": "89.43MiB / 2GiB",
+          "processes": "13"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.16%",
+          "memoryUsage": "19.06MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 32197,
+      "lock_waiters": 1,
+      "active_connections": 2,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "12.28%",
+          "memoryUsage": "110.6MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "25.90%",
+          "memoryUsage": "91.78MiB / 2GiB",
+          "processes": "13"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.38%",
+          "memoryUsage": "19.12MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 35226,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "24.51%",
+          "memoryUsage": "110.3MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "37.44%",
+          "memoryUsage": "92.62MiB / 2GiB",
+          "processes": "13"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.34%",
+          "memoryUsage": "19.11MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 38255,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "21.57%",
+          "memoryUsage": "114.4MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "35.53%",
+          "memoryUsage": "93.84MiB / 2GiB",
+          "processes": "13"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.22%",
+          "memoryUsage": "19.57MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 41283,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "24.63%",
+          "memoryUsage": "115.8MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "34.81%",
+          "memoryUsage": "95.35MiB / 2GiB",
+          "processes": "13"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.29%",
+          "memoryUsage": "19.44MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 44313,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "16.82%",
+          "memoryUsage": "117.8MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "28.10%",
+          "memoryUsage": "97.28MiB / 2GiB",
+          "processes": "13"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "1.16%",
+          "memoryUsage": "19.24MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 47342,
+      "lock_waiters": 0,
+      "active_connections": 0,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "12.38%",
+          "memoryUsage": "121.8MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "19.13%",
+          "memoryUsage": "98.64MiB / 2GiB",
+          "processes": "13"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "0.79%",
+          "memoryUsage": "19.59MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    },
+    {
+      "elapsedMs": 50376,
+      "lock_waiters": 0,
+      "active_connections": 1,
+      "queued": 0,
+      "oldest_queue_ms": 0,
+      "containers": [
+        {
+          "role": "api",
+          "cpuPercent": "1.37%",
+          "memoryUsage": "121.3MiB / 512MiB",
+          "processes": "12"
+        },
+        {
+          "role": "postgres",
+          "cpuPercent": "1.85%",
+          "memoryUsage": "99.66MiB / 2GiB",
+          "processes": "13"
+        },
+        {
+          "role": "provider",
+          "cpuPercent": "0.96%",
+          "memoryUsage": "19.2MiB / 256MiB",
+          "processes": "7"
+        }
+      ]
+    }
+  ],
+  "cleanup": {
+    "failed": 0,
+    "stopped": [
+      {
+        "role": "api",
+        "exitCode": 0,
+        "oomKilled": false
+      },
+      {
+        "role": "provider",
+        "exitCode": 0,
+        "oomKilled": false
+      },
+      {
+        "role": "postgres",
+        "exitCode": 0,
+        "oomKilled": false
+      }
+    ]
+  },
+  "finishedAt": "2026-11-08T03:15:00.199Z"
+}
