@@ -59,3 +59,10 @@ Selected by this reviewed launch commit. No sustained result is claimed yet.
 Record the actual source, CI URL and reviewed artifact when the run completes.
 The candidate also contains the separately documented usage-summary decoder;
 its fresh SQL and normal gates remain mandatory before application publication.
+
+The active run is [Capacity lab 42442232215](https://github.com/willianmesko/rag-study-mvp/actions/runs/42442232215)
+at source `7c37d96e2fbf1da961bae1816b7534799517a9bb`. All four
+[normal gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42442232284)
+passed separately. Subsequent source/MCP/job/probe changes require their own
+fresh normal/image-based pilot evidence before a combined application release.
+This run remains pinned to its original source and has no event-loop probe.

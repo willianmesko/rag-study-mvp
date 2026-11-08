@@ -79,6 +79,16 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
 - **In validation:** usage summary read boundaries preserve actual zero,
   estimated/reported provenance and older ledger coverage; local checks pass.
   See the [candidate record](operations/release-2026-11-08-usage-summary-records.md).
+- **In validation:** MCP source/status and full ingestion-job projections,
+  preserving null/zero, original bytes and existing permission/output guards.
+  See the [MCP](operations/release-2026-11-08-mcp-ingestion-records.md) and
+  [job](operations/release-2026-11-08-ingestion-job-records.md) candidate records.
+- **In validation:** lab-only native event-loop measurements, with no new
+  dependency or production endpoint. Local fixture cases pass; actual image
+  delivery remains required. See the [plan](operations/capacity-event-loop-plan.md).
+- **Prepared, teaching pending:** the first two walkthrough lessons explain the
+  product/request map and Node/TypeScript execution with source references.
+  [Learning outcomes](learning-walkthrough.md) remain unchecked.
 
 The [technical backlog](technical-backlog.md) now records **21 published tickets,
 five partial tickets and one pending ticket**. The current CI passed 410 UX

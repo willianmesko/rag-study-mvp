@@ -88,6 +88,9 @@ The first [prepared lesson](learning/01-product-and-system-map.md) follows a
 document and a question through the actual modules, with diagrams, source links
 and a provider-free starting exercise. Preparation does not complete the
 teaching session or any learner outcome below.
+The second [prepared lesson](learning/02-node-types-and-execution.md) explains
+the actual Node/TypeScript/module structure, async work, typed ports, runtime
+validation, cancellation and transaction/resource lifetimes.
 
 ### 1. Product journey and the system map
 
