@@ -27,9 +27,9 @@ status section where they appear.
 
 ## In progress
 
-Frontend and API are live at `6032295e05d35626fcb4a2e62c730c26eae6715c` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42426577868) passed. Publication, assets, icon, health, private-route protection
-and a bounded error-log window were verified on 2026-11-07.
+Frontend and API are live at `59f83e27b5aed045c1b93b5a1b5941cd0c97f566` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42427346385) passed. Publication, assets, icon, health, private-route protection
+and a bounded error-log window were verified on 2026-11-08 UTC.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
   URLs and recoverable drafts. See the [release receipt](operations/release-2026-11-07-url-state.md).
@@ -46,8 +46,10 @@ and a bounded error-log window were verified on 2026-11-07.
   and usage receipts. See the [receipt](operations/release-2026-11-07-embedding-responses.md).
 - **Published increment, tickets partial:** BE-08/FE-08 native return/fallthrough
   checks and web unused-symbol checks. See the [receipt](operations/release-2026-11-07-native-quality.md).
-- **In validation:** checked provider chat frames and isolated HTTP fixtures.
-  These follow-ups are not yet published.
+- **Published increment, ticket partial:** checked provider chat frames and the
+  first four isolated HTTP fixture families. See the [receipt](operations/release-2026-11-07-chat-response-boundaries.md).
+- **In validation:** remaining configuration fixtures and additional workspace
+  stored-record boundaries. These follow-ups are not yet published.
 
 The [technical backlog](technical-backlog.md) now records **20 published tickets,
 four partial tickets and two pending tickets**. The current CI passed 410 UX

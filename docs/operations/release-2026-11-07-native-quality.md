@@ -40,8 +40,8 @@ tests, production build, injection, golden set, replay regression and Promptfoo.
 The guided-onboarding browser suite passed seven cases with eight intentional
 profile skips: the complete new-team journey passed on desktop, tablet and
 mobile, with the existing desktop-only extended flows retained. Snapshots and
-assertions were not weakened. Full exact-source CI and matching live deployment
-receipts are still required before this candidate is called published.
+assertions were not weakened. Full exact-source CI and matching live deployments
+subsequently passed, as recorded below.
 
 Both dependency graphs remain clean (450 structural modules / 1,773 edges,
 449 runtime modules / 1,279 edges). The four native route-state and three

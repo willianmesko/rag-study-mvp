@@ -35,8 +35,8 @@ SSE parser or replace later framing-library decisions.
 
 ## Status
 
-Implementation and local validation are complete; exact-source CI/publication
-are pending. Fifteen new behavioral cases and ten existing provider/transport
+Validated and published at `59f83e27b5aed045c1b93b5a1b5941cd0c97f566`.
+Fifteen new behavioral cases and ten existing provider/transport
 cases passed with zero skips. They cover split UTF-8/CRLF, role/comment/usage
 frames, both accounting shapes, malformed JSON and message envelopes, invalid
 deltas/flags, interrupted output, safe provider errors, callback failures and
@@ -52,6 +52,27 @@ parser cause is attached to `invalid_response`. Previously delivered partial
 deltas remain provisional; only the existing grounded/citation-checked workflow
 can complete a product answer.
 
-Fresh complete CI and matching live deployment receipts are required before publication. No
+Fresh complete CI and matching live deployment receipts are recorded below. No
 paid model, real user content, library version or database migration is involved.
 BE-12 remains partial for other stored-record families and old shared fixtures.
+
+## Publication
+
+All four [exact-source CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42427346385)
+passed: 410 UX cases / 46 deliberate skips, 85 PostgreSQL cases / zero skips,
+the isolated embedding cutover, 78 architecture fixtures, seven harness checks,
+four native route-state, three artifact and three payload checks. The actual
+restricted MCP image again passed its five-tool/network-disabled/write-rejection
+check. This source also includes the four-family HTTP fixture migration.
+
+| Service | Deployment | Observed live on 2026-11-08 UTC |
+| --- | --- | --- |
+| API | `dep-dbnrojm417fc73eilo4g` | 00:05:25.984951 |
+| Web | `dep-dbnroku417fc73eils8g` | 00:04:18.017735 |
+
+The Render build at 00:04:07 UTC passed two actual native OCR cases with zero
+skips; its receipt reports 490 runtime files, 1,538,514 bytes, 14 entries and no
+project test artifacts. Public checks at 00:07:59 UTC confirmed assets/icon,
+semantic styles, health capabilities, server correlation IDs, private-route
+rejection and bounded OAuth inputs. The API error/fatal window 00:05:25–00:08:00
+UTC was empty. Real-provider questions and third-party consent were not exercised.

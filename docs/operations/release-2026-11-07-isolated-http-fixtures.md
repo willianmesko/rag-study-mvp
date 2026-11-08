@@ -22,7 +22,7 @@ remove legacy casts from unrelated mock ports or migrate all 19 files.
 
 ## Acceptance and status
 
-Implementation and local validation are complete; CI/publication are pending.
+Validated and published at `59f83e27b5aed045c1b93b5a1b5941cd0c97f566`.
 All 22 existing cases in the four families passed, plus three configuration
 isolation cases, with zero skips. Coverage includes actual search disconnect/cancellation, explicit
 workspace membership, viewer upload denial, synthetic demo deduplication and
@@ -39,3 +39,12 @@ private comparison instance; both instances now reuse the existing synthetic
 dependency fixture while keeping separate configurations. Fresh exact-source CI
 and publication evidence are still required. Public behavior and dependencies
 remain unchanged; BE-12 stays partial.
+
+All four [exact-source CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42427346385)
+passed, including 85 real PostgreSQL cases, the isolated cutover, the real MCP
+image and 410 UX cases / 46 deliberate skips. Both matching deployments were
+observed live and public smoke/error-log checks passed. See the shared
+[publication receipt](release-2026-11-07-chat-response-boundaries.md#publication)
+for IDs, times, native OCR and the distinction from private provider testing.
+The remaining 15 mutable fixtures plus the read-only assembly consumer are a
+separate candidate, documented in the [next increment](release-2026-11-07-isolated-resource-fixtures.md).

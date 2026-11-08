@@ -18,8 +18,8 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08 | 4 |
 | Pending implementation | BE-09, BE-13 | 2 |
 
-The latest batch is live on frontend and API at `6032295e05d35626fcb4a2e62c730c26eae6715c`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42426577868) passed.
+The latest batch is live on frontend and API at `59f83e27b5aed045c1b93b5a1b5941cd0c97f566`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42427346385) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
 CI passed 410 UX cases/46 deliberate skips, 85 PostgreSQL cases, the isolated
@@ -39,7 +39,9 @@ actual minimal MCP image gate are also validated and published. See the
 [embedding-response increment](operations/release-2026-11-07-embedding-responses.md)
 is now published. Native compiler checks are also
 [published](operations/release-2026-11-07-native-quality.md). Automatic continuation
-is validating chat response boundaries and isolated HTTP fixtures.
+has published [chat response boundaries](operations/release-2026-11-07-chat-response-boundaries.md)
+and the first four isolated HTTP fixture families. The remaining configuration
+fixtures are locally migrated and awaiting the next exact-source CI/publication.
 BE-12 remains partial; BE-08/FE-08 retain promise/Hook work and BE-09 retains
 minimum-privilege activation. Earlier releases retain their dated evidence.
 The prior administrative/unused-check slice is recorded in the
@@ -284,8 +286,8 @@ feature-owned locations during BE-07's migration.
 - [x] BE-12 bounded increment, CI verified and published: pure environment parsing, explicit root/HTTP configuration, independent-instance tests, checked evaluation and semantic-cache records. Nine unit cases, 85 PostgreSQL checks, the isolated cutover and seven harness checks passed. See the [boundary guide](backend-configuration-and-records.md) and [release record](operations/release-2026-11-07-configuration-records.md).
 - [x] Provider-deadline/lazy-config increment is CI verified and published: immutable per-instance native clients, all eleven adapter paths and explicit HTTP import isolation. See the [release record](operations/release-2026-11-07-provider-deadlines.md).
 - [x] Embedding-response increment is CI verified and published. Titan/Ollama/OpenRouter use dimension-first finite-vector decoding, bounded single-result envelopes and honest usage receipts. See the [release record](operations/release-2026-11-07-embedding-responses.md).
-- [x] Chat-response candidate is locally validated; CI/publication pending. OpenRouter/Ollama validate JSON/stream envelopes and deltas, retain native usage on invalid output and preserve real connection cancellation. See the [candidate record](operations/release-2026-11-07-chat-response-boundaries.md).
-- [x] Four HTTP fixture families now use independently parsed configuration and explicit production policy; 25 focused checks and the full local harness passed. CI/publication are pending; 15 legacy files remain. See the [candidate record](operations/release-2026-11-07-isolated-http-fixtures.md).
+- [x] Chat-response increment is CI verified and published. OpenRouter/Ollama validate JSON/stream envelopes and deltas, retain native usage on invalid output and preserve real connection cancellation. See the [release record](operations/release-2026-11-07-chat-response-boundaries.md).
+- [x] Four HTTP fixture families use independently parsed configuration and explicit production policy; 25 focused checks, the full harness and exact-source CI passed. Published with the chat-response increment. See the [release record](operations/release-2026-11-07-isolated-http-fixtures.md).
 - [x] Remaining configuration fixtures are migrated locally: the original 19 mutable files and the read-only assembly consumer use explicit settings; the final inventory of 96 tests finds no legacy imports/writes. Focused HTTP/assembly and strict checks pass; actual database/cutover CI and publication are pending. See the [candidate record](operations/release-2026-11-07-isolated-resource-fixtures.md).
 - [ ] Remaining BE-12: complete fixture release evidence; inventory/decode other externally influenced repository JSON and unchecked row assumptions. Two migrated row families do not establish complete SQL coverage.
 
