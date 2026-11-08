@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { promisify } from "node:util";
 import { resolve } from "node:path";
+import { isIP } from "node:net";
 import { fixtureModel } from "./fixtures.mjs";
 
 const execute = promisify(execFile);
@@ -21,8 +22,19 @@ export function assertImage(image) {
   assert.match(image, /^lumora-api:capacity-[a-z0-9_.-]{1,64}$/);
   return image;
 }
+export function containerOrigin(info, network, port) {
+  const ip = info?.NetworkSettings?.Networks?.[network]?.IPAddress;
+  assert.equal(isIP(ip ?? ""), 4, "Owned fixture has no IPv4 endpoint.");
+  const bytes = ip.split(".").map(Number);
+  assert.ok(bytes[0] === 10 || (bytes[0] === 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+    (bytes[0] === 192 && bytes[1] === 168), "Only the owned private bridge is permitted.");
+  assert.ok([5432, 11434, 3000].includes(port));
+  assert.equal(Object.keys(info.HostConfig?.PortBindings ?? {}).length, 0, "The internal lab must not publish host ports.");
+  return "http://" + ip + ":" + port;
+}
 export async function startLab(root, image) {
   assertImage(image);
+  assert.equal(process.platform, "linux", "The pilot requires a local Linux Docker host; fixture tests remain portable.");
   const name = "lumora-capacity-" + randomBytes(6).toString("hex"), label = "lumora.capacity.run=" + name;
   const owned = [], network = name + "-net", volume = name + "-data";
   let networkCreated = false, volumeCreated = false, cleaning;
@@ -51,21 +63,21 @@ export async function startLab(root, image) {
     await docker(["run", "-d", "--name", container, "--label", label, "--network", network, "--network-alias", role, ...args]);
     return container;
   };
-  const origin = async (container, port) => {
-    const data = JSON.parse(await docker(["inspect", container]))[0].NetworkSettings.Ports[port + "/tcp"];
-    assert.equal(data.length, 1); assert.equal(data[0].HostIp, "127.0.0.1");
-    assert.match(data[0].HostPort, /^\d{1,5}$/);
-    return "http://127.0.0.1:" + data[0].HostPort;
-  };
+  const origin = async (container, port) => containerOrigin(JSON.parse(await docker(["inspect", container]))[0], network, port);
+  let setupStage = "network";
   try {
     await docker(["network", "create", "--internal", "--label", label, network]); networkCreated = true;
-    await docker(["volume", "create", "--label", label, volume]); volumeCreated = true;
+    setupStage = "volume"; await docker(["volume", "create", "--label", label, volume]); volumeCreated = true;
+    setupStage = "postgres_container";
     const postgres = await run("postgres", ["--memory=2g", "--cpus=2", "--mount", "type=volume,src=" + volume + ",dst=/var/lib/postgresql/data",
-      "-e", "POSTGRES_USER=rag", "-e", "POSTGRES_PASSWORD=capacity_fixture_only", "-e", "POSTGRES_DB=capacity_fixture", "-p", "127.0.0.1::5432", "pgvector/pgvector:pg16"]);
+      "-e", "POSTGRES_USER=rag", "-e", "POSTGRES_PASSWORD=capacity_fixture_only", "-e", "POSTGRES_DB=capacity_fixture", "pgvector/pgvector:pg16"]);
+    setupStage = "provider_container";
     const provider = await run("provider", ["--memory=256m", "--cpus=1", "--user=node", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges",
-      "--mount", "type=bind,src=" + resolve(root, "scripts/capacity") + ",dst=/fixture,readonly", "-p", "127.0.0.1::11434",
+      "--mount", "type=bind,src=" + resolve(root, "scripts/capacity") + ",dst=/fixture,readonly",
       "node:24-alpine", "node", "/fixture/provider.mjs"]);
+    setupStage = "postgres_endpoint";
     const databaseUrl = (await origin(postgres, 5432)).replace("http:", "postgresql:").replace("//", "//rag:capacity_fixture_only@") + "/capacity_fixture";
+    setupStage = "provider_endpoint";
     const providerOrigin = await origin(provider, 11434);
     const configuration = {
       DATABASE_URL: "postgresql://rag:capacity_fixture_only@postgres:5432/capacity_fixture",
@@ -88,7 +100,7 @@ export async function startLab(root, image) {
       },
       async startApi() {
         const api = await run("api", ["--memory=512m", "--cpus=0.5", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges",
-          "--tmpfs", "/tmp:rw,noexec,nosuid,size=32m", ...envArgs, "-p", "127.0.0.1::3000", image]);
+          "--tmpfs", "/tmp:rw,noexec,nosuid,size=32m", ...envArgs, image]);
         return { container: api, origin: await origin(api, 3000) };
       },
       async receipt() {
@@ -97,9 +109,13 @@ export async function startLab(root, image) {
         assert.equal(net.Internal, true, "The lab must not allow external provider egress.");
         return { internalNetwork: net.Internal, images: info.map(({ Config, Image, HostConfig, State }) => ({
           image: Config.Image, imageId: Image, memoryBytes: HostConfig.Memory, nanoCpus: HostConfig.NanoCpus,
-          oomKilled: State.OOMKilled, running: State.Running, readOnlyRootfs: HostConfig.ReadonlyRootfs
+          oomKilled: State.OOMKilled, running: State.Running, readOnlyRootfs: HostConfig.ReadonlyRootfs,
+          publishedPorts: Object.keys(HostConfig.PortBindings ?? {}).length
         })) };
       }
     };
-  } catch (error) { await cleanup(); throw error; }
+  } catch {
+    const error = new Error("Capacity setup failed.");
+    error.setupStage = setupStage; error.cleanup = await cleanup(); throw error;
+  }
 }

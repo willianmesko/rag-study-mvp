@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { once } from "node:events";
 import { actorFromToken, dimensions, key, samples, statement, tokenFor, uuid, vectorFor } from "../../scripts/capacity/fixtures.mjs";
-import { assertImage } from "../../scripts/capacity/docker-lab.mjs";
+import { assertImage, containerOrigin } from "../../scripts/capacity/docker-lab.mjs";
 import { assertSources, decodeFrame, safePlan } from "../../scripts/capacity/traffic.mjs";
 import { createFixtureServer } from "../../scripts/capacity/provider.mjs";
 
@@ -30,6 +30,13 @@ test("source guards reject an empty answer or a source owned by another workspac
   assert.throws(() => assertSources([], workspace, documents));
   assert.throws(() => assertSources([{ documentId: uuid(3, 2) }], workspace, documents));
   assert.throws(() => assertSources([{ documentId: uuid(3, 99) }], workspace, documents));
+});
+test("Linux fixture endpoints come only from the owned private network and never publish host ports", () => {
+  const info = (ip, bindings = {}) => ({ NetworkSettings: { Networks: { owned: { IPAddress: ip } } }, HostConfig: { PortBindings: bindings } });
+  assert.equal(containerOrigin(info("172.18.0.2"), "owned", 5432), "http://172.18.0.2:5432");
+  for (const ip of ["127.0.0.1", "8.8.8.8", "169.254.169.254", "::1", "malformed"]) assert.throws(() => containerOrigin(info(ip), "owned", 5432));
+  assert.throws(() => containerOrigin(info("172.18.0.2"), "other", 5432));
+  assert.throws(() => containerOrigin(info("172.18.0.2", { "5432/tcp": [{ HostIp: "0.0.0.0", HostPort: "5432" }] }), "owned", 5432));
 });
 test("the lab consumes validated canonical SSE frames and rejects malformed or ambiguous data", () => {
   assert.equal(decodeFrame(": keep-alive"), null);

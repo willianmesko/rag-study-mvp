@@ -36,7 +36,7 @@ async function main() {
   process.once("SIGINT", stop); process.once("SIGTERM", stop);
   try {
     stage = "start_lab"; lab = await startLab(root, values.image);
-    assert.equal(new URL(lab.databaseUrl).hostname, "127.0.0.1");
+    assert.equal(new URL(lab.databaseUrl).pathname, "/capacity_fixture");
     pool = new Pool({ connectionString: lab.databaseUrl, max: 2, connectionTimeoutMillis: 1000, statement_timeout: 5000, application_name: "lumora-capacity-observer" });
     pool.on("error", () => { poolFault = true; });
     stage = "postgres_readiness";
@@ -106,15 +106,17 @@ async function main() {
     report.ingestion = { accepted: 6, replayed: 6, uniqueJobs: rows.length, completed: rows.length, queueWaitMs: samples(queueWait.rows.map(({ wait_ms }) => Number(wait_ms))) };
     report.provider = (await jsonResponse(lab.providerOrigin + "/fixture/stats")).body;
     report.resources = await lab.receipt();
-    assert.ok(report.resources.images.every(({ oomKilled, running }) => !oomKilled && running), "A fixture process stopped or exhausted memory.");
+    assert.ok(report.resources.images.every(({ oomKilled, running, publishedPorts }) => !oomKilled && running && publishedPorts === 0), "A fixture process stopped, exhausted memory or published a host port.");
     assert.equal(poolFault, false); assert.equal(interrupted, false);
     assert.ok(report.phases.every(({ attempted, failed, completedMs }) => attempted >= 3 && failed === 0 && completedMs.count >= 3));
     report.guards = { crossWorkspaceReadDenied: true, viewerUploadDenied: true, sourceScopeCheckedOnEveryResult: true,
       uploadDeduplicated: true, lostJobs: 0, externalNetwork: false };
     report.passed = true;
-  } catch {
+  } catch (error) {
     cancelled.abort();
-    report.failure = { stage, reason: interrupted ? "interrupted_or_deadline" : "capacity_pilot_failed" };
+    report.failure = { stage, reason: interrupted ? "interrupted_or_deadline" : "capacity_pilot_failed",
+      ...(stage === "start_lab" && typeof error?.setupStage === "string" && /^[a-z_]{1,40}$/.test(error.setupStage) ? { setupStage: error.setupStage } : {}) };
+    if (stage === "start_lab" && error?.cleanup) report.setupCleanup = error.cleanup;
     process.exitCode = 1;
   } finally {
     clearTimeout(deadline); process.off("SIGINT", stop); process.off("SIGTERM", stop);

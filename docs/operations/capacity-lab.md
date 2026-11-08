@@ -23,8 +23,8 @@ multi-replica behavior explicitly. Keep BE-13 partial until its actual criteria
 are measured. Do not change database indexes, workers, limits or hosting based
 on a short pilot. No application library is installed or replaced.
 
-The lab must create uniquely named, labelled resources, expose only loopback
-ports, use synthetic credentials and allow only its reviewed image names. It
+The lab must create uniquely named, labelled resources, use no published
+host ports, use synthetic credentials and allow only its reviewed image names. It
 must never consume DATABASE_URL, cloud keys or application .env files from the
 host. Cleanup is limited to that run's resources. The disposable database volume
 is removed only after its owned containers stop. No Docker prune is permitted.
@@ -33,14 +33,16 @@ image/load proof must run on a fresh CI runner; local pure tests cannot substitu
 
 ## Status
 
-The pilot is implemented; seven native guard/provider cases pass with zero
+The pilot is implemented; eight native guard/provider cases pass with zero
 skips. Actual isolated image/load execution is pending. Scripts use native Node
 modules and the existing pg/contracts packages. No application dependency or
 production code changed. The normal quality gate runs the fixture tests; a
 separate Capacity lab workflow builds the actual API image and retains the
 measured JSON artifact. The migration-resource prerequisite is already published.
 
-Run from the repository root with Node 24, dependencies installed and Docker:
+Run on a local Linux Docker host (or the GitHub runner), from the repository
+root with Node 24 and dependencies installed. On Docker Desktop/macOS, run only
+the portable fixture tests; the pilot does not bridge into the VM:
 
 ```sh
 npm run build:contracts
@@ -66,3 +68,17 @@ recall is hybrid result overlap against exact vector results, not faithfulness,
 semantic recall or an isolated ANN benchmark. Missing measurements are null with
 explicit limitations; configured estimates are never called actual billing.
 
+
+## First pilot attempt and network correction
+
+The first [pilot run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42434587485)
+failed during start_lab before traffic, with no performance result. Its coarse
+setup diagnostic did not isolate the substep. Review found that the runner
+assumed host port mappings existed for an internal-only network. The revised
+Linux runner uses only the owned container's private bridge address and rejects
+public/metadata/loopback IPs, foreign networks and published host ports. Fixed
+substage diagnostics and cleanup evidence now survive a setup failure.
+
+Docker documents [host access to internal bridges](https://docs.docker.com/engine/network/port-publishing/#gateway-modes).
+This is an orchestration correction, not evidence of a product capacity defect.
+The fresh image/load run remains required before counting the pilot as passed.
