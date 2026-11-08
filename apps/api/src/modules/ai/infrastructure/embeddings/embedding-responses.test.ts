@@ -19,6 +19,21 @@ function safeFailure(error: unknown) {
   assert.ok(!error.message.includes("PRIVATE_SENTINEL")); assert.equal(error.cause, undefined); return true;
 }
 
+test("provider vectors reject zero norm after float32 conversion and finite float64 overflow", () => {
+  for (const vector of [[0, -0], [Number.MIN_VALUE, 0], [1e-300, -1e-300], [Number.MAX_VALUE, 1], [-Number.MAX_VALUE, 1]])
+    assert.throws(() => decodeEmbeddingVector(vector, 2), safeFailure);
+});
+
+test("valid provider vectors keep sparse, negative and unrounded coordinates", () => {
+  for (const vector of [[0, -0.75], [1 / 3, 0], [Number.MIN_VALUE, 1], [-0, 1]]) {
+    const result = decodeEmbeddingVector(vector, 2);
+    assert.deepEqual(result, vector);
+    assert.ok(result.some((value) => Math.fround(value) !== 0));
+  }
+  const sparse = Array<number>(1024).fill(0); sparse[17] = 0.125;
+  assert.deepEqual(decodeEmbeddingVector(sparse, 1024), sparse);
+});
+
 test("Titan returns only finite vectors of the configured size and preserves native zero usage", async () => {
   for (const tokens of [0, 7]) {
     const usage: ProviderTokenUsage[] = [];
@@ -31,14 +46,17 @@ test("Titan returns only finite vectors of the configured size and preserves nat
 test("Titan rejects malformed JSON, strings, objects, non-finite values and wrong dimensions without reflecting bodies", async () => {
   const bodies = [undefined, Buffer.from('{"PRIVATE_SENTINEL":'), encode(null), encode({ embedding: "xx", detail: "PRIVATE_SENTINEL" }),
     encode({ embedding: { length: 2 } }), encode({ embedding: ["0.5", 0] }), encode({ embedding: [0.5] }),
-    encode({ embedding: [0, null] }), Buffer.from('{"embedding":[1e400,0]}'), encode({ error: "PRIVATE_SENTINEL" })];
+    encode({ embedding: [0, null] }), encode({ embedding: [0, 0] }), encode({ embedding: [Number.MAX_VALUE, 1] }),
+    encode({ embedding: [Number.MIN_VALUE, 0] }), Buffer.from('{"embedding":[1e400,0]}'), encode({ error: "PRIVATE_SENTINEL" })];
   for (const body of bodies) await assert.rejects(adapter(body).embed("Synthetic input.", "query"), safeFailure);
 });
 
 test("native usage survives a bad vector, while malformed usage is not fabricated into zero", async () => {
   const observed: ProviderTokenUsage[] = [];
-  await assert.rejects(adapter(encode({ embedding: "xx", inputTextTokenCount: 8 })).embed("Synthetic input.", "query", undefined, (value) => observed.push(value)), safeFailure);
-  assert.deepEqual(observed, [{ inputTokens: 8, outputTokens: 0 }]); observed.length = 0;
+  for (const embedding of ["xx", [0, 0], [Number.MAX_VALUE, 1], [Number.MIN_VALUE, 0]]) {
+    await assert.rejects(adapter(encode({ embedding, inputTextTokenCount: 8 })).embed("Synthetic input.", "query", undefined, (value) => observed.push(value)), safeFailure);
+    assert.deepEqual(observed, [{ inputTokens: 8, outputTokens: 0 }]); observed.length = 0;
+  }
   for (const count of [undefined, null, "8", -1, 1.5, 2_147_483_648]) {
     assert.deepEqual(await adapter(encode({ embedding: [1, 0], inputTextTokenCount: count })).embed("Synthetic input.", "query", undefined, (value) => observed.push(value)), [1, 0]);
   }
@@ -72,15 +90,17 @@ for (const vendor of ["openrouter", "ollama"] as const) {
     payload = response([1, 0], 0);
     assert.deepEqual(await provider.embed("Synthetic input.", "query", undefined, (value) => observed.push(value)), [1, 0]);
     assert.deepEqual(observed[0], { inputTokens: 0, outputTokens: 0, ...(vendor === "openrouter" ? { costUsd: 0 } : {}) });
-    for (const vector of ["xx", { length: 2 }, ["1", 0], [null, 0], [1], [1, 0, 0]]) {
+    for (const vector of ["xx", { length: 2 }, ["1", 0], [null, 0], [1], [1, 0, 0], [0, 0], [Number.MAX_VALUE, 1], [Number.MIN_VALUE, 0]]) {
       payload = response(vector); await assert.rejects(provider.embed("Synthetic input.", "query"), safeFailure);
     }
     for (const invalid of [null, {}, vendor === "openrouter" ? { data: [] } : { embeddings: [] },
       vendor === "openrouter" ? { data: [{ embedding: [1, 0] }, { embedding: [1, 0] }] } : { embeddings: [[1, 0], [1, 0]] }]) {
       payload = invalid; await assert.rejects(provider.embed("Synthetic input.", "query"), safeFailure);
     }
-    observed.length = 0; payload = response("xx", 8);
-    await assert.rejects(provider.embed("Synthetic input.", "query", undefined, (value) => observed.push(value)), safeFailure);
-    assert.equal(observed[0]?.inputTokens, 8, "valid usage remains measurable on a failed output");
+    for (const vector of ["xx", [0, 0], [Number.MAX_VALUE, 1], [Number.MIN_VALUE, 0]]) {
+      observed.length = 0; payload = response(vector, 8);
+      await assert.rejects(provider.embed("Synthetic input.", "query", undefined, (value) => observed.push(value)), safeFailure);
+      assert.equal(observed[0]?.inputTokens, 8, "valid usage remains measurable on a failed output");
+    }
   });
 }

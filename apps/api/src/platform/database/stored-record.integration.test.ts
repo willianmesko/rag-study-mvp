@@ -11,9 +11,32 @@ import { PgWorkspaceModelPolicyRepository } from "../../modules/chat/infrastruct
 import { PgWorkspaceOnboardingRepository } from "../../modules/workspaces/infrastructure/postgres/pg-workspace-onboarding-repository.js";
 import { PgConversationRepository } from "../../modules/chat/infrastructure/postgres/pg-conversation-repository.js";
 import { PgMcpOAuthRepository } from "../../modules/mcp/infrastructure/postgres/pg-mcp-oauth-repository.js";
+import { decodeEmbeddingVector } from "../../modules/ai/infrastructure/embeddings/embedding-response.js";
+import { IntegrationFailure } from "../integrations/retry-policy.js";
 
 const databaseUrl = process.env.MCP_TEST_DATABASE_URL;
 const options = { skip: !databaseUrl, timeout: 30_000 };
+
+test("PostgreSQL vector conversion confirms float32 storage and the zero-vector cosine failure", options, async (t) => {
+  assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(new URL(databaseUrl!).hostname), "Use a disposable local database.");
+  const pool = new Pool({ connectionString: databaseUrl, max: 1 });
+  t.after(() => pool.end());
+  const original = Array<number>(1024).fill(0); original[17] = 1 / 3;
+  const decoded = decodeEmbeddingVector(original, 1024);
+  assert.equal(decoded[17], 1 / 3, "The provider boundary validates without rounding its returned values.");
+  const stored = await pool.query<{ dimensions: number; norm: number }>(
+    "SELECT vector_dims($1::vector) AS dimensions,vector_norm($1::vector) AS norm", [JSON.stringify(decoded)]);
+  assert.equal(stored.rows[0]?.dimensions, 1024);
+  assert.ok(Math.abs(stored.rows[0]!.norm - Math.fround(1 / 3)) < 1e-12);
+  const zero = await pool.query<{ norm: number; distance: number }>(
+    "SELECT vector_norm('[0,0]'::vector) AS norm,('[0,0]'::vector <=> '[1,0]'::vector) AS distance");
+  assert.equal(zero.rows[0]?.norm, 0); assert.ok(Number.isNaN(zero.rows[0]?.distance));
+  await assert.rejects(pool.query("SELECT $1::vector", [JSON.stringify([Number.MAX_VALUE, 1])]), { code: "22003" });
+  for (const vector of [[0, 0], [Number.MIN_VALUE, 0], [Number.MAX_VALUE, 1]])
+    assert.throws(() => decodeEmbeddingVector(vector, 2), (error: unknown) =>
+      error instanceof IntegrationFailure && error.code === "invalid_response" && error.cause === undefined);
+  assert.equal((await pool.query("SELECT 1 AS usable")).rows[0]?.usable, 1);
+});
 
 test("PostgreSQL OAuth clients reject constraint-valid malformed callback arrays and recover after repair", options, async (t) => {
   assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(new URL(databaseUrl!).hostname), "Use a disposable local database.");
