@@ -4,6 +4,7 @@ import { currentCorrelationId } from "../observability/observer.js";
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { applyPostgresDeadlines, postgresDeadlineProfiles } from "../database/sql-boundary.js";
+import { decodeStoredRecord } from "../database/stored-record.js";
 import {
   workflowBudgetSchema,
   WorkflowGuardError,
@@ -66,7 +67,7 @@ const map = (r: Row): WorkflowSnapshot => ({
   inputTokens: r.input_tokens,
   outputTokens: r.output_tokens,
   costMicros: r.cost_micros,
-  budget: workflowBudgetSchema.parse(r.budget),
+  budget: decodeStoredRecord(workflowBudgetSchema, r.budget),
   attempts: r.attempts,
   errorCode: r.error_code,
   resultId: r.result_id,

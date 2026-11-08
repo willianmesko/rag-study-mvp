@@ -2,6 +2,17 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import test from "node:test";
 import { WorkflowStateCodec } from "./workflow-state-codec.js";
+test("authenticated malformed JSON and invalid UTF-8 fail without exposing decrypted content", () => {
+  const codec = new WorkflowStateCodec(randomBytes(32).toString("base64"));
+  const scope = ["workspace", "actor", "run", "input"];
+  for (const bytes of [Buffer.from('{"PRIVATE_SENTINEL":bad}'), Buffer.from([34, 0xc3, 0x28, 34])]) {
+    const cipher = codec.encode(bytes, scope);
+    assert.throws(() => codec.parse(cipher, scope), (error: unknown) => error instanceof Error &&
+      error.message === "Workflow state JSON is invalid." && !("cause" in error) &&
+      !String(error.stack).includes("PRIVATE_SENTINEL"));
+  }
+  assert.deepEqual(codec.parse(codec.json({ text: "Informação válida" }, scope), scope), { text: "Informação válida" });
+});
 test("private state cannot be swapped between workspaces or decrypted with another key", () => {
   const codec = new WorkflowStateCodec(randomBytes(32).toString("base64"));
   const scope = ["workspace-a", "actor", "run", "graph", "record"];

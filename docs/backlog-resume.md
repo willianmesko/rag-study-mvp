@@ -9,9 +9,9 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `e6fb0b095914cc30fbe898d9b3121e76b775458c`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42433702660).
-- [Release evidence](operations/release-2026-11-08-runtime-migration-resources.md) records
+- Source: `fff266c525fc276d8486d3164549b1567f5461fc`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42435430674).
+- [Release evidence](operations/release-2026-11-08-replay-record-boundaries.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -54,8 +54,11 @@ Judge/reranker response boundaries are validated and published with all four
 fresh CI gates. They do not activate a reranker or change a model/prompt.
 The BE-14 migration-resource follow-up is also validated and published; the
 actual image applied 31 migrations and repeated zero in a disposable database.
-Active next: the BE-13 isolated capacity pilot, with synthetic providers and
-no conclusion yet about sustained load or production sizing.
+The BE-13 pilot and checked persisted replay are now validated and published.
+The pilot has reviewed, versioned synthetic results and remains partial for
+sustained load, pool/event-loop timing and multi-replica behavior. Active next:
+BE-12 workflow diagnostic boundaries plus BE-16, the concrete P1 legacy JSON
+ingestion authentication follow-up. Dependency/hosted-role decisions remain open.
 
 ## Completed explicit follow-up: BE-15
 

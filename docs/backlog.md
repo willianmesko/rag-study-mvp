@@ -27,8 +27,8 @@ status section where they appear.
 
 ## In progress
 
-Frontend and API are live at `e6fb0b095914cc30fbe898d9b3121e76b775458c` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42433702660) passed. Publication, assets, icon, health, private-route protection
+Frontend and API are live at `fff266c525fc276d8486d3164549b1567f5461fc` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42435430674) passed. Publication, assets, icon, health, private-route protection
 and a bounded error-log window were verified on 2026-11-08 UTC.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
@@ -61,11 +61,13 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
 - **Validated pilot, ticket partial:** BE-13 isolated mixed-workload capacity
   lab. The [reviewed result](operations/capacity-lab.md) contains 102 completed
   synthetic pairs and six deduplicated ingestions; sustained capacity remains open.
-- **In validation:** checked persisted chat replay and an additional chunk-ID
-  ownership guard in the lab. Fresh CI/SQL/load and publication remain required.
+- **Published increment, ticket partial:** checked persisted chat replay and
+  exact-source measured document/chunk ownership guards. See the [receipt](operations/release-2026-11-08-replay-record-boundaries.md).
+- **In validation:** workflow stored-budget/encrypted JSON diagnostics and the
+  P1 legacy-ingestion production authentication follow-up (BE-16).
 
 The [technical backlog](technical-backlog.md) now records **20 published tickets,
-five partial tickets and one pending ticket**. The current CI passed 410 UX
+five partial tickets and two pending tickets**. The current CI passed 410 UX
 checks/46 intentional skips, 88 PostgreSQL checks, the isolated cutover, 78
 architecture fixtures, the full harness, four native route-state and three
 payload-budget cases. Prior releases remain in their dated operational records.

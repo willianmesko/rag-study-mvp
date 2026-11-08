@@ -256,6 +256,7 @@ export async function buildApp(dependencies: HttpDependencies, options: {
     consumeAdminUploadQuota: dependencies.consumeAdminUploadQuota,
     recordAuditEvent: dependencies.recordAuditEvent,
     isDemoMode: () => config.DEMO_MODE,
+    requireLegacyIngestionKey: isProduction && !config.API_KEY,
     adminApiKey: () => config.ADMIN_API_KEY,
     defaultTenantId: () => config.DEFAULT_TENANT_ID,
   });

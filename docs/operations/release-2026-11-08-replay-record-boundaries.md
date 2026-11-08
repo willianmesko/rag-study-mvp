@@ -27,8 +27,8 @@ access; the existing publication and membership policies retain those roles.
 
 ## Status
 
-Implementation and local validation are complete; fresh CI/SQL and publication
-are pending. Six new repository cases plus existing chat replay/cancellation and
+Implementation, validation and publication are complete at
+`fff266c525fc276d8486d3164549b1567f5461fc`. Six new repository cases plus existing chat replay/cancellation and
 workflow-route cases passed (13 focused cases, no skips). All seven local harness
 checks passed; the optional performance gate was not run. Both architecture
 graphs pass (450 structural modules/1,785 edges and 449 runtime modules/1,292
@@ -39,5 +39,38 @@ The schema is shared, the read page remains capped at 64 events and the run
 ceiling at 512; a left-joined empty event page remains distinct from no run.
 Existing SQL bindings/transitions are unchanged. The final source also strengthens
 the isolated capacity pilot to verify chunk-ID ownership as well as document-ID
-ownership; its fresh actual run remains required. No hosted database or provider
+ownership; its fresh actual run passed at this exact source, as recorded below. No hosted database or provider
 was called and no dependency, schema, public route or product contract changed.
+
+## Fresh independent checks
+
+The actual isolated capacity run at this source passed, including 103 scoped
+search/chat pairs, all six deduplicated ingestions and clean exits. The fresh
+PostgreSQL job passed 89 cases with zero skips, including the new malformed
+stored-event/isolation/repair case. Its actual read-only API image applied all
+31 migrations, repeated zero and retained the matching SQL digest. Both native
+OCR cases passed; the final application tree reported 490 files/1,549,090 bytes,
+14 entries and zero project test artifacts. The remaining quality gates and
+both observed publication records were subsequently verified below.
+
+## Published evidence
+
+All four [quality gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42435430674)
+passed, including 410 UX cases/46 deliberate skips, 89 PostgreSQL cases without
+skips, the isolated cutover, 78 architecture fixtures, seven harness checks,
+four native route cases, six artifact cases, eight capacity-fixture cases and
+three payload cases. The separate actual [capacity pilot](https://github.com/willianmesko/rag-study-mvp/actions/runs/42435430729)
+passed at the same source. Earlier candidates were not independently deployed.
+
+Both services were observed LIVE at the exact source on 2026-11-08:
+
+- API `dep-dbntasijnfac73db0ud0`: 01:52:35.594342 UTC.
+- Web `dep-dbntatlg1s2s73dkm4ig`: 01:51:28.672008 UTC.
+
+The Render build at 01:51:17 UTC independently passed both native OCR cases and
+reported the same catalog/clean tree as CI. The public 01:53:58 UTC check verified
+entry/lazy/CSS assets, original icon bytes, health/readiness, request correlation,
+protected routes, discovery and malformed-request handling. An empty unauthenticated
+legacy document request returned 401, without a valid document or provider call.
+The API error/fatal window 01:52:35–01:55:40 UTC was empty. This verified the hosted
+demo's response; BE-16 separately addresses the private configuration gap.

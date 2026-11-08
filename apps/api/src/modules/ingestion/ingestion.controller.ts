@@ -36,6 +36,7 @@ export type IngestionRoutesDependencies = {
   consumeAdminUploadQuota: (tenantId: string, actorKey: string, bytes: number) => Promise<QuotaResult>;
   recordAuditEvent: AuditEventRepository["record"];
   isDemoMode: () => boolean;
+  requireLegacyIngestionKey: boolean;
   adminApiKey: () => string | undefined;
   defaultTenantId: () => string;
 };
@@ -190,10 +191,11 @@ export const ingestionRoutes: FastifyPluginAsync<IngestionRoutesDependencies> = 
     }
   });
   app.post("/v1/documents", async (request, reply) => {
-    if (dependencies.isDemoMode()) {
+    if (dependencies.isDemoMode() || dependencies.requireLegacyIngestionKey) {
       const providedAdminKey = request.headers["x-admin-api-key"];
       const adminKey = typeof providedAdminKey === "string" ? providedAdminKey : undefined;
-      if (!matchesApiKey(adminKey, dependencies.adminApiKey() as string)) return reply.code(401).send({ error: "Unauthorized" });
+      const expectedKey = dependencies.adminApiKey();
+      if (!expectedKey || !matchesApiKey(adminKey, expectedKey)) return reply.code(401).send({ error: "Unauthorized" });
     }
     const input = documentInputSchema.parse(request.body);
     const textBytes = Buffer.byteLength(input.text, "utf8");

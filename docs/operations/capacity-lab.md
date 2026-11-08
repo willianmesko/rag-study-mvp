@@ -128,3 +128,20 @@ BE-13 remains partial. Next measurements: controlled cold/warm cohorts, at least
 PDF/DOCX/OCR and durable-worker scenarios, slow readers/cancellation, crash
 recovery and multi-replica limiter behavior. Keep the current topology until
 those results support a change. Real-provider runs require a separate spend cap.
+
+## Repeated pilot with checked replay and chunk ownership
+
+The [second successful lab run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42435430729)
+at `fff266c525fc276d8486d3164549b1567f5461fc` passed between 01:44:16 and
+01:45:12 UTC. The [reviewed report](../../reports/capacity/reviewed/pilot-fff266c.json)
+includes the new persisted-event decoder and the chunk-ID ownership check active
+on every search/context/citation result. It completed 35 API-only and 68 mixed
+pairs, with zero failures. All six unique ingestions completed despite six
+replays; queue p95 was 2,735.599 ms. The three owned processes exited normally,
+no OOM was observed and cleanup reported zero failures.
+
+Search p95 was 122.885/74.198 ms and completion p95 535.381/519.358 ms. Mixed
+cache hits were 24 and the first-validated-text count 44. Differences from the
+first successful pilot are diagnostic runner/cache samples, not a regression
+baseline or a causal performance improvement. The same stated omissions and
+sustained-load acceptance criteria still apply.

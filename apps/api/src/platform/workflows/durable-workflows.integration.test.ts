@@ -39,6 +39,7 @@ import type {
 } from "./types.js";
 import { PgWorkflowRepository } from "./pg-workflow-repository.js";
 import { WorkflowStateCodec } from "./workflow-state-codec.js";
+import { StoredRecordError } from "../database/stored-record.js";
 import { PgWorkflowCheckpointer } from "./pg-workflow-checkpointer.js";
 import { graphExecution, withGraphPersistence } from "./graph-execution.js";
 
@@ -751,5 +752,22 @@ test(
         await repo.finish(next, "completed", report.id);
       },
     );
+    await t.test("a corrupt completed workflow budget fails safely and can be repaired without queue work", async () => {
+      const { rows: [stored] } = await pool.query<{ run_id: string; actor_id: string; budget: unknown }>(
+        "SELECT run_id,actor_id,budget FROM workflow_runs WHERE tenant_id=$1 AND status='completed' ORDER BY updated_at DESC LIMIT 1", [tenantId]);
+      assert.ok(stored);
+      const saved = { tenantId, actorId: stored.actor_id, runId: stored.run_id };
+      try {
+        await pool.query("UPDATE workflow_runs SET budget=$4::jsonb WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3",
+          [tenantId, stored.actor_id, stored.run_id, JSON.stringify({ ...budget, PRIVATE_BUDGET_SENTINEL: true })]);
+        await assert.rejects(repo.get(saved), (error: unknown) => error instanceof StoredRecordError &&
+          error.code === "invalid_stored_record" && !String(error).includes("PRIVATE_BUDGET_SENTINEL") && !("cause" in error));
+      } finally {
+        await pool.query("UPDATE workflow_runs SET budget=$4::jsonb WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3",
+          [tenantId, stored.actor_id, stored.run_id, JSON.stringify(stored.budget)]);
+      }
+      assert.deepEqual((await repo.get(saved))?.budget, stored.budget);
+      assert.equal((await repo.get(saved))?.status, "completed");
+    });
   },
 );

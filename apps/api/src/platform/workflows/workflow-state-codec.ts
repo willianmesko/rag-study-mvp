@@ -135,7 +135,12 @@ export class WorkflowStateCodec {
     return this.encode(Buffer.from(JSON.stringify(value)), identity);
   }
   parse(bytes: Buffer, identity: readonly string[]): unknown {
-    return JSON.parse(this.decode(bytes, identity).toString("utf8"));
+    const plain = this.decode(bytes, identity);
+    try {
+      return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plain));
+    } catch {
+      throw new Error("Workflow state JSON is invalid.");
+    }
   }
 }
 

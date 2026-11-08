@@ -46,7 +46,7 @@ test("ingestion preview plugin uses narrow ports, explicit scope, redaction and 
     },
     retryIngestionJob: { execute: async () => {} },
     consumeAdminUploadQuota: quota, recordAuditEvent: audit,
-    isDemoMode: () => false, adminApiKey: () => undefined, defaultTenantId: () => tenantId,
+    isDemoMode: () => false, requireLegacyIngestionKey: false, adminApiKey: () => undefined, defaultTenantId: () => tenantId,
   };
   app.register(ingestionRoutes, dependencies);
   const response = await app.inject(`/v1/admin/uploads/${jobId}/preview`);

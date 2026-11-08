@@ -7,6 +7,11 @@ on:
     paths:
       - "scripts/capacity/**"
       - "tests/capacity/**"
+      - "apps/api/src/**"
+      - "apps/api/Dockerfile"
+      - "apps/api/tsconfig.runtime.json"
+      - "packages/contracts/**"
+      - "package-lock.json"
       - ".github/workflows/capacity-lab.yml"
 
 permissions:
