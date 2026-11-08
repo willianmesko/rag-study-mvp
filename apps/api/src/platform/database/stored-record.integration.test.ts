@@ -5,6 +5,8 @@ import { Pool } from "pg";
 import { PgEvaluationRepository } from "../../modules/evaluations/infrastructure/postgres/pg-evaluation-repository.js";
 import { PgSemanticAnswerCache } from "../../modules/chat/infrastructure/postgres/pg-semantic-answer-cache.js";
 import { StoredRecordError } from "./stored-record.js";
+import { PgWorkspaceModelPolicyRepository } from "../../modules/chat/infrastructure/postgres/pg-workspace-model-policy-repository.js";
+import { PgWorkspaceOnboardingRepository } from "../../modules/workspaces/infrastructure/postgres/pg-workspace-onboarding-repository.js";
 
 const databaseUrl = process.env.MCP_TEST_DATABASE_URL;
 const options = { skip: !databaseUrl, timeout: 30_000 };
@@ -48,4 +50,41 @@ test("PostgreSQL semantic-cache records decode JSON passages without losing mode
   await pool.query("UPDATE semantic_model_answer_cache SET sources=$2::jsonb WHERE tenant_id=$1", [tenant, JSON.stringify([{ ...source, content: 123 }])]);
   await assert.rejects(repo.findSimilar(input), StoredRecordError);
   assert.equal((await pool.query("SELECT 1 AS ok")).rows[0]?.ok, 1);
+});
+
+test("PostgreSQL workspace routing rejects invalid stored JSON with a safe server error and remains usable", options, async (t) => {
+  const { pool, tenant } = await fixture(t), repo = new PgWorkspaceModelPolicyRepository(pool);
+  const policy = { allowedModelIds: ["default", "alternate"], defaultModelId: "default", auto: {
+    simpleModelId: "default", complexModelId: "alternate", fallbackModelIds: ["default"]
+  } };
+  assert.equal(await repo.get(tenant), null);
+  assert.deepEqual(await repo.save(tenant, policy), policy);
+  assert.deepEqual(await repo.get(tenant), policy);
+  assert.equal(await repo.get(randomUUID()), null);
+  // This object satisfies the database's object/size constraint, but not the routing contract.
+  await pool.query("UPDATE workspace_chat_model_policies SET policy=$2::jsonb WHERE tenant_id=$1", [tenant, JSON.stringify({ ...policy, defaultModelId: "PRIVATE_SENTINEL" })]);
+  await assert.rejects(repo.get(tenant), (error: unknown) => {
+    assert.ok(error instanceof StoredRecordError); assert.equal(error.code, "invalid_stored_record");
+    assert.ok(!JSON.stringify(error).includes("PRIVATE_SENTINEL")); assert.equal(error.cause, undefined); return true;
+  });
+  assert.deepEqual(await repo.save(tenant, policy), policy);
+});
+
+test("PostgreSQL onboarding preserves monotonic progress and independent user/workspace records", options, async (t) => {
+  const { pool, tenant } = await fixture(t), repo = new PgWorkspaceOnboardingRepository(pool);
+  const userId = randomUUID(), peerId = randomUUID(), scope = { tenantId: tenant, userId };
+  await pool.query("INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'owner'),($1,$3,'viewer')", [tenant, userId, peerId]);
+  assert.equal(await repo.get(scope), null);
+  assert.deepEqual(await repo.save(scope, { goal: null, step: "purpose", completed: false }), { goal: null, step: "purpose", completed: false });
+  const complete = { goal: "support" as const, step: "answer" as const, completed: true };
+  assert.deepEqual(await repo.save(scope, complete), complete);
+  assert.deepEqual(await repo.save(scope, { goal: "learning", step: "knowledge", completed: false }), complete);
+  const peer = { tenantId: tenant, userId: peerId }, peerProgress = { goal: "learning" as const, step: "knowledge" as const, completed: false };
+  assert.equal(await repo.get(peer), null);
+  assert.deepEqual(await repo.save(peer, peerProgress), peerProgress);
+  assert.deepEqual(await repo.get(scope), complete);
+  assert.deepEqual(await repo.get(peer), peerProgress);
+  assert.equal(await repo.get({ ...scope, tenantId: randomUUID() }), null);
+  const raw = await pool.query("SELECT furthest_step FROM workspace_onboarding WHERE tenant_id=$1 AND user_id=$2", [tenant, userId]);
+  assert.equal(typeof raw.rows[0]?.furthest_step, "number");
 });

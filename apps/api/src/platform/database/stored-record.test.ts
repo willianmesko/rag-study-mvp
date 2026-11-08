@@ -4,6 +4,9 @@ import type { Pool } from "pg";
 import { PgEvaluationRepository } from "../../modules/evaluations/infrastructure/postgres/pg-evaluation-repository.js";
 import { PgSemanticAnswerCache } from "../../modules/chat/infrastructure/postgres/pg-semantic-answer-cache.js";
 import { StoredRecordError } from "./stored-record.js";
+import { workspaceGuideGoals } from "@rag-study/contracts";
+import { PgWorkspaceOnboardingRepository } from "../../modules/workspaces/infrastructure/postgres/pg-workspace-onboarding-repository.js";
+import { PgWorkspaceModelPolicyRepository } from "../../modules/chat/infrastructure/postgres/pg-workspace-model-policy-repository.js";
 
 const tenant = "11111111-1111-4111-a111-111111111111", id = "22222222-2222-4222-a222-222222222222";
 const row = () => ({
@@ -84,5 +87,67 @@ test("malformed cached passages and non-finite similarity fail closed after rele
   ]) {
     const fixture = cache([row]); await assert.rejects(fixture.repo.findSimilar(lookup), sanitized);
     assert.deepEqual(fixture.releases, [false]);
+  }
+});
+
+function workspaceRows(rows: unknown[]) {
+  const statements: Array<{ sql: string; params: unknown[] }> = [];
+  const pool = { async query(sql: string, params: unknown[]) { statements.push({ sql, params }); return { rows }; } } as unknown as Pool;
+  return { pool, statements };
+}
+const policy = { allowedModelIds: ["default", "alternate"], defaultModelId: "default", auto: null };
+
+test("stored workspace policies preserve routing invariants and parameterized tenant scope", async () => {
+  const fixture = workspaceRows([{ policy }]), repo = new PgWorkspaceModelPolicyRepository(fixture.pool);
+  assert.deepEqual(await repo.get(tenant), policy);
+  assert.deepEqual(await repo.save(tenant, policy), policy);
+  assert.match(fixture.statements[0]!.sql, /WHERE tenant_id = \$1/);
+  assert.deepEqual(fixture.statements[0]!.params, [tenant]);
+  assert.deepEqual(fixture.statements[1]!.params, [tenant, JSON.stringify(policy)]);
+  assert.equal(await new PgWorkspaceModelPolicyRepository(fakePool([])).get(tenant), null);
+});
+
+test("invalid stored workspace policies and missing insert rows raise safe server errors", async () => {
+  const missing = new PgWorkspaceModelPolicyRepository(fakePool([]));
+  await assert.rejects(missing.save(tenant, policy), sanitized);
+  for (const value of [null, {}, { policy: null }, { policy: ["PRIVATE_SENTINEL"] },
+    { policy: { ...policy, defaultModelId: "not-enabled" } },
+    { policy: { ...policy, allowedModelIds: ["default", "default"] } },
+    { policy: { ...policy, extra: "PRIVATE_SENTINEL" } },
+    { policy: { ...policy, auto: { simpleModelId: "default", complexModelId: "alternate", fallbackModelIds: ["not-enabled"] } } }]) {
+    const repo = new PgWorkspaceModelPolicyRepository(fakePool([value]));
+    await assert.rejects(repo.get(tenant), sanitized);
+    await assert.rejects(repo.save(tenant, policy), sanitized);
+  }
+});
+
+test("stored onboarding decodes generic/legacy goals, initial progress and user/workspace scope", async () => {
+  const scope = { tenantId: tenant, userId: id };
+  for (const goal of workspaceGuideGoals) {
+    const repo = new PgWorkspaceOnboardingRepository(fakePool([{ goal, furthest_step: 2, completed: true }]));
+    assert.deepEqual(await repo.get(scope), { goal, step: "answer", completed: true });
+  }
+  const fixture = workspaceRows([{ goal: null, furthest_step: 0, completed: false, ignored: "PRIVATE_SENTINEL" }]);
+  const repo = new PgWorkspaceOnboardingRepository(fixture.pool);
+  const progress = { goal: null, step: "purpose" as const, completed: false };
+  assert.deepEqual(await repo.get(scope), progress);
+  assert.deepEqual(await repo.save(scope, progress), progress);
+  assert.match(fixture.statements[0]!.sql, /tenant_id = \$1 AND user_id = \$2/);
+  assert.deepEqual(fixture.statements[0]!.params, [tenant, id]);
+  assert.deepEqual(fixture.statements[1]!.params, [tenant, id, null, 0, false]);
+  assert.equal(await new PgWorkspaceOnboardingRepository(fakePool([])).get(scope), null);
+});
+
+test("malformed onboarding rows never produce undefined steps or client validation errors", async () => {
+  const scope = { tenantId: tenant, userId: id }, progress = { goal: "support" as const, step: "answer" as const, completed: true };
+  await assert.rejects(new PgWorkspaceOnboardingRepository(fakePool([])).save(scope, progress), sanitized);
+  const valid = { goal: "support", furthest_step: 2, completed: true };
+  const values = [null, {}, { ...valid, goal: "PRIVATE_SENTINEL" }, { ...valid, furthest_step: -1 },
+    { ...valid, furthest_step: 3 }, { ...valid, furthest_step: 1.5 }, { ...valid, furthest_step: "2" },
+    { ...valid, completed: "true" }, { ...valid, furthest_step: 1 }, { ...valid, goal: null }];
+  for (const value of values) {
+    const repo = new PgWorkspaceOnboardingRepository(fakePool([value]));
+    await assert.rejects(repo.get(scope), sanitized);
+    await assert.rejects(repo.save(scope, progress), sanitized);
   }
 });

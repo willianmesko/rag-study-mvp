@@ -15,7 +15,7 @@ It introduces no dependency, environment variable or schema migration.
 
 This is not an ORM, validation framework or dependency-injection container.
 `decodeStoredRecord` is a small shared error-sanitizing wrapper around the existing
-Zod parser, used by two concrete adapters. Its fixed error has no stored value,
+Zod parser, used by concrete adapters. Its fixed error has no stored value,
 validation issues or raw cause. HTTP treats it as a server failure rather than
 mistaking a database defect for invalid client input.
 
@@ -58,6 +58,14 @@ existing redaction/size policy. Reads retain workspace/model/expiry predicates,
 read-only bounded transactions, cancellation and embedding revision locks.
 The decoder does not replace server authorization or verify a claim's factual
 truth. Other repository families still require their own boundary inventory.
+
+The [workspace-record candidate](operations/release-2026-11-08-workspace-stored-records.md)
+extends this boundary to persisted model policies and guide progress. Policies
+reuse the strict routing contract; progress decodes physical types/index before
+mapping to the shared product contract. Missing GETs remain absent; corrupt or
+missing INSERT records fail with fixed server diagnostics rather than a client
+`ZodError` or incidental TypeError. Existing monotonic upsert and user/workspace
+predicates remain. Its real SQL/release evidence is still pending.
 
 ## Objective checks
 
