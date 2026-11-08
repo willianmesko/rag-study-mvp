@@ -27,8 +27,8 @@ status section where they appear.
 
 ## In progress
 
-Frontend and API are live at `4f778664d71bc03d215dd6e7f5bdb537cd5102cd` after all four
-[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42428605858) passed. Publication, assets, icon, health, private-route protection
+Frontend and API are live at `9b29ceb6cfe915f4849ed18467f56064925ada3d` after all four
+[CI gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/42429856205) passed. Publication, assets, icon, health, private-route protection
 and a bounded error-log window were verified on 2026-11-08 UTC.
 
 - **Complete and published:** FE-11 native history, safe conversation/filter
@@ -50,12 +50,14 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
   first four isolated HTTP fixture families. See the [receipt](operations/release-2026-11-07-chat-response-boundaries.md).
 - **Published increment, ticket partial:** remaining configuration fixtures and
   workspace model-policy/onboarding record boundaries. See the [receipt](operations/release-2026-11-08-workspace-stored-records.md).
-- **In validation:** conversation record/recovery boundaries. This follow-up is
-  not yet published.
+- **Published increment, ticket partial:** conversation record/recovery
+  boundaries. See the [receipt](operations/release-2026-11-08-conversation-record-boundaries.md).
+- **In validation:** judge/reranker response boundaries. This follow-up is not
+  yet published; it does not enable Jina or change model/prompt selection.
 
 The [technical backlog](technical-backlog.md) now records **20 published tickets,
 four partial tickets and two pending tickets**. The current CI passed 410 UX
-checks/46 intentional skips, 87 PostgreSQL checks, the isolated cutover, 78
+checks/46 intentional skips, 88 PostgreSQL checks, the isolated cutover, 78
 architecture fixtures, the full harness, four native route-state and three
 payload-budget cases. Prior releases remain in their dated operational records.
 Operational activation and the learning walkthrough retain separate status.

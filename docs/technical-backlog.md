@@ -18,11 +18,11 @@ live activation remain in the [product backlog](backlog.md).
 | Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08 | 4 |
 | Pending implementation | BE-09, BE-13 | 2 |
 
-The latest batch is live on frontend and API at `4f778664d71bc03d215dd6e7f5bdb537cd5102cd`
-after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42428605858) passed.
+The latest batch is live on frontend and API at `9b29ceb6cfe915f4849ed18467f56064925ada3d`
+after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42429856205) passed.
 FE-11 and the bounded BE-12 configuration/record increment remain included.
 BE-14's clean runtime/native-OCR portion is now published; the SDK update is open.
-CI passed 410 UX cases/46 deliberate skips, 87 PostgreSQL cases, the isolated
+CI passed 410 UX cases/46 deliberate skips, 88 PostgreSQL cases, the isolated
 cutover, 78 architecture fixtures, seven harness checks, four native route-state,
 three artifact and three payload cases. The Render build independently passed
 both actual OCR cases with zero skips and zero project test artifacts in the
@@ -42,7 +42,9 @@ is now published. Native compiler checks are also
 has published [chat response boundaries](operations/release-2026-11-07-chat-response-boundaries.md)
 and all configuration fixtures. Workspace model-policy/guide record decoding
 is also [published](operations/release-2026-11-08-workspace-stored-records.md).
-Conversation record/recovery validation is the next locally validated candidate.
+Conversation record/recovery validation is also
+[published](operations/release-2026-11-08-conversation-record-boundaries.md).
+Judge/reranker response validation is the next locally validated candidate.
 BE-12 remains partial; BE-08/FE-08 retain promise/Hook work and BE-09 retains
 minimum-privilege activation. Earlier releases retain their dated evidence.
 The prior administrative/unused-check slice is recorded in the
@@ -291,7 +293,8 @@ feature-owned locations during BE-07's migration.
 - [x] Four HTTP fixture families use independently parsed configuration and explicit production policy; 25 focused checks, the full harness and exact-source CI passed. Published with the chat-response increment. See the [release record](operations/release-2026-11-07-isolated-http-fixtures.md).
 - [x] Configuration fixtures are CI verified and published: the original 19 mutable files and the read-only assembly consumer use explicit settings; the source inventory of 96 tests finds no legacy imports/writes. Actual durable-conversation and cutover fixtures passed without skips. See the [release record](operations/release-2026-11-07-isolated-resource-fixtures.md).
 - [x] Workspace stored-record increment is CI verified and published: policy routing and onboarding physical rows use shared contracts with fixed stored-data errors. Thirty-two focused cases, seven harness checks, both graphs and 87 real PostgreSQL cases passed. See the [release record](operations/release-2026-11-08-workspace-stored-records.md).
-- [x] Conversation-record/recovery candidate is locally validated: unknown pending input is checked before dispatch, invalid items fail independently, and summary/turn views use fixed stored-data errors. Fifteen focused cases, strict types, both graphs and seven harness checks pass; the new SQL case and publication await fresh CI. See the [candidate record](operations/release-2026-11-08-conversation-record-boundaries.md).
+- [x] Conversation-record/recovery increment is CI verified and published: unknown pending input is checked before dispatch, invalid items fail independently, and summary/turn views use fixed stored-data errors. Fifteen focused cases, both graphs, seven harness checks and 88 actual SQL cases passed. See the [release record](operations/release-2026-11-08-conversation-record-boundaries.md).
+- [x] Judge/reranker response candidate is locally validated: safe fixed errors, one choice/16-claim bounds, requested rerank cardinality and retained native usage. Twenty-three focused cases, both graphs and seven harness checks pass; fresh CI/publication are pending. Jina quality/activation stays separate. See the [candidate record](operations/release-2026-11-08-provider-assessment-boundaries.md).
 - [ ] Remaining BE-12: inventory/decode other externally influenced repository JSON and unchecked row assumptions. Targeted row decoding does not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate

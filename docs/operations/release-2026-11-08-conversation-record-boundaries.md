@@ -46,8 +46,8 @@ workflow, not to the model or a schema alone.
 
 ## Status
 
-Implementation and local validation are complete; exact-source CI/publication
-are pending. Summary/turn views use fixed stored-record errors and validate
+Validated and published at `9b29ceb6cfe915f4849ed18467f56064925ada3d`.
+Summary/turn views use fixed stored-record errors and validate
 physical Dates/input before mapping to shared wire contracts. Recovery input
 and mode are explicitly unknown in the port. Each item is decoded before
 dispatch; invalid items fail through the existing scoped operation with a
@@ -72,3 +72,24 @@ could interfere with other test families. This case requires fresh CI proof;
 the full local Docker VM was not used. No migration, dependency or actual
 provider call is required. This is another bounded BE-12 increment, not complete
 coverage of every persisted JSON family.
+
+## Publication
+
+All four [exact-source CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42429856205)
+passed: 88 real PostgreSQL cases / zero skips, the isolated cutover, 410 UX cases
+/ 46 deliberate skips, 78 architecture fixtures, seven harness checks, four
+native route-state, three artifact and three payload checks. The actual
+restricted MCP image again passed its five-tool/network-disabled/write-rejection
+check. Fresh SQL, rather than a local skip, proves the added corruption case.
+
+| Service | Deployment | Observed live on 2026-11-08 UTC |
+| --- | --- | --- |
+| API | `dep-dbns891srm7s73a9tn70` | 00:38:46.363978 |
+| Web | `dep-dbns8a3l550s7382c760` | 00:37:43.823396 |
+
+The Render build at 00:37:26 UTC passed both actual native OCR cases / zero skips,
+with 490 clean runtime files, 1,542,649 bytes, 14 entries and no project test
+artifacts. Public checks at 00:40:24 UTC confirmed assets/icon, semantic styles,
+health capabilities, correlation IDs, private-route protection and bounded OAuth
+handling. API error/fatal logs were empty from 00:38:46 to 00:41:09 UTC. These
+checks do not claim a paid-provider question or completed third-party consent.

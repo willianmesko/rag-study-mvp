@@ -9,9 +9,9 @@ and published. FE-07, FE-09, FE-10 and FE-11 are also complete and published.
 
 ## Current delivery
 
-- Source: `4f778664d71bc03d215dd6e7f5bdb537cd5102cd`.
-- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42428605858).
-- [Release evidence](operations/release-2026-11-08-workspace-stored-records.md) records
+- Source: `9b29ceb6cfe915f4849ed18467f56064925ada3d`.
+- [CI run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42429856205).
+- [Release evidence](operations/release-2026-11-08-conversation-record-boundaries.md) records
   all four green CI jobs, both observed live deployments and production checks.
   A source push alone is not publication.
 - Feature modules, response contracts, bounded identity/SQL, resource lifecycle,
@@ -49,7 +49,9 @@ also published. Checked provider chat frames and the four-family explicit HTTP
 fixture migration are now published together. Remaining configuration fixtures
 and workspace stored-record decoding are also published after 87 real SQL cases,
 the isolated cutover and all other gates passed. Conversation record/recovery
-validation is locally complete and awaits fresh CI/publication.
+validation is now published after 88 actual SQL cases and all four CI gates.
+Judge/reranker response boundaries are locally validated and await fresh
+CI/publication. They do not activate a reranker or change a model/prompt.
 
 ## Completed explicit follow-up: BE-15
 

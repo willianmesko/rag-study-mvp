@@ -2,14 +2,18 @@ import type {ProviderUsageObserver} from "../../application/ports/answer-generat
 import { z } from "zod";
 import type { FaithfulnessJudge } from "../../../evaluations/index.js";
 import { defaultProviderHttpClient, type ProviderHttpClient } from "../../../../platform/http/provider-client.js";
+import { IntegrationFailure } from "../../../../platform/integrations/retry-policy.js";
 
-const responseSchema = z.object({ choices: z.array(z.object({
+const responseEnvelope = z.object({ choices: z.unknown(), error: z.unknown().optional() });
+const choiceSchema = z.object({
   message: z.object({ content: z.string() }),
   finish_reason: z.literal("stop")
-})).min(1) });
+});
+const verdictEnvelope = z.object({ claims: z.unknown() });
+const maxVerdictClaims = 16;
 const verdictSchema = z.strictObject({ claims: z.array(z.strictObject({
   claim: z.string().trim().min(1).max(320), evidence: z.string().trim().min(12).max(320).nullable()
-})).min(1).max(16) });
+})).min(1).max(maxVerdictClaims) });
 
 export class OpenRouterFaithfulnessJudge implements FaithfulnessJudge {
   constructor(private readonly baseUrl: string, private readonly apiKey: string, readonly model: string, private readonly http: ProviderHttpClient = defaultProviderHttpClient) {}
@@ -48,7 +52,19 @@ export class OpenRouterFaithfulnessJudge implements FaithfulnessJudge {
     });
     const measured=z.object({usage:z.object({prompt_tokens:z.number().int().min(0).max(2_147_483_647),completion_tokens:z.number().int().min(0).max(2_147_483_647),cost:z.number().min(0).max(999_999).nullish()})}).safeParse(response);
     if(measured.success)onUsage?.({inputTokens:measured.data.usage.prompt_tokens,outputTokens:measured.data.usage.completion_tokens,...(measured.data.usage.cost!=null?{costUsd:measured.data.usage.cost}:{})});
-    const { choices } = responseSchema.parse(response);
-    return verdictSchema.parse(JSON.parse(choices[0]!.message.content)).claims;
+    const envelope = responseEnvelope.safeParse(response);
+    if (!envelope.success || envelope.data.error || !Array.isArray(envelope.data.choices) || envelope.data.choices.length !== 1)
+      throw new IntegrationFailure("invalid_response");
+    const choice = choiceSchema.safeParse(envelope.data.choices[0]);
+    if (!choice.success) throw new IntegrationFailure("invalid_response");
+    let value: unknown;
+    try { value = JSON.parse(choice.data.message.content); }
+    catch { throw new IntegrationFailure("invalid_response"); }
+    const verdict = verdictEnvelope.safeParse(value);
+    if (!verdict.success || !Array.isArray(verdict.data.claims) || verdict.data.claims.length < 1 || verdict.data.claims.length > maxVerdictClaims)
+      throw new IntegrationFailure("invalid_response");
+    const parsed = verdictSchema.safeParse(value);
+    if (!parsed.success) throw new IntegrationFailure("invalid_response");
+    return parsed.data.claims;
   }
 }

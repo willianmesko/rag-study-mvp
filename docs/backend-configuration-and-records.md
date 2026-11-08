@@ -68,11 +68,11 @@ missing INSERT records fail with fixed server diagnostics rather than a client
 `ZodError` or incidental TypeError. Existing monotonic upsert and user/workspace
 predicates remain. Its release record includes actual SQL and live evidence.
 
-The [conversation-record candidate](operations/release-2026-11-08-conversation-record-boundaries.md)
+The [published conversation-record increment](operations/release-2026-11-08-conversation-record-boundaries.md)
 checks physical view fields before shared DTO decoding. Recovery input/mode is
 explicitly unknown in its port and checked item by item before provider dispatch;
 invalid queued inputs fail through the existing scoped operation, allowing other
-items to continue. Its real SQL/release evidence is still pending.
+items to continue. Its release record includes actual SQL and both live services.
 
 ## Objective checks
 
