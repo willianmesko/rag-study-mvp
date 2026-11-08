@@ -58,11 +58,14 @@ and a bounded error-log window were verified on 2026-11-08 UTC.
 - **Published increment, ticket partial:** API-image SQL resources and safe
   migration CLI failures. The [receipt](operations/release-2026-11-08-runtime-migration-resources.md)
   records actual image/SQL/OCR proof and both live services.
-- **In validation:** BE-13 isolated mixed-workload capacity pilot with synthetic
-  data/providers. This is not the sustained baseline or a production sizing claim.
+- **Validated pilot, ticket partial:** BE-13 isolated mixed-workload capacity
+  lab. The [reviewed result](operations/capacity-lab.md) contains 102 completed
+  synthetic pairs and six deduplicated ingestions; sustained capacity remains open.
+- **In validation:** checked persisted chat replay and an additional chunk-ID
+  ownership guard in the lab. Fresh CI/SQL/load and publication remain required.
 
 The [technical backlog](technical-backlog.md) now records **20 published tickets,
-four partial tickets and two pending tickets**. The current CI passed 410 UX
+five partial tickets and one pending ticket**. The current CI passed 410 UX
 checks/46 intentional skips, 88 PostgreSQL checks, the isolated cutover, 78
 architecture fixtures, the full harness, four native route-state and three
 payload-budget cases. Prior releases remain in their dated operational records.

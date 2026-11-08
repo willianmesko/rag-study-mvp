@@ -15,8 +15,8 @@ live activation remain in the [product backlog](backlog.md).
 | Status | Tickets | Count |
 | --- | --- | --- |
 | Implemented, CI passed and published | BE-01–BE-07, BE-10, BE-11, BE-15, FE-01–FE-07, FE-09–FE-11 | 20 |
-| Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-14, FE-08 | 4 |
-| Pending implementation | BE-09, BE-13 | 2 |
+| Partially implemented; remaining acceptance criteria below | BE-08, BE-12, BE-13, BE-14, FE-08 | 5 |
+| Pending implementation | BE-09 | 1 |
 
 The latest batch is live on frontend and API at `e6fb0b095914cc30fbe898d9b3121e76b775458c`
 after all four [CI jobs](https://github.com/willianmesko/rag-study-mvp/actions/runs/42433702660) passed.
@@ -296,6 +296,7 @@ feature-owned locations during BE-07's migration.
 - [x] Workspace stored-record increment is CI verified and published: policy routing and onboarding physical rows use shared contracts with fixed stored-data errors. Thirty-two focused cases, seven harness checks, both graphs and 87 real PostgreSQL cases passed. See the [release record](operations/release-2026-11-08-workspace-stored-records.md).
 - [x] Conversation-record/recovery increment is CI verified and published: unknown pending input is checked before dispatch, invalid items fail independently, and summary/turn views use fixed stored-data errors. Fifteen focused cases, both graphs, seven harness checks and 88 actual SQL cases passed. See the [release record](operations/release-2026-11-08-conversation-record-boundaries.md).
 - [x] Judge/reranker response boundaries are validated and published: safe fixed errors, one choice/16-claim bounds, requested rerank cardinality and retained native usage. Twenty-three focused cases, both graphs, seven harness checks and all four fresh CI gates passed. Jina quality/activation stays separate. See the [release record](operations/release-2026-11-08-provider-assessment-boundaries.md).
+- [ ] Persisted chat replay boundaries are locally validated; the fresh SQL/CI/publication gates remain pending. Six new row/event cases preserve cursor/ordering/expiry and reject malformed JSON through the existing fixed server error. See the [candidate record](operations/release-2026-11-08-replay-record-boundaries.md).
 - [ ] Remaining BE-12: inventory/decode other externally influenced repository JSON and unchecked row assumptions. Targeted row decoding does not establish complete SQL coverage.
 
 ### FE-05 — Public APIs and a proven FSD gate
@@ -555,7 +556,7 @@ feature-owned locations during BE-07's migration.
 
 ### BE-13 — Mixed-workload capacity and tenant fairness
 
-- **Active bounded increment:** the [isolated pilot](operations/capacity-lab.md) uses synthetic providers and a skewed three-workspace corpus. Native fixture/guard tests pass; actual image/load execution remains pending. The full sustained baseline, pool/event-loop metrics and multi-replica proof remain open.
+- **Active bounded increment:** the [isolated pilot](operations/capacity-lab.md) uses synthetic providers and a skewed three-workspace corpus. Native fixture/guard tests and an actual corrected image/load pilot passed. The final chunk-ID guard awaits a repeated measured run; the reviewed report records its exact source and limits. The full sustained baseline, pool/event-loop metrics and multi-replica proof remain open.
 
 - [ ] **P2 measurement · M–L · Medium operational risk.** Scope:
   [capacity plan](backend-scalability-review.md), synthetic load fixtures,

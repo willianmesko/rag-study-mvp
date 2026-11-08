@@ -13,9 +13,12 @@ export async function jsonResponse(url, options = {}) {
   assert.ok(Buffer.byteLength(text) <= 128 * 1024, "Fixture response exceeded its bound.");
   return { status: response.status, body: JSON.parse(text) };
 }
-export function assertSources(sources, workspace, documents) {
+export function assertSources(sources, workspace, documents, chunks) {
   assert.ok(sources.length > 0, "The synthetic question must have a grounded source.");
-  for (const source of sources) assert.equal(documents.get(source.documentId), workspace.tenantId, "Cross-workspace source detected.");
+  for (const source of sources) {
+    assert.equal(documents.get(source.documentId), workspace.tenantId, "Cross-workspace source detected.");
+    if (chunks) assert.equal(chunks.get(source.chunkId), workspace.tenantId, "Cross-workspace chunk detected.");
+  }
 }
 export function decodeFrame(frame) {
   const data = frame.split("\n").filter((line) => line.startsWith("data: "));
@@ -29,7 +32,7 @@ export function safePlan(node) {
   return { ...Object.fromEntries(names.filter((name) => Object.hasOwn(node, name)).map((name) => [name, node[name]])),
     ...(Array.isArray(node.Plans) ? { Plans: node.Plans.map(safePlan) } : {}) };
 }
-async function streamAnswer(base, workspace, actor, question, documents, cancellation) {
+async function streamAnswer(base, workspace, actor, question, corpus, cancellation) {
   const started = performance.now(), signal = AbortSignal.any([cancellation, AbortSignal.timeout(15_000)]);
   const response = await fetch(base + "/v1/qa/stream", {
     method: "POST", headers: { ...headersFor(workspace, actor), "content-type": "application/json", accept: "text/event-stream" },
@@ -53,7 +56,7 @@ async function streamAnswer(base, workspace, actor, question, documents, cancell
         if (!event) continue;
         firstEvent ??= performance.now() - started;
         assert.ok(!["error", "cancelled"].includes(event.type), "Synthetic stream terminated without an answer.");
-        if (event.type === "citations") assertSources(event.sources, workspace, documents);
+        if (event.type === "citations") assertSources(event.sources, workspace, corpus.documents, corpus.chunks);
         if (event.type === "token" && event.delta) firstText ??= performance.now() - started;
         if (event.type === "completed") result = event.response;
       }
@@ -62,8 +65,8 @@ async function streamAnswer(base, workspace, actor, question, documents, cancell
     assert.ok(result, "Synthetic stream ended before completion.");
     assert.equal(result.refusalReason ?? null, null, "The grounded synthetic question was refused.");
     assert.equal(result.answer, statement);
-    assertSources(result.sources, workspace, documents);
-    if (result.contextSources?.length) assertSources(result.contextSources, workspace, documents);
+    assertSources(result.sources, workspace, corpus.documents, corpus.chunks);
+    if (result.contextSources?.length) assertSources(result.contextSources, workspace, corpus.documents, corpus.chunks);
     return { completion: performance.now() - started, firstEvent, firstText, cacheHit: result.cacheHit === true };
   } finally { await reader.cancel().catch(() => undefined); reader.releaseLock(); }
 }
@@ -79,7 +82,7 @@ export async function referenceRecall(base, pool, corpus) {
       const response = await jsonResponse(base + "/v1/search?" + new URLSearchParams({ q: query, topK: "5" }), { headers: headersFor(workspace) });
       assert.equal(response.status, 200);
       const results = searchResponseSchema.parse(response.body).results;
-      assertSources(results, workspace, corpus.documents);
+      assertSources(results, workspace, corpus.documents, corpus.chunks);
       const actual = new Set(results.map(({ chunkId }) => chunkId));
       let plans;
       if (ordinal === 3) {
@@ -112,10 +115,10 @@ export async function trafficPhase(base, corpus, { name, seconds, clients = 2, s
         const started = performance.now();
         const response = await jsonResponse(base + "/v1/search?" + new URLSearchParams({ q: query, topK: "5" }), { headers: headersFor(workspace, actor), signal: cancellation });
         assert.equal(response.status, 200, "Synthetic search admission failed.");
-        assertSources(searchResponseSchema.parse(response.body).results, workspace, corpus.documents);
+        assertSources(searchResponseSchema.parse(response.body).results, workspace, corpus.documents, corpus.chunks);
         const searchTime = performance.now() - started;
         search.push(searchTime); perWorkspace[iteration % corpus.workspaces.length].search.push(searchTime);
-        const stream = await streamAnswer(base, workspace, actor, query, corpus.documents, cancellation);
+        const stream = await streamAnswer(base, workspace, actor, query, corpus, cancellation);
         completion.push(stream.completion);
         perWorkspace[iteration % corpus.workspaces.length].completion.push(stream.completion);
         if (stream.firstEvent !== null) firstEvent.push(stream.firstEvent);

@@ -1,4 +1,6 @@
-import type { ChatRunEvent } from "@rag-study/contracts";
+import { chatRunEventSchema, type ChatRunEvent } from "@rag-study/contracts";
+import { z } from "zod";
+import { decodeStoredRecord } from "../../../../platform/database/stored-record.js";
 import { isDeepStrictEqual } from "node:util";
 import { currentExecution } from "../../../../platform/workflows/execution-context.js";
 import { WorkflowGuardError } from "../../../../platform/workflows/types.js";
@@ -18,12 +20,14 @@ const interruptedEvent: ChatRunEvent = {
 
 const scopeParams = ({ tenantId, actorId, runId }: ChatRunScope) => [tenantId, actorId, runId];
 
-type SnapshotRow = {
-  status: ChatRunStatus;
-  deadline_reached: boolean;
-  event_id: number | null;
-  event: ChatRunEvent | null;
-};
+const statusRow = z.object({ status: z.enum(["running", "completed", "failed", "cancelled"]) });
+const snapshotRow = statusRow.extend({
+  deadline_reached: z.boolean(),
+  event_id: z.number().int().min(1).max(maxEvents).nullable(),
+  event: chatRunEventSchema.nullable()
+}).refine((row) => (row.event_id === null) === (row.event === null));
+const snapshotPage = z.array(snapshotRow).max(pageSize);
+type SnapshotRow = z.infer<typeof snapshotRow>;
 
 export class PgChatRunRepository implements ChatRunRepository {
   constructor(private readonly pool: Pool) {}
@@ -118,12 +122,12 @@ export class PgChatRunRepository implements ChatRunRepository {
   }
 
   async get(scope: ChatRunScope): Promise<ChatRunStatus | null> {
-    const result = await this.pool.query<{ status: ChatRunStatus }>(
+    const result = await this.pool.query<Record<string, unknown>>(
       `SELECT CASE WHEN status = 'running' AND deadline_at <= NOW() THEN 'failed' ELSE status END AS status
        FROM chat_runs WHERE tenant_id = $1 AND actor_id = $2 AND run_id = $3 AND expires_at > NOW()`,
       scopeParams(scope)
     );
-    return result.rows[0]?.status ?? null;
+    return result.rows.length ? decodeStoredRecord(statusRow, result.rows[0]).status : null;
   }
 
   async read(scope: ChatRunScope, after: number): Promise<ChatRunSnapshot | null> {
@@ -141,7 +145,7 @@ export class PgChatRunRepository implements ChatRunRepository {
   }
 
   private async readPage(scope: ChatRunScope, after: number): Promise<SnapshotRow[]> {
-    const result = await this.pool.query<SnapshotRow>(
+    const result = await this.pool.query<Record<string, unknown>>(
       `SELECT r.status, r.deadline_at <= NOW() AS deadline_reached, e.event_id, e.event
        FROM chat_runs r
        LEFT JOIN LATERAL (
@@ -153,7 +157,7 @@ export class PgChatRunRepository implements ChatRunRepository {
        ORDER BY e.event_id`,
       [...scopeParams(scope), after, pageSize]
     );
-    return result.rows;
+    return decodeStoredRecord(snapshotPage, result.rows);
   }
 
   private async terminate(scope: ChatRunScope, status: "cancelled" | "failed", event: ChatRunEvent): Promise<boolean> {

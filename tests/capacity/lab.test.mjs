@@ -30,6 +30,9 @@ test("source guards reject an empty answer or a source owned by another workspac
   assert.throws(() => assertSources([], workspace, documents));
   assert.throws(() => assertSources([{ documentId: uuid(3, 2) }], workspace, documents));
   assert.throws(() => assertSources([{ documentId: uuid(3, 99) }], workspace, documents));
+  const chunks = new Map([[uuid(4, 1), uuid(2, 1)], [uuid(4, 2), uuid(2, 2)]]);
+  assert.doesNotThrow(() => assertSources([{ documentId: uuid(3, 1), chunkId: uuid(4, 1) }], workspace, documents, chunks));
+  assert.throws(() => assertSources([{ documentId: uuid(3, 1), chunkId: uuid(4, 2) }], workspace, documents, chunks));
 });
 test("Linux fixture endpoints come only from the owned private network and never publish host ports", () => {
   const info = (ip, bindings = {}) => ({ NetworkSettings: { Networks: { owned: { IPAddress: ip } } }, HostConfig: { PortBindings: bindings } });

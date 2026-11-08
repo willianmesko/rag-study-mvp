@@ -34,7 +34,7 @@ image/load proof must run on a fresh CI runner; local pure tests cannot substitu
 ## Status
 
 The pilot is implemented; eight native guard/provider cases pass with zero
-skips. Actual isolated image/load execution is pending. Scripts use native Node
+skips. The corrected Linux pilot has passed; the first reviewed result is below. Scripts use native Node
 modules and the existing pg/contracts packages. No application dependency or
 production code changed. The normal quality gate runs the fixture tests; a
 separate Capacity lab workflow builds the actual API image and retains the
@@ -81,4 +81,50 @@ substage diagnostics and cleanup evidence now survive a setup failure.
 
 Docker documents [host access to internal bridges](https://docs.docker.com/engine/network/port-publishing/#gateway-modes).
 This is an orchestration correction, not evidence of a product capacity defect.
-The fresh image/load run remains required before counting the pilot as passed.
+The corrected image/load run below passed; the initial failed attempt remains recorded.
+
+## Reviewed pilot result (2026-11-08 UTC)
+
+The [actual lab run](https://github.com/willianmesko/rag-study-mvp/actions/runs/42435067069)
+passed at source `a85ecebc5eadfa606d44eb537e4905684af0f347`, between
+01:39:10 and 01:40:05 UTC. The [complete reviewed report](../../reports/capacity/reviewed/pilot-a85eceb.json)
+retains the image IDs, lock digest, resource caps, exact plans, measurements and
+limitations. This result predates the additional chunk-ID ownership assertion;
+the document-ID assertion was active on every search/citation result. The newer
+chunk assertion must pass in a fresh pilot before publication of that increment.
+
+| Measurement | API-only, 12 seconds | With ingestion, 24 seconds |
+| --- | --- | --- |
+| Completed search/chat pairs | 34 | 68 |
+| Unexpected failures | 0 | 0 |
+| Search p95 | 174.961 ms | 202.593 ms |
+| First SSE event p95 | 90.965 ms | 8.997 ms |
+| Validated completion p95 | 593.341 ms | 512.313 ms |
+| Semantic cache hits | 0 | 23 |
+
+Six uploads were replayed once each, produced six unique jobs and all completed.
+Queue wait p95 was 3,043.120 ms. All nine synthetic exact-vector reference
+comparisons had full overlap at five; the inspected vector candidate plans used
+the document index and a sort, so this does not prove HNSW capacity/ANN recall.
+All 13 periodic observations succeeded; none sampled a lock waiter. This cannot
+rule out waits between samples. Pool checkout wait/event-loop delay/actual
+provider billing remain unmeasured (null), not fictional zeros. The memory
+figures are Docker container usage, not Node heap or RSS.
+
+The API had a 512 MiB/0.5 CPU cap, PostgreSQL 2 GiB/2 CPUs and the deterministic
+provider 256 MiB/1 CPU. All ran on one isolated runner, no host ports were
+published, the Docker network was internal, and all three exited with code zero,
+without OOM; owned containers/network/volume cleanup reported zero failures.
+
+The phases warmed differently. Cache reuse and a small sample can explain a
+lower later chat percentile; this does not establish that ingestion improved
+latency or that fairness/SLO targets passed. The current durable replay reader
+polls at 500 ms; observed completion cadence must not be attributed entirely to
+model time. The report intentionally omits token events on cache hits from the
+first-validated-text samples (45 samples for 68 mixed completions).
+
+BE-13 remains partial. Next measurements: controlled cold/warm cohorts, at least
+30 minutes/10 workspaces/50,000 chunks/10 streams, real pool/event-loop timing,
+PDF/DOCX/OCR and durable-worker scenarios, slow readers/cancellation, crash
+recovery and multi-replica limiter behavior. Keep the current topology until
+those results support a change. Real-provider runs require a separate spend cap.

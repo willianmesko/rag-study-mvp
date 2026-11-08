@@ -12,6 +12,7 @@ import { ConversationDelivery } from "../../application/conversations/delivery.j
 import { buildApp } from "../../../../app/http-server.js";
 import { parseRuntimeConfiguration } from "../../../../app/configuration/environment.js";
 import { safeHttpLogSerializers } from "../../../../platform/http/safe-logging.js";
+import { StoredRecordError } from "../../../../platform/database/stored-record.js";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   conversationPageSchema,
@@ -317,6 +318,24 @@ test(
         );
       },
     );
+    await t.test("persisted replay rejects malformed JSON before delivery and remains scoped after repair", async () => {
+      const replay = { tenantId, actorId: userId, runId: randomUUID() };
+      await runs.create(replay, 30000);
+      try {
+        await pool.query("UPDATE chat_run_events SET event=$4::jsonb WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3 AND event_id=1",
+          [tenantId, userId, replay.runId, JSON.stringify({ type: "token", delta: 5, private: "PRIVATE_REPLAY_SENTINEL" })]);
+        await assert.rejects(runs.read(replay, 0), (error: unknown) => error instanceof StoredRecordError &&
+          error.code === "invalid_stored_record" && !String(error).includes("PRIVATE_REPLAY_SENTINEL") && !("cause" in error));
+        assert.equal(await runs.read({ ...replay, tenantId: otherTenant }, 0), null);
+        assert.equal(await runs.read({ ...replay, actorId: peerId }, 0), null);
+        assert.equal(await runs.get(replay), "running");
+        await pool.query("UPDATE chat_run_events SET event=$4::jsonb WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3 AND event_id=1",
+          [tenantId, userId, replay.runId, JSON.stringify({ type: "accepted" })]);
+        assert.deepEqual(await runs.read(replay, 0), { status: "running", events: [{ id: 1, event: { type: "accepted" } }] });
+      } finally {
+        await pool.query("DELETE FROM chat_runs WHERE tenant_id=$1 AND actor_id=$2 AND run_id=$3", [tenantId, userId, replay.runId]);
+      }
+    });
     await t.test(
       "server history supplies bounded same-conversation context and messages paginate without gaps",
       async () => {

@@ -39,7 +39,7 @@ export function samples(values) {
 export const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 export async function seedCorpus(pool) {
-  const documents = new Map(), workspaces = [];
+  const documents = new Map(), chunks = new Map(), workspaces = [];
   for (const [workspace, count] of workspaceCounts.entries()) {
     const tenantId = uuid(2, workspace + 1), documentId = uuid(3, workspace + 1);
     const actors = Array.from({ length: actorsPerWorkspace }, (_, index) => uuid(1, workspace * actorsPerWorkspace + index + 1));
@@ -58,6 +58,7 @@ export async function seedCorpus(pool) {
           embedding: `[${vectorFor(key(ordinal)).join(",")}]`,
           metadata: { security: { promptInjectionRisk: "low", signals: [] } } };
       });
+      for (const row of rows) chunks.set(row.id, tenantId);
       await pool.query(`INSERT INTO chunks(id,document_id,ordinal,content,embedding,metadata)
         SELECT x.id,$1,x.ordinal,x.content,x.embedding::vector,x.metadata
         FROM jsonb_to_recordset($2::jsonb) AS x(id uuid,ordinal integer,content text,embedding text,metadata jsonb)`,
@@ -65,5 +66,5 @@ export async function seedCorpus(pool) {
     }
   }
   await pool.query("ANALYZE chunks"); await pool.query("ANALYZE documents");
-  return { workspaces, documents };
+  return { workspaces, documents, chunks };
 }
