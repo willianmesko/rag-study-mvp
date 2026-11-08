@@ -74,7 +74,21 @@ report remains immutable. Application/lab code is unchanged from `151ccef`;
 the launch and evidence require no production deployment. The public source and
 21 published/five partial/one pending ticket totals remain unchanged.
 
-Next BE-13 work needs a separately declared bounded scenario for slow readers,
+The owner explicitly requested that real public-demo validation remain in the
+[backlog](backlog.md#6-production-capacity-and-operations): actual Render,
+Supabase and OpenRouter, synthetic scope, hard duration/request/spend limits,
+measured results and a separate comparison. The isolated pass establishes only
+the conditions recorded in its report; no hosted-capacity claim is inferred.
+No hosted load or billable call was started by this backlog update.
+
+**Next requested review:** inspect [current observability and access](backlog.md#observability-review-and-access-guide),
+including LangSmith, logs, metrics, AI traces, correlation and cost coverage.
+Distinguish code from actual hosted activation, preserve the trace-data policy,
+and document how to inspect evidence without exposing credentials. Existing
+LangSmith/OTLP activation remains pending until verified; do not create another
+monitoring stack merely to perform the review.
+
+Other BE-13 work needs a separately declared bounded scenario for slow readers,
 cancellation/reconnect or restart recovery; inspect SQL/lock/pure queue behavior
 before a scaling decision. Guarded checkout includes connection setup; pure
 queue wait and remaining direct paths still need distinct measurement.

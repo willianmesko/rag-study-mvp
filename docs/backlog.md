@@ -151,6 +151,24 @@ A real completed ChatGPT connection still needs client consent/verification.
 
 ## Pending implementation
 
+### Observability review and access guide
+
+This is the next requested review after recording public-demo validation as pending.
+
+- [ ] Review the current logs, operational metrics, AI traces and LangSmith
+  adapter. Separate implemented code, configured settings and evidence of
+  actual delivery; do not infer activation from an SDK or successful deploy.
+- [ ] Document where to view each signal, required access, correlation between
+  a request and its workflow/provider stages, and coverage of model identity,
+  tokens, latency, errors and reported versus estimated costs.
+- [ ] Confirm safe trace-data handling and gaps in receiver/alarm configuration.
+  Verify the selected receiver with a controlled nonsensitive trace when its
+  configuration is available. Keep exporter activation and billable provider
+  calls separate from the initial inventory; never print credential values.
+- [ ] Update the [operations guide](operations/observability.md) and the
+  LangSmith activation item below with verified evidence and remaining work.
+  The capacity lab's private in-memory collection is not hosted trace delivery.
+
 ### 4. Portuguese and English retrieval and answers
 
 - [ ] Detect the question's language independently of the interface. Use the
@@ -166,8 +184,28 @@ implemented.
 
 ### 6. Production capacity and operations
 
-- [ ] Execute the mixed-workload benchmark from the
-  [backend scalability review](backend-scalability-review.md). Define targets
+- [ ] **BE-13: validate the public demo with real Render, Supabase and
+  OpenRouter services.** Passing the isolated load test establishes behavior
+  only in its declared conditions; it does not establish public-demo capacity
+  or real model latency. Keep this hosted validation explicitly pending.
+- [ ] Before that run, record exact deployments, model/provider, service plans,
+  safe synthetic workspace/accounts, a gradual concurrency schedule and hard
+  duration/request/spend limits. Define stop conditions for errors, latency,
+  quotas and budget; keep existing user data and workspaces outside the fixture.
+- [ ] Execute a bounded end-to-end cohort against the public demo, covering
+  real authentication, retrieval, streaming and ingestion. Separate cold/warm
+  startup and cache states; measure first event, validated text/completion,
+  p95 with sample counts, failures/429s/timeouts, connection/queue behavior and
+  provider-native usage/cost coverage. Preserve unknown measurements and do
+  not blindly replay uncertain paid calls.
+- [ ] Publish the hosted test's reproducible process, measured results, exact
+  configuration, budget outcome, safe cleanup and comparison with the isolated
+  [instrumented result](operations/capacity-instrumented-sustained-result.md).
+  State remaining limitations before making a production sizing decision.
+
+- [ ] Execute the remaining mixed-workload scenarios from the
+  [backend scalability review](backend-scalability-review.md), preserving the
+  completed sustained cohorts above. Define targets
   for active workspaces, concurrent streams, corpus size, and ingestion bursts.
 - [ ] Measure p95 search/chat latency, time to first stream event, error rates,
   queue lag, database connection saturation, and workload cost.
