@@ -20,6 +20,7 @@ async function fixture(t: import("node:test").TestContext) {
   t.after(async () => {
     try {
       await pool.query("DELETE FROM ingestion_jobs WHERE tenant_id = $1", [tenant]);
+      await pool.query("DELETE FROM documents WHERE tenant_id = $1", [tenant]);
       await pool.query("DELETE FROM tenants WHERE id = $1", [tenant]);
     } finally { await pool.end(); }
   });
@@ -88,8 +89,9 @@ test("PostgreSQL timeline details reject non-object JSON, preserve scope and rec
 
 test("PostgreSQL MCP ingestion status preserves nulls and rejects a negative stored count without losing scope", options, async (t) => {
   const { pool, tenant } = await fixture(t), reads = new PgMcpReadRepository(pool), id = randomUUID();
-  await pool.query(`INSERT INTO ingestion_jobs(id,tenant_id,source,filename,mime_type,status,progress,chunk_count)
-    VALUES($1,$2,'synthetic-status','fixture.md','text/markdown','failed',0,0)`, [id, tenant]);
+  await pool.query(`INSERT INTO ingestion_jobs(id,tenant_id,source,filename,mime_type,payload,status,progress,chunk_count)
+    VALUES($1,$2,'synthetic-status','fixture.md','text/markdown',$3,'failed',0,0)`,
+  [id, tenant, Buffer.from("Synthetic terminal status fixture, never queued.")]);
   const signal = new AbortController().signal;
   const status = await reads.getIngestionStatus(tenant, id, signal);
   assert.ok(status); assert.equal(status.documentId, null); assert.equal(status.chunkCount, 0);

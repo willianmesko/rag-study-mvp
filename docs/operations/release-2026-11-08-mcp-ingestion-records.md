@@ -45,3 +45,16 @@ fallbacks, oversized-label suppression, URL/PII redaction and passage screening.
 Do not equate SQL character limits with JavaScript UTF-16 lengths or reject
 legitimate Unicode metadata. Existing transport output checks remain in place;
 this is earlier fixed-error decoding, not a new tool permission or response.
+
+## First real-SQL attempt
+
+At `e3ed24a`, [normal CI](https://github.com/willianmesko/rag-study-mvp/actions/runs/42444504874)
+found two fixture defects. The status fixture supplied neither payload nor a
+storage path, and PostgreSQL correctly enforced
+ingestion_jobs_payload_or_storage_path_check. The source fixture's assertions
+ran, but cleanup tried deleting its tenant before its document, so the existing
+documents_tenant_id_fkey correctly rejected deletion. Keep both constraints.
+Supply synthetic terminal-job bytes and explicitly delete only that helper's
+owned documents after its jobs and before its tenant. No application logic or
+hosted schema is changed by this correction. Fresh exact-source CI is required;
+the failed attempt is not counted as passing SQL proof.
