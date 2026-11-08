@@ -24,7 +24,8 @@ test("configuration preserves cross-field guards before any adapter can be const
     [{ EMBEDDING_DIMENSIONS: "1536" }, /vector\(1024\)/],
     [{ CHAT_PROVIDER: "openrouter" }, /OPENROUTER_API_KEY/],
     [{ RERANKER_PROVIDER: "jina" }, /JINA_API_KEY/],
-    [{ LANGSMITH_TRACING: "true" }, /LANGSMITH_API_KEY/],
+    [{ LUMORA_LANGSMITH_TRACING: "true" }, /LANGSMITH_API_KEY/],
+    ...["LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2", "LANGCHAIN_TRACING"].map((key): [Record<string, string>, RegExp] => [{ [key]: "true", LANGSMITH_API_KEY: "fixture-only" }, /Automatic LangChain tracing is prohibited/]),
     [{ DEMO_MODE: "true" }, /ADMIN_API_KEY/],
     [{ WORKFLOWS_ENABLED: "true" }, /WORKFLOW_STATE_KEY/],
     [{ MCP_REMOTE_ENABLED: "true" }, /Remote MCP requires/],
@@ -52,4 +53,12 @@ test("independent parsed configurations retain backend model policies and workfl
     { id: "same", label: "A", model: "example/a", inputCostPer1kUsd: 0, outputCostPer1kUsd: 0 },
     { id: "same", label: "B", model: "example/b", inputCostPer1kUsd: 0, outputCostPer1kUsd: 0 },
   ]) }));
+});
+
+test("safe summary activation does not enable vendor automatic callbacks", () => {
+  const config = parseRuntimeConfiguration({ LUMORA_LANGSMITH_TRACING: "true", LANGSMITH_API_KEY: "fixture-only" });
+  assert.equal(config.LUMORA_LANGSMITH_TRACING, true);
+  assert.equal(config.LANGSMITH_TRACING, false);
+  assert.equal(config.LANGCHAIN_TRACING_V2, false);
+  assert.equal(config.LANGCHAIN_TRACING, false);
 });

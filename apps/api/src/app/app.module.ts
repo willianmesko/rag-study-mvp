@@ -146,7 +146,7 @@ export function createApplication(config: RuntimeConfiguration) {
   });
   const { chatModels, defaultChat, compareAnswers, routeAnswer, defaultModel, embeddingModel, bindings: chatBindings } = createChatRuntime({
     embeddings, searchDocuments, semanticCache, usageMetrics, workspaceModelPolicies,
-    ...createChatWorkflowBindings(chatRuns, { enabled: config.LANGSMITH_TRACING, projectName: config.LANGSMITH_PROJECT }),
+    ...createChatWorkflowBindings(chatRuns, { enabled: config.LUMORA_LANGSMITH_TRACING, projectName: config.LANGSMITH_PROJECT }),
     quota: quotas, aiProviders: modelProviders, options: chatRuntimeOptionsFromConfiguration(config),
   });
   const ingestDocument = new IngestDocumentUseCase(embeddings, documents, {

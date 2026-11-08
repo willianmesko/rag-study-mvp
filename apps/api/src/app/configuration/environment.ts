@@ -48,7 +48,10 @@ const environment = z.object({
   JINA_BASE_URL: z.string().url().default("https://api.jina.ai/v1"),
   JINA_API_KEY: z.string().min(1).optional(),
   JINA_RERANKER_MODEL: z.string().min(1).default("jina-reranker-v2-base-multilingual"),
+  LUMORA_LANGSMITH_TRACING: booleanEnvironment.default(false),
   LANGSMITH_TRACING: booleanEnvironment.default(false),
+  LANGCHAIN_TRACING_V2: booleanEnvironment.default(false),
+  LANGCHAIN_TRACING: booleanEnvironment.default(false),
   LANGSMITH_API_KEY: z.string().min(1).optional(),
   LANGSMITH_PROJECT: z.string().min(1).default("rag-study-mvp"),
   HOST: z.string().min(1).default("127.0.0.1"),
@@ -168,8 +171,13 @@ export function parseRuntimeConfiguration(input: Readonly<Record<string, unknown
     throw new Error("JINA_API_KEY is required when RERANKER_PROVIDER=jina.");
   }
 
-  if (config.LANGSMITH_TRACING && !config.LANGSMITH_API_KEY) {
-    throw new Error("LANGSMITH_API_KEY is required when LANGSMITH_TRACING=true.");
+  // Vendor flags enable independent LangChain callbacks that can serialize graph state.
+  // Only the explicitly sanitized application summary may be exported.
+  if (config.LANGSMITH_TRACING || config.LANGCHAIN_TRACING_V2 || config.LANGCHAIN_TRACING) {
+    throw new Error("Automatic LangChain tracing is prohibited. Keep vendor tracing flags false and use LUMORA_LANGSMITH_TRACING for safe summaries.");
+  }
+  if (config.LUMORA_LANGSMITH_TRACING && !config.LANGSMITH_API_KEY) {
+    throw new Error("LANGSMITH_API_KEY is required when LUMORA_LANGSMITH_TRACING=true.");
   }
 
   if (config.DEMO_MODE && !config.ADMIN_API_KEY) {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, mock, test } from "node:test";
 import { Client } from "langsmith";
+import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { RunTree } from "langsmith/run_trees";
 import { traceable, withRunTree } from "langsmith/traceable";
 import { withCorrelation } from "../../../../platform/observability/observer.js";
@@ -228,4 +229,28 @@ test("the real answer use case selects the traced stream and records usage witho
   assert.equal(output.answer, value.answer); assert.equal(recorded, 1);
   assert.deepEqual(events, [{ type: "generating" }, { type: "validating" }]);
   assert.equal(output.usage?.safetyOutcome, "validated"); oneTrace(client);
+});
+
+
+test("real LangGraph callbacks remain off while the safe application summary is enabled", async () => {
+  const keys = ["LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2", "LANGCHAIN_TRACING"];
+  const previous = keys.map((key) => process.env[key]);
+  try {
+    for (const key of keys) process.env[key] = "false";
+    const state = Annotation.Root({ privateContent: Annotation<string> });
+    const graph = new StateGraph(state).addNode("private_node", () => ({ privateContent: "PRIVATE_PASSAGE" }))
+      .addEdge(START, "private_node").addEdge("private_node", END).compile();
+    const client = new RecordingClient();
+    const workflow = wrap({ answer: async () => {
+      await graph.invoke({ privateContent: "PRIVATE_QUESTION" });
+      return answer;
+    } }, client);
+    assert.equal(await workflow.answer(input()), answer);
+    assert.equal(client.creates.length, 1);
+    assert.equal(client.creates[0]?.name, "rag-question-workflow");
+    assert.doesNotMatch(JSON.stringify({ creates: client.creates, updates: client.updates }), /PRIVATE_/);
+    assert.equal(networkCalls, 0);
+  } finally {
+    keys.forEach((key, index) => { if (previous[index] === undefined) delete process.env[key]; else process.env[key] = previous[index]; });
+  }
 });

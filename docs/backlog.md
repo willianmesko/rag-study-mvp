@@ -189,8 +189,10 @@ See the [verified status and access guide](operations/observability-review-2026-
   agent/environment-based destination before configuring credentials. Verify
   installed SDK compatibility rather than automatically adding/upgrading tools.
   Activation is now requested. The live API correction is confirmed at db8d236;
-  the owner must supply the key through Render and identify the region/destination.
-  No tracing flag has been changed and no received live trace is claimed.
+  The key and US project destination are verified. The first controlled stream
+  exposed independent LangChain automatic traces containing graph state. Tracing
+  was disabled immediately; activation stays open until the application-owned
+  LUMORA_LANGSMITH_TRACING switch is deployed and a safe receipt is verified.
   See the [activation checklist](operations/observability.md#langsmith-activation-checklist).
 - [ ] Verify the selected receiver with a controlled nonsensitive trace when
   configuration is available. Keep exporter activation and billable provider

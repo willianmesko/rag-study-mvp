@@ -60,8 +60,8 @@ or a complete cross-service trace tree.
 ## LangSmith activation checklist
 
 Activation was requested after the streamed-tracing correction. The live API
-already contains that correction at db8d236. Actual receiver validation remains
-pending; the following steps must not be marked complete from a successful deploy.
+already contains that correction at db8d236. The first live receiver check detected independent LangGraph payload exports;
+automatic tracing was disabled again. Corrected activation remains pending; the following steps must not be marked complete from a successful deploy.
 
 1. In the intended LangSmith account/region, open Settings → API Keys. Create a
    service key scoped to the intended workspace, with the permissions needed for
@@ -71,7 +71,11 @@ pending; the following steps must not be marked complete from a successful deplo
    addresses, but the current adapter explicitly supplies a legacy project name;
    agent-based workspaces require an explicit compatible binding rather than
    mixing agent and legacy destination settings. Do not guess the target.
-3. Apply the matching nonsensitive destination settings, enable tracing, deploy
+3. Keep LANGSMITH_TRACING, LANGCHAIN_TRACING_V2 and LANGCHAIN_TRACING false.
+   Enable only LUMORA_LANGSMITH_TRACING, the application-owned safe-summary
+   switch. Vendor flags activate independent LangChain callbacks and can export
+   private graph state even inside a suppressed trace context. Startup rejects
+   those automatic tracing flags. Apply the matching destination settings, deploy
    the intended source and confirm health. Retain unrelated variables and secrets.
 4. Submit one controlled first-turn streaming question with safe source data,
    within the existing provider budget. Avoid a cached answer, which skips this
