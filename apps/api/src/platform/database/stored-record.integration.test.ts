@@ -17,7 +17,12 @@ const options = { skip: !databaseUrl, timeout: 30_000 };
 async function fixture(t: import("node:test").TestContext) {
   assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(new URL(databaseUrl!).hostname), "Use a disposable local database.");
   const pool = new Pool({ connectionString: databaseUrl, max: 2 }), tenant = randomUUID();
-  t.after(async () => { try { await pool.query("DELETE FROM tenants WHERE id = $1", [tenant]); } finally { await pool.end(); } });
+  t.after(async () => {
+    try {
+      await pool.query("DELETE FROM ingestion_jobs WHERE tenant_id = $1", [tenant]);
+      await pool.query("DELETE FROM tenants WHERE id = $1", [tenant]);
+    } finally { await pool.end(); }
+  });
   await pool.query("INSERT INTO tenants(id,slug,name) VALUES($1,$2,$3)", [tenant, `stored-row-${tenant}`, "Synthetic stored-record fixture"]);
   return { pool, tenant };
 }

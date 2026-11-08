@@ -38,3 +38,14 @@ new disposable SQL test uses a failed, non-claimable job and corrupts/restores
 only its own JSON event. Its real-SQL result is not claimed locally because the
 Docker VM is full. No dependency, schema, key or hosted setting changes are
 needed. Normal gates, image proof and the exact-source pilot remain required.
+
+## First fresh-CI attempt
+
+At 25068ca the normal verify, UX and cutover jobs and the actual capacity pilot
+passed. The PostgreSQL job failed in fixture cleanup: the generic helper deleted
+its tenant while the new terminal ingestion job still referenced it. PostgreSQL
+correctly enforced ingestion_jobs_tenant_id_fkey. Fix cleanup with an explicit
+job delete scoped only to that fixture tenant, before its tenant delete; keep the
+constraint and failed/non-claimable job. No broad cleanup or production change
+is justified. The failed run is not counted as a passing SQL/image gate. Fresh
+exact-source gates remain required before publication.
