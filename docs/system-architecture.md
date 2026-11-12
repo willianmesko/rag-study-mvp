@@ -291,7 +291,8 @@ flowchart TB
   Nest owns their lifetimes and resource disposal, without a custom DI container.
 - **Composition factories** select concrete adapters outside business modules.
   Standalone CLIs reuse these factories; the API no longer calls `createApplication`.
-- **Prisma** implements the workspace model-policy repository pilot. SQL migrations
+- **Prisma** implements workspace model-policy and append-only audit-event ports.
+  Both share the existing two-connection Prisma pool. SQL migrations
   remain authoritative; vector retrieval, RLS, leases, outbox and specialized SQL
   are preserved. Prisma's pilot pool is separately bounded to two connections.
 - **Transport policy** retains native Fastify multipart/rate-limit plugins, safe
@@ -816,3 +817,7 @@ pgvector and specialized SQL remain authoritative. See the
 
 The native cutover is verified live in the
 [2026-11-12 release receipt](operations/release-2026-11-12-nest-native-cutover.md).
+
+The second Prisma adapter (audit events) is published at `1d451f7`; its
+[release receipt](operations/release-2026-11-12-prisma-audit-events.md) includes
+SQL parity, RLS, query/pool measurements and authenticated production verification.

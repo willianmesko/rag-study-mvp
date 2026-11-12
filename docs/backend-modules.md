@@ -110,8 +110,11 @@ hooks, exception mapping and telemetry transport that classifies product errors.
 modules. The latter inject core/identity, usage, workspaces, AI, knowledge, chat,
 evaluations, workflows, ingestion and MCP capabilities using explicit tokens and
 Nest factory providers. `app/composition` contains their small reusable factories;
-`app/app.module.ts` now composes standalone CLI runtimes only. Prisma is limited
-to the model-policy repository pilot; SQL migrations, RLS and vector SQL remain.
+`app/app.module.ts` now composes standalone CLI runtimes only. Prisma currently implements
+model-policy and audit-event repositories in the API, sharing its bounded pool.
+SQL migrations, RLS and vector SQL remain. See the
+[persistence inventory](prisma-migration-inventory.md) and
+[audit release](operations/release-2026-11-12-prisma-audit-events.md).
 A standard Nest response interceptor avoids double-sending manually delivered
 responses. Explicit HEAD endpoints retain the previous route inventory.
 

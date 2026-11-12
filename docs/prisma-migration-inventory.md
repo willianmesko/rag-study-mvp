@@ -8,22 +8,23 @@ through Nest DI. That is separate from persistence migration.
 
 Count logical implementations named `Pg*Repository` once, including the technical
 workflow repository. There are **18**. Model policies use Prisma in the API;
-audit events are the second migration candidate, awaiting this increment's release.
-After the candidate is validated and published: **2/18 Prisma, 16/18 SQL**.
+audit events are now the second published migration at `1d451f7`.
+Current API selection: **2/18 Prisma, 16/18 SQL**.
 Retained legacy implementations are rollback/standalone adapters, not additional
 logical repositories. CLI/MCP stdio compositions still select legacy SQL adapters.
 
-Five additional PostgreSQL adapters are not named Repository: embedding indexes,
-semantic cache, invitation deliveries, MCP budgets/controls and graph checkpoints.
-Thus the broader persistence inventory is **23 logical adapters**. Do not confuse
-23 adapters with 23 business modules or interpret all SQL as a migration defect.
+Six additional PostgreSQL adapters are not named Repository: embedding indexes,
+semantic cache, invitation deliveries, MCP budgets/controls, graph checkpoints
+and the SQL-backed budget-alert service (whose class is not prefixed `Pg`).
+Thus the broader persistence inventory is **24 logical adapters**. Do not confuse
+24 adapters with 24 business modules or interpret all SQL as a migration defect.
 
 ## Named repositories
 
 | Repository | Area | API implementation / migration considerations |
 | --- | --- | --- |
 | WorkspaceModelPolicy | Chat | Prisma; existing policy allowlist and tenant scope |
-| AuditEvent | Usage | Prisma candidate; append-only, shared bounded pool, fail-closed audit |
+| AuditEvent | Usage | Prisma; append-only, shared bounded pool, fail-closed audit |
 | WorkspaceOnboarding | Workspaces | SQL; atomic monotonic progress/goal merge must survive concurrent devices |
 | TenantMembership | Workspaces | SQL; owner, membership, invitation and transaction invariants |
 | Document | Knowledge | SQL; pgvector/hybrid retrieval, versioning, transactional changes |
@@ -41,7 +42,7 @@ Thus the broader persistence inventory is **23 logical adapters**. Do not confus
 | AgentAction | MCP | SQL; approval, leased effects, retries and transactional evaluation records |
 | Workflow | Platform | SQL; durable checkpoints/effects, fencing, approval and cancellation |
 
-## Other PostgreSQL adapters retained
+## Other PostgreSQL adapters/services retained
 
 | Adapter | Reason for explicit review before replacing it |
 | --- | --- |
@@ -50,6 +51,7 @@ Thus the broader persistence inventory is **23 logical adapters**. Do not confus
 | InvitationDeliveries | Outbox/retry/dead-letter and delivery deduplication |
 | McpControls | Atomic provider reservations, quotas and cancellation |
 | WorkflowCheckpointer | LangGraph persistence and durable write/checkpoint semantics |
+| BudgetAlerts | SQL-backed alert thresholds, outbox delivery, retries and repair |
 
 ## Next acceptance criteria
 
@@ -60,4 +62,7 @@ claiming hosted capacity. Use existing Prisma/client/adapter versions and pool;
 keep SQL migrations authoritative. No `prisma db push`, automatic schema migration,
 blanket ORM rewrite or SDK replacement is part of this inventory.
 
-For the audit candidate, see the [decision and validation plan](decisions/2026-11-12-prisma-audit-events.md).
+For the audit release, see the [decision and validation](decisions/2026-11-12-prisma-audit-events.md).
+
+[Audit production receipt](operations/release-2026-11-12-prisma-audit-events.md)
+records CI, measurements, deployed source and authenticated verification.

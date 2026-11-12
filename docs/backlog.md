@@ -797,16 +797,17 @@ Update this file after a validated delivery and retain the remaining open work.
   tree; route parity, PostgreSQL/Prisma, OCR/image and public production checks
   passed. See the [release receipt](operations/release-2026-11-12-nest-native-cutover.md)
   and [technical checklist](technical-backlog.md#be-17--incremental-nestjsfastify-migration-and-prisma-pilot).
-- [ ] **Prisma follow-up:** benchmark a second ordinary CRUD repository, with
-  explicit transaction, RLS and concurrency criteria before extending the pilot.
-  Specialized vector, lease and outbox SQL remain preserved.
+- [x] **Second Prisma review/benchmark:** audit-event append, SQL parity, RLS,
+  safe failures and contention reviewed and delivered in BE-18. Specialized
+  vector, lease and outbox SQL remain preserved.
 
 ## Prisma persistence continuation (2026-11-12)
 
-- [ ] **BE-18 release: audit events via Prisma.** Adapter, real SQL/Nest/RBAC/RLS
-  integration and synthetic query/connection/latency comparison are validated
-  locally. Fresh CI, image and production receipts are pending.
-- [ ] **Persistence follow-ups:** 16 remaining named repositories and five
+- [x] **BE-18 release: audit events via Prisma.** Published at `1d451f7` after four
+  fresh CI gates. SQL/Nest/RBAC/RLS, safe audit failure, query/pool contention,
+  image/OCR and public plus authenticated MCP verification passed.
+  [Release receipt](operations/release-2026-11-12-prisma-audit-events.md).
+- [ ] **Persistence follow-ups:** 16 remaining named repositories and six
   specialized adapters require individual concurrency/RLS/cost review; no blanket
   rewrite. See the [count and inventory](prisma-migration-inventory.md) and
   [audit decision](decisions/2026-11-12-prisma-audit-events.md).

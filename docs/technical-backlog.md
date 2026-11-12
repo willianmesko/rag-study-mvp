@@ -9,8 +9,11 @@ PostgreSQL/Prisma, runtime image/OCR and public production checks passed.
 See the [release receipt](operations/release-2026-11-12-nest-native-cutover.md),
 [BE-17 checklist](#be-17--incremental-nestjsfastify-migration-and-prisma-pilot)
 and [decision](decisions/2026-11-12-nest-prisma-pilot.md).
-A second Prisma CRUD benchmark remains a follow-up. The historical status counts
-below predate this additional ticket (28 tickets including BE-17).
+BE-18 adds the second Prisma repository (audit events), now published at `1d451f7`.
+[Audit release](operations/release-2026-11-12-prisma-audit-events.md) and
+[inventory](prisma-migration-inventory.md) record 2/18 named repositories on Prisma,
+16 on SQL and six other specialized SQL adapters. Historical status counts below
+predate BE-17/BE-18 (29 tickets including both).
 
 Reviewed on **2026-11-07**, against source commit
 `e25572d6118efbdb84190367a039526775fbd0b2`.
@@ -673,8 +676,8 @@ Those remain separate scoped decisions in the product backlog.
 
 ### BE-17 — Incremental NestJS/Fastify migration and Prisma pilot
 
-**Priority:** P1 · **Status:** native controller/guard/module cutover published;
-second Prisma CRUD candidate remains open.
+**Priority:** P1 · **Status:** approved native migration and bounded pilot complete;
+subsequent audit adapter and measurement delivered in BE-18.
 
 **Owner authorization:** NestJS with Fastify, Nest DI and a bounded Prisma pilot
 were explicitly requested on 2026-11-12. This supersedes the earlier restriction
@@ -730,13 +733,13 @@ CRUD repositories repeat SQL mapping. Keep business ports and specialized SQL.
 
 ### BE-18 — Prisma audit-event repository and persistence inventory
 
-**Priority:** P1 · **Status:** locally validated; fresh CI and release pending.
+**Priority:** P1 · **Status:** validated and published at `1d451f7`.
 
 **Scope:** second bounded repository migration, not a full database rewrite.
 See [inventory](prisma-migration-inventory.md) and
 [risks/decision](decisions/2026-11-12-prisma-audit-events.md).
 
-- [x] Count 18 named repositories and five other PostgreSQL persistence adapters;
+- [x] Count 18 named repositories and six other PostgreSQL persistence adapters;
   distinguish Nest module completion from Prisma adapter selection.
 - [x] Select audit's append-only operation after comparing onboarding/evaluation
   concurrency and fencing requirements; preserve the public port and callers.
@@ -746,5 +749,8 @@ See [inventory](prisma-migration-inventory.md) and
   viewer/non-member permissions, conversation events, FK/RLS and safe audit failure.
 - [x] Record local query/pool/latency comparison, including policy-read contention;
   make query/connection ceilings and both Prisma integration cases required in CI.
-- [ ] Observe all fresh quality gates, publish the exact validated API source,
-  verify production and record the release receipt. Do not infer hosted capacity.
+- [x] Observe all four [fresh gates](https://github.com/willianmesko/rag-study-mvp/actions/runs/43260578081),
+  publish exact validated source `1d451f7` (implementation `ff39a81`, identical tree),
+  verify public endpoints and an authenticated mandatory-audit MCP read. Record
+  [production receipt](operations/release-2026-11-12-prisma-audit-events.md).
+  Hosted mixed-load capacity/pool-wait checks remain a separate scale-up item.

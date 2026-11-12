@@ -1,10 +1,12 @@
 # Prisma audit-event repository
 
-Status: implemented and locally validated; fresh CI/production pending.
+Status: **published** in the API at `1d451f7` after four passing gates for
+identical-tree implementation `ff39a81`. See the
+[production receipt](../operations/release-2026-11-12-prisma-audit-events.md).
 
 ## Candidate selection and risks
 
-The inventory contains 18 named repositories and five additional specialized SQL
+The inventory contains 18 named repositories and six additional specialized SQL
 adapters. Model policies already use Prisma in the API. Audit events are the next
 bounded candidate: one append-only insert, no read-modify-write, lease, workflow
 fence or multi-statement transaction. Onboarding is not equally simple: its atomic
@@ -105,4 +107,8 @@ policy/conversation HTTP events, connected restricted-role denial, concurrent
 workspace appends, audit constraint-failure behavior and disposal. The 100 existing
 PostgreSQL cases and seven evaluation harness checks pass; both architecture graphs
 are clean. The candidate image passed two native OCR cases and health/private-auth/404/
-SIGTERM smoke with exit 0. Fresh CI and production receipts remain pending.
+SIGTERM smoke with exit 0. All four fresh CI gates passed
+([run](https://github.com/willianmesko/rag-study-mvp/actions/runs/43260578081)).
+Render deploy `dep-dbquqfutlv9c739kgbs0` is live at `1d451f7`; public checks and
+an authenticated mandatory-audit MCP read passed. The production receipt above
+separates these checks from local measurements.
