@@ -1,17 +1,17 @@
 # Backend module guide
 
-Lumora is a TypeScript modular monolith. Business capabilities are grouped under
-`apps/api/src/modules`, using feature-module organization inspired by NestJS and
-the existing Fastify plugin/composition model. The application root wires the
-providers explicitly. See [ADR 0002](decisions/0002-business-modules.md) for the
-decision and trade-offs.
+Lumora is a TypeScript modular monolith running **NestJS with its Fastify
+adapter**. Business capabilities remain under `apps/api/src/modules`. Native
+controllers/guards own HTTP contracts; `app/nest/modules` owns runtime provider
+composition with standard Nest dependency injection.
 
-The organization delivery was published at `d045949`. The subsequent
-[BE-15 decision](decisions/0003-technology-neutral-modules.md) separates module
-assembly from technology selection. Factories now receive capability ports and
-plain options; `app/composition` selects actual database, provider, workflow and
-tracing adapters. This follow-up is live at `cbd0f67`; its validation and
-deployment evidence is tracked in the [technical backlog](technical-backlog.md).
+The earlier feature-organization decision [ADR 0002](decisions/0002-business-modules.md)
+was published at `d045949`. [ADR 0003](decisions/0003-technology-neutral-modules.md)
+then separated tool-neutral feature factories from concrete adapters. The owner
+subsequently authorized the Nest framework migration and bounded Prisma pilot.
+See the [current migration decision and release evidence](decisions/2026-11-12-nest-prisma-pilot.md).
+The original decisions are historical records, not a prohibition on this approved
+migration. Domain/application ports remain independent of the framework and SDKs.
 
 ## Where to find a capability
 
@@ -30,7 +30,7 @@ deployment evidence is tracked in the [technical backlog](technical-backlog.md).
 
 ```mermaid
 flowchart TB
-  Server[server.ts] --> App[app / composition and HTTP lifecycle]
+  Server[server.ts] --> App[app/nest / Nest DI and lifecycle]
   App --> Identity[Identity and Workspaces]
   App --> Knowledge[Knowledge and Ingestion]
   App --> Chat[Chat and AI]
@@ -58,6 +58,9 @@ code-enforced boundaries within that deployment.
 modules/ingestion/
   ingestion.module.ts
   ingestion.controller.ts
+  http/
+    ingestion-http.module.ts
+    ingestion.handlers.ts
   index.ts
   application/
     ports/
@@ -71,8 +74,16 @@ modules/ingestion/
 - **Module factory:** assembles application use cases and policy using injected
   ports and plain feature options. It imports no database client, vendor SDK,
   concrete adapter or deployment configuration. It creates no pool or timer.
-- **Controller:** a small Fastify adapter responsible for input validation,
-  authorization and HTTP responses. It calls injected capabilities.
+- **Nest HTTP module:** registers the feature's decorated controllers and guards.
+  Runtime DI modules live under `app/nest/modules`, where concrete resource
+  selection belongs. The existing pure `ingestion.module.ts` is a capability
+  factory, not a Nest module importing infrastructure.
+- **Controller:** declares method/path/status/access metadata and delegates to a
+  typed transport handler. HTTP handlers preserve established Zod validation and
+  JSON/binary/SSE contracts; use cases remain transport independent.
+- **Guard:** enforces workspace role, session or consent access. Conditional
+  demo/legacy credential rules remain specialized to preserve validation order.
+  A request-local decision may be reused; there is no cross-request role cache.
 - **Application service/use case:** implements one operation using ports and
   policy. Existing use-case classes already provide this role.
 - **Port:** defines the behavior needed from a repository, provider or service.
@@ -95,6 +106,15 @@ authorization contracts are checked as explicit edges.
 
 `app` owns overall composition, the HTTP dependency facade, cross-cutting HTTP
 hooks, exception mapping and telemetry transport that classifies product errors.
+`app/nest/application.module.ts` imports feature HTTP modules and ten runtime
+modules. The latter inject core/identity, usage, workspaces, AI, knowledge, chat,
+evaluations, workflows, ingestion and MCP capabilities using explicit tokens and
+Nest factory providers. `app/composition` contains their small reusable factories;
+`app/app.module.ts` now composes standalone CLI runtimes only. Prisma is limited
+to the model-policy repository pilot; SQL migrations, RLS and vector SQL remain.
+A standard Nest response interceptor avoids double-sending manually delivered
+responses. Explicit HEAD endpoints retain the previous route inventory.
+
 Application composition may bind concrete module adapters. Runtime resources have
 one owner and repeated shutdown requests share one promise. See the
 [shutdown runbook](operations/server-shutdown.md).

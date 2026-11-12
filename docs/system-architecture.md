@@ -806,10 +806,13 @@ until their own verification and release.
 
 ## NestJS/Fastify transition and Prisma pilot (2026-11-12)
 
-The API candidate boots through NestJS with its Fastify adapter. Decorated feature
+The API is published at `448c91e` and boots through NestJS with its Fastify adapter. Decorated feature
 controllers and guards handle the existing endpoints, and ten runtime modules
 compose capability groups through Nest DI. The standalone CLI still reuses small
 outer factories; the API no longer calls the transitional application factory.
 Prisma maps the existing workspace model-policy table; SQL migrations, RLS,
 pgvector and specialized SQL remain authoritative. See the
 [decision, commands and release status](decisions/2026-11-12-nest-prisma-pilot.md).
+
+The native cutover is verified live in the
+[2026-11-12 release receipt](operations/release-2026-11-12-nest-native-cutover.md).

@@ -1,7 +1,8 @@
 # NestJS/Fastify migration and Prisma pilot
 
-Status: initial increment verified locally and in CI; subsequent native-controller
-and runtime-module cutover locally validated, awaiting its own CI and rollout.
+Status: native-controller/guard and runtime-module cutover **published** in the
+API at `448c91e`, after four passing gates for identical-tree source `c1a0c19`.
+See the [production receipt](../operations/release-2026-11-12-nest-native-cutover.md).
 
 ## Decision and scope
 
@@ -141,8 +142,8 @@ All four remote CI quality gates passed for implementation commit `3168f54`:
 This includes the required Prisma integration and the unchanged UI suite.
 The subsequent documentation-only receipt commit does not change runtime code.
 
-Verification status is recorded in the technical backlog. No production rollout
-or hosted load-capacity claim follows from these local tests.
+Initial-pilot evidence above is retained for history. The native cutover and
+production smoke are recorded below; no hosted load-capacity claim follows.
 
 ## Follow-up scope
 
@@ -168,5 +169,9 @@ usage/tracing and capacity must be checked separately from local fixture evidenc
 - A native response interceptor preserves manual error/download/SSE delivery
   without duplicate sends; a regression test asserts unchanged safe failure
   bodies and zero duplicate-response warnings.
-- Current CI and deployment receipts will be added after they complete. Prior
-  increment CI evidence above must not be read as validation of a later commit.
+- All four current CI gates passed for `c1a0c19`
+  ([run](https://github.com/willianmesko/rag-study-mvp/actions/runs/43254838430)).
+  The merged source `448c91e` has an identical tree and is live in Render deploy
+  `dep-dbquc3lg1s2s73888970`. Health/auth/OAuth/MCP/CORS/404 and bounded log checks
+  passed. The [release receipt](../operations/release-2026-11-12-nest-native-cutover.md)
+  distinguishes public smoke from full local/CI authorized behavior.

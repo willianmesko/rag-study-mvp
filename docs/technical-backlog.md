@@ -2,15 +2,15 @@
 
 ## Current framework migration (2026-11-12)
 
-BE-17 now includes native Nest controllers and guards, HTTP feature modules and
-Nest-owned runtime modules. Local route parity, PostgreSQL and Prisma validation
-has passed; the current increment still awaits its own CI and production receipt.
-The first increment passed all four CI gates at `3168f54`
-([run](https://github.com/willianmesko/rag-study-mvp/actions/runs/43238220630)).
-See the [BE-17 checklist](#be-17--incremental-nestjsfastify-migration-and-prisma-pilot)
-and [decision/evidence](decisions/2026-11-12-nest-prisma-pilot.md).
-The historical status counts below predate this additional ticket (28 tickets
-including BE-17).
+BE-17's native controller/guard and runtime-module cutover is **published** in the
+API at `448c91e` (2026-11-12). All four CI gates passed for implementation
+`c1a0c19`; both commits have the same source tree. Native route parity,
+PostgreSQL/Prisma, runtime image/OCR and public production checks passed.
+See the [release receipt](operations/release-2026-11-12-nest-native-cutover.md),
+[BE-17 checklist](#be-17--incremental-nestjsfastify-migration-and-prisma-pilot)
+and [decision](decisions/2026-11-12-nest-prisma-pilot.md).
+A second Prisma CRUD benchmark remains a follow-up. The historical status counts
+below predate this additional ticket (28 tickets including BE-17).
 
 Reviewed on **2026-11-07**, against source commit
 `e25572d6118efbdb84190367a039526775fbd0b2`.
@@ -673,8 +673,8 @@ Those remain separate scoped decisions in the product backlog.
 
 ### BE-17 — Incremental NestJS/Fastify migration and Prisma pilot
 
-**Priority:** P1 · **Status:** native controller/module cutover locally validated;
-current CI and production rollout pending.
+**Priority:** P1 · **Status:** native controller/guard/module cutover published;
+second Prisma CRUD candidate remains open.
 
 **Owner authorization:** NestJS with Fastify, Nest DI and a bounded Prisma pilot
 were explicitly requested on 2026-11-12. This supersedes the earlier restriction
@@ -706,8 +706,13 @@ CRUD repositories repeat SQL mapping. Keep business ports and specialized SQL.
 - [x] Observe all four CI quality gates for implementation `3168f54`, including
   the new required Prisma gate, SQL/MCP isolation, API image/native OCR and UX.
   [CI receipt](https://github.com/willianmesko/rag-study-mvp/actions/runs/43238220630).
-- [ ] Validate the target-environment rollout/smoke before marking any part
-  published. No production deploy is claimed.
+- [x] Observe all four gates for the native cutover `c1a0c19`
+  ([run](https://github.com/willianmesko/rag-study-mvp/actions/runs/43254838430)).
+  Updated backend suite: 455 pass, one pre-existing conditional skip.
+- [x] Publish merged source `448c91e`; Render API deploy
+  `dep-dbquc3lg1s2s73888970` confirmed live. Verify health, private authorization,
+  OAuth discovery/errors, MCP challenge, frontend CORS, 404 and bounded error logs.
+  [Production receipt](operations/release-2026-11-12-nest-native-cutover.md).
 - [x] Migrate all existing HTTP features to decorated Nest controllers and explicit
   access policies/guards: workspaces, members, knowledge, ingestion, usage,
   evaluations, chat/model catalog, conversations, MCP access/actions, OAuth and

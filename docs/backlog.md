@@ -791,10 +791,12 @@ Update this file after a validated delivery and retain the remaining open work.
 
 ## Backend framework migration — requested 2026-11-12
 
-- [ ] **BE-17 release: NestJS + Fastify + Nest DI, Prisma pilot.** Native
-  controllers/guards, HTTP modules and runtime DI modules are implemented. Route
-  parity and real PostgreSQL/Prisma checks pass locally. The current source still
-  requires its own CI and production rollout receipt before being marked released.
-  A second Prisma CRUD candidate remains a separately benchmarked follow-up. See
-  [technical acceptance criteria](technical-backlog.md#be-17--incremental-nestjsfastify-migration-and-prisma-pilot)
-  and the [decision record](decisions/2026-11-12-nest-prisma-pilot.md).
+- [x] **BE-17 native API release: NestJS + Fastify + Nest DI, Prisma pilot.**
+  Controllers, guards, HTTP modules and runtime DI modules are published in the
+  API at `448c91e`. All four CI gates passed for source `c1a0c19` with the same
+  tree; route parity, PostgreSQL/Prisma, OCR/image and public production checks
+  passed. See the [release receipt](operations/release-2026-11-12-nest-native-cutover.md)
+  and [technical checklist](technical-backlog.md#be-17--incremental-nestjsfastify-migration-and-prisma-pilot).
+- [ ] **Prisma follow-up:** benchmark a second ordinary CRUD repository, with
+  explicit transaction, RLS and concurrency criteria before extending the pilot.
+  Specialized vector, lease and outbox SQL remain preserved.
