@@ -1,31 +1,63 @@
-import type { FastifyPluginAsync } from "fastify";
-import { z } from "zod";
-import type { BudgetAlertService } from "./application/ports/budget-alert-service.js";
-import type { UsageSummary } from "./application/ports/usage-metrics-repository.js";
-import { rejectScope, type WorkspaceAuthorizer } from "../../platform/http/workspace-authorization.js";
-
-export type OperationsRoutesDependencies = {
-  authorizeOwner: WorkspaceAuthorizer;
-  budgetAlerts?: Pick<BudgetAlertService, "status" | "replay" | "configured">;
-  getUsageSummary: (tenantId: string, days: number) => Promise<UsageSummary>;
-  usageAlertThresholdUsd: () => number;
-};
-export const operationsRoutes: FastifyPluginAsync<OperationsRoutesDependencies> = async (app, dependencies) => {
-  const { authorizeOwner } = dependencies;
-  app.get('/v1/admin/alerts',async(request,reply)=>{const owner=await authorizeOwner(request,true);if(!owner.ok)return rejectScope(reply,owner);return dependencies.budgetAlerts?dependencies.budgetAlerts.status(owner.tenantId):reply.code(503).send({error:'Budget notifications are unavailable.'});});
-  app.post('/v1/admin/alerts/:id/replay',{bodyLimit:2048,config:{rateLimit:{max:6}}},async(request,reply)=>{
-    const owner=await authorizeOwner(request,true);if(!owner.ok)return rejectScope(reply,owner);
-    if(!dependencies.budgetAlerts?.configured)return reply.code(503).send({error:'Budget notifications are not configured.'});
-    const {id}=z.strictObject({id:z.uuid()}).parse(request.params);
-    const {expectedAttempts}=z.strictObject({expectedAttempts:z.number().int().min(1).max(8)}).parse(request.body);
-    const idempotencyKey=z.string().min(16).max(128).regex(/^[A-Za-z0-9_-]+$/).parse(request.headers['idempotency-key']);
-    return dependencies.budgetAlerts.replay({tenantId:owner.tenantId,actorId:owner.userId,id,expectedAttempts,idempotencyKey});
-  });
-  app.get("/v1/admin/usage", async (request, reply) => {
-    const authorization = await authorizeOwner(request, true);
-    if (!authorization.ok) return rejectScope(reply, authorization);
-    const { days } = z.strictObject({ days: z.coerce.number().int().min(1).max(90).default(30) }).parse(request.query);
-    const summary = await dependencies.getUsageSummary(authorization.tenantId, days);
-    return { days, summary, alert: { thresholdUsd: dependencies.usageAlertThresholdUsd(), triggered: (summary.effectiveCostUsd ?? summary.estimatedCostUsd) >= dependencies.usageAlertThresholdUsd() } };
-  });
-};
+import { Controller, Get, Head, HttpCode, Inject, Post, Req, Res, UseGuards, UseInterceptors } from '@nestjs/common';
+import { RouteConfig } from '@nestjs/platform-fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { HttpReplyInterceptor } from "../../platform/http/nest-http-reply.interceptor.js";
+import { WorkspaceAccess, WorkspaceRoleGuard } from '../../platform/http/nest-workspace.guard.js';
+import { createOperationsHandlers, OPERATIONS_HTTP, type OperationsRoutesDependencies } from './http/operations.handlers.js';
+@Controller()
+@UseInterceptors(HttpReplyInterceptor)
+@UseGuards(WorkspaceRoleGuard)
+export class OperationsController {
+    private readonly handlers;
+    constructor(
+    @Inject(OPERATIONS_HTTP)
+    dependencies: OperationsRoutesDependencies) { this.handlers = createOperationsHandlers(dependencies); }
+    @Get('/v1/admin/alerts')
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: {} })
+    @WorkspaceAccess({ role: 'owner', explicit: true })
+    alerts(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.alerts(request, reply); }
+    @Head('/v1/admin/alerts')
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: {} })
+    @WorkspaceAccess({ role: 'owner', explicit: true })
+    alertsHead(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.alerts(request, reply); }
+    @Post('/v1/admin/alerts/:id/replay')
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: { bodyLimit: 2048, config: { rateLimit: { max: 6 } } } })
+    @WorkspaceAccess({ role: 'owner', explicit: true })
+    replayAlert(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.replayAlert(request, reply); }
+    @Get("/v1/admin/usage")
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: {} })
+    @WorkspaceAccess({ role: 'owner', explicit: true })
+    usage(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.usage(request, reply); }
+    @Head("/v1/admin/usage")
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: {} })
+    @WorkspaceAccess({ role: 'owner', explicit: true })
+    usageHead(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.usage(request, reply); }
+}
+// Explicit compatibility exports for CLI/transport fixtures.
+export { createOperationsHandlers, OPERATIONS_HTTP, operationsRoutes } from './http/operations.handlers.js';
+export type { OperationsRoutesDependencies } from './http/operations.handlers.js';

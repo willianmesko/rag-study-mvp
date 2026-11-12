@@ -1,0 +1,10 @@
+export const CORE_RUNTIME = Symbol('core-runtime');
+export const USAGE_RUNTIME = Symbol('usage-runtime');
+export const WORKSPACES_RUNTIME = Symbol('workspaces-runtime');
+export const AI_RUNTIME = Symbol('ai-runtime');
+export const KNOWLEDGE_RUNTIME = Symbol('knowledge-runtime');
+export const CHAT_RUNTIME = Symbol('chat-runtime');
+export const EVALUATIONS_RUNTIME = Symbol('evaluations-runtime');
+export const WORKFLOWS_RUNTIME = Symbol('workflows-runtime');
+export const INGESTION_RUNTIME = Symbol('ingestion-runtime');
+export const MCP_RUNTIME = Symbol('mcp-runtime');

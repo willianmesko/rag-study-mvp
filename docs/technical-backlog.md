@@ -2,14 +2,15 @@
 
 ## Current framework migration (2026-11-12)
 
-BE-17 is the active incremental NestJS/Fastify + Prisma migration. Its first
-local increment is validated; native feature controllers, full Nest module
-conversion and production rollout remain open. All four CI gates passed for
-implementation commit `3168f54` ([run](https://github.com/willianmesko/rag-study-mvp/actions/runs/43238220630)). See the
-[BE-17 checklist](#be-17--incremental-nestjsfastify-migration-and-prisma-pilot)
-and [decision/evidence](decisions/2026-11-12-nest-prisma-pilot.md). The historical
-status counts below predate this additional ticket (28 tickets including BE-17).
-
+BE-17 now includes native Nest controllers and guards, HTTP feature modules and
+Nest-owned runtime modules. Local route parity, PostgreSQL and Prisma validation
+has passed; the current increment still awaits its own CI and production receipt.
+The first increment passed all four CI gates at `3168f54`
+([run](https://github.com/willianmesko/rag-study-mvp/actions/runs/43238220630)).
+See the [BE-17 checklist](#be-17--incremental-nestjsfastify-migration-and-prisma-pilot)
+and [decision/evidence](decisions/2026-11-12-nest-prisma-pilot.md).
+The historical status counts below predate this additional ticket (28 tickets
+including BE-17).
 
 Reviewed on **2026-11-07**, against source commit
 `e25572d6118efbdb84190367a039526775fbd0b2`.
@@ -672,8 +673,8 @@ Those remain separate scoped decisions in the product backlog.
 
 ### BE-17 — Incremental NestJS/Fastify migration and Prisma pilot
 
-**Priority:** P1 · **Status:** active migration; first increment under validation,
-not a complete backend conversion or a production rollout.
+**Priority:** P1 · **Status:** native controller/module cutover locally validated;
+current CI and production rollout pending.
 
 **Owner authorization:** NestJS with Fastify, Nest DI and a bounded Prisma pilot
 were explicitly requested on 2026-11-12. This supersedes the earlier restriction
@@ -707,9 +708,17 @@ CRUD repositories repeat SQL mapping. Keep business ports and specialized SQL.
   [CI receipt](https://github.com/willianmesko/rag-study-mvp/actions/runs/43238220630).
 - [ ] Validate the target-environment rollout/smoke before marking any part
   published. No production deploy is claimed.
-- [ ] Migrate model-policy/catalog handlers into native Nest controllers/guards
-  with identical routes, bodies, limits, authorization and response contracts.
-- [ ] Replace the transitional application factory feature by feature with Nest
-  modules/providers. No Nest/Prisma imports in domain/application code.
+- [x] Migrate all existing HTTP features to decorated Nest controllers and explicit
+  access policies/guards: workspaces, members, knowledge, ingestion, usage,
+  evaluations, chat/model catalog, conversations, MCP access/actions, OAuth and
+  remote MCP. Preserve conditional demo/legacy authority and validation ordering.
+- [x] Compare the complete native and compatibility inventories: 55 routes with
+  optional features disabled and 98 enabled, including HEAD, body and rate limits.
+  Disable automatic HEAD and expose only the original explicit contracts.
+- [x] Replace the API's transitional `createApplication` provider with Nest runtime
+  modules for core/identity, usage, workspaces, AI, knowledge, chat, evaluations,
+  workflows, ingestion and MCP. Reuse small outer factories for CLI composition;
+  keep Nest/Prisma out of application/domain code. Verify startup and disposal
+  using the real DI graph and migrated PostgreSQL.
 - [ ] Review a second Prisma CRUD candidate and benchmark connection/query cost;
   preserve vector retrieval, RLS, locks, leases, transactions and outbox semantics.

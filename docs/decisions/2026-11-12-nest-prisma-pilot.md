@@ -1,6 +1,7 @@
 # NestJS/Fastify migration and Prisma pilot
 
-Status: implemented increment; local and remote CI verified. Not deployed.
+Status: initial increment verified locally and in CI; subsequent native-controller
+and runtime-module cutover locally validated, awaiting its own CI and rollout.
 
 ## Decision and scope
 
@@ -21,36 +22,45 @@ This increment changes the actual API entry point, not just directory names:
 - `PilotPersistenceModule` binds the workspace model-policy repository port to
   `PrismaWorkspaceModelPolicyRepository` through a factory provider.
 - `HealthController` is a native Nest controller and preserves `/health`.
-- Existing route plugins are registered on the same Fastify instance under an
-  encapsulated compatibility scope. Paths, authentication, workspace selection,
-  rate limits, body limits, SSE and cancellation are retained.
+- All HTTP business features now use native decorated controllers in feature HTTP
+  modules. Explicit guards own role/session/consent policies; specialized handlers
+  preserve conditional demo/legacy validation ordering.
+- Runtime modules inject ten capability groups with Nest factory providers. The
+  API does not call the transitional `createApplication`; CLIs reuse the same
+  small outer composition factories.
+- Transport hooks retain the original safe errors, multipart/rate-limit plugins,
+  request IDs, cancellation and shutdown. Native route metadata carries limits.
+  Automatic HEAD is disabled; explicit HEAD methods preserve the old contract.
 
 ```mermaid
 flowchart TD
   Entry[API entry point] --> Nest[Nest application and DI]
-  Nest --> Health[Native HealthController]
-  Nest --> Legacy[Fastify compatibility route plugins]
-  Nest --> Factory[Transitional application factory]
-  Nest --> PrismaModule[PilotPersistenceModule]
-  PrismaModule --> Port[WorkspaceModelPolicyRepository]
-  Port --> Prisma[Prisma adapter]
+  Nest --> HTTP[Feature HTTP modules]
+  HTTP --> Guards[Role / MCP / consent guards]
+  Guards --> Controllers[Native controllers and transport handlers]
+  Nest --> Runtime[Ten runtime modules]
+  Runtime --> Factories[Small composition factories]
+  Controllers --> Ports[Business use cases / ports]
+  Factories --> Ports
+  Runtime --> PrismaModule[PilotPersistenceModule]
+  PrismaModule --> Prisma[Prisma model-policy adapter]
   Prisma --> Existing[(Existing workspace_chat_model_policies)]
-  Factory --> SQL[Existing SQL repositories and pgvector]
-  Legacy --> Factory
+  Factories --> SQL[Existing SQL repositories and pgvector]
 ```
 
-## What remains transitional
+## Remaining bounded scope
 
-Most business controllers still use their tested Fastify route plugins, and most
-feature construction remains in `createApplication`. A Nest factory provider
-owns that composition as a bridge; this is not a claim that every feature is
-already an independent Nest module. Future increments should migrate one feature's
-controller, guards, services and providers at a time. Application/domain ports
-remain independent of Nest and Prisma.
+The standalone CLI and MCP entry points reuse the composition factories without
+booting an HTTP server. Compatibility registration helpers remain available to
+focused transport fixtures but are not used by the production Nest dispatch.
+Business ports remain independent of Nest and Prisma. HTTP request/response
+validation still uses the established Zod schemas, rather than replacing all
+contracts with new DTO/decorator libraries in this migration.
 
-The standalone CLI and MCP entry points retain their current compositions.
-The legacy SQL model-policy adapter remains for those entry points and rollback;
-the production API runtime receives the Prisma adapter through Nest DI.
+The legacy SQL model-policy adapter remains for standalone entry points and
+rollback. The production API receives the Prisma implementation through Nest DI.
+A second Prisma repository requires a separate benchmark and acceptance decision;
+specialized SQL and hosted schema changes are outside this cutover.
 
 ## Prisma scope and database safety
 
@@ -80,9 +90,8 @@ client from the build stage; the Prisma CLI remains a development dependency.
 ## Compatibility and verification
 
 Nest's default exception handling would change existing Zod and provider-budget
-errors. Compatibility plugins therefore retain their existing Fastify error
-policy in their own scope. A Nest exception filter reuses that policy for
-Nest-owned/global failures and unwraps Fastify's mapped causes. Error contents
+errors. A Nest exception filter reuses the existing safe HTTP error policy and unwraps
+Fastify's mapped causes. OAuth routes retain their protocol-specific error shape. Error contents
 remain sanitized. Existing critical behavior suites now exercise the real Nest
 bootstrap, rather than validating only the old factory.
 
@@ -135,14 +144,29 @@ The subsequent documentation-only receipt commit does not change runtime code.
 Verification status is recorded in the technical backlog. No production rollout
 or hosted load-capacity claim follows from these local tests.
 
-## Next increments
+## Follow-up scope
 
-1. Migrate model-policy/catalog HTTP handlers to native Nest controllers/guards
-   while preserving per-route body limits and disabled automatic HEAD routes.
-2. Move feature construction from the transitional factory into feature Nest
-   modules with explicit port tokens. Keep use cases framework independent.
-3. Pilot Prisma on another ordinary CRUD repository only after reviewing its
-   transactions, RLS and concurrency invariants. Retain specialized retrieval,
-   leases, outbox and vector SQL until an equivalent is measured and verified.
-4. Validate CI, runtime images and a staging/production smoke before rollout;
-   verify real streaming, cancellation, authentication and usage traces there.
+Review another ordinary CRUD repository only after benchmarking its transactions,
+RLS and concurrency invariants. Retain specialized retrieval, leases, outbox and
+vector SQL unless an equivalent is measured and verified. Hosted streaming,
+usage/tracing and capacity must be checked separately from local fixture evidence.
+
+## Native cutover verification (2026-11-12)
+
+- Native/compatibility route inventories match: 55 method/path entries without
+  optional features and 98 with conversations, MCP/OAuth and approved actions.
+  This comparison includes HEAD, configured body limits and per-route rate limits.
+  It caught and prevented automatic HEAD exposure on seven previously excluded GETs.
+- Request-local membership/principal reuse avoids duplicate guard/handler reads;
+  there is no role or consent cache spanning requests.
+- Real local PostgreSQL: 100 checks passed with zero skips; Prisma runtime/SQL
+  interoperability and owner/viewer/non-member test passed through actual Nest DI.
+- Structural/runtime dependency graphs passed; 80 architectural fixtures passed.
+- Backend suite: 455 pass, one pre-existing conditional skip. Strict API/web
+  types and all seven evaluation harness checks pass. The final API image passes
+  both native OCR cases and health/auth/404/SIGTERM smoke (clean exit 0).
+- A native response interceptor preserves manual error/download/SSE delivery
+  without duplicate sends; a regression test asserts unchanged safe failure
+  bodies and zero duplicate-response warnings.
+- Current CI and deployment receipts will be added after they complete. Prior
+  increment CI evidence above must not be read as validation of a later commit.
