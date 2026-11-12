@@ -1,77 +1,81 @@
-import type { FastifyPluginAsync } from "fastify";
-import { z } from "zod";
-import { workspaceMemberRoleSchema } from "@rag-study/contracts";
-import type { MemberDirectory } from "../identity/index.js";
-import type { TenantMembershipRepository } from "./application/ports/tenant-membership-repository.js";
-import type { InviteWorkspaceMember } from "./application/integrations/workspace-invitations.js";
-import type { InvitationDeliveryHistory } from "./application/ports/invitation-delivery-history.js";
-import { rejectScope, type WorkspaceAuthorizer } from "../../platform/http/workspace-authorization.js";
-import { withReplySignal } from "../../platform/http/reply-signal.js";
-
-const invitationSchema = z.object({ email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()), role: workspaceMemberRoleSchema });
-const memberRoleSchema = z.object({ role: workspaceMemberRoleSchema });
-
-export type WorkspaceTeamRoutesDependencies = {
-  authorizeOwner: WorkspaceAuthorizer;
-  memberDirectory: MemberDirectory;
-  listWorkspaceMembers: TenantMembershipRepository["listMembers"];
-  changeWorkspaceMemberRole: TenantMembershipRepository["changeMemberRole"];
-  removeWorkspaceMember: TenantMembershipRepository["removeMember"];
-  inviteWorkspaceMember?: Pick<InviteWorkspaceMember, "execute">;
-  listInvitationDeliveries?: InvitationDeliveryHistory["list"];
-  isMemberDirectoryConfigured: () => boolean;
-  isInvitationConfigured: () => boolean;
-  shutdown: AbortSignal;
-};
-
-export const workspaceTeamRoutes: FastifyPluginAsync<WorkspaceTeamRoutesDependencies> = async (app, dependencies) => {
-  const { authorizeOwner, memberDirectory } = dependencies;
-  app.get("/v1/workspaces/:workspaceId/members", async (request, reply) => {
-    const authorization = await authorizeOwner(request);
-    if (!authorization.ok) return rejectScope(reply, authorization);
-    const { workspaceId } = z.object({ workspaceId: z.string().uuid() }).parse(request.params);
-    if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
-    if (!dependencies.isMemberDirectoryConfigured()) return reply.code(503).send({ error: "Member management is not configured." });
-    const members = await dependencies.listWorkspaceMembers(authorization.tenantId);
-    const emails = await withReplySignal(reply, dependencies.shutdown, (signal) =>
-      memberDirectory.emailsForMembers(members.map((member) => member.userId), signal));
-    return { members: members.map((member) => ({ userId: member.userId, email: emails.get(member.userId) ?? null, role: member.role, createdAt: member.createdAt.toISOString() })) };
-  });
-  app.get('/v1/workspaces/:workspaceId/invitation-deliveries',async(request,reply)=>{
-    const owner=await authorizeOwner(request,true);if(!owner.ok)return rejectScope(reply,owner);
-    const {workspaceId}=z.strictObject({workspaceId:z.uuid()}).parse(request.params);
-    if(workspaceId!==owner.tenantId)return reply.code(403).send({error:'Select the workspace you want to manage.'});
-    return {deliveries:await dependencies.listInvitationDeliveries?.(owner.tenantId)??[]};
-  });
-  app.post("/v1/workspaces/:workspaceId/invitations", {bodyLimit:2048,config:{rateLimit:{max:6}}}, async (request, reply) => {
-    const authorization = await authorizeOwner(request);
-    if (!authorization.ok) return rejectScope(reply, authorization);
-    const { workspaceId } = z.object({ workspaceId: z.string().uuid() }).parse(request.params);
-    if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
-    if (!dependencies.isInvitationConfigured()) return reply.code(503).send({ error: "Invitations are not configured." });
-    const input = invitationSchema.parse(request.body);
-    if(!dependencies.inviteWorkspaceMember)return reply.code(503).send({error:'Invitation delivery is unavailable.'});
-    const idempotencyKey=z.string().min(16).max(128).regex(/^[A-Za-z0-9_-]+$/).optional().parse(request.headers['idempotency-key']);
-    const member=await dependencies.inviteWorkspaceMember.execute({tenantId:authorization.tenantId,actorId:authorization.userId,requestId:request.id,...input,idempotencyKey});
-    return reply.code(201).send({member});
-  });
-  app.patch("/v1/workspaces/:workspaceId/members/:userId", async (request, reply) => {
-    const authorization = await authorizeOwner(request);
-    if (!authorization.ok) return rejectScope(reply, authorization);
-    const { workspaceId, userId } = z.object({ workspaceId: z.string().uuid(), userId: z.string().uuid() }).parse(request.params);
-    if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
-    const { role } = memberRoleSchema.parse(request.body);
-    const updated = await dependencies.changeWorkspaceMemberRole({ tenantId: authorization.tenantId, userId, role });
-    if (!updated) return reply.code(409).send({ error: "Owners cannot have their role changed." });
-    return reply.code(204).send();
-  });
-  app.delete("/v1/workspaces/:workspaceId/members/:userId", async (request, reply) => {
-    const authorization = await authorizeOwner(request);
-    if (!authorization.ok) return rejectScope(reply, authorization);
-    const { workspaceId, userId } = z.object({ workspaceId: z.string().uuid(), userId: z.string().uuid() }).parse(request.params);
-    if (workspaceId !== authorization.tenantId) return reply.code(403).send({ error: "Select the workspace you want to manage." });
-    const removed = await dependencies.removeWorkspaceMember({ tenantId: authorization.tenantId, userId });
-    if (!removed) return reply.code(409).send({ error: "Owners cannot be removed." });
-    return reply.code(204).send();
-  });
-};
+import { Controller, Delete, Get, Head, HttpCode, Inject, Patch, Post, Req, Res, UseGuards, UseInterceptors } from '@nestjs/common';
+import { RouteConfig } from '@nestjs/platform-fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { HttpReplyInterceptor } from "../../platform/http/nest-http-reply.interceptor.js";
+import { WorkspaceAccess, WorkspaceRoleGuard } from '../../platform/http/nest-workspace.guard.js';
+import { createWorkspaceTeamHandlers, WORKSPACE_TEAM_HTTP, type WorkspaceTeamRoutesDependencies } from './http/workspace-team.handlers.js';
+@Controller()
+@UseInterceptors(HttpReplyInterceptor)
+@UseGuards(WorkspaceRoleGuard)
+export class WorkspaceTeamController {
+    private readonly handlers;
+    constructor(
+    @Inject(WORKSPACE_TEAM_HTTP)
+    dependencies: WorkspaceTeamRoutesDependencies) { this.handlers = createWorkspaceTeamHandlers(dependencies); }
+    @Get("/v1/workspaces/:workspaceId/members")
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: {} })
+    @WorkspaceAccess({ role: 'owner', explicit: false })
+    listMembers(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.listMembers(request, reply); }
+    @Head("/v1/workspaces/:workspaceId/members")
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: {} })
+    @WorkspaceAccess({ role: 'owner', explicit: false })
+    listMembersHead(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.listMembers(request, reply); }
+    @Get('/v1/workspaces/:workspaceId/invitation-deliveries')
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: {} })
+    @WorkspaceAccess({ role: 'owner', explicit: true })
+    listInvitationDeliveries(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.listInvitationDeliveries(request, reply); }
+    @Head('/v1/workspaces/:workspaceId/invitation-deliveries')
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: {} })
+    @WorkspaceAccess({ role: 'owner', explicit: true })
+    listInvitationDeliveriesHead(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.listInvitationDeliveries(request, reply); }
+    @Post("/v1/workspaces/:workspaceId/invitations")
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: { bodyLimit: 2048, config: { rateLimit: { max: 6 } } } })
+    @WorkspaceAccess({ role: 'owner', explicit: false })
+    invite(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.invite(request, reply); }
+    @Patch("/v1/workspaces/:workspaceId/members/:userId")
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: {} })
+    @WorkspaceAccess({ role: 'owner', explicit: false })
+    changeRole(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.changeRole(request, reply); }
+    @Delete("/v1/workspaces/:workspaceId/members/:userId")
+    @HttpCode(200)
+    @RouteConfig({ lumoraHttp: {} })
+    @WorkspaceAccess({ role: 'owner', explicit: false })
+    removeMember(
+    @Req()
+    request: FastifyRequest,
+    @Res()
+    reply: FastifyReply) { return this.handlers.removeMember(request, reply); }
+}
+// Explicit compatibility exports for CLI/transport fixtures.
+export { createWorkspaceTeamHandlers, WORKSPACE_TEAM_HTTP, workspaceTeamRoutes } from './http/workspace-team.handlers.js';
+export type { WorkspaceTeamRoutesDependencies } from './http/workspace-team.handlers.js';

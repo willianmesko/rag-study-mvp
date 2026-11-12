@@ -3,7 +3,7 @@ import test, { type TestContext } from "node:test";
 import { mcpReadToolInputSchemas, type McpReadToolName } from "@rag-study/contracts";
 import type { AuditEventRepository } from "../../modules/usage/application/ports/audit-event-repository.js";
 import { parseRuntimeConfiguration } from "../configuration/environment.js";
-import { buildApp } from "../http-server.js";
+import { buildNestTestApp as buildApp } from "./nest-http-test-fixture.js";
 
 const tenantId = "11000000-0000-4000-8000-000000000001";
 const otherTenantId = "11000000-0000-4000-8000-000000000002";

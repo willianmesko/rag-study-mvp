@@ -17,7 +17,7 @@ adapters can each be inspected and replaced independently.
 ```mermaid
 flowchart LR
   U[User] --> W[React web application]
-  W -->|Supabase access token| A[Fastify API]
+  W -->|Supabase access token| A[NestJS / Fastify API]
   A --> P[(PostgreSQL + pgvector)]
   A --> S[Supabase private Storage]
   A --> E[Embedding provider]
@@ -260,36 +260,51 @@ and release status are separate from the first module-organization delivery.
 
 ## API architecture
 
-The API is a modular monolith with NestJS-inspired feature organization and
-native Fastify controllers/factories. Clean Architecture boundaries apply inside
-each business module. Technical resources live under `platform`; overall
-composition lives under `app`.
+The API is a modular monolith running NestJS on the Fastify adapter. Standard Nest
+controllers, guards, modules and factory providers own HTTP dispatch and runtime
+composition. Clean Architecture boundaries remain inside each business module;
+domain/application code depends on capability ports, not Nest, Prisma or vendors.
 
 ```mermaid
 flowchart TB
-  B[app / app.module.ts] --> Factory[Feature module factories]
-  Factory --> H[Feature HTTP controllers]
-  Factory --> I[Feature infrastructure adapters]
-  H --> UC[Feature application use cases]
-  UC --> D[Feature domain policies and records]
-  UC --> Ports[Feature ports]
-  I --> Ports
-  Factory --> Platform[Shared platform resources]
+  Entry[server.ts] --> Nest[NestApplicationModule]
+  Nest --> Http[Feature HTTP modules]
+  Http --> Guards[Workspace / consent / MCP guards]
+  Guards --> Controllers[Decorated native controllers]
+  Controllers --> Handlers[HTTP input and response handlers]
+  Handlers --> UC[Application use cases and ports]
+  Nest --> Runtime[Runtime modules and Nest DI]
+  Runtime --> Factories[Small outer composition factories]
+  Factories --> Adapters[SQL / Prisma / model / graph / storage adapters]
+  Adapters --> UC
+  Runtime --> Platform[Shared security / transport / lifecycle]
 ```
 
-- **Modules** group Identity, Workspaces, Knowledge, Ingestion, Chat, AI,
-  Evaluations, MCP, Usage and product Workflows.
-- **Domain/policy** contains pure rules without HTTP, database or SDK dependencies.
-- **Application services** implement use cases such as ingesting a document, searching,
-  answering a question, queueing uploads, and managing members.
-- **Ports** describe capabilities such as embedding, retrieval, file storage,
-  quotas, audit events, and answer generation.
-- **Infrastructure** adapts PostgreSQL/pgvector, Supabase Storage, Ollama,
-  OpenRouter, Bedrock, Jina, LangGraph, and LangSmith to those ports.
-- **Controllers** translate HTTP input into authorized application calls.
-- **Module factories** assemble related providers from explicit resources/config.
-- **Application composition** connects exported capabilities and owns lifecycle.
-- **Platform** contains shared SQL/transport/security/execution facilities.
+- **HTTP modules** group workspaces/team, knowledge, ingestion, chat/conversations,
+  evaluations, usage and MCP/OAuth. Controllers retain existing endpoint paths.
+- **Guards** enforce explicit workspace roles, consent/session access and credential
+  protocols. Conditional demo/legacy rules remain in their transport handlers to
+  preserve validation ordering. Membership decisions are reused only within one
+  request; revocation and role changes are checked again on the next request.
+- **Runtime modules** connect core/identity, usage, workspaces, AI, knowledge, chat,
+  evaluations, workflows, ingestion and MCP through explicit injection tokens.
+  Nest owns their lifetimes and resource disposal, without a custom DI container.
+- **Composition factories** select concrete adapters outside business modules.
+  Standalone CLIs reuse these factories; the API no longer calls `createApplication`.
+- **Prisma** implements the workspace model-policy repository pilot. SQL migrations
+  remain authoritative; vector retrieval, RLS, leases, outbox and specialized SQL
+  are preserved. Prisma's pilot pool is separately bounded to two connections.
+- **Transport policy** retains native Fastify multipart/rate-limit plugins, safe
+  errors, request IDs, cancellation and security headers. Nest route metadata
+  carries per-route limits. Explicit HEAD methods preserve the previous surface
+  without creating HEAD readers for SSE or original-document downloads.
+- **Lifecycle** stops HTTP admission and cancels streaming before draining workers,
+  closing Nest-managed pools and flushing telemetry. Conversation recovery starts
+  at application bootstrap and closes with its controller.
+
+See [BE-17 migration evidence](decisions/2026-11-12-nest-prisma-pilot.md) for
+verification and release status. Compatibility route registration helpers remain
+for standalone behavior fixtures, not for dispatch in the production Nest API.
 
 This separation allows a model provider to be changed without rewriting a use
 case, and enables deterministic fakes in tests.
@@ -788,3 +803,13 @@ The frontend and API are verified live at `a590360`; the
 distinguishes four passing CI gates and production checks from pending operational
 activation and later architecture work. Phase 2 source changes remain unpublished
 until their own verification and release.
+
+## NestJS/Fastify transition and Prisma pilot (2026-11-12)
+
+The API candidate boots through NestJS with its Fastify adapter. Decorated feature
+controllers and guards handle the existing endpoints, and ten runtime modules
+compose capability groups through Nest DI. The standalone CLI still reuses small
+outer factories; the API no longer calls the transitional application factory.
+Prisma maps the existing workspace model-policy table; SQL migrations, RLS,
+pgvector and specialized SQL remain authoritative. See the
+[decision, commands and release status](decisions/2026-11-12-nest-prisma-pilot.md).

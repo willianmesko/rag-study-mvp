@@ -1,5 +1,17 @@
 # Technical architecture backlog
 
+## Current framework migration (2026-11-12)
+
+BE-17 now includes native Nest controllers and guards, HTTP feature modules and
+Nest-owned runtime modules. Local route parity, PostgreSQL and Prisma validation
+has passed; the current increment still awaits its own CI and production receipt.
+The first increment passed all four CI gates at `3168f54`
+([run](https://github.com/willianmesko/rag-study-mvp/actions/runs/43238220630)).
+See the [BE-17 checklist](#be-17--incremental-nestjsfastify-migration-and-prisma-pilot)
+and [decision/evidence](decisions/2026-11-12-nest-prisma-pilot.md).
+The historical status counts below predate this additional ticket (28 tickets
+including BE-17).
+
 Reviewed on **2026-11-07**, against source commit
 `e25572d6118efbdb84190367a039526775fbd0b2`.
 
@@ -658,3 +670,55 @@ For every ticket:
 No AWS, Terraform, GitLab, Redis, alternative ORM/router/UI framework, new hosted
 monitoring backend or write-capable MCP action is introduced by this review.
 Those remain separate scoped decisions in the product backlog.
+
+### BE-17 — Incremental NestJS/Fastify migration and Prisma pilot
+
+**Priority:** P1 · **Status:** native controller/module cutover locally validated;
+current CI and production rollout pending.
+
+**Owner authorization:** NestJS with Fastify, Nest DI and a bounded Prisma pilot
+were explicitly requested on 2026-11-12. This supersedes the earlier restriction
+on installing migration libraries for this specific scope.
+
+**Problem:** `app/app.module.ts` manually composes growing feature factories;
+`app/http-server.ts` mixes registration, cross-cutting HTTP policies and feature
+wiring. Existing controller files are route-plugin functions, not Nest controllers.
+CRUD repositories repeat SQL mapping. Keep business ports and specialized SQL.
+
+**Decision and acceptance evidence:** [migration record](decisions/2026-11-12-nest-prisma-pilot.md).
+
+- [x] Implement Nest application bootstrap on the existing Fastify major version,
+  explicit DI tokens/factory providers and a native health controller, retaining
+  the existing API routes under a compatibility scope.
+- [x] Bind the existing workspace model-policy port to Prisma in the API runtime;
+  map the existing table without DDL or a competing migration history.
+- [x] Validate the pilot on real local PostgreSQL: SQL interoperability, tenant
+  isolation, owner/viewer/non-member authorization, allowlists, corrupt-record
+  rejection, RLS presence and disposal of the bounded two-connection pilot pool.
+- [x] Run existing model, authentication, error, streaming/cancellation, workspace,
+  onboarding and URL-import fixtures through the real Nest bootstrap. Backend
+  suite: 452 pass, one pre-existing conditional skip at this checkpoint.
+- [x] Validate strict types, both architecture graphs, all seven evaluation
+  harness checks and 100 real PostgreSQL checks without skips, including durable
+  conversations through Nest. Build the final API image with two passing native
+  OCR checks; verify health, private authorization and clean SIGTERM shutdown.
+  The extended architecture fixture suite is recorded in the decision receipt.
+- [x] Observe all four CI quality gates for implementation `3168f54`, including
+  the new required Prisma gate, SQL/MCP isolation, API image/native OCR and UX.
+  [CI receipt](https://github.com/willianmesko/rag-study-mvp/actions/runs/43238220630).
+- [ ] Validate the target-environment rollout/smoke before marking any part
+  published. No production deploy is claimed.
+- [x] Migrate all existing HTTP features to decorated Nest controllers and explicit
+  access policies/guards: workspaces, members, knowledge, ingestion, usage,
+  evaluations, chat/model catalog, conversations, MCP access/actions, OAuth and
+  remote MCP. Preserve conditional demo/legacy authority and validation ordering.
+- [x] Compare the complete native and compatibility inventories: 55 routes with
+  optional features disabled and 98 enabled, including HEAD, body and rate limits.
+  Disable automatic HEAD and expose only the original explicit contracts.
+- [x] Replace the API's transitional `createApplication` provider with Nest runtime
+  modules for core/identity, usage, workspaces, AI, knowledge, chat, evaluations,
+  workflows, ingestion and MCP. Reuse small outer factories for CLI composition;
+  keep Nest/Prisma out of application/domain code. Verify startup and disposal
+  using the real DI graph and migrated PostgreSQL.
+- [ ] Review a second Prisma CRUD candidate and benchmark connection/query cost;
+  preserve vector retrieval, RLS, locks, leases, transactions and outbox semantics.

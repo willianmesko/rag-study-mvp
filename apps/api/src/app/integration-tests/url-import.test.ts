@@ -5,7 +5,7 @@ import type { AuditEventRepository } from "../../modules/usage/application/ports
 import { PublicHtmlFetchError } from "../../modules/ingestion/application/ports/public-html-fetcher.js";
 import type { QueueDocumentUploadUseCase } from "../../modules/ingestion/application/use-cases/queue-document-upload.js";
 import { parseRuntimeConfiguration } from "../configuration/environment.js";
-import { buildApp } from "../http-server.js";
+import { buildNestTestApp as buildApp } from "./nest-http-test-fixture.js";
 
 const endpoint = "/v1/admin/uploads/url";
 const authUrl = "https://auth.example.test";

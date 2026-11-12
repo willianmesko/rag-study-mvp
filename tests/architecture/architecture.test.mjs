@@ -276,6 +276,8 @@ function sdkFixture(name) {
 
 const technologyCases = [
   ...[
+    { name: "application cannot import Nest provider types", sdk: "@nestjs/common", source: "application/use-cases/vendor.ts", type: true },
+    { name: "domain cannot import Prisma SDK values", sdk: "@prisma/client", source: "domain/vendor.ts", type: false },
     { name: "application cannot import an AWS SDK value", sdk: "@aws-sdk/client-bedrock-runtime", source: "application/use-cases/vendor.ts", type: false },
     { name: "domain cannot import PostgreSQL driver types", sdk: "pg", source: "domain/vendor.ts", type: true },
     { name: "module factory cannot import Supabase SDK types", sdk: "@supabase/supabase-js", source: "knowledge.module.ts", type: true },

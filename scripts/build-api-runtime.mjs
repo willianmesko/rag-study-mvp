@@ -6,6 +6,8 @@ import { inspectRuntimeArtifacts, inspectMigrationResources } from "./runtime-ar
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const output = resolve(root, "apps/api/dist");
+const generation = spawnSync(process.execPath, [resolve(root, "node_modules/prisma/build/index.js"), "generate", "--config", "apps/api/prisma.config.ts"], { cwd: root, stdio: "inherit" });
+if (generation.error || generation.status !== 0) process.exit(generation.status || 1);
 await rm(output, { recursive: true, force: true });
 const build = spawnSync(process.execPath, [resolve(root, "node_modules/typescript/bin/tsc"), "-p", "apps/api/tsconfig.runtime.json"], { cwd: root, stdio: "inherit" });
 if (build.error || build.status !== 0 || build.signal) process.exit(build.status || 1);

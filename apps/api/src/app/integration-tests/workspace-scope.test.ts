@@ -5,7 +5,7 @@ import type { TenantMembership } from "../../modules/workspaces/application/port
 import type { AnswerQuestionUseCase } from "../../modules/chat/application/use-cases/answer-question.js";
 import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import type { RetrievedChunk } from "../../modules/knowledge/domain/document.js";
-import { buildApp } from "../http-server.js";
+import { buildNestTestApp as buildApp } from "./nest-http-test-fixture.js";
 
 const supabaseUrl = "https://supabase.example.test";
 const actorId = "bd129ffe-fc9b-4174-ade4-d6dd673ae2d3";

@@ -4,8 +4,7 @@ import {
 } from "./app/observability/telemetry.js";
 import { setOperationalObserver } from "./platform/observability/observer.js";
 import { config } from "./config.js";
-import { createApplication } from "./app/app.module.js";
-import { buildApp } from "./app/http-server.js";
+import { createNestHttpServer } from "./app/nest/bootstrap.js";
 import { createShutdownCoordinator, type ShutdownReason } from "./platform/lifecycle/shutdown.js";
 
 async function main(): Promise<void> {
@@ -19,8 +18,9 @@ async function main(): Promise<void> {
       process.stdout.write(JSON.stringify(event) + "\n"),
     ),
   );
-  const application = createApplication(config);
-  const app = await buildApp(application.useCases, { configuration: config, isProduction: process.env.NODE_ENV === "production" });
+  const runtime = await createNestHttpServer(config, { isProduction: process.env.NODE_ENV === "production" });
+  const application = runtime.application!;
+  const app = runtime.fastify;
   let processing: Promise<void> | undefined;
   let pruning: Promise<void> | undefined;
   const lifecycle = createShutdownCoordinator({
@@ -28,7 +28,7 @@ async function main(): Promise<void> {
     stopBackground: () => { clearInterval(worker); clearInterval(cleanup); },
     closeHttp: () => app.close(),
     drain: async () => { await Promise.allSettled([processing, pruning]); },
-    closeResources: () => application.close(),
+    closeResources: () => runtime.nest.close(),
     flushTelemetry: () => telemetry.shutdown(),
     report: (event) => app.log.info(event, "Server shutdown."),
   });

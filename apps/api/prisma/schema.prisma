@@ -1,0 +1,16 @@
+// Pilot mapping only. Existing SQL migrations remain the schema authority.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model WorkspaceChatModelPolicy {
+  tenantId  String   @id @map("tenant_id") @db.Uuid
+  policy    Json    @db.JsonB
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("workspace_chat_model_policies")
+}

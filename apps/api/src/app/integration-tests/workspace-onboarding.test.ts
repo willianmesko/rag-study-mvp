@@ -3,7 +3,7 @@ import test, { type TestContext } from "node:test";
 import type { WorkspaceOnboardingProgress } from "@rag-study/contracts";
 import type { WorkspaceOnboardingScope } from "../../modules/workspaces/application/ports/workspace-onboarding-repository.js";
 import { parseRuntimeConfiguration } from "../configuration/environment.js";
-import { buildApp } from "../http-server.js";
+import { buildNestTestApp as buildApp } from "./nest-http-test-fixture.js";
 
 const authUrl = "https://guide.example.test";
 const primary = "78f3dc21-ad30-4753-be9c-5e9d32e2135f";

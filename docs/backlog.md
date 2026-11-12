@@ -788,3 +788,13 @@ against the reserved budget. See the [connection guide](workspace-mcp.md).
 Keep an item in In progress until the requested behavior and relevant checks
 pass. Record an operational activation separately when code already exists.
 Update this file after a validated delivery and retain the remaining open work.
+
+## Backend framework migration — requested 2026-11-12
+
+- [ ] **BE-17 release: NestJS + Fastify + Nest DI, Prisma pilot.** Native
+  controllers/guards, HTTP modules and runtime DI modules are implemented. Route
+  parity and real PostgreSQL/Prisma checks pass locally. The current source still
+  requires its own CI and production rollout receipt before being marked released.
+  A second Prisma CRUD candidate remains a separately benchmarked follow-up. See
+  [technical acceptance criteria](technical-backlog.md#be-17--incremental-nestjsfastify-migration-and-prisma-pilot)
+  and the [decision record](decisions/2026-11-12-nest-prisma-pilot.md).
