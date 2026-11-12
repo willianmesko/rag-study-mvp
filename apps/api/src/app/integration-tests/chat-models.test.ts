@@ -10,7 +10,7 @@ import { RouteAnswerUseCase } from "../../modules/chat/application/use-cases/rou
 import { parseRuntimeConfiguration } from "../configuration/environment.js";
 import type { RetrievedChunk } from "../../modules/knowledge/domain/document.js";
 import { LangGraphRagWorkflow } from "../../modules/chat/infrastructure/langgraph/langgraph-rag-workflow.js";
-import { buildApp } from "../http-server.js";
+import { buildNestTestApp as buildApp } from "./nest-http-test-fixture.js";
 
 const userId = "9705f665-7eba-440a-822b-8349f4bc43d4";
 const tenantId = "64836a45-f42f-46c8-9f62-29b12ad209c4";

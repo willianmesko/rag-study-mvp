@@ -8,7 +8,7 @@ import type { ChatRunRepository, ChatRunScope, ChatRunSnapshot } from "../../mod
 import type { AnswerQuestionResult } from "../../modules/chat/application/ports/question-answering-workflow.js";
 import type { AnswerQuestionUseCase } from "../../modules/chat/application/use-cases/answer-question.js";
 import { parseRuntimeConfiguration } from "../configuration/environment.js";
-import { buildApp } from "../http-server.js";
+import { buildNestTestApp as buildApp } from "./nest-http-test-fixture.js";
 
 const fetchHttp = globalThis.fetch;
 const authUrl = "https://chat-auth.example.test";

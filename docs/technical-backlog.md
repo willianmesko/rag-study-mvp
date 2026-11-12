@@ -1,5 +1,15 @@
 # Technical architecture backlog
 
+## Current framework migration (2026-11-12)
+
+BE-17 is the active incremental NestJS/Fastify + Prisma migration. Its first
+local increment is validated; native feature controllers, full Nest module
+conversion, remote CI and production rollout remain open. See the
+[BE-17 checklist](#be-17--incremental-nestjsfastify-migration-and-prisma-pilot)
+and [decision/evidence](decisions/2026-11-12-nest-prisma-pilot.md). The historical
+status counts below predate this additional ticket (28 tickets including BE-17).
+
+
 Reviewed on **2026-11-07**, against source commit
 `e25572d6118efbdb84190367a039526775fbd0b2`.
 
@@ -658,3 +668,44 @@ For every ticket:
 No AWS, Terraform, GitLab, Redis, alternative ORM/router/UI framework, new hosted
 monitoring backend or write-capable MCP action is introduced by this review.
 Those remain separate scoped decisions in the product backlog.
+
+### BE-17 — Incremental NestJS/Fastify migration and Prisma pilot
+
+**Priority:** P1 · **Status:** active migration; first increment under validation,
+not a complete backend conversion or a production rollout.
+
+**Owner authorization:** NestJS with Fastify, Nest DI and a bounded Prisma pilot
+were explicitly requested on 2026-11-12. This supersedes the earlier restriction
+on installing migration libraries for this specific scope.
+
+**Problem:** `app/app.module.ts` manually composes growing feature factories;
+`app/http-server.ts` mixes registration, cross-cutting HTTP policies and feature
+wiring. Existing controller files are route-plugin functions, not Nest controllers.
+CRUD repositories repeat SQL mapping. Keep business ports and specialized SQL.
+
+**Decision and acceptance evidence:** [migration record](decisions/2026-11-12-nest-prisma-pilot.md).
+
+- [x] Implement Nest application bootstrap on the existing Fastify major version,
+  explicit DI tokens/factory providers and a native health controller, retaining
+  the existing API routes under a compatibility scope.
+- [x] Bind the existing workspace model-policy port to Prisma in the API runtime;
+  map the existing table without DDL or a competing migration history.
+- [x] Validate the pilot on real local PostgreSQL: SQL interoperability, tenant
+  isolation, owner/viewer/non-member authorization, allowlists, corrupt-record
+  rejection, RLS presence and disposal of the bounded two-connection pilot pool.
+- [x] Run existing model, authentication, error, streaming/cancellation, workspace,
+  onboarding and URL-import fixtures through the real Nest bootstrap. Backend
+  suite: 452 pass, one pre-existing conditional skip at this checkpoint.
+- [x] Validate strict types, both architecture graphs, all seven evaluation
+  harness checks and 100 real PostgreSQL checks without skips, including durable
+  conversations through Nest. Build the final API image with two passing native
+  OCR checks; verify health, private authorization and clean SIGTERM shutdown.
+  The extended architecture fixture suite is recorded in the decision receipt.
+- [ ] Observe the new required CI Prisma gate, then validate rollout/smoke before
+  marking any part published. No production deploy is claimed.
+- [ ] Migrate model-policy/catalog handlers into native Nest controllers/guards
+  with identical routes, bodies, limits, authorization and response contracts.
+- [ ] Replace the transitional application factory feature by feature with Nest
+  modules/providers. No Nest/Prisma imports in domain/application code.
+- [ ] Review a second Prisma CRUD candidate and benchmark connection/query cost;
+  preserve vector retrieval, RLS, locks, leases, transactions and outbox semantics.

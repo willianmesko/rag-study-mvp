@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { parseRuntimeConfiguration } from "../configuration/environment.js";
-import { buildApp } from "../http-server.js";
+import { buildNestTestApp as buildApp } from "./nest-http-test-fixture.js";
 import { frameworkRequestFailure } from "../../platform/http/request-errors.js";
 
 const workspaceId = "11000000-0000-4000-8000-000000000001";

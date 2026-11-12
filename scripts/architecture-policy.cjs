@@ -13,7 +13,7 @@ const workspaceAuthorization = `^${platform}/http/workspace-authorization\\.ts$`
 const authorizationPublicTypes = `^${modules}/(?:identity|workspaces)/index\\.ts$`;
 const moduleTransport = `${modules}/[^/]+/(?:infrastructure/|http/|[^/]+\\.(?:controller|module)\\.ts$)`;
 const moduleCore = `^${modules}/[^/]+/(?:application/|domain/|[^/]+\\.module\\.ts$)`;
-const vendorSdk = "(?:^|/)node_modules/(?:@aws-sdk/|@supabase/|@langchain/|@opentelemetry/|@modelcontextprotocol/|@fastify/|@types/(?:pg|mammoth)(?:/|$)|(?:pg|langsmith|fastify|mammoth|pdf-parse|parse5)(?:/|$))";
+const vendorSdk = "(?:^|/)node_modules/(?:@aws-sdk/|@nestjs/|@prisma/|@supabase/|@langchain/|@opentelemetry/|@modelcontextprotocol/|@fastify/|@types/(?:pg|mammoth)(?:/|$)|(?:pg|langsmith|fastify|mammoth|pdf-parse|parse5)(?:/|$))";
 const technicalAdapter = `^${platform}/(?:ai/|database/(?!embedding-index-error\\.ts$)|http/(?:provider-client|public-webhook-client)\\.ts$|workflows/(?:durable-workflow-runner|pg-workflow-repository|pg-workflow-checkpointer|graph-execution|workflow-state-codec|rotate-workflow-keys)\\.ts$)`;
 
 const options = {

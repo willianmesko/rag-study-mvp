@@ -3,7 +3,7 @@ import { IncomingMessage } from "node:http";
 import { Socket } from "node:net";
 import test, { type TestContext } from "node:test";
 import { parseRuntimeConfiguration } from "../configuration/environment.js";
-import { buildApp } from "../http-server.js";
+import { buildNestTestApp as buildApp } from "./nest-http-test-fixture.js";
 import { RequestIdentity } from "../../modules/identity/http/request-identity.js";
 
 const authUrl = "https://authentication.example.test";

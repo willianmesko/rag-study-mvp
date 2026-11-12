@@ -17,7 +17,7 @@ import {openHttpSpan} from "./observability/telemetry.js";
 import { createHmac, randomUUID } from "node:crypto";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
-import Fastify, { type FastifyRequest } from "fastify";
+import Fastify, { type FastifyRequest, type FastifyInstance, type FastifyError, type FastifyReply, type FastifyBaseLogger } from "fastify";
 import { MemberDirectoryError } from "../modules/identity/application/ports/identity-verifier.js";
 import { createIdentityServices } from "./composition/identity.js";
 import type { HttpDependencies } from "./http-dependencies.js";
@@ -80,10 +80,12 @@ function anonymousActorKey(config: HttpConfiguration, request: { headers: Record
 export async function buildApp(dependencies: HttpDependencies, options: {
   configuration?: HttpConfiguration;
   isProduction?: boolean;
+  fastify?: FastifyInstance;
+  registerHealth?: boolean;
 } = {}) {
   const config = options.configuration ?? (await import("../config.js")).config;
   const isProduction = options.isProduction ?? process.env.NODE_ENV === "production";
-  const app = Fastify({ genReqId:()=>randomUUID(), logger: { serializers: safeHttpLogSerializers }, bodyLimit: config.UPLOAD_MAX_BYTES + 100_000 });
+  const app = options.fastify ?? Fastify({ genReqId:()=>randomUUID(), logger: { serializers: safeHttpLogSerializers }, bodyLimit: config.UPLOAD_MAX_BYTES + 100_000 });
   const identityServices = dependencies.identityVerifier && dependencies.memberDirectory
     ? { identityVerifier: dependencies.identityVerifier, memberDirectory: dependencies.memberDirectory }
     : createIdentityServices({
@@ -131,34 +133,10 @@ export async function buildApp(dependencies: HttpDependencies, options: {
     const apiKey = typeof providedApiKey === "string" ? providedApiKey : undefined;
     if (!remote && config.API_KEY && !matchesApiKey(apiKey, config.API_KEY)) return reply.code(401).send({ error: "Unauthorized" });
   });
-  app.setErrorHandler((error, _request, reply) => {
-    const frameworkFailure = frameworkRequestFailure(error);
-    if (frameworkFailure) return reply.code(frameworkFailure.status).send(frameworkFailure.body);
-    if (error instanceof MemberDirectoryError) {
-      const status = { not_configured: 503, unavailable: 502, timeout: 504, cancelled: 503 }[error.reason];
-      return reply.code(status).send({ code: "directory_unavailable", error: error.reason === "not_configured" ? "Member management is not configured." : "Unable to load workspace members." });
-    }
-    if(error instanceof InvitationDeliveryError)return reply.code(error.code==='forbidden'?403:409).send({code:error.code,error:error.message});
-    if(error instanceof DeliveryCommandError)return reply.code({forbidden:403,not_found:404,stale_state:409}[error.code]).send({code:error.code,error:error.message});
-    if (error instanceof UploadAdmissionError) return reply.code(error.code==='idempotency_conflict'?409:429).send({code:error.code,error:error.message});
-    if (error instanceof ConversationError) return reply.code(error.status).send({code:error.code,error:error.message});
-    if (error instanceof WorkflowApprovalPending) return reply.code(409).send({code:'approval_required',error:error.message});
-    if (error instanceof WorkflowGuardError) {
-      const status = { effect_outcome_unknown:409,budget_exceeded:422,lease_lost:409,cancelled:409,deadline_exceeded:504,authorization_revoked:403,definition_changed:409,state_limit:422,queue_full:429 }[error.code];
-      return reply.code(status).send({code:error.code,error:error.message});
-    }
-    if (error instanceof ZodError) return reply.code(400).send({ error: "Invalid request", details: error.flatten() });
-    if (error instanceof ChatBudgetExceededError) return reply.code(422).send({ code: "chat_budget_exceeded", error: error.message });
-    if (error instanceof AutoAnswerFailedError) return reply.code(503).send({ code: "auto_generation_failed", error: error.message });
-    if (error instanceof EmbeddingIndexChangedError) return reply.code(409).send({ code: "embedding_index_changed", error: "The workspace index changed. Try again." });
-    if (error instanceof EvaluationRunError) {
-      const status = { evaluation_in_progress: 409, judge_unavailable: 503, model_unavailable: 400, evaluation_reference_missing: 409 }[error.code];
-      return reply.code(status).send({ code: error.code, error: error.message });
-    }
-    app.log.error({ code: "request_failed", err: error }, "Request failed");
-    return reply.code(500).send({ error: "Internal server error" });
-  });
-  app.get("/health", async () => ({ status: "ok", capabilities: { pdfOcr: config.PDF_OCR_ENABLED, durableWorkflows: Boolean(dependencies.workflows), durableConversations: Boolean(dependencies.conversations) } }));
+  // Encapsulation keeps the compatibility error policy out of Nest-owned routes.
+  await app.register(async (app) => {
+  app.setErrorHandler(createHttpErrorHandler(app.log));
+  if (options.registerHealth !== false) app.get("/health", async () => ({ status: "ok", capabilities: { pdfOcr: config.PDF_OCR_ENABLED, durableWorkflows: Boolean(dependencies.workflows), durableConversations: Boolean(dependencies.conversations) } }));
   const { member: authorizeMember, admin: authorizeAdmin, owner: authorizeOwner, user: authorizeWorkspaceUser } = createWorkspaceAuthorization({
     identity: requestIdentity,
     isConfigured: () => Boolean(config.SUPABASE_URL && config.SUPABASE_PUBLISHABLE_KEY),
@@ -288,5 +266,37 @@ export async function buildApp(dependencies: HttpDependencies, options: {
     workflows: dependencies.workflows, answerRuns, conversationDelivery,
     shutdown: streamShutdown.signal, questionRateLimitMax: config.QA_RATE_LIMIT_MAX,
   });
+  });
   return app;
+}
+
+/** One HTTP failure policy shared by the compatibility routes and Nest exception filter. */
+export function createHttpErrorHandler(log: FastifyBaseLogger) {
+  return (error: FastifyError, _request: FastifyRequest, reply: FastifyReply) => {
+    const frameworkFailure = frameworkRequestFailure(error);
+    if (frameworkFailure) return reply.code(frameworkFailure.status).send(frameworkFailure.body);
+    if (error instanceof MemberDirectoryError) {
+      const status = { not_configured: 503, unavailable: 502, timeout: 504, cancelled: 503 }[error.reason];
+      return reply.code(status).send({ code: "directory_unavailable", error: error.reason === "not_configured" ? "Member management is not configured." : "Unable to load workspace members." });
+    }
+    if(error instanceof InvitationDeliveryError)return reply.code(error.code==='forbidden'?403:409).send({code:error.code,error:error.message});
+    if(error instanceof DeliveryCommandError)return reply.code({forbidden:403,not_found:404,stale_state:409}[error.code]).send({code:error.code,error:error.message});
+    if (error instanceof UploadAdmissionError) return reply.code(error.code==='idempotency_conflict'?409:429).send({code:error.code,error:error.message});
+    if (error instanceof ConversationError) return reply.code(error.status).send({code:error.code,error:error.message});
+    if (error instanceof WorkflowApprovalPending) return reply.code(409).send({code:'approval_required',error:error.message});
+    if (error instanceof WorkflowGuardError) {
+      const status = { effect_outcome_unknown:409,budget_exceeded:422,lease_lost:409,cancelled:409,deadline_exceeded:504,authorization_revoked:403,definition_changed:409,state_limit:422,queue_full:429 }[error.code];
+      return reply.code(status).send({code:error.code,error:error.message});
+    }
+    if (error instanceof ZodError) return reply.code(400).send({ error: "Invalid request", details: error.flatten() });
+    if (error instanceof ChatBudgetExceededError) return reply.code(422).send({ code: "chat_budget_exceeded", error: error.message });
+    if (error instanceof AutoAnswerFailedError) return reply.code(503).send({ code: "auto_generation_failed", error: error.message });
+    if (error instanceof EmbeddingIndexChangedError) return reply.code(409).send({ code: "embedding_index_changed", error: "The workspace index changed. Try again." });
+    if (error instanceof EvaluationRunError) {
+      const status = { evaluation_in_progress: 409, judge_unavailable: 503, model_unavailable: 400, evaluation_reference_missing: 409 }[error.code];
+      return reply.code(status).send({ code: error.code, error: error.message });
+    }
+    log.error({ code: "request_failed", err: error }, "Request failed");
+    return reply.code(500).send({ error: "Internal server error" });
+  };
 }

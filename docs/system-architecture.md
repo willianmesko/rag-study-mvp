@@ -788,3 +788,17 @@ The frontend and API are verified live at `a590360`; the
 distinguishes four passing CI gates and production checks from pending operational
 activation and later architecture work. Phase 2 source changes remain unpublished
 until their own verification and release.
+
+## NestJS/Fastify transition and Prisma pilot (2026-11-12)
+
+The API candidate now boots through NestJS with its Fastify adapter. Nest owns
+configuration, application factory providers and a pilot persistence module.
+The native health controller coexists with current Fastify route plugins in an
+encapsulated compatibility scope, preserving public paths and cross-cutting
+security/streaming behavior. Most features are still awaiting native Nest
+controller/provider migration; this is an incremental transition.
+
+Prisma maps only the existing workspace model-policy table in this increment.
+SQL migrations, RLS, pgvector retrieval and remaining SQL adapters are retained.
+The API DI binding selects Prisma; standalone CLI/MCP compositions retain their
+existing adapters. See the [decision, commands and safeguards](decisions/2026-11-12-nest-prisma-pilot.md).

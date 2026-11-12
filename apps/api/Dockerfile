@@ -10,6 +10,8 @@ RUN npm ci
 
 COPY scripts/build-api-runtime.mjs scripts/runtime-artifacts.mjs ./scripts/
 COPY apps/api/tsconfig*.json ./apps/api/
+COPY apps/api/prisma.config.ts ./apps/api/prisma.config.ts
+COPY apps/api/prisma ./apps/api/prisma
 COPY apps/api/src ./apps/api/src
 COPY apps/api/db/migrations ./apps/api/db/migrations
 COPY packages/contracts ./packages/contracts
@@ -26,6 +28,7 @@ COPY apps/api/package.json ./apps/api/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/contracts/package.json ./packages/contracts/package.json
 RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/apps/api/db/migrations ./apps/api/db/migrations
 USER node
 

@@ -3,7 +3,7 @@ import test, { type TestContext } from "node:test";
 import { McpOAuth } from "../../modules/mcp/application/oauth.js";
 import type { McpOAuthRepository, McpPrincipal } from "../../modules/mcp/application/remote-types.js";
 import { parseRuntimeConfiguration } from "../configuration/environment.js";
-import { buildApp } from "../http-server.js";
+import { buildNestTestApp as buildApp } from "./nest-http-test-fixture.js";
 
 const tenantId = "11000000-0000-4000-8000-000000000001";
 const userId = "22000000-0000-4000-8000-000000000001";

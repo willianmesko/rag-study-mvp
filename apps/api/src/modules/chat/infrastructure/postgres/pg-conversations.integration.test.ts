@@ -9,7 +9,7 @@ import { PgWorkflowRepository } from "../../../../platform/workflows/pg-workflow
 import { WorkflowStateCodec } from "../../../../platform/workflows/workflow-state-codec.js";
 import { ConversationError } from "../../application/ports/conversation-repository.js";
 import { ConversationDelivery } from "../../application/conversations/delivery.js";
-import { buildApp } from "../../../../app/http-server.js";
+import { buildNestTestApp as buildApp } from "../../../../app/integration-tests/nest-http-test-fixture.js";
 import { parseRuntimeConfiguration } from "../../../../app/configuration/environment.js";
 import { safeHttpLogSerializers } from "../../../../platform/http/safe-logging.js";
 import { StoredRecordError } from "../../../../platform/database/stored-record.js";

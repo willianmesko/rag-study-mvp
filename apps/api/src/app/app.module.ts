@@ -1,3 +1,4 @@
+import type { WorkspaceModelPolicyRepository } from "../modules/chat/application/ports/workspace-model-policy-repository.js";
 import { createEvaluationServices } from "../modules/evaluations/evaluations.module.js";
 import { createWorkspaceWorkflowServices } from "../modules/workflows/workflows.module.js";
 import { createMcpServices } from "../modules/mcp/mcp.module.js";
@@ -37,7 +38,7 @@ import { createWorkflowRuntime, workspaceWorkflowOptionsFromConfiguration } from
 import { createPostgresAccessBindings, createPostgresEvaluationRepository, createPostgresKnowledgeBindings, createPostgresMcpBindings, createPostgresUsageBindings, createPostgresWorkspaceBindings } from "./composition/postgres-persistence.js";
 import { createSupabaseInvitationGateway, createSupabaseOriginalFileStore } from "./composition/supabase-bindings.js";
 
-export function createApplication(config: RuntimeConfiguration) {
+export function createApplication(config: RuntimeConfiguration, overrides: { workspaceModelPolicies?: WorkspaceModelPolicyRepository } = {}) {
   const identityServices = createIdentityServices({
     url: config.SUPABASE_URL,
     publishableKey: config.SUPABASE_PUBLISHABLE_KEY,
@@ -125,7 +126,7 @@ export function createApplication(config: RuntimeConfiguration) {
     serviceRoleKey: config.SUPABASE_SERVICE_ROLE_KEY,
     uploadBucket: config.SUPABASE_UPLOAD_BUCKET,
   });
-  const { chatRuns, conversations, semanticCache, workspaceModelPolicies } = createChatStorage(pool, config.EMBEDDING_DIMENSIONS);
+  const { chatRuns, conversations, semanticCache, workspaceModelPolicies } = createChatStorage(pool, config.EMBEDDING_DIMENSIONS, overrides.workspaceModelPolicies);
   const { documents, knowledgeStatus, demoLibraryRepository, searchDocuments, getDocumentOriginal, deleteDocument } = createKnowledgeServices({
     ...createPostgresKnowledgeBindings(pool, config.EMBEDDING_DIMENSIONS),
     originals, embeddings, reranker, sourceJobs: jobs,
