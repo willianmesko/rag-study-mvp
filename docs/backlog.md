@@ -4,7 +4,8 @@ Lumora is a general-purpose knowledge workspace for teams across industries.
 Goals and document types guide the experience. IT and legal scenarios are
 optional study examples.
 
-Last reviewed on 2026-11-08 UTC.
+Planning review: 2026-11-12. Runtime/deployment evidence below retains its
+original dated scope; this planning update does not re-audit production.
 
 The [resume checkpoint](backlog-resume.md) records FE-06 as complete and published:
 administrative query ownership, conversation readers and incremental history.
@@ -26,6 +27,13 @@ Checked items are completed capabilities. Unchecked items remain open in the
 status section where they appear.
 
 ## In progress
+
+- **BE-17: NestJS/Fastify + Nest DI and Prisma pilot:** the initial increment
+  is validated locally and in CI, with the existing SQL schema and endpoints
+  preserved. Native feature controllers, remaining module/provider conversion
+  and production rollout remain open. The implementation and detailed checklist
+  are in [PR #1](https://github.com/willianmesko/rag-study-mvp/pull/1); it is
+  separate from this product-planning update.
 
 - **Complete and published:** safe LangSmith tracing for streamed/fallback
   answers at API source `db8d236`, with original event/result/error behavior,
@@ -159,6 +167,36 @@ A real completed ChatGPT connection still needs client consent/verification.
    workspace hybrid retrieval, durable budgets/cancellation and safe tool policies.
 
 ## Pending implementation
+
+
+### Product intelligence and connected workflows — brainstorm review
+
+The [prioritized product roadmap](product-intelligence-roadmap.md) reconciles the
+[shared brainstorm](https://chatgpt.com/share/6af5cbb0-e4bc-83e8-a4fe-c3b1e9b9343f)
+with existing capabilities. All 22 new/extended product items and the pilot
+validation task remain planned. Existing OCR, hybrid search, private history,
+feedback, model/cost dashboards, approvals and outbox tooling are reused.
+
+| Priority | Planned extension | Detailed IDs |
+| --- | --- | --- |
+| P0 | Page/section/version provenance; collection/document ACLs; knowledge analytics; reviewed topic/gap detection; structured document extraction | PI-01–PI-05 |
+| P1 | Document versions/comparison; proposed decisions/tasks; assignments; deadline alerts; email intake/drafts; workflow recipes; reports; human handoff | PI-06–PI-13 |
+| P2 | Permission-preserving Drive/SharePoint sync; operational update/training journeys; optional templates; integration API/SDK/webhooks; assistant profiles | PI-14–PI-18 |
+| P3 | WhatsApp/Slack/Teams; evidence-backed knowledge graph; advanced multimodal documents; voice | PI-19–PI-22 |
+
+**Suggested product sequence after the current architecture/operational gates:**
+knowledge analytics → reviewed knowledge gaps → evidence-backed extraction →
+version comparison → approved tasks/obligations → alerts → one email draft recipe.
+Source provenance/ACL prerequisites apply before promising restricted-source or
+external-connector access. The product remains generic across industries;
+condominiums/franchises are optional examples. Do not mine private conversations
+for owner analytics without an explicit authorized purpose and privacy policy.
+
+- [ ] Deliver PI items only after their individual acceptance criteria and
+  evaluation/isolation checks pass; no new feature is marked implemented here.
+- [ ] Run PV-01 on authorized pilot data; commercial demand, pricing and ROI
+  remain hypotheses rather than claimed results.
+
 
 ### Observability review and access guide
 
