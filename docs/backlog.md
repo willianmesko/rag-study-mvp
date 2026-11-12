@@ -794,7 +794,8 @@ Update this file after a validated delivery and retain the remaining open work.
 - [ ] **BE-17: NestJS + Fastify + Nest DI, Prisma pilot.** First increment adds
   the Nest entry point, a native health controller, compatibility route scope and
   Nest-injected Prisma workspace model policies, using the existing SQL schema.
-  The local pilot and initial compatibility tests pass; complete migration,
-  final gates, CI and production rollout remain separate. See
+  The local pilot, compatibility checks and all four remote CI gates pass
+  for implementation `3168f54`. Native feature migration and production rollout
+  remain open. See
   [technical acceptance criteria](technical-backlog.md#be-17--incremental-nestjsfastify-migration-and-prisma-pilot)
   and the [decision record](decisions/2026-11-12-nest-prisma-pilot.md).

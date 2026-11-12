@@ -4,7 +4,8 @@
 
 BE-17 is the active incremental NestJS/Fastify + Prisma migration. Its first
 local increment is validated; native feature controllers, full Nest module
-conversion, remote CI and production rollout remain open. See the
+conversion and production rollout remain open. All four CI gates passed for
+implementation commit `3168f54` ([run](https://github.com/willianmesko/rag-study-mvp/actions/runs/43238220630)). See the
 [BE-17 checklist](#be-17--incremental-nestjsfastify-migration-and-prisma-pilot)
 and [decision/evidence](decisions/2026-11-12-nest-prisma-pilot.md). The historical
 status counts below predate this additional ticket (28 tickets including BE-17).
@@ -701,8 +702,11 @@ CRUD repositories repeat SQL mapping. Keep business ports and specialized SQL.
   conversations through Nest. Build the final API image with two passing native
   OCR checks; verify health, private authorization and clean SIGTERM shutdown.
   The extended architecture fixture suite is recorded in the decision receipt.
-- [ ] Observe the new required CI Prisma gate, then validate rollout/smoke before
-  marking any part published. No production deploy is claimed.
+- [x] Observe all four CI quality gates for implementation `3168f54`, including
+  the new required Prisma gate, SQL/MCP isolation, API image/native OCR and UX.
+  [CI receipt](https://github.com/willianmesko/rag-study-mvp/actions/runs/43238220630).
+- [ ] Validate the target-environment rollout/smoke before marking any part
+  published. No production deploy is claimed.
 - [ ] Migrate model-policy/catalog handlers into native Nest controllers/guards
   with identical routes, bodies, limits, authorization and response contracts.
 - [ ] Replace the transitional application factory feature by feature with Nest

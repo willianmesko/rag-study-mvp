@@ -1,6 +1,6 @@
 # NestJS/Fastify migration and Prisma pilot
 
-Status: implemented increment; local verification receipt below. Not deployed.
+Status: implemented increment; local and remote CI verified. Not deployed.
 
 ## Decision and scope
 
@@ -126,6 +126,11 @@ was called. SQL migration hashes remain unchanged.
 The production dependency audit retains two pre-existing low-severity Supabase
 findings, tracked by the existing dependency-hygiene backlog; no automatic
 SDK-wide upgrade was included in this migration.
+
+All four remote CI quality gates passed for implementation commit `3168f54`:
+[quality gates run 43238220630](https://github.com/willianmesko/rag-study-mvp/actions/runs/43238220630).
+This includes the required Prisma integration and the unchanged UI suite.
+The subsequent documentation-only receipt commit does not change runtime code.
 
 Verification status is recorded in the technical backlog. No production rollout
 or hosted load-capacity claim follows from these local tests.
