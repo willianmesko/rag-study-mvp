@@ -1,0 +1,86 @@
+{
+  "kind": "lumora.prisma-audit-benchmark",
+  "measuredAt": "2026-11-12T16:31:36.465Z",
+  "node": "v24.12.0",
+  "clientArchitecture": "arm64",
+  "server": "PostgreSQL 16.15 (Debian 16.15-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+  "scope": "Disposable local PostgreSQL; synthetic metadata; no provider or hosted-capacity claim",
+  "warmupPerAdapter": 12,
+  "warmupPerTopology": 12,
+  "storedRows": 588,
+  "extraRuntimePools": 0,
+  "equalPoolCases": [
+    {
+      "concurrency": 1,
+      "sql": {
+        "samples": 30,
+        "medianMs": 0.44741600000003245,
+        "p95Ms": 1.3108749999999532,
+        "maxMs": 2.6273749999999723,
+        "statementsPerAppend": 1
+      },
+      "prisma": {
+        "samples": 30,
+        "medianMs": 0.5709169999999517,
+        "p95Ms": 0.685292000000004,
+        "maxMs": 0.6997910000000047,
+        "statementsPerAppend": 1
+      },
+      "peakConnections": 1
+    },
+    {
+      "concurrency": 4,
+      "sql": {
+        "samples": 120,
+        "medianMs": 0.9070000000000391,
+        "p95Ms": 2.0276669999999513,
+        "maxMs": 5.547124999999937,
+        "statementsPerAppend": 1
+      },
+      "prisma": {
+        "samples": 120,
+        "medianMs": 1.2233750000000327,
+        "p95Ms": 3.227209000000016,
+        "maxMs": 82.14779199999998,
+        "statementsPerAppend": 1
+      },
+      "peakConnections": 2
+    }
+  ],
+  "productionTopologyCases": [
+    {
+      "topology": "legacy-primary",
+      "concurrentAuditWrites": 4,
+      "policyReadsPerRound": 1,
+      "audit": {
+        "samples": 120,
+        "medianMs": 1.587291999999934,
+        "p95Ms": 3.981999999999971,
+        "maxMs": 88.73795800000005
+      },
+      "policy": {
+        "samples": 30,
+        "medianMs": 1.4082499999999527,
+        "p95Ms": 2.4365000000000236,
+        "maxMs": 2.84699999999998
+      }
+    },
+    {
+      "topology": "shared-prisma",
+      "concurrentAuditWrites": 4,
+      "policyReadsPerRound": 1,
+      "audit": {
+        "samples": 120,
+        "medianMs": 1.7717499999998836,
+        "p95Ms": 4.160833999999909,
+        "maxMs": 7.558583999999996
+      },
+      "policy": {
+        "samples": 30,
+        "medianMs": 2.755916999999954,
+        "p95Ms": 5.188374999999951,
+        "maxMs": 8.244791999999961
+      }
+    }
+  ]
+}
