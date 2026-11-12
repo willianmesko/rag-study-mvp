@@ -14,3 +14,19 @@ model WorkspaceChatModelPolicy {
 
   @@map("workspace_chat_model_policies")
 }
+
+// Mapping only: SQL migration 008 retains defaults, tenant FK, index and RLS.
+model AuditEvent {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  action       String
+  resourceType String   @map("resource_type")
+  resourceId   String?  @map("resource_id") @db.Uuid
+  requestId    String?  @map("request_id")
+  metadata     Json     @default("{}") @db.JsonB
+  createdAt    DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId, createdAt(sort: Desc)], map: "audit_events_tenant_created_at_idx")
+  @@map("audit_events")
+}

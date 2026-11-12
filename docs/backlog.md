@@ -800,3 +800,13 @@ Update this file after a validated delivery and retain the remaining open work.
 - [ ] **Prisma follow-up:** benchmark a second ordinary CRUD repository, with
   explicit transaction, RLS and concurrency criteria before extending the pilot.
   Specialized vector, lease and outbox SQL remain preserved.
+
+## Prisma persistence continuation (2026-11-12)
+
+- [ ] **BE-18 release: audit events via Prisma.** Adapter, real SQL/Nest/RBAC/RLS
+  integration and synthetic query/connection/latency comparison are validated
+  locally. Fresh CI, image and production receipts are pending.
+- [ ] **Persistence follow-ups:** 16 remaining named repositories and five
+  specialized adapters require individual concurrency/RLS/cost review; no blanket
+  rewrite. See the [count and inventory](prisma-migration-inventory.md) and
+  [audit decision](decisions/2026-11-12-prisma-audit-events.md).

@@ -725,5 +725,26 @@ CRUD repositories repeat SQL mapping. Keep business ports and specialized SQL.
   workflows, ingestion and MCP. Reuse small outer factories for CLI composition;
   keep Nest/Prisma out of application/domain code. Verify startup and disposal
   using the real DI graph and migrated PostgreSQL.
-- [ ] Review a second Prisma CRUD candidate and benchmark connection/query cost;
+- [x] Review the second Prisma candidate (audit events) and benchmark connection/query cost;
   preserve vector retrieval, RLS, locks, leases, transactions and outbox semantics.
+
+### BE-18 — Prisma audit-event repository and persistence inventory
+
+**Priority:** P1 · **Status:** locally validated; fresh CI and release pending.
+
+**Scope:** second bounded repository migration, not a full database rewrite.
+See [inventory](prisma-migration-inventory.md) and
+[risks/decision](decisions/2026-11-12-prisma-audit-events.md).
+
+- [x] Count 18 named repositories and five other PostgreSQL persistence adapters;
+  distinguish Nest module completion from Prisma adapter selection.
+- [x] Select audit's append-only operation after comparing onboarding/evaluation
+  concurrency and fencing requirements; preserve the public port and callers.
+- [x] Map existing SQL columns/defaults; bind audit through Nest to the existing
+  bounded Prisma pool. Keep SQL migrations, RLS and standalone fallback.
+- [x] Validate real SQL/Prisma compatibility, concurrent workspace appends, owner/
+  viewer/non-member permissions, conversation events, FK/RLS and safe audit failure.
+- [x] Record local query/pool/latency comparison, including policy-read contention;
+  make query/connection ceilings and both Prisma integration cases required in CI.
+- [ ] Observe all fresh quality gates, publish the exact validated API source,
+  verify production and record the release receipt. Do not infer hosted capacity.

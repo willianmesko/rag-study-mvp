@@ -27,12 +27,13 @@
     "build:ocr-smoke": "tsc -p tsconfig.ocr-smoke.json",
     "prisma:generate": "prisma generate",
     "test:nest": "tsx --test src/app/integration-tests/nest-compatibility.test.ts src/app/integration-tests/chat-models.test.ts src/app/integration-tests/chat-runs.test.ts src/app/integration-tests/authentication.test.ts src/app/integration-tests/request-errors.test.ts src/app/integration-tests/workspace-scope.test.ts src/app/integration-tests/workspace-onboarding.test.ts src/app/integration-tests/url-import.test.ts",
-    "test:prisma": "tsx --test src/modules/chat/infrastructure/prisma/prisma-workspace-model-policy.integration.test.ts",
+    "test:prisma": "tsx --test src/modules/chat/infrastructure/prisma/prisma-workspace-model-policy.integration.test.ts src/modules/usage/infrastructure/prisma/prisma-audit-event.integration.test.ts",
     "pretest": "npm run prisma:generate",
     "pretypecheck": "npm run prisma:generate",
     "pretest:nest": "npm run prisma:generate",
     "pretest:prisma": "npm run prisma:generate",
-    "predev": "npm run prisma:generate"
+    "predev": "npm run prisma:generate",
+    "bench:prisma:audit": "tsx ../../scripts/benchmark-prisma-audit.mts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.990.0",

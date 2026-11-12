@@ -1,3 +1,4 @@
+import type { AuditEventRepository } from "../../modules/usage/application/ports/audit-event-repository.js";
 import type { WorkspaceModelPolicyRepository } from "../../modules/chat/application/ports/workspace-model-policy-repository.js";
 import { PgIngestionJobRepository } from "../../modules/ingestion/infrastructure/postgres/pg-ingestion-job-repository.js";
 import { createPostgresPool } from "../../platform/database/pool.js";
@@ -10,6 +11,7 @@ import { createSupabaseOriginalFileStore } from "./supabase-bindings.js";
 import { createWorkflowRuntime } from "./workflow-runtime.js";
 export function createCoreRuntime(config: RuntimeConfiguration, overrides: {
     workspaceModelPolicies?: WorkspaceModelPolicyRepository;
+    auditEvents?: AuditEventRepository;
 } = {}) {
     const identityServices = createIdentityServices({
         url: config.SUPABASE_URL,
@@ -23,7 +25,8 @@ export function createCoreRuntime(config: RuntimeConfiguration, overrides: {
         ? createPostgresPool(config.MCP_READ_DATABASE_URL ?? config.DATABASE_URL, 2)
         : null;
     const jobs = new PgIngestionJobRepository(pool);
-    const { quotas, auditEvents } = createPostgresAccessBindings(pool);
+    const { quotas, auditEvents: legacyAuditEvents } = createPostgresAccessBindings(pool);
+    const auditEvents = overrides.auditEvents ?? legacyAuditEvents;
     const originals = createSupabaseOriginalFileStore({
         url: config.SUPABASE_URL,
         serviceRoleKey: config.SUPABASE_SERVICE_ROLE_KEY,

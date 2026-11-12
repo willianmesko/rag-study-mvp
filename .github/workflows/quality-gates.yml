@@ -75,7 +75,7 @@ jobs:
       - name: Prepare local Supabase authentication fixture
         run: docker exec -i ${{ job.services.postgres.id }} psql -U rag -d rag -v ON_ERROR_STOP=1 < tests/fixtures/supabase-auth.sql
       - run: npm run test:mcp:postgres
-      - name: Verify Nest DI and Prisma pilot on the migrated SQL schema
+      - name: Verify Nest DI, Prisma policies and audit persistence on the migrated SQL schema
         env:
           PRISMA_PILOT_DATABASE_URL: postgresql://rag:rag@127.0.0.1:5432/prisma_pilot_ci
         run: |
@@ -83,6 +83,14 @@ jobs:
           docker exec -i ${{ job.services.postgres.id }} psql -U rag -d prisma_pilot_ci -v ON_ERROR_STOP=1 < tests/fixtures/supabase-auth.sql
           DATABASE_URL="$PRISMA_PILOT_DATABASE_URL" npm run db:migrate
           npm --workspace @rag-study/api run test:prisma
+          mkdir -p reports/benchmarks
+          npm --workspace @rag-study/api run bench:prisma:audit > reports/benchmarks/prisma-audit.txt
+      - name: Upload Prisma audit query and connection measurements
+        uses: actions/upload-artifact@v4
+        with:
+          name: prisma-audit-${{ github.sha }}
+          path: reports/benchmarks/prisma-audit.txt
+          if-no-files-found: error
       - name: Build and verify the minimal read-only MCP image
         run: |
           docker build --tag lumora-mcp:ci --file apps/api/Dockerfile.mcp .
